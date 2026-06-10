@@ -1,0 +1,44 @@
+CAPAS GEOJSON - SIG VIAL CHACO
+===============================
+
+Exportar desde QGIS en formato GeoJSON, CRS: EPSG:4326 (WGS84)
+
+Archivos esperados en esta carpeta:
+------------------------------------
+
+1. limite_chaco.geojson
+   Capa: límite provincial del Chaco
+   Tipo: Polygon o MultiPolygon
+   (No necesita atributos)
+
+2. consorcios.geojson
+   Capa: sedes/ubicaciones de los 103 consorcios
+   Tipo: Point
+   Atributos recomendados:
+     - numero          (número del consorcio)
+     - nombre          (nombre completo)
+     - localidad       (localidad/municipio)
+     - zona            (ZI, ZII, ZIII, ZIV o ZV)
+     - red_km          (km total de red vial)
+     - red_primaria    (km ruta primaria)
+     - red_secundaria  (km ruta secundaria)
+     - red_terciaria   (km ruta terciaria)
+     - presidente
+     - vicepresidente
+     - secretario
+     - tesorero
+
+3. red_vial.geojson  (opcional)
+   Capa: red vial por tipo
+   Tipo: LineString o MultiLineString
+   Atributos recomendados:
+     - tipo    (primaria, secundaria o terciaria)
+     - nombre  (nombre del camino)
+
+Cómo exportar desde QGIS:
+--------------------------
+1. Click derecho en la capa → Exportar → Guardar objetos como...
+2. Formato: GeoJSON
+3. SCR: EPSG:4326 - WGS 84
+4. Guardar en esta carpeta con el nombre exacto indicado arriba
+5. Reiniciar la app (npx expo start --android)
