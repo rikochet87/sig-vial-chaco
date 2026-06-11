@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Consorcio Caminero",
-    "slug": "consorcio-caminero",
+    "name": "SIG Vial",
+    "slug": "sig-vial-chaco",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -10,7 +10,7 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#1B4F72"
+      "backgroundColor": "#2C2C2C"
     },
     "ios": {
       "supportsTablet": true,
@@ -23,7 +23,7 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/android-icon-foreground.png",
         "monochromeImage": "./assets/android-icon-monochrome.png",
-        "backgroundColor": "#1B4F72"
+        "backgroundColor": "#2C2C2C"
       },
       "package": "com.consorcio.caminero",
       "config": {
@@ -43,18 +43,10 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#1B4F72"
+          "backgroundColor": "#2C2C2C"
         }
       ],
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "La app necesita tu ubicación para mostrarte en el mapa vial del Chaco."
-        }
-      ]
-    ],
-    "experiments": {
-      "typedRoutes": true
-    }
-  }
-}
+          "locationAlw

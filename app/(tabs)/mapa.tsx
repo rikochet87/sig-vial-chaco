@@ -28,6 +28,7 @@ const CAMPAMENTOS_JSON   = JSON.stringify(GEO_BUNDLE.campamentos);
 const SALUD_JSON         = JSON.stringify(GEO_BUNDLE.salud);
 
 type Layers = {
+  basemap: boolean;
   zonaBoundaries: boolean;
   limiteProv: boolean;
   departamentos: boolean;
@@ -36,8 +37,10 @@ type Layers = {
   salud: boolean;
 };
 
+type SedesZonas = Record<string, boolean>;
+
 // ── HTML Leaflet (mínimo UI, sin controles propios) ──────────────────────────
-function buildMapHtml(filtroZona: string, layers: Layers): string {
+function buildMapHtml(sedesZonas: SedesZonas, layers: Layers): string {
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -77,6 +80,9 @@ html,body,#map{width:100%;height:100vh;background:#f0ebe3}
 .poi-popup{background:#1e2436;border:1px solid #2a3045;border-radius:8px;padding:8px 10px}
 .poi-name{color:#e0e6f0;font-size:12px;font-weight:700}
 .poi-type{color:#7a8aaa;font-size:10px;margin-top:2px}
+.dark-popup .leaflet-popup-content-wrapper{background:#1e2436;border:1px solid #2a3045;border-radius:8px;padding:0;box-shadow:0 4px 12px rgba(0,0,0,.5)}
+.dark-popup .leaflet-popup-tip{background:#1e2436}
+.dark-popup .leaflet-popup-content{margin:0}
 </style>
 </head>
 <body>
@@ -87,10 +93,11 @@ var SEDES=${SEDES_JSON},LIMITES_ZONAS=${LIMITES_ZONAS_JSON},
     RUTAS=${RUTAS_JSON},CAMPAMENTOS=${CAMPAMENTOS_JSON},SALUD=${SALUD_JSON},
     ZONA_COLORS=${JSON.stringify(ZONA_COLORS)},
     RUTAS_COLORS={RN11:'#e74c3c',RN16:'#c0392b',RN89:'#e67e22',RN95:'#d35400'},
-    FILTRO='${filtroZona}',LAYERS=${JSON.stringify(layers)};
+    SEDES_ZONAS=${JSON.stringify(sedesZonas)},LAYERS=${JSON.stringify(layers)};
 
 var map=L.map('map',{zoomControl:false,attributionControl:false}).setView([-26.2,-60.5],7);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
+var baseTile=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19});
+if(LAYERS.basemap) baseTile.addTo(map);
 
 // atribución compacta
 L.control.attribution({position:'bottomright',prefix:false}).addTo(map);
@@ -100,14 +107,56 @@ if(LAYERS.limiteProv)
   L.geoJSON(LIMITE_PROV,{style:{color:'#555',weight:2,fillOpacity:0,dashArray:'6 4'}}).addTo(map);
 
 // ── Departamentos ─────────────────────────────────────────────────
+var DEPTO_COLORS=['#e74c3c','#e67e22','#f1c40f','#2ecc71','#1abc9c',
+  '#3498db','#9b59b6','#e91e63','#00bcd4','#8bc34a',
+  '#ff5722','#607d8b','#795548','#ff9800','#4caf50',
+  '#2196f3','#673ab7','#f44336','#009688','#cddc39',
+  '#ffc107','#03a9f4','#8d6e63','#78909c','#66bb6a'];
 if(LAYERS.departamentos)
-  L.geoJSON(DEPTOS,{style:{color:'#aaa',weight:0.7,fillOpacity:0,dashArray:'3 3'}}).addTo(map);
+  L.geoJSON(DEPTOS,{
+    style:function(f,idx){
+      var i=DEPTOS.features.indexOf(f);
+      var c=DEPTO_COLORS[i%DEPTO_COLORS.length];
+      return {color:c,weight:1,fillColor:c,fillOpacity:0.25};
+    },
+    onEachFeature:function(f,layer){
+      var nombre=(f.properties||{}).Departamen||'Departamento';
+      layer.bindPopup(
+        '<div style="background:#1e2436;border-radius:8px;padding:10px 14px;min-width:140px">'
+        +'<div style="font-size:10px;color:#7a8aaa;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Departamento</div>'
+        +'<div style="font-size:14px;font-weight:800;color:#e0e6f0">'+nombre+'<\/div>'
+        +'<\/div>',
+        {className:'dark-popup',closeButton:false}
+      );
+      layer.on('mouseover',function(){layer.setStyle({fillOpacity:0.28,weight:1.5});});
+      layer.on('mouseout',function(){layer.setStyle({fillOpacity:0.12,weight:1});});
+    }
+  }).addTo(map);
 
 // ── Zonas ─────────────────────────────────────────────────────────
 if(LAYERS.zonaBoundaries)
   Object.entries(LIMITES_ZONAS).forEach(function([zona,gj]){
     var c=ZONA_COLORS[zona]||'#aaa';
-    L.geoJSON(gj,{style:{color:c,weight:1.8,fillColor:c,fillOpacity:0.06,dashArray:'4 3'}}).addTo(map);
+    L.geoJSON(gj,{
+      style:{color:c,weight:2,fillColor:c,fillOpacity:0.07,dashArray:'4 3'},
+      onEachFeature:function(f,layer){
+        var p=f.properties||{};
+        var nombre=p.NOMBRE||p.Nombre||'';
+        var zonaLabel=p.ZONA||p.Zona||zona;
+        layer.bindPopup(
+          '<div style="background:#1e2436;border-radius:8px;padding:10px 14px;min-width:140px">'
+          +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">'
+          +'<div style="width:12px;height:12px;border-radius:50%;background:'+c+'"><\/div>'
+          +'<div style="font-size:13px;font-weight:800;color:#e0e6f0">'+zonaLabel+'<\/div>'
+          +'<\/div>'
+          +(nombre?'<div style="font-size:11px;color:#9aaac0">Sede: '+nombre+'<\/div>':'')
+          +'<\/div>',
+          {className:'dark-popup',closeButton:false}
+        );
+        layer.on('mouseover',function(){layer.setStyle({fillOpacity:0.22,weight:2.5});});
+        layer.on('mouseout',function(){layer.setStyle({fillOpacity:0.07,weight:2});});
+      }
+    }).addTo(map);
   });
 
 // ── Rutas Nacionales ──────────────────────────────────────────────
@@ -150,7 +199,8 @@ if(LAYERS.salud){
 }
 
 // ── Sedes Sociales ────────────────────────────────────────────────
-var sedesFiltradas=FILTRO==='TODAS'?SEDES:SEDES.filter(function(c){return c.zona===FILTRO});
+var sedesFiltradas=SEDES.filter(function(c){return SEDES_ZONAS[c.zona];});
+if(sedesFiltradas.length>0){
 sedesFiltradas.forEach(function(c){
   var icon=L.divIcon({className:'',
     html:'<div class="custom-marker" style="background:'+c.color+'">'+c.numero+'<\/div>',
@@ -173,6 +223,7 @@ sedesFiltradas.forEach(function(c){
     +'<\/div><\/div><\/div>';
   L.marker([c.lat,c.lng],{icon:icon}).bindPopup(popup,{maxWidth:270}).addTo(map);
 });
+} // end if LAYERS.sedes
 
 // ── GPS: ubicación del usuario ────────────────────────────────────
 var userMarker=null,userCircle=null;
@@ -194,11 +245,14 @@ export default function MapaScreen() {
   const overlayAnim = useRef(new Animated.Value(0)).current;
 
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [zonaFiltro, setZonaFiltro] = useState('TODAS');
+  const [sedesZonas, setSedesZonas] = useState<SedesZonas>(
+    Object.fromEntries(ZONAS_LIST.map(z => [z, true]))
+  );
   const [tracking, setTracking] = useState(false);
   const locationSub = useRef<any>(null);
 
   const [layers, setLayers] = useState<Layers>({
+    basemap: true,
     zonaBoundaries: true,
     limiteProv: true,
     departamentos: false,
@@ -208,9 +262,15 @@ export default function MapaScreen() {
   });
 
   const mapHtml = useMemo(
-    () => buildMapHtml(zonaFiltro, layers),
-    [zonaFiltro, layers]
+    () => buildMapHtml(sedesZonas, layers),
+    [sedesZonas, layers]
   );
+
+  const toggleZona = useCallback((zona: string) =>
+    setSedesZonas(prev => ({ ...prev, [zona]: !prev[zona] })), []);
+
+  const todasActivas = ZONAS_LIST.every(z => sedesZonas[z]);
+  const ningunaActiva = ZONAS_LIST.every(z => !sedesZonas[z]);
 
   // ── Drawer ────────────────────────────────────────────────────────────────
   const openDrawer = useCallback(() => {
@@ -265,15 +325,13 @@ export default function MapaScreen() {
     return () => { locationSub.current?.remove?.(); };
   }, []);
 
-  // ── Sedes filtradas (para contador) ──────────────────────────────────────
   const sedesCount = useMemo(
-    () => zonaFiltro === 'TODAS'
-      ? GEO_BUNDLE.sedes.length
-      : GEO_BUNDLE.sedes.filter((c: any) => c.zona === zonaFiltro).length,
-    [zonaFiltro]
+    () => GEO_BUNDLE.sedes.filter((c: any) => sedesZonas[c.zona]).length,
+    [sedesZonas]
   );
 
   const LAYER_CONFIG: { key: keyof Layers; label: string; icon: string }[] = [
+    { key: 'basemap',         label: 'Mapa base (OSM)',    icon: '🌍' },
     { key: 'limiteProv',      label: 'Límite Provincial',  icon: '⬜' },
     { key: 'zonaBoundaries',  label: 'Límites de Zona',    icon: '🗺' },
     { key: 'departamentos',   label: 'Departamentos',      icon: '▦' },
@@ -313,38 +371,42 @@ export default function MapaScreen() {
       <Animated.View style={[styles.drawer, { transform: [{ translateX: drawerAnim }] }]}>
         {/* Header */}
         <View style={styles.drawerHeader}>
-          <Text style={styles.drawerTitle}>SIG Vial Chaco</Text>
+          <Text style={styles.drawerTitle}>SIG Vial</Text>
           <TouchableOpacity onPress={closeDrawer} style={styles.drawerClose}>
             <Text style={styles.drawerCloseText}>✕</Text>
           </TouchableOpacity>
         </View>
 
         <ScrollView style={styles.drawerScroll} showsVerticalScrollIndicator={false}>
-          {/* ── Filtro zona ─────────────────────────────────────────────── */}
-          <Text style={styles.drawerSection}>Sedes — {sedesCount} visibles</Text>
-          <TouchableOpacity
-            style={[styles.zonaBtn, zonaFiltro === 'TODAS' && styles.zonaBtnActive]}
-            onPress={() => setZonaFiltro('TODAS')}
-          >
-            <Text style={[styles.zonaBtnText, zonaFiltro === 'TODAS' && styles.zonaBtnTextActive]}>
-              Todas las zonas ({GEO_BUNDLE.sedes.length})
-            </Text>
-          </TouchableOpacity>
+          {/* ── Sedes Sociales ──────────────────────────────────────────── */}
+          <Text style={styles.drawerSection}>Sedes Sociales — {sedesCount} visibles</Text>
+          <View style={styles.sedesActions}>
+            <TouchableOpacity
+              style={[styles.sedesActionBtn, todasActivas && styles.sedesActionBtnActive]}
+              onPress={() => setSedesZonas(Object.fromEntries(ZONAS_LIST.map(z => [z, true])))}
+            >
+              <Text style={[styles.sedesActionText, todasActivas && styles.sedesActionTextActive]}>Todas</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.sedesActionBtn, ningunaActiva && styles.sedesActionBtnActive]}
+              onPress={() => setSedesZonas(Object.fromEntries(ZONAS_LIST.map(z => [z, false])))}
+            >
+              <Text style={[styles.sedesActionText, ningunaActiva && styles.sedesActionTextActive]}>Ninguna</Text>
+            </TouchableOpacity>
+          </View>
           {ZONAS_LIST.map(zona => {
             const count = GEO_BUNDLE.sedes.filter((c: any) => c.zona === zona).length;
-            const active = zonaFiltro === zona;
+            const active = sedesZonas[zona];
             const color = ZONA_COLORS[zona];
             return (
-              <TouchableOpacity
-                key={zona}
-                style={[styles.zonaBtn, active && { backgroundColor: color + '22', borderColor: color }]}
-                onPress={() => setZonaFiltro(zona)}
-              >
+              <TouchableOpacity key={zona} style={styles.layerRow} onPress={() => toggleZona(zona)}>
+                <View style={[styles.layerCheck, active && { backgroundColor: color, borderColor: color }]}>
+                  {active && <Text style={styles.layerCheckMark}>✓</Text>}
+                </View>
                 <View style={[styles.zonaDot, { backgroundColor: color }]} />
-                <Text style={[styles.zonaBtnText, active && { color: '#fff' }]}>
-                  {zona} — {count} consorcios
+                <Text style={[styles.layerLabel, !active && styles.layerLabelOff]}>
+                  {zona} — {count} sedes
                 </Text>
-                {active && <Text style={styles.checkIcon}>✓</Text>}
               </TouchableOpacity>
             );
           })}
@@ -372,107 +434,266 @@ export default function MapaScreen() {
         <View style={styles.hamburgerLine} />
       </TouchableOpacity>
 
-      {/* ── BOTÓN GPS (bottom-right) ──────────────────────────────────────── */}
+      {/* ── ZOOM (right-center) ───────────────────────────────────────────── */}
+      <View style={styles.zoomGroup}>
+        <TouchableOpacity style={styles.zoomBtn} onPress={() => webviewRef.current?.injectJavaScript('map.zoomIn(); true;')}>
+          <Text style={styles.zoomText}>+</Text>
+        </TouchableOpacity>
+        <View style={styles.zoomDivider} />
+        <TouchableOpacity style={styles.zoomBtn} onPress={() => webviewRef.current?.injectJavaScript('map.zoomOut(); true;')}>
+          <Text style={styles.zoomText}>−</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* ── BOTÓN GPS (bottom-right) ─────────────────────────────────────── */}
       <TouchableOpacity
         style={[styles.btnGps, tracking && styles.btnGpsActive]}
         onPress={toggleGPS}
       >
-        <Text style={styles.btnGpsIcon}>{tracking ? '📍' : '◎'}</Text>
+        <Text style={styles.btnGpsIcon}>{tracking ? '📍' : '🧭'}</Text>
       </TouchableOpacity>
+
     </View>
   );
 }
 
-// ── Estilos ──────────────────────────────────────────────────────────────────
+// ── STYLES ──────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f0ebe3' },
+  container: {
+    flex: 1,
+    backgroundColor: '#000',
+  },
 
+  // ── Overlay ────────────────────────────────────────────────────────────────
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.45)',
+    backgroundColor: 'rgba(0,0,0,0.55)',
     zIndex: 10,
   },
 
+  // ── Drawer ─────────────────────────────────────────────────────────────────
   drawer: {
-    position: 'absolute', left: 0, top: 0, bottom: 0,
+    position: 'absolute',
+    top: 0,
+    left: 0,
     width: DRAWER_WIDTH,
-    backgroundColor: '#1a1f2e',
+    height: '100%',
+    backgroundColor: '#2C2C2C',
     zIndex: 20,
+    elevation: 16,
     shadowColor: '#000',
     shadowOffset: { width: 4, height: 0 },
     shadowOpacity: 0.4,
     shadowRadius: 12,
-    elevation: 20,
   },
   drawerHeader: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingTop: 52, paddingBottom: 14,
-    borderBottomWidth: 1, borderBottomColor: '#2a3045',
-    backgroundColor: '#151a27',
+    backgroundColor: '#1A1A1A',
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) + 12 : 52,
+    paddingBottom: 14,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderBottomWidth: 2,
+    borderBottomColor: '#F5C300',
   },
-  drawerTitle: { fontSize: 17, fontWeight: '800', color: '#e0e6f0', letterSpacing: 0.3 },
-  drawerClose: { padding: 4 },
-  drawerCloseText: { color: '#7a8aaa', fontSize: 16 },
-  drawerScroll: { flex: 1, paddingHorizontal: 14 },
+  drawerTitle: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  drawerClose: {
+    width: 30,
+    height: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  drawerCloseText: {
+    color: '#999999',
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  drawerScroll: {
+    flex: 1,
+    paddingHorizontal: 14,
+    paddingTop: 12,
+  },
   drawerSection: {
-    fontSize: 10, fontWeight: '700', color: '#5a6a88',
-    textTransform: 'uppercase', letterSpacing: 1,
-    marginTop: 18, marginBottom: 8,
+    color: '#F5C300',
+    fontSize: 11,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 10,
+    marginTop: 4,
   },
 
-  zonaBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    paddingHorizontal: 12, paddingVertical: 10,
-    borderRadius: 8, marginBottom: 5,
-    backgroundColor: '#232b3e',
-    borderWidth: 1, borderColor: 'transparent',
+  // ── Sedes actions ──────────────────────────────────────────────────────────
+  sedesActions: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 10,
   },
-  zonaBtnActive: { backgroundColor: '#1B4F72', borderColor: '#2e7db5' },
-  zonaBtnText: { flex: 1, fontSize: 13, color: '#8a9ab8', fontWeight: '500' },
-  zonaBtnTextActive: { color: '#fff' },
-  zonaDot: { width: 10, height: 10, borderRadius: 5 },
-  checkIcon: { color: '#fff', fontSize: 12, fontWeight: '800' },
+  sedesActionBtn: {
+    flex: 1,
+    paddingVertical: 7,
+    borderRadius: 7,
+    borderWidth: 1,
+    borderColor: '#3C3C3C',
+    backgroundColor: '#3A3A3A',
+    alignItems: 'center',
+  },
+  sedesActionBtnActive: {
+    backgroundColor: '#F5C300',
+    borderColor: '#D4A900',
+  },
+  sedesActionText: {
+    color: '#DDDDDD',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  sedesActionTextActive: {
+    color: '#2C2C2C',
+  },
 
+  // ── Layer rows ─────────────────────────────────────────────────────────────
   layerRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    paddingVertical: 10, paddingHorizontal: 4,
-    borderBottomWidth: 1, borderBottomColor: '#1f2738',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 9,
+    borderBottomWidth: 1,
+    borderBottomColor: '#3C3C3C',
+    gap: 10,
   },
   layerCheck: {
-    width: 20, height: 20, borderRadius: 4,
-    borderWidth: 1.5, borderColor: '#3a4a65',
-    alignItems: 'center', justifyContent: 'center',
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 1.5,
+    borderColor: '#555555',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
   },
-  layerCheckOn: { backgroundColor: '#2e7db5', borderColor: '#2e7db5' },
-  layerCheckMark: { color: '#fff', fontSize: 11, fontWeight: '800', lineHeight: 14 },
-  layerIcon: { fontSize: 16, width: 22, textAlign: 'center' },
-  layerLabel: { flex: 1, fontSize: 13, color: '#c0cce0' },
-  layerLabelOff: { color: '#4a5568' },
+  layerCheckOn: {
+    backgroundColor: '#F5C300',
+    borderColor: '#D4A900',
+  },
+  layerCheckMark: {
+    color: '#2C2C2C',
+    fontSize: 12,
+    fontWeight: '900',
+    lineHeight: 14,
+  },
+  layerIcon: {
+    fontSize: 15,
+    width: 22,
+    textAlign: 'center',
+  },
+  layerLabel: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '600',
+    flex: 1,
+  },
+  layerLabelOff: {
+    color: '#666666',
+  },
+  zonaDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
 
+  // ── Hamburger button ───────────────────────────────────────────────────────
   btnHamburger: {
-    position: 'absolute', top: 44, left: 14,
-    width: 44, height: 44, borderRadius: 22,
-    backgroundColor: '#1a1f2e',
-    alignItems: 'center', justifyContent: 'center', gap: 4,
-    elevation: 6,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.35, shadowRadius: 6,
+    position: 'absolute',
+    top: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) + 8 : 44,
+    left: 12,
+    width: 42,
+    height: 42,
+    backgroundColor: '#2C2C2C',
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
     zIndex: 5,
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 4,
+    borderWidth: 1,
+    borderColor: '#F5C300',
   },
   hamburgerLine: {
-    width: 20, height: 2.5, backgroundColor: '#e0e6f0', borderRadius: 2,
+    width: 20,
+    height: 2,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 1,
   },
 
-  btnGps: {
-    position: 'absolute', bottom: 44, right: 16,
-    width: 52, height: 52, borderRadius: 26,
-    backgroundColor: '#1a1f2e',
-    alignItems: 'center', justifyContent: 'center',
-    elevation: 6,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.35, shadowRadius: 6,
+  // ── Zoom group ─────────────────────────────────────────────────────────────
+  zoomGroup: {
+    position: 'absolute',
+    top: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) + 8 : 44,
+    right: 12,
+    backgroundColor: '#2C2C2C',
+    borderRadius: 8,
+    overflow: 'hidden',
     zIndex: 5,
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 4,
+    borderWidth: 1,
+    borderColor: '#F5C300',
   },
-  btnGpsActive: { backgroundColor: '#1B4F72' },
-  btnGpsIcon: { fontSize: 22 },
+  zoomBtn: {
+    width: 42,
+    height: 42,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  zoomText: {
+    color: '#FFFFFF',
+    fontSize: 22,
+    fontWeight: '300',
+    lineHeight: 26,
+  },
+  zoomDivider: {
+    height: 1,
+    backgroundColor: '#3C3C3C',
+    marginHorizontal: 6,
+  },
+
+  // ── GPS button ─────────────────────────────────────────────────────────────
+  btnGps: {
+    position: 'absolute',
+    bottom: 32,
+    right: 12,
+    width: 50,
+    height: 50,
+    backgroundColor: '#2C2C2C',
+    borderRadius: 25,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 5,
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 4,
+    borderWidth: 2,
+    borderColor: '#444444',
+  },
+  btnGpsActive: {
+    backgroundColor: '#F5C300',
+    borderColor: '#D4A900',
+  },
+  btnGpsIcon: {
+    fontSize: 22,
+  },
 });

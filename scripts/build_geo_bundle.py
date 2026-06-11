@@ -42,7 +42,7 @@ def build_bundle():
     poi_dir  = os.path.join(GEOJSON_DIR, 'Puntos de Interes')
 
     limite_prov = simplify_geojson(load(os.path.join(lim_dir, 'Limite provincial.geojson')), step=4)
-    deptos      = simplify_geojson(load(os.path.join(lim_dir, 'Departamentos.geojson')), step=6)
+    deptos      = load(os.path.join(lim_dir, 'Departamentos.geojson'))  # sin simplificar
 
     limites_zonas = {}
     for zona, fname in [

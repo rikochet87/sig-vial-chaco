@@ -1,21 +1,9 @@
+// Paleta oficial DVP — Dirección de Vialidad Provincial del Chaco
+// Amarillo dorado #F5C300 · Carbón #2C2C2C
 export const Colors = {
-  primary: '#1B4F72',
-  primaryLight: '#2E86C1',
-  primaryDark: '#154360',
-  secondary: '#E67E22',
-  secondaryLight: '#F39C12',
-  success: '#27AE60',
-  warning: '#F39C12',
-  danger: '#E74C3C',
-  background: '#F4F6F7',
-  surface: '#FFFFFF',
-  border: '#D5D8DC',
-  textPrimary: '#1C2833',
-  textSecondary: '#717D7E',
-  textMuted: '#ABB2B9',
-  white: '#FFFFFF',
-  black: '#000000',
-  tabBar: '#1B4F72',
-  tabBarActive: '#F39C12',
-  tabBarInactive: '#85929E',
-};
+  primary:        '#2C2C2C',   // carbón DVP (headers, drawer, tab bar)
+  primaryLight:   '#444444',   // carbón claro
+  primaryDark:    '#1A1A1A',   // carbón oscuro
+  accent:         '#F5C300',   // amarillo DVP (botones activos, highlights)
+  accentLight:    '#FFD740',   // amarillo claro (hover)
+  accentDark:     '#D4A900',   // amari
