@@ -2,6 +2,9 @@
 """
 Genera constants/geoBundle.ts a partir de los archivos GeoJSON en assets/geojson/
 Ejecutar desde la raiz del proyecto: python3 scripts/build_geo_bundle.py
+
+Fuente autoritativa de red vial: suma de Red Primar + Red Secund + Red Tercia
+(el campo Red(Km) tiene inconsistencias entre zonas y un error conocido en CC42)
 """
 import json, os
 
@@ -9,16 +12,20 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 GEOJSON_DIR = os.path.join(BASE_DIR, 'assets', 'geojson')
 OUT_FILE = os.path.join(BASE_DIR, 'constants', 'geoBundle.ts')
 
+# Simplificacion adaptiva: zonas con pocos puntos NO se simplifican
+ZONA_STEPS = {'ZI': 2, 'ZII': 1, 'ZIII': 1, 'ZIV': 3, 'ZV': 4}
+ZONA_COLORS = {'ZI':'#6baed6','ZII':'#fb6a4a','ZIII':'#fdd44c','ZIV':'#74c476','ZV':'#9e9ac8'}
+
 def load(path):
     with open(path, encoding='utf-8') as f:
         return json.load(f)
 
-def simplify_polygon(coords, step=3):
+def simplify_polygon(coords, step):
     if isinstance(coords[0][0], list):
         return [simplify_polygon(ring, step) for ring in coords]
     return coords[::step] + [coords[-1]]
 
-def simplify_geojson(gj, step=3):
+def simplify_geojson(gj, step):
     for feat in gj.get('features', []):
         geom = feat.get('geometry', {})
         t = geom.get('type', '')
@@ -28,10 +35,8 @@ def simplify_geojson(gj, step=3):
             geom['coordinates'] = [simplify_polygon(p, step) for p in geom['coordinates']]
     return gj
 
-ZONA_COLORS = {'ZI':'#6baed6','ZII':'#fb6a4a','ZIII':'#fdd44c','ZIV':'#74c476','ZV':'#9e9ac8'}
-
 def build_bundle():
-    lim_dir = os.path.join(GEOJSON_DIR, 'Limites')
+    lim_dir  = os.path.join(GEOJSON_DIR, 'Limites')
     sede_dir = os.path.join(GEOJSON_DIR, 'Sedes Sociales')
     ruta_dir = os.path.join(GEOJSON_DIR, 'Rutas Nacionales')
     poi_dir  = os.path.join(GEOJSON_DIR, 'Puntos de Interes')
@@ -44,9 +49,11 @@ def build_bundle():
         ('ZI','01 Limite Zona I.geojson'), ('ZII','02 Limite Zona II.geojson'),
         ('ZIII','03 Limite Zona III.geojson'), ('ZIV','04 Limite Zona IV.geojson'),
         ('ZV','05 Limite Zona V.geojson')]:
-        limites_zonas[zona] = simplify_geojson(load(os.path.join(lim_dir, fname)), step=3)
+        limites_zonas[zona] = simplify_geojson(
+            load(os.path.join(lim_dir, fname)), step=ZONA_STEPS[zona])
 
     sedes = []
+    total_km = 0
     for zona, fname in [
         ('ZI','01 sede social CC ZI.geojson'), ('ZII','02 sede social CC ZII.geojson'),
         ('ZIII','03 sede social CC ZIII.geojson'), ('ZIV','04 sede social CC ZIV.geojson'),
@@ -55,17 +62,29 @@ def build_bundle():
         for feat in gj['features']:
             p = feat.get('properties', {})
             coords = feat['geometry']['coordinates']
+            prim = p.get('Red Primar', 0) or 0
+            sec  = p.get('Red Secund', 0) or 0
+            terc = p.get('Red Tercia', 0) or 0
+            km   = prim + sec + terc  # fuente autoritativa (Red(Km) tiene inconsistencias)
+            # ZII tiene typo 'Secreterio' en lugar de 'Secretario'
+            secretario = p.get('Secretario', '') or p.get('Secreterio', '') or ''
             sedes.append({
-                'numero':p.get('N° Consor',''), 'nombre':p.get('Nombre',''),
-                'zona':zona, 'color':ZONA_COLORS[zona],
-                'lat':coords[1], 'lng':coords[0],
-                'redKm':round(p.get('Red (km)',0),1),
-                'redPrimaria':round(p.get('Red Primar',0),1),
-                'redSecundaria':round(p.get('Red Secund',0),1),
-                'redTerciaria':round(p.get('Red Tercia',0),1),
-                'presidente':p.get('Presidente',''), 'vicepresidente':p.get('Vicepresid',''),
-                'secretario':p.get('Secretario',''), 'tesorero':p.get('Tesorero',''),
+                'numero':        p.get('N° Consor', ''),
+                'nombre':        p.get('Nombre', ''),
+                'zona':          zona,
+                'color':         ZONA_COLORS[zona],
+                'lat':           round(coords[1], 6),
+                'lng':           round(coords[0], 6),
+                'redKm':         round(km, 2),
+                'redPrimaria':   round(prim, 2),
+                'redSecundaria': round(sec, 2),
+                'redTerciaria':  round(terc, 2),
+                'presidente':    p.get('Presidente', ''),
+                'vicepresidente':p.get('Vicepresid', ''),
+                'secretario':    secretario,
+                'tesorero':      p.get('Tesorero', ''),
             })
+            total_km += km
 
     rutas = {}
     for key, fname in [
@@ -82,7 +101,7 @@ def build_bundle():
         'campamentos': campamentos, 'salud': salud,
     }
 
-    j = json.dumps(data, ensure_ascii=False, separators=(',',':'))
+    j = json.dumps(data, ensure_ascii=False, separators=(',', ':'))
     ts = ('// AUTO-GENERADO — ejecutar scripts/build_geo_bundle.py para actualizar\n'
           '// Contiene todas las capas GeoJSON de QGIS para uso offline\n\n'
           f'export const GEO_BUNDLE = {j} as const;\n\n'
@@ -91,6 +110,6 @@ def build_bundle():
     with open(OUT_FILE, 'w', encoding='utf-8') as f:
         f.write(ts)
 
-    print(f'OK - {len(sedes)} sedes, bundle {len(j)/1024:.0f} KB')
+    print(f'OK - {len(sedes)} sedes, {total_km:.2f} km, bundle {len(j)/1024:.0f} KB')
 
 build_bundle()

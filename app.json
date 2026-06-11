@@ -45,6 +45,12 @@
         {
           "backgroundColor": "#1B4F72"
         }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "La app necesita tu ubicación para mostrarte en el mapa vial del Chaco."
+        }
       ]
     ],
     "experiments": {

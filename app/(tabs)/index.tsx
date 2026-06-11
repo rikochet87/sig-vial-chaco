@@ -2,7 +2,16 @@ import { ScrollView, View, Text, StyleSheet, TouchableOpacity, Dimensions } from
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { Colors } from '@/constants/Colors';
-import { CONSORCIOS, ZONAS_CONFIG } from '@/constants/realData';
+import { GEO_BUNDLE } from '@/constants/geoBundle';
+
+const CONSORCIOS = GEO_BUNDLE.sedes as any[];
+const ZONAS_CONFIG = [
+  { id: 'ZI',   label: 'Zona I',   color: '#6baed6' },
+  { id: 'ZII',  label: 'Zona II',  color: '#fb6a4a' },
+  { id: 'ZIII', label: 'Zona III', color: '#fdd44c' },
+  { id: 'ZIV',  label: 'Zona IV',  color: '#74c476' },
+  { id: 'ZV',   label: 'Zona V',   color: '#9e9ac8' },
+];
 
 const { width } = Dimensions.get('window');
 
