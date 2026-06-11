@@ -1,0 +1,7 @@
+ 
+=== DIAGNOSTICO SIG Vial === 
+ 
+[1] Node version: 
+v24.15.0
+[2] NPM version: 
+11.12.1

@@ -297,4 +297,5 @@ const styles = StyleSheet.create({
 
   // Empty
   empty: { alignItems: 'center', paddingTop: 60, gap: 12 },
-  emptyText: { color: Colors.textMuted, 
+  emptyText: { color: Colors.textMuted, fontSize: 15 },
+});

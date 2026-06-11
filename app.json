@@ -49,4 +49,13 @@
       [
         "expo-location",
         {
-          "locationAlw
+          "locationAlwaysAndWhenInUsePermission": "La app necesita tu ubicacion para mostrarte en el mapa vial del Chaco."
+        }
+      ]
+    ],
+    "newArchEnabled": true,
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

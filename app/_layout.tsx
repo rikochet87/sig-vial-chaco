@@ -26,6 +26,10 @@ export default function RootLayout() {
           options={{ headerShown: false }}
         />
         <Stack.Screen
+          name="distribucion"
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
           name="consorcio/[id]"
           options={{
             headerShown: true,
@@ -38,4 +42,12 @@ export default function RootLayout() {
           name="reporte/[id]"
           options={{
             headerShown: true,
-            headerTitl
+            headerTitle: 'Detalle del Reporte',
+            headerStyle: { backgroundColor: Colors.primary },
+            headerTintColor: Colors.white,
+          }}
+        />
+      </Stack>
+    </GestureHandlerRootView>
+  );
+}
