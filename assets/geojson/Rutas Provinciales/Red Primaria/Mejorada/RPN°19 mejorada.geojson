@@ -1,0 +1,8 @@
+{
+"type": "FeatureCollection",
+"name": "RPN°19 mejorada",
+"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
+"features": [
+{ "type": "Feature", "properties": { "tramo": null, "Zona": "3", "CC": "113", "Nombre": "019", "Mantenim": "CC", "Jurisdic": "PROVINCIAL", "Jerarq": "PRIMARIA", "Mat_Calzad": "CONSOLIDADO", "IDsuma": null, "Tipo": "RUTA", "OBSERVACIO": "Z3C113RP019", "refermapa": "PROVINCIAL PRIMARIA CONSOLIDADA", "JER_ABR": "P", "Shape_Leng": 2151.50612353, "RuleID": 4 }, "geometry": { "type": "MultiLineString", "coordinates": [ [ [ -61.585959534337483, -26.672765841744013, 0.0 ], [ -61.585306799699026, -26.673204497643081, 0.0 ], [ -61.582142401294476, -26.675453897624461, 0.0 ], [ -61.580106197839747, -26.676784998047772, 0.0 ], [ -61.578116999054252, -26.678199600656765, 0.0 ], [ -61.575216902849121, -26.680177100383847, 0.0 ], [ -61.573286200040215, -26.681541897273942, 0.0 ], [ -61.572752097986772, -26.681851997892291, 0.0 ], [ -61.571745199071913, -26.682597201925379, 0.0 ], [ -61.568833064562455, -26.684596282708668, 0.0 ] ] ] } }
+]
+}

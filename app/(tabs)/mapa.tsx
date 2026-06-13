@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { GEO_BUNDLE } from '@/constants/geoBundle';
+import { RP_BUNDLE } from '@/constants/geoBundleRP';
 
 // expo-location: importación condicional para evitar crash si no está instalado aún
 let Location: any = null;
@@ -26,6 +27,10 @@ const DEPTOS_JSON        = JSON.stringify(GEO_BUNDLE.departamentos);
 const RUTAS_JSON         = JSON.stringify(GEO_BUNDLE.rutas);
 const CAMPAMENTOS_JSON   = JSON.stringify(GEO_BUNDLE.campamentos);
 const SALUD_JSON         = JSON.stringify(GEO_BUNDLE.salud);
+const RP_PAV_JSON = JSON.stringify(RP_BUNDLE.rpPavimentada);
+const RP_MEJ_JSON = JSON.stringify(RP_BUNDLE.rpMejorada);
+const RP_OBR_JSON = JSON.stringify(RP_BUNDLE.rpEnObra);
+const RP_TIE_JSON = JSON.stringify(RP_BUNDLE.rpTierra);
 
 type Layers = {
   basemap: boolean;
@@ -35,6 +40,10 @@ type Layers = {
   rutasNacionales: boolean;
   campamentos: boolean;
   salud: boolean;
+  rpPavimentada: boolean;
+  rpMejorada: boolean;
+  rpEnObra: boolean;
+  rpTierra: boolean;
 };
 
 type SedesZonas = Record<string, boolean>;
@@ -91,6 +100,7 @@ html,body,#map{width:100%;height:100vh;background:#f0ebe3}
 var SEDES=${SEDES_JSON},LIMITES_ZONAS=${LIMITES_ZONAS_JSON},
     LIMITE_PROV=${LIMITE_PROV_JSON},DEPTOS=${DEPTOS_JSON},
     RUTAS=${RUTAS_JSON},CAMPAMENTOS=${CAMPAMENTOS_JSON},SALUD=${SALUD_JSON},
+    RP_PAV=${RP_PAV_JSON},RP_MEJ=${RP_MEJ_JSON},RP_OBR=${RP_OBR_JSON},RP_TIE=${RP_TIE_JSON},
     ZONA_COLORS=${JSON.stringify(ZONA_COLORS)},
     RUTAS_COLORS={RN11:'#e74c3c',RN16:'#c0392b',RN89:'#e67e22',RN95:'#d35400'},
     SEDES_ZONAS=${JSON.stringify(sedesZonas)},LAYERS=${JSON.stringify(layers)};
@@ -171,6 +181,57 @@ if(LAYERS.rutasNacionales)
       }
     }).addTo(map);
   });
+
+// ── Rutas Provinciales ────────────────────────────────────────────────────────
+function rpPopup(f, categoria){
+  var p=f.properties||{};
+  var num=p.Nombre?'N\u00b0 '+String(parseInt(p.Nombre)||p.Nombre):'—';
+  var jer=(p.Jerarq||'').charAt(0)+(p.Jerarq||'').slice(1).toLowerCase();
+  var zona=p.Zona?'Zona '+p.Zona:'—';
+  var mant=p.Mantenim==='DVP'?'Dir. de Vialidad Provincial':p.Mantenim==='CC'?'Consorcio Caminero':p.Mantenim||'—';
+  var mat=p.Mat_Calzad?p.Mat_Calzad.charAt(0)+p.Mat_Calzad.slice(1).toLowerCase():'—';
+  var catColors={pav:'#e74c3c',mej:'#27ae60',obra:'#e74c3c',tie:'#e67e22'};
+  var col=catColors[categoria]||'#7a8aaa';
+  return '<div style="background:#1e2436;border-radius:10px;overflow:hidden;font-family:sans-serif;min-width:200px;max-width:240px">'
+    +'<div style="background:'+col+';padding:10px 14px">'
+    +'<div style="font-size:11px;color:rgba(255,255,255,0.75);text-transform:uppercase;letter-spacing:1px">Ruta Provincial</div>'
+    +'<div style="font-size:20px;font-weight:900;color:#fff;margin-top:2px">'+num+'<\/div>'
+    +'<\/div>'
+    +'<div style="padding:10px 14px">'
+    +'<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #2a3045">'
+    +'<span style="font-size:10px;color:#7a8aaa;width:80px">Zona<\/span>'
+    +'<span style="font-size:12px;color:#e0e6f0;font-weight:600">'+zona+'<\/span>'
+    +'<\/div>'
+    +'<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #2a3045">'
+    +'<span style="font-size:10px;color:#7a8aaa;width:80px">Jerarqu\u00eda<\/span>'
+    +'<span style="font-size:12px;color:#e0e6f0;font-weight:600">'+jer+'<\/span>'
+    +'<\/div>'
+    +'<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #2a3045">'
+    +'<span style="font-size:10px;color:#7a8aaa;width:80px">Superficie<\/span>'
+    +'<span style="font-size:12px;color:#e0e6f0;font-weight:600">'+mat+'<\/span>'
+    +'<\/div>'
+    +'<div style="display:flex;align-items:center;gap:8px;padding:5px 0">'
+    +'<span style="font-size:10px;color:#7a8aaa;width:80px">Mantenimiento<\/span>'
+    +'<span style="font-size:12px;color:#e0e6f0;font-weight:600">'+mant+'<\/span>'
+    +'<\/div>'
+    +'<\/div><\/div>';
+}
+if(LAYERS.rpTierra)
+  L.geoJSON(RP_TIE,{style:{color:'#e67e22',weight:2,opacity:0.8},
+    onEachFeature:function(f,l){l.bindPopup(rpPopup(f,'tie'),{maxWidth:260,className:'dark-popup',closeButton:false});}
+  }).addTo(map);
+if(LAYERS.rpPavimentada)
+  L.geoJSON(RP_PAV,{style:{color:'#e74c3c',weight:3,opacity:0.9},
+    onEachFeature:function(f,l){l.bindPopup(rpPopup(f,'pav'),{maxWidth:260,className:'dark-popup',closeButton:false});}
+  }).addTo(map);
+if(LAYERS.rpMejorada)
+  L.geoJSON(RP_MEJ,{style:{color:'#27ae60',weight:2.5,opacity:0.9},
+    onEachFeature:function(f,l){l.bindPopup(rpPopup(f,'mej'),{maxWidth:260,className:'dark-popup',closeButton:false});}
+  }).addTo(map);
+if(LAYERS.rpEnObra)
+  L.geoJSON(RP_OBR,{style:{color:'#e74c3c',weight:3,opacity:0.9,dashArray:'10 6'},
+    onEachFeature:function(f,l){l.bindPopup(rpPopup(f,'obra'),{maxWidth:260,className:'dark-popup',closeButton:false});}
+  }).addTo(map);
 
 // ── Campamentos ───────────────────────────────────────────────────
 if(LAYERS.campamentos){
@@ -259,6 +320,10 @@ export default function MapaScreen() {
     rutasNacionales: true,
     campamentos: true,
     salud: false,
+    rpPavimentada: true,
+    rpMejorada: true,
+    rpEnObra: true,
+    rpTierra: false,
   });
 
   const mapHtml = useMemo(
@@ -340,6 +405,13 @@ export default function MapaScreen() {
     { key: 'salud',           label: 'Establecimientos de Salud', icon: '🏥' },
   ];
 
+  const RP_LAYER_CONFIG: { key: keyof Layers; label: string; lineColor: string; dashed?: boolean }[] = [
+    { key: 'rpPavimentada', label: 'Pavimentada',  lineColor: '#e74c3c' },
+    { key: 'rpMejorada',    label: 'Mejorada',      lineColor: '#27ae60' },
+    { key: 'rpEnObra',      label: 'En Obra',       lineColor: '#e74c3c', dashed: true },
+    { key: 'rpTierra',      label: 'De Tierra',     lineColor: '#e67e22' },
+  ];
+
   return (
     <View style={styles.container}>
       <StatusBar translucent backgroundColor="transparent" barStyle="dark-content" />
@@ -419,6 +491,19 @@ export default function MapaScreen() {
                 {layers[key] && <Text style={styles.layerCheckMark}>✓</Text>}
               </View>
               <Text style={styles.layerIcon}>{icon}</Text>
+              <Text style={[styles.layerLabel, !layers[key] && styles.layerLabelOff]}>{label}</Text>
+            </TouchableOpacity>
+          ))}
+
+          {/* ── Rutas Provinciales ──────────────────────────────────────── */}
+          <Text style={[styles.drawerSection, { marginTop: 20 }]}>Rutas Provinciales</Text>
+          {RP_LAYER_CONFIG.map(({ key, label, lineColor, dashed }) => (
+            <TouchableOpacity key={key} style={styles.layerRow} onPress={() => toggleLayer(key)}>
+              <View style={[styles.layerCheck, layers[key] && styles.layerCheckOn]}>
+                {layers[key] && <Text style={styles.layerCheckMark}>✓</Text>}
+              </View>
+              <View style={[styles.layerLine, { backgroundColor: dashed ? 'transparent' : lineColor,
+                borderWidth: dashed ? 1.5 : 0, borderColor: lineColor, borderStyle: dashed ? 'dashed' : 'solid' }]} />
               <Text style={[styles.layerLabel, !layers[key] && styles.layerLabelOff]}>{label}</Text>
             </TouchableOpacity>
           ))}
@@ -604,6 +689,11 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
+  },
+  layerLine: {
+    width: 22,
+    height: 3,
+    borderRadius: 1.5,
   },
 
   // ── Hamburger button ───────────────────────────────────────────────────────

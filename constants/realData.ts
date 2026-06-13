@@ -1,4 +1,4 @@
-// Auto-generated from mapa_consorcios.html — DO NOT EDIT MANUALLY
+// Auto-generated from mapa_consorcios.html \u2014 DO NOT EDIT MANUALLY
 import type { ConsorcioDato, Zona } from '../types';
 
 export const CHACO_BOUNDARY: { latitude: number; longitude: number }[] = [
