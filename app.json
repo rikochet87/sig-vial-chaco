@@ -34,17 +34,41 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "kotlinVersion": "1.9.25"
+          }
+        }
+      ],
       "expo-router",
       "expo-font",
-      ["expo-splash-screen", {"backgroundColor": "#2C2C2C"}],
-      ["expo-location", {"locationAlwaysAndWhenInUsePermission": "La app necesita tu ubicacion para mostrarte en el mapa vial del Chaco."}]
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#2C2C2C"
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "La app necesita tu ubicacion para mostrarte en el mapa vial del Chaco."
+        }
+      ]
     ],
-    "newArchEnabled": true,
-    "experiments": {"typedRoutes": true},
+    "newArchEnabled": false,
+    "experiments": {
+      "typedRoutes": true
+    },
     "owner": "rikochet87",
     "extra": {
-      "router": {"origin": false},
-      "eas": {"projectId": "40dd7691-99a3-4021-a9f0-5fc12d3b8627"}
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "40dd7691-99a3-4021-a9f0-5fc12d3b8627"
+      }
     }
   }
 }
