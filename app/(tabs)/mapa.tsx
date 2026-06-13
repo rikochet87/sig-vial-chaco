@@ -183,12 +183,37 @@ if(LAYERS.rutasNacionales)
   });
 
 // ── Rutas Provinciales ────────────────────────────────────────────────────────
+var _rpHL=null, _rpHLStyle=null;
+function rpHighlight(layer, baseStyle){
+  if(_rpHL){_rpHL.setStyle(_rpHLStyle);}
+  _rpHL=layer; _rpHLStyle=baseStyle;
+  layer.setStyle({color:'#F5C300',weight:(baseStyle.weight||2)+4,opacity:1,dashArray:null});
+  if(layer.bringToFront)layer.bringToFront();
+}
+function rpReset(){if(_rpHL){_rpHL.setStyle(_rpHLStyle);_rpHL=null;_rpHLStyle=null;}}
+// Renderiza capa visual + capa hit invisible ancha para facilitar el toque
+function addRPLayer(data, visStyle, categoria){
+  var visLayers=[];
+  L.geoJSON(data,{style:visStyle,interactive:false,
+    onEachFeature:function(f,l){visLayers.push(l);}
+  }).addTo(map);
+  var hi=0;
+  L.geoJSON(data,{
+    style:function(){return {color:'#000',weight:22,opacity:0.001};},
+    onEachFeature:function(f,l){
+      var vi=hi++;
+      l.bindPopup(rpPopup(f,categoria),{maxWidth:260,className:'dark-popup',closeButton:true});
+      l.on('click',function(){if(visLayers[vi])rpHighlight(visLayers[vi],visStyle);});
+      l.on('popupclose',function(){rpReset();});
+    }
+  }).addTo(map);
+}
 function rpPopup(f, categoria){
   var p=f.properties||{};
   var num=p.Nombre?'N\u00b0 '+String(parseInt(p.Nombre)||p.Nombre):'—';
   var jer=(p.Jerarq||'').charAt(0)+(p.Jerarq||'').slice(1).toLowerCase();
   var zona=p.Zona?'Zona '+p.Zona:'—';
-  var mant=p.Mantenim==='DVP'?'Dir. de Vialidad Provincial':p.Mantenim==='CC'?'Consorcio Caminero':p.Mantenim||'—';
+  var cc=p.CC?(' N\u00b0 '+String(parseInt(p.CC)||p.CC)):'';  var mant=p.Mantenim==='DVP'?'Dir. de Vialidad Provincial':p.Mantenim==='CC'?('Consorcio Caminero'+cc):p.Mantenim||'—';
   var mat=p.Mat_Calzad?p.Mat_Calzad.charAt(0)+p.Mat_Calzad.slice(1).toLowerCase():'—';
   var catColors={pav:'#e74c3c',mej:'#27ae60',obra:'#e74c3c',tie:'#e67e22'};
   var col=catColors[categoria]||'#7a8aaa';
@@ -216,22 +241,10 @@ function rpPopup(f, categoria){
     +'<\/div>'
     +'<\/div><\/div>';
 }
-if(LAYERS.rpTierra)
-  L.geoJSON(RP_TIE,{style:{color:'#e67e22',weight:2,opacity:0.8},
-    onEachFeature:function(f,l){l.bindPopup(rpPopup(f,'tie'),{maxWidth:260,className:'dark-popup',closeButton:false});}
-  }).addTo(map);
-if(LAYERS.rpPavimentada)
-  L.geoJSON(RP_PAV,{style:{color:'#e74c3c',weight:3,opacity:0.9},
-    onEachFeature:function(f,l){l.bindPopup(rpPopup(f,'pav'),{maxWidth:260,className:'dark-popup',closeButton:false});}
-  }).addTo(map);
-if(LAYERS.rpMejorada)
-  L.geoJSON(RP_MEJ,{style:{color:'#27ae60',weight:2.5,opacity:0.9},
-    onEachFeature:function(f,l){l.bindPopup(rpPopup(f,'mej'),{maxWidth:260,className:'dark-popup',closeButton:false});}
-  }).addTo(map);
-if(LAYERS.rpEnObra)
-  L.geoJSON(RP_OBR,{style:{color:'#e74c3c',weight:3,opacity:0.9,dashArray:'10 6'},
-    onEachFeature:function(f,l){l.bindPopup(rpPopup(f,'obra'),{maxWidth:260,className:'dark-popup',closeButton:false});}
-  }).addTo(map);
+if(LAYERS.rpTierra) addRPLayer(RP_TIE,{color:'#e67e22',weight:2,opacity:0.8},'tie');
+if(LAYERS.rpPavimentada) addRPLayer(RP_PAV,{color:'#e74c3c',weight:3,opacity:0.9},'pav');
+if(LAYERS.rpMejorada) addRPLayer(RP_MEJ,{color:'#27ae60',weight:2.5,opacity:0.9},'mej');
+if(LAYERS.rpEnObra) addRPLayer(RP_OBR,{color:'#e74c3c',weight:3,opacity:0.9,dashArray:'10 6'},'obra');
 
 // ── Campamentos ───────────────────────────────────────────────────
 if(LAYERS.campamentos){
@@ -699,15 +712,15 @@ const styles = StyleSheet.create({
   // ── Hamburger button ───────────────────────────────────────────────────────
   btnHamburger: {
     position: 'absolute',
-    top: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) + 8 : 44,
+    top: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) + 2 : 38,
     left: 12,
-    width: 42,
-    height: 42,
+    width: 38,
+    height: 38,
     backgroundColor: '#2C2C2C',
-    borderRadius: 8,
+    borderRadius: 7,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 5,
+    gap: 4,
     zIndex: 5,
     elevation: 6,
     shadowColor: '#000',
@@ -718,7 +731,7 @@ const styles = StyleSheet.create({
     borderColor: '#F5C300',
   },
   hamburgerLine: {
-    width: 20,
+    width: 17,
     height: 2,
     backgroundColor: '#FFFFFF',
     borderRadius: 1,
@@ -727,10 +740,10 @@ const styles = StyleSheet.create({
   // ── Zoom group ─────────────────────────────────────────────────────────────
   zoomGroup: {
     position: 'absolute',
-    top: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) + 8 : 44,
+    top: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) + 2 : 38,
     right: 12,
     backgroundColor: '#2C2C2C',
-    borderRadius: 8,
+    borderRadius: 7,
     overflow: 'hidden',
     zIndex: 5,
     elevation: 6,
@@ -742,16 +755,16 @@ const styles = StyleSheet.create({
     borderColor: '#F5C300',
   },
   zoomBtn: {
-    width: 42,
-    height: 42,
+    width: 36,
+    height: 36,
     alignItems: 'center',
     justifyContent: 'center',
   },
   zoomText: {
     color: '#FFFFFF',
-    fontSize: 22,
+    fontSize: 19,
     fontWeight: '300',
-    lineHeight: 26,
+    lineHeight: 22,
   },
   zoomDivider: {
     height: 1,

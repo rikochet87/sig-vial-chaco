@@ -14,10 +14,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.consorcio.caminero",
-      "config": {
-        "googleMapsApiKey": "TU_API_KEY_AQUI"
-      }
+      "bundleIdentifier": "com.consorcio.caminero"
     },
     "android": {
       "adaptiveIcon": {
@@ -26,11 +23,10 @@
         "backgroundColor": "#2C2C2C"
       },
       "package": "com.consorcio.caminero",
-      "config": {
-        "googleMaps": {
-          "apiKey": "TU_API_KEY_AQUI"
-        }
-      }
+      "permissions": [
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -40,22 +36,15 @@
     "plugins": [
       "expo-router",
       "expo-font",
-      [
-        "expo-splash-screen",
-        {
-          "backgroundColor": "#2C2C2C"
-        }
-      ],
-      [
-        "expo-location",
-        {
-          "locationAlwaysAndWhenInUsePermission": "La app necesita tu ubicacion para mostrarte en el mapa vial del Chaco."
-        }
-      ]
+      ["expo-splash-screen", {"backgroundColor": "#2C2C2C"}],
+      ["expo-location", {"locationAlwaysAndWhenInUsePermission": "La app necesita tu ubicacion para mostrarte en el mapa vial del Chaco."}]
     ],
     "newArchEnabled": true,
-    "experiments": {
-      "typedRoutes": true
+    "experiments": {"typedRoutes": true},
+    "owner": "rikochet87",
+    "extra": {
+      "router": {"origin": false},
+      "eas": {"projectId": "40dd7691-99a3-4021-a9f0-5fc12d3b8627"}
     }
   }
 }
