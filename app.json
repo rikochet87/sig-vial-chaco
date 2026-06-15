@@ -8,8 +8,6 @@
     "scheme": "consorcio",
     "userInterfaceStyle": "automatic",
     "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
       "backgroundColor": "#2C2C2C"
     },
     "ios": {
@@ -44,12 +42,7 @@
       ],
       "expo-router",
       "expo-font",
-      [
-        "expo-splash-screen",
-        {
-          "backgroundColor": "#2C2C2C"
-        }
-      ],
+      "expo-splash-screen",
       [
         "expo-location",
         {
