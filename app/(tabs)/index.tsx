@@ -48,8 +48,8 @@ export default function HomeScreen() {
           <View style={styles.bannerBadge}>
             <Text style={styles.bannerBadgeText}>DVP</Text>
           </View>
-          <View>
-            <Text style={styles.bannerTitle}>Dirección de Conservación Vial</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.bannerTitle} numberOfLines={2}>Dirección de Conservación Vial</Text>
             <Text style={styles.bannerSubtitle}>Dpto. Consorcios Camineros</Text>
           </View>
         </View>

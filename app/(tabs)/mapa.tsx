@@ -148,7 +148,7 @@ if(LAYERS.zonaBoundaries)
   Object.entries(LIMITES_ZONAS).forEach(function([zona,gj]){
     var c=ZONA_COLORS[zona]||'#aaa';
     L.geoJSON(gj,{
-      style:{color:c,weight:2,fillColor:c,fillOpacity:0.07,dashArray:'4 3'},
+      style:{color:c,weight:3.5,fillColor:c,fillOpacity:0.10,dashArray:'6 4'},
       onEachFeature:function(f,layer){
         var p=f.properties||{};
         var nombre=p.NOMBRE||p.Nombre||'';
@@ -163,8 +163,8 @@ if(LAYERS.zonaBoundaries)
           +'<\/div>',
           {className:'dark-popup',closeButton:false}
         );
-        layer.on('mouseover',function(){layer.setStyle({fillOpacity:0.22,weight:2.5});});
-        layer.on('mouseout',function(){layer.setStyle({fillOpacity:0.07,weight:2});});
+        layer.on('mouseover',function(){layer.setStyle({fillOpacity:0.25,weight:4.5});});
+        layer.on('mouseout',function(){layer.setStyle({fillOpacity:0.10,weight:3.5});});
       }
     }).addTo(map);
   });

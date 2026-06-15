@@ -162,7 +162,7 @@ const styles = StyleSheet.create({
     elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 3,
   },
   searchInput: { flex: 1, fontSize: 14, color: Colors.textPrimary },
-  filterRow: { paddingHorizontal: 12, gap: 6, marginBottom: 8, flexDirection: 'row', alignItems: 'center' },
+  filterRow: { paddingHorizontal: 12, paddingRight: 24, gap: 6, marginBottom: 8, flexDirection: 'row', alignItems: 'center' },
   filterChip: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
     paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20,
