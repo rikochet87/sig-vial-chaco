@@ -20,6 +20,19 @@ const ZONA_COLORS: Record<string, string> = {
 };
 const ZONAS_LIST = ['ZI', 'ZII', 'ZIII', 'ZIV', 'ZV'];
 
+// ── CC: consorcios por zona (hardcodeado del análisis de archivos GeoJSON) ───
+const CC_PER_ZONA: Record<string, number[]> = {
+  ZI:   [5, 16, 22, 26, 37, 38, 40, 44, 45, 54, 62, 64, 65, 67, 102],
+  ZII:  [7, 9, 12, 13, 15, 24, 25, 29, 30, 36, 41, 43, 46, 47, 51, 52, 53, 61, 68, 69, 74, 77, 84, 105, 109, 110],
+  ZIII: [1, 2, 4, 8, 10, 14, 17, 20, 23, 27, 31, 32, 33, 34, 39, 42, 48, 55, 56, 58, 60, 63, 71, 73, 75, 76, 87, 91, 98, 113],
+  ZIV:  [3, 18, 21, 49, 50, 59, 72, 78, 79, 80, 81, 83, 85, 86, 88, 89, 90, 95, 100, 101, 103],
+  ZV:   [6, 11, 19, 28, 35, 57, 66, 70, 96, 99, 108],
+};
+const CC_NAMES: Record<number, string> = Object.fromEntries(
+  (GEO_BUNDLE.sedes as any[]).map((s: any) => [Number(s.numero), s.nombre || s.localidad || ''])
+);
+type CCZonaState = { expanded: boolean; allOn: boolean; ccs: Record<number, boolean> };
+
 // ── Serializar datos una sola vez ────────────────────────────────────────────
 const SEDES_JSON         = JSON.stringify(GEO_BUNDLE.sedes);
 const LIMITES_ZONAS_JSON = JSON.stringify(GEO_BUNDLE.limites_zonas);
@@ -45,7 +58,6 @@ type Layers = {
   rpMejorada: boolean;
   rpEnObra: boolean;
   rpTierra: boolean;
-  redCC: boolean;
 };
 
 type SedesZonas = Record<string, boolean>;
@@ -314,51 +326,49 @@ function updateUserLocation(lat,lng,acc){
   map.setView([lat,lng],Math.max(map.getZoom(),14));
 }
 
-// ── Red bajo convenio CC (inyección lazy) ─────────────────────────
-var CC_LAYERS={};
-var CC_DATA={};
+// ── Red bajo convenio CC (inyección por consorcio individual) ─────
+var CC_DATA_CC={};
+var CC_LAYERS_CC={};
 var CC_COLORS={ZI:'#6baed6',ZII:'#fb6a4a',ZIII:'#fdd44c',ZIV:'#74c476',ZV:'#9e9ac8'};
 var JERARQ_COLOR={PRIMARIA:'#c0392b',SECUNDARIA:'#2980b9',TERCIARIA:'#7f8c8d'};
 var routeGraph=null,routeLayer=null;
-function addCCLayer(zona,gj){
-  if(CC_LAYERS[zona]) return;
-  CC_DATA[zona]=gj;
+
+function addCCData(cc,zona,gj){
+  if(CC_LAYERS_CC[cc])return;
+  CC_DATA_CC[cc]=gj;
   routeGraph=null;
   var zColor=CC_COLORS[zona]||'#999';
-  CC_LAYERS[zona]=L.geoJSON(gj,{
+  CC_LAYERS_CC[cc]=L.geoJSON(gj,{
     style:function(f){
       var j=(f.properties&&f.properties.J)||'TERCIARIA';
       var c=JERARQ_COLOR[j]||zColor;
       var w=j==='PRIMARIA'?2.5:j==='SECUNDARIA'?1.8:1.2;
-      return {color:c,weight:w,opacity:0.85};
+      return{color:c,weight:w,opacity:0.85};
     },
     onEachFeature:function(f,layer){
       var p=f.properties||{};
-      var cc=parseInt(p.CC,10)||p.CC||'—';
+      var num=parseInt(p.CC,10)||p.CC||'—';
       var j=p.J||'—';
       var m=p.M||'—';
       var n=p.N?'Ruta '+p.N:'';
       layer.bindPopup(
         '<div style="background:#1e2436;border-radius:8px;padding:10px 14px;min-width:160px">'
-        +'<div style="font-size:10px;color:#7a8aaa;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Red bajo convenio</div>'
-        +'<div style="font-size:13px;font-weight:800;color:#e0e6f0;margin-bottom:4px">CC N° '+cc+'</div>'
+        +'<div style="font-size:10px;color:#7a8aaa;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Red bajo convenio<\/div>'
+        +'<div style="font-size:13px;font-weight:800;color:#e0e6f0;margin-bottom:4px">CC N° '+num+'<\/div>'
         +(n?'<div style="font-size:11px;color:#9aaac0">'+n+'<\/div>':'')
         +'<div style="font-size:11px;color:#9aaac0">'+j+' · '+m+'<\/div>'
         +'<\/div>',
         {className:'dark-popup',closeButton:false}
       );
     }
-  }).addTo(map);
+  });
 }
-function removeCCLayer(){
-  Object.values(CC_LAYERS).forEach(function(l){map.removeLayer(l);});
-  CC_LAYERS={};
-  CC_DATA={};
-  routeGraph=null;
-  clearRoute();
-}
-function showCCLayer(){
-  Object.values(CC_LAYERS).forEach(function(l){l.addTo(map);});
+function showCCNum(cc){if(CC_LAYERS_CC[cc])CC_LAYERS_CC[cc].addTo(map);}
+function hideCCNum(cc){if(CC_LAYERS_CC[cc])map.removeLayer(CC_LAYERS_CC[cc]);}
+function removeCCAll(){
+  Object.keys(CC_LAYERS_CC).forEach(function(cc){map.removeLayer(CC_LAYERS_CC[Number(cc)]);});
+  CC_LAYERS_CC={};CC_DATA_CC={};
+  routeGraph=null;clearRoute();
 }
 
 // ── Routing Dijkstra sobre Red CC ─────────────────────────────────
@@ -399,7 +409,7 @@ function buildRouteGraph(){
     if(nodeMap[k]===undefined){nodeMap[k]=nId;routeNodes.push([c[1],c[0]]);routeGraph[nId]=[];nId++;}
     return nodeMap[k];
   }
-  Object.values(CC_DATA).forEach(function(gj){
+  Object.values(CC_DATA_CC).forEach(function(gj){
     (gj.features||[]).forEach(function(f){
       var geom=f.geometry;
       var lines=geom.type==='MultiLineString'?geom.coordinates:[geom.coordinates];
@@ -462,7 +472,7 @@ function clearRoute(){
 }
 
 function calcRoute(sedeLat,sedeLng,nombre){
-  if(Object.keys(CC_DATA).length===0){
+  if(Object.keys(CC_DATA_CC).length===0){
     alert('Activá la capa "Red CC" en el menú de capas primero.');
     return;
   }
@@ -542,8 +552,20 @@ export default function MapaScreen() {
     rpMejorada: true,
     rpEnObra: true,
     rpTierra: false,
-    redCC: false,
   });
+
+  // ── Estado CC por zona/consorcio ────────────────────────────────────────────
+  const [ccState, setCCState] = useState<Record<string, CCZonaState>>(() =>
+    Object.fromEntries(
+      ZONAS_LIST.map(zona => [
+        zona,
+        { expanded: false, allOn: false, ccs: Object.fromEntries((CC_PER_ZONA[zona] || []).map(n => [n, false])) },
+      ])
+    )
+  );
+  const ccLoadedNums = useRef<Set<number>>(new Set());
+  const ccDataCache = useRef<Record<number, any>>({});
+  const prevCCRef = useRef<Record<string, CCZonaState>>({});
 
   const mapHtml = useMemo(
     () => buildMapHtml(sedesZonas, layers),
@@ -574,6 +596,30 @@ export default function MapaScreen() {
 
   const toggleLayer = useCallback((key: keyof Layers) => {
     setLayers(prev => ({ ...prev, [key]: !prev[key] }));
+  }, []);
+
+  const toggleCCExpand = useCallback((zona: string) => {
+    setCCState(prev => ({ ...prev, [zona]: { ...prev[zona], expanded: !prev[zona].expanded } }));
+  }, []);
+
+  const toggleCCZone = useCallback((zona: string) => {
+    setCCState(prev => {
+      const s = prev[zona];
+      const newOn = !s.allOn;
+      return {
+        ...prev,
+        [zona]: { ...s, allOn: newOn, ccs: Object.fromEntries((CC_PER_ZONA[zona] || []).map(n => [n, newOn])) },
+      };
+    });
+  }, []);
+
+  const toggleCCNum = useCallback((zona: string, ccNum: number) => {
+    setCCState(prev => {
+      const s = prev[zona];
+      const newCCs = { ...s.ccs, [ccNum]: !s.ccs[ccNum] };
+      const allOn = (CC_PER_ZONA[zona] || []).every(n => newCCs[n]);
+      return { ...prev, [zona]: { ...s, ccs: newCCs, allOn } };
+    });
   }, []);
 
   // ── GPS ───────────────────────────────────────────────────────────────────
@@ -609,31 +655,52 @@ export default function MapaScreen() {
     return () => { locationSub.current?.remove?.(); };
   }, []);
 
-  // ── Inyección lazy de Red CC ───────────────────────────────────────────────
-  const ccInjected = useRef(false);
+  // ── Sincronizar ccState con WebView (inyección por CC individual) ────────────
   useEffect(() => {
-    if (layers.redCC && !ccInjected.current) {
-      // Primera vez que se activa: inyectar datos zona por zona
-      ccInjected.current = true;
-      ZONAS_LIST.forEach(zona => {
-        const data = GEO_BUNDLE_CC[zona];
-        if (!data) return;
-        const json = JSON.stringify(data);
-        webviewRef.current?.injectJavaScript(
-          `if(typeof addCCLayer==='function'){addCCLayer(${JSON.stringify(zona)},${json});} true;`
-        );
-      });
-    } else if (!layers.redCC) {
-      webviewRef.current?.injectJavaScript(
-        `if(typeof removeCCLayer==='function'){removeCCLayer();} true;`
+    const prev = prevCCRef.current;
+
+    const getCCGeoJSON = (zona: string, ccNum: number): any => {
+      if (ccDataCache.current[ccNum]) return ccDataCache.current[ccNum];
+      const zoneData = (GEO_BUNDLE_CC as any)[zona];
+      if (!zoneData?.features) return null;
+      const features = zoneData.features.filter((f: any) =>
+        parseInt(f.properties?.CC, 10) === ccNum
       );
-      ccInjected.current = false;
-    } else if (layers.redCC && ccInjected.current) {
-      webviewRef.current?.injectJavaScript(
-        `if(typeof showCCLayer==='function'){showCCLayer();} true;`
-      );
+      if (!features.length) return null;
+      const gj = { type: 'FeatureCollection', features };
+      ccDataCache.current[ccNum] = gj;
+      return gj;
+    };
+
+    for (const zona of ZONAS_LIST) {
+      const cur = ccState[zona];
+      const prevZ = prev[zona];
+      for (const n of CC_PER_ZONA[zona] || []) {
+        const curOn = !!cur.ccs[n];
+        const prevOn = prevZ ? !!prevZ.ccs[n] : false;
+        if (curOn === prevOn) continue;
+
+        if (curOn) {
+          if (!ccLoadedNums.current.has(n)) {
+            // Primera vez: inyectar datos de este CC y mostrarlo
+            const gj = getCCGeoJSON(zona, n);
+            if (gj) {
+              const json = JSON.stringify(gj);
+              webviewRef.current?.injectJavaScript(
+                `addCCData(${n},${JSON.stringify(zona)},${json}); showCCNum(${n}); true;`
+              );
+              ccLoadedNums.current.add(n);
+            }
+          } else {
+            webviewRef.current?.injectJavaScript(`showCCNum(${n}); true;`);
+          }
+        } else {
+          webviewRef.current?.injectJavaScript(`hideCCNum(${n}); true;`);
+        }
+      }
     }
-  }, [layers.redCC]);
+    prevCCRef.current = ccState;
+  }, [ccState]);
 
   const sedesCount = useMemo(
     () => GEO_BUNDLE.sedes.filter((c: any) => sedesZonas[c.zona]).length,
@@ -742,13 +809,50 @@ export default function MapaScreen() {
 
           {/* ── Red bajo convenio CC ────────────────────────────────────── */}
           <Text style={[styles.drawerSection, { marginTop: 20 }]}>Red bajo Convenio CC</Text>
-          <TouchableOpacity style={styles.layerRow} onPress={() => toggleLayer('redCC')}>
-            <View style={[styles.layerCheck, layers.redCC && styles.layerCheckOn]}>
-              {layers.redCC && <Text style={styles.layerCheckMark}>✓</Text>}
-            </View>
-            <Text style={styles.layerIcon}>🛤</Text>
-            <Text style={[styles.layerLabel, !layers.redCC && styles.layerLabelOff]}>Red CC (todas las zonas)</Text>
-          </TouchableOpacity>
+          {ZONAS_LIST.map(zona => {
+            const st = ccState[zona];
+            const ccs = CC_PER_ZONA[zona] || [];
+            const activeCount = ccs.filter(n => st.ccs[n]).length;
+            const zColor = ZONA_COLORS[zona];
+            return (
+              <View key={zona}>
+                <View style={styles.layerRow}>
+                  <TouchableOpacity onPress={() => toggleCCZone(zona)}>
+                    <View style={[styles.layerCheck, st.allOn && styles.layerCheckOn]}>
+                      {st.allOn && <Text style={styles.layerCheckMark}>✓</Text>}
+                    </View>
+                  </TouchableOpacity>
+                  <View style={[styles.zonaDot, { backgroundColor: zColor, width: 10, height: 10, borderRadius: 5 }]} />
+                  <Text style={[styles.layerLabel, activeCount === 0 && styles.layerLabelOff]}>
+                    {zona} · {activeCount}/{ccs.length} CC
+                  </Text>
+                  <TouchableOpacity onPress={() => toggleCCExpand(zona)} style={{ padding: 6 }}>
+                    <Text style={{ color: '#888', fontSize: 11 }}>{st.expanded ? '▼' : '▶'}</Text>
+                  </TouchableOpacity>
+                </View>
+                {st.expanded && ccs.map(ccNum => {
+                  const on = !!st.ccs[ccNum];
+                  return (
+                    <TouchableOpacity
+                      key={ccNum}
+                      style={[styles.layerRow, { paddingLeft: 34, paddingVertical: 6 }]}
+                      onPress={() => toggleCCNum(zona, ccNum)}
+                    >
+                      <View style={[styles.layerCheck, { width: 16, height: 16, borderRadius: 3 }, on && styles.layerCheckOn]}>
+                        {on && <Text style={[styles.layerCheckMark, { fontSize: 10, lineHeight: 12 }]}>✓</Text>}
+                      </View>
+                      <Text style={[styles.layerLabel, { fontSize: 12 }, !on && styles.layerLabelOff]}>
+                        CC {ccNum}
+                      </Text>
+                      <Text style={{ fontSize: 10, color: '#666', flex: 1 }} numberOfLines={1}>
+                        {'  '}{CC_NAMES[ccNum] || ''}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            );
+          })}
 
           {/* ── Rutas Provinciales ──────────────────────────────────────── */}
           <Text style={[styles.drawerSection, { marginTop: 20 }]}>Rutas Provinciales</Text>
