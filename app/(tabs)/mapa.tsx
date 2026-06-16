@@ -161,8 +161,16 @@ if(LAYERS.departamentos)
 if(LAYERS.zonaBoundaries)
   Object.entries(LIMITES_ZONAS).forEach(function([zona,gj]){
     var c=ZONA_COLORS[zona]||'#aaa';
+    // Capa de relleno sin borde (evita doble stroke entre zonas adyacentes)
+    var fillLayer=L.geoJSON(gj,{
+      style:{color:'transparent',weight:0,fillColor:c,fillOpacity:0.12},
+      smoothFactor:0,
+      interactive:false
+    }).addTo(map);
+    // Capa de borde separada + interacción
     L.geoJSON(gj,{
-      style:{color:c,weight:1.5,fillColor:c,fillOpacity:0.10},smoothFactor:0,
+      style:{color:'#888',weight:1,fillOpacity:0},
+      smoothFactor:0,
       onEachFeature:function(f,layer){
         var p=f.properties||{};
         var nombre=p.NOMBRE||p.Nombre||'';
@@ -173,12 +181,12 @@ if(LAYERS.zonaBoundaries)
           +'<div style="width:12px;height:12px;border-radius:50%;background:'+c+'"><\/div>'
           +'<div style="font-size:13px;font-weight:800;color:#e0e6f0">'+zonaLabel+'<\/div>'
           +'<\/div>'
-          +(nombre?'<div style="font-size:11px;color:#9aaac0">Sede: '+nombre+'<\/div>':'')
+          +(nombre?'<div style="font-size:11px;color:#9aaac0">'+nombre+'<\/div>':'')
           +'<\/div>',
           {className:'dark-popup',closeButton:false}
         );
-        layer.on('mouseover',function(){layer.setStyle({fillOpacity:0.25,weight:4.5});});
-        layer.on('mouseout',function(){layer.setStyle({fillOpacity:0.10,weight:3.5});});
+        layer.on('mouseover',function(){fillLayer.setStyle({fillOpacity:0.25});});
+        layer.on('mouseout',function(){fillLayer.setStyle({fillOpacity:0.12});});
       }
     }).addTo(map);
   });
@@ -329,9 +337,11 @@ function updateUserLocation(lat,lng,acc){
 // ── Red bajo convenio CC (inyección por consorcio individual) ─────
 var CC_DATA_CC={};
 var CC_LAYERS_CC={};
-var CC_COLORS={ZI:'#6baed6',ZII:'#fb6a4a',ZIII:'#fdd44c',ZIV:'#74c476',ZV:'#9e9ac8'};
+var CC_COLORS={ZI:'#4a85a0',ZII:'#b05a3a',ZIII:'#9a8630',ZIV:'#4a845a',ZV:'#6a649a'};
 var JERARQ_COLOR={PRIMARIA:'#c0392b',SECUNDARIA:'#2980b9',TERCIARIA:'#7f8c8d'};
 var routeGraph=null,routeLayer=null;
+var CC_NOMBRES={};
+(SEDES||[]).forEach(function(s){CC_NOMBRES[parseInt(s.numero,10)]=s.nombre||s.localidad||'';});
 
 var _ccHL=null,_ccHLStyle=null;
 function ccHighlight(visLayer,baseStyle){
@@ -352,9 +362,8 @@ function addCCData(cc,zona,gj){
     interactive:false,
     style:function(f){
       var j=(f.properties&&f.properties.J)||'TERCIARIA';
-      var c=JERARQ_COLOR[j]||zColor;
       var w=j==='PRIMARIA'?2.5:j==='SECUNDARIA'?1.8:1.2;
-      return{color:c,weight:w,opacity:0.85};
+      return{color:zColor,weight:w,opacity:0.85};
     },
     onEachFeature:function(f,l){visLayers.push(l);}
   });
@@ -367,28 +376,33 @@ function addCCData(cc,zona,gj){
       var j=p.J||'TERCIARIA';
       var jLabel=j.charAt(0)+j.slice(1).toLowerCase();
       var jColor=JERARQ_COLOR[j]||zColor;
-      var m=p.M||'—';
-      var ruta=p.N?'N° '+p.N:'—';
+      var m=p.M?p.M.charAt(0)+p.M.slice(1).toLowerCase():'—';
+      var esRuta=!p.T&&p.Nm;
+      var vialLabel=esRuta?'Ruta N°':'Tramo N°';
+      var vialNum=esRuta?('N° '+p.Nm):p.T?('N° '+p.T):'—';
       var mn=p.Mn||'—';
-      var baseStyle={color:jColor,weight:j==='PRIMARIA'?2.5:j==='SECUNDARIA'?1.8:1.2,opacity:0.85};
+      var nomenclatura=CC_NOMBRES[parseInt(p.CC,10)]||'';
+      var nc=p.Nc||'';
+      var baseStyle={color:zColor,weight:j==='PRIMARIA'?2.5:j==='SECUNDARIA'?1.8:1.2,opacity:0.85};
       l.bindPopup(
         '<div style="background:#1e2436;border-radius:10px;overflow:hidden;font-family:sans-serif;min-width:210px;max-width:250px">'
-        +'<div style="background:'+jColor+';padding:10px 14px">'
+        +'<div style="background:'+zColor+';padding:10px 14px">'
         +'<div style="font-size:10px;color:rgba(255,255,255,0.75);text-transform:uppercase;letter-spacing:1px">Red bajo Convenio CC<\/div>'
         +'<div style="font-size:20px;font-weight:900;color:#fff;margin-top:2px">CC N° '+ccNum+'<\/div>'
+        +(nomenclatura?'<div style="font-size:11px;color:rgba(255,255,255,0.7);margin-top:2px">'+nomenclatura+'<\/div>':'')
         +'<\/div>'
         +'<div style="padding:10px 14px">'
         +'<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #2a3045">'
-        +'<span style="font-size:10px;color:#7a8aaa;width:90px">Ruta<\/span>'
-        +'<span style="font-size:12px;color:#e0e6f0;font-weight:600">'+ruta+'<\/span>'
+        +'<span style="font-size:10px;color:#7a8aaa;width:90px">'+vialLabel+'<\/span>'
+        +'<span style="font-size:12px;color:#e0e6f0;font-weight:600">'+vialNum+'<\/span>'
         +'<\/div>'
+        +(nc?'<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #2a3045">'
+        +'<span style="font-size:10px;color:#7a8aaa;width:90px">Nomenclatura<\/span>'
+        +'<span style="font-size:11px;color:#e0e6f0;font-weight:600;font-family:monospace">'+nc+'<\/span>'
+        +'<\/div>':'')
         +'<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #2a3045">'
         +'<span style="font-size:10px;color:#7a8aaa;width:90px">Jerarquía<\/span>'
         +'<span style="font-size:12px;color:#e0e6f0;font-weight:600">'+jLabel+'<\/span>'
-        +'<\/div>'
-        +'<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #2a3045">'
-        +'<span style="font-size:10px;color:#7a8aaa;width:90px">Superficie<\/span>'
-        +'<span style="font-size:12px;color:#e0e6f0;font-weight:600">'+m+'<\/span>'
         +'<\/div>'
         +'<div style="display:flex;align-items:center;gap:8px;padding:5px 0">'
         +'<span style="font-size:10px;color:#7a8aaa;width:90px">Mantenimiento<\/span>'
@@ -411,6 +425,51 @@ function removeCCAll(){
   CC_LAYERS_CC={};CC_DATA_CC={};
   routeGraph=null;clearRoute();
 }
+
+// ── Tramos DVP (mantenidos por Dir. Vialidad Provincial) ───────────
+var DVP_LAYERS={ZIV:null,ZV:null};
+var DVP_ZONA_LABEL={ZIV:'Zona IV',ZV:'Zona V'};
+function addDVPLayer(zona,gj){
+  if(DVP_LAYERS[zona])return;
+  var visLayers=[],hi=0;
+  var visLayer=L.geoJSON(gj,{
+    interactive:false,
+    style:function(){return{color:'#888',weight:2,opacity:0.85,dashArray:'8 5'};},
+    onEachFeature:function(f,l){visLayers.push(l);}
+  });
+  var hitLayer=L.geoJSON(gj,{
+    style:function(){return{color:'#000',weight:22,opacity:0.001};},
+    onEachFeature:function(f,l){
+      var vi=hi++;
+      var p=f.properties||{};
+      var nc=p.Nc||'';
+      var zonaLabel=DVP_ZONA_LABEL[zona]||zona;
+      l.bindPopup(
+        '<div style="background:#1e2436;border-radius:10px;overflow:hidden;font-family:sans-serif;min-width:210px;max-width:250px">'
+        +'<div style="background:#555;padding:10px 14px">'
+        +'<div style="font-size:10px;color:rgba(255,255,255,0.75);text-transform:uppercase;letter-spacing:1px">Tramo DVP · '+zonaLabel+'<\/div>'
+        +'<div style="font-size:16px;font-weight:900;color:#fff;margin-top:2px">Dir. Vialidad Provincial<\/div>'
+        +'<\/div>'
+        +'<div style="padding:10px 14px">'
+        +(nc?'<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #2a3045">'
+        +'<span style="font-size:10px;color:#7a8aaa;width:90px">Identificación<\/span>'
+        +'<span style="font-size:11px;color:#e0e6f0;font-weight:600;font-family:monospace">'+nc+'<\/span>'
+        +'<\/div>':'')
+        +'<div style="display:flex;align-items:center;gap:8px;padding:5px 0">'
+        +'<span style="font-size:10px;color:#7a8aaa;width:90px">Mantenimiento<\/span>'
+        +'<span style="font-size:12px;color:#e0e6f0;font-weight:600">DVP<\/span>'
+        +'<\/div>'
+        +'<\/div><\/div>',
+        {className:'dark-popup',closeButton:true,maxWidth:250}
+      );
+      l.on('click',function(){if(visLayers[vi])ccHighlight(visLayers[vi],{color:'#888',weight:2,opacity:0.85,dashArray:'8 5'});});
+      l.on('popupclose',function(){ccReset();});
+    }
+  });
+  DVP_LAYERS[zona]=L.layerGroup([visLayer,hitLayer]).addTo(map);
+}
+function showDVP(zona){if(DVP_LAYERS[zona])DVP_LAYERS[zona].addTo(map);}
+function hideDVP(zona){if(DVP_LAYERS[zona])map.removeLayer(DVP_LAYERS[zona]);}
 
 // ── Routing Dijkstra sobre Red CC ─────────────────────────────────
 function haversineM(lat1,lon1,lat2,lon2){
@@ -517,13 +576,35 @@ function clearRoute(){
   if(routeLayer){map.removeLayer(routeLayer);routeLayer=null;}
 }
 
+var _routeToast=null;
+function showRouteToast(msg){
+  if(_routeToast)map.removeLayer(_routeToast);
+  _routeToast=L.popup({closeButton:false,className:'dark-popup',maxWidth:220})
+    .setLatLng(map.getCenter())
+    .setContent('<div style="background:#1e2436;border-radius:8px;padding:10px 14px;text-align:center;color:#e0e6f0;font-size:13px">'+msg+'<\/div>')
+    .openOn(map);
+}
+function hideRouteToast(){if(_routeToast){map.closePopup(_routeToast);_routeToast=null;}}
+
 function calcRoute(sedeLat,sedeLng,nombre){
   if(!userMarker){
     alert('Activá el GPS (botón ubicación) para conocer tu posición.');
     return;
   }
   var uLL=userMarker.getLatLng();
-  if(!routeGraph)buildRouteGraph();
+  if(!routeGraph){
+    showRouteToast('⏳ Calculando red vial...');
+    setTimeout(function(){
+      buildRouteGraph();
+      hideRouteToast();
+      _execRoute(uLL,sedeLat,sedeLng,nombre);
+    },50);
+    return;
+  }
+  _execRoute(uLL,sedeLat,sedeLng,nombre);
+}
+
+function _execRoute(uLL,sedeLat,sedeLng,nombre){
   var startN=findNearestNode(uLL.lat,uLL.lng);
   var endN=findNearestNode(sedeLat,sedeLng);
   clearRoute();
@@ -596,6 +677,39 @@ export default function MapaScreen() {
     rpTierra: false,
   });
 
+  const [dvpZIVOn, setDvpZIVOn] = useState(false);
+  const [dvpZVOn,  setDvpZVOn]  = useState(false);
+  const dvpZIVLoaded = useRef(false);
+  const dvpZVLoaded  = useRef(false);
+
+  useEffect(() => {
+    if (dvpZIVOn) {
+      if (!dvpZIVLoaded.current) {
+        const gj = JSON.stringify((GEO_BUNDLE_CC as any)['ZIV_DVP']);
+        webviewRef.current?.injectJavaScript(`addDVPLayer('ZIV',${gj}); true;`);
+        dvpZIVLoaded.current = true;
+      } else {
+        webviewRef.current?.injectJavaScript(`showDVP('ZIV'); true;`);
+      }
+    } else {
+      webviewRef.current?.injectJavaScript(`hideDVP('ZIV'); true;`);
+    }
+  }, [dvpZIVOn]);
+
+  useEffect(() => {
+    if (dvpZVOn) {
+      if (!dvpZVLoaded.current) {
+        const gj = JSON.stringify((GEO_BUNDLE_CC as any)['ZV_DVP']);
+        webviewRef.current?.injectJavaScript(`addDVPLayer('ZV',${gj}); true;`);
+        dvpZVLoaded.current = true;
+      } else {
+        webviewRef.current?.injectJavaScript(`showDVP('ZV'); true;`);
+      }
+    } else {
+      webviewRef.current?.injectJavaScript(`hideDVP('ZV'); true;`);
+    }
+  }, [dvpZVOn]);
+
   // ── Estado CC por zona/consorcio ────────────────────────────────────────────
   const [ccState, setCCState] = useState<Record<string, CCZonaState>>(() =>
     Object.fromEntries(
@@ -614,7 +728,11 @@ export default function MapaScreen() {
   const onWebViewLoad = useCallback(() => {
     prevCCRef.current = {};
     ccLoadedNums.current = new Set();
+    dvpZIVLoaded.current = false;
+    dvpZVLoaded.current  = false;
     setCCState(s => ({ ...s }));
+    setDvpZIVOn(v => { if (v) { setTimeout(() => setDvpZIVOn(true), 100); } return v; });
+    setDvpZVOn(v  => { if (v) { setTimeout(() => setDvpZVOn(true),  100); } return v; });
   }, []);
 
   const mapHtml = useMemo(
@@ -904,6 +1022,22 @@ export default function MapaScreen() {
               </View>
             );
           })}
+
+          {/* ── Tramos DVP ──────────────────────────────────────────────── */}
+          <TouchableOpacity style={styles.layerRow} onPress={() => setDvpZIVOn(v => !v)}>
+            <View style={[styles.layerCheck, dvpZIVOn && styles.layerCheckOn]}>
+              {dvpZIVOn && <Text style={styles.layerCheckMark}>✓</Text>}
+            </View>
+            <View style={{ width: 24, height: 2, borderStyle: 'dashed', borderColor: '#888', borderWidth: 1, marginRight: 6 }} />
+            <Text style={[styles.layerLabel, !dvpZIVOn && styles.layerLabelOff]}>Tramos DVP Zona IV</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.layerRow} onPress={() => setDvpZVOn(v => !v)}>
+            <View style={[styles.layerCheck, dvpZVOn && styles.layerCheckOn]}>
+              {dvpZVOn && <Text style={styles.layerCheckMark}>✓</Text>}
+            </View>
+            <View style={{ width: 24, height: 2, borderStyle: 'dashed', borderColor: '#888', borderWidth: 1, marginRight: 6 }} />
+            <Text style={[styles.layerLabel, !dvpZVOn && styles.layerLabelOff]}>Tramos DVP Zona V</Text>
+          </TouchableOpacity>
 
           {/* ── Rutas Provinciales ──────────────────────────────────────── */}
           <Text style={[styles.drawerSection, { marginTop: 20 }]}>Rutas Provinciales</Text>
