@@ -434,7 +434,7 @@ function addDVPLayer(zona,gj){
   var visLayers=[],hi=0;
   var visLayer=L.geoJSON(gj,{
     interactive:false,
-    style:function(){return{color:'#888',weight:2,opacity:0.85,dashArray:'8 5'};},
+    style:function(){return{color:'#8b5cf6',weight:2,opacity:0.9};},
     onEachFeature:function(f,l){visLayers.push(l);}
   });
   var hitLayer=L.geoJSON(gj,{
@@ -446,7 +446,7 @@ function addDVPLayer(zona,gj){
       var zonaLabel=DVP_ZONA_LABEL[zona]||zona;
       l.bindPopup(
         '<div style="background:#1e2436;border-radius:10px;overflow:hidden;font-family:sans-serif;min-width:210px;max-width:250px">'
-        +'<div style="background:#555;padding:10px 14px">'
+        +'<div style="background:#6d28d9;padding:10px 14px">'
         +'<div style="font-size:10px;color:rgba(255,255,255,0.75);text-transform:uppercase;letter-spacing:1px">Tramo DVP · '+zonaLabel+'<\/div>'
         +'<div style="font-size:16px;font-weight:900;color:#fff;margin-top:2px">Dir. Vialidad Provincial<\/div>'
         +'<\/div>'
@@ -462,7 +462,7 @@ function addDVPLayer(zona,gj){
         +'<\/div><\/div>',
         {className:'dark-popup',closeButton:true,maxWidth:250}
       );
-      l.on('click',function(){if(visLayers[vi])ccHighlight(visLayers[vi],{color:'#888',weight:2,opacity:0.85,dashArray:'8 5'});});
+      l.on('click',function(){if(visLayers[vi])ccHighlight(visLayers[vi],{color:'#8b5cf6',weight:2,opacity:0.9});});
       l.on('popupclose',function(){ccReset();});
     }
   });
@@ -1028,14 +1028,14 @@ export default function MapaScreen() {
             <View style={[styles.layerCheck, dvpZIVOn && styles.layerCheckOn]}>
               {dvpZIVOn && <Text style={styles.layerCheckMark}>✓</Text>}
             </View>
-            <View style={{ width: 24, height: 2, borderStyle: 'dashed', borderColor: '#888', borderWidth: 1, marginRight: 6 }} />
+            <View style={{ width: 24, height: 2, borderStyle: 'dashed', borderColor: '#8b5cf6', borderWidth: 1, marginRight: 6 }} />
             <Text style={[styles.layerLabel, !dvpZIVOn && styles.layerLabelOff]}>Tramos DVP Zona IV</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.layerRow} onPress={() => setDvpZVOn(v => !v)}>
             <View style={[styles.layerCheck, dvpZVOn && styles.layerCheckOn]}>
               {dvpZVOn && <Text style={styles.layerCheckMark}>✓</Text>}
             </View>
-            <View style={{ width: 24, height: 2, borderStyle: 'dashed', borderColor: '#888', borderWidth: 1, marginRight: 6 }} />
+            <View style={{ width: 24, height: 2, borderStyle: 'dashed', borderColor: '#8b5cf6', borderWidth: 1, marginRight: 6 }} />
             <Text style={[styles.layerLabel, !dvpZVOn && styles.layerLabelOff]}>Tramos DVP Zona V</Text>
           </TouchableOpacity>
 
