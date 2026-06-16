@@ -6,6 +6,7 @@ import {
 import { WebView } from 'react-native-webview';
 import { GEO_BUNDLE } from '@/constants/geoBundle';
 import { RP_BUNDLE } from '@/constants/geoBundleRP';
+import { GEO_BUNDLE_CC } from '@/constants/geoBundleCC';
 
 // expo-location: importación condicional para evitar crash si no está instalado aún
 let Location: any = null;
@@ -44,6 +45,7 @@ type Layers = {
   rpMejorada: boolean;
   rpEnObra: boolean;
   rpTierra: boolean;
+  redCC: boolean;
 };
 
 type SedesZonas = Record<string, boolean>;
@@ -84,7 +86,7 @@ html,body,#map{width:100%;height:100vh;background:#f0ebe3}
 .pv{font-size:11px;color:#e0e6f0;font-weight:600;flex:1}
 .kg{display:flex;gap:4px;margin-top:8px}
 .kc{flex:1;background:#252d40;border-radius:5px;padding:5px;text-align:center}
-.kv{font-size:11px;font-weight:800}
+.kv{font-size:11px;font-weight:800;color:#e0e6f0}
 .kl{font-size:9px;color:#7a8aaa;margin-top:1px}
 .poi-popup{background:#1e2436;border:1px solid #2a3045;border-radius:8px;padding:8px 10px}
 .poi-name{color:#e0e6f0;font-size:12px;font-weight:700}
@@ -307,6 +309,46 @@ function updateUserLocation(lat,lng,acc){
   userMarker=L.circleMarker([lat,lng],{radius:8,fillColor:'#4285f4',color:'#fff',fillOpacity:1,weight:2.5}).addTo(map);
   map.setView([lat,lng],Math.max(map.getZoom(),14));
 }
+
+// ── Red bajo convenio CC (inyección lazy) ─────────────────────────
+var CC_LAYERS={};
+var CC_COLORS={ZI:'#6baed6',ZII:'#fb6a4a',ZIII:'#fdd44c',ZIV:'#74c476',ZV:'#9e9ac8'};
+var JERARQ_COLOR={PRIMARIA:'#c0392b',SECUNDARIA:'#2980b9',TERCIARIA:'#7f8c8d'};
+function addCCLayer(zona,gj){
+  if(CC_LAYERS[zona]) return;
+  var zColor=CC_COLORS[zona]||'#999';
+  CC_LAYERS[zona]=L.geoJSON(gj,{
+    style:function(f){
+      var j=(f.properties&&f.properties.J)||'TERCIARIA';
+      var c=JERARQ_COLOR[j]||zColor;
+      var w=j==='PRIMARIA'?2.5:j==='SECUNDARIA'?1.8:1.2;
+      return {color:c,weight:w,opacity:0.85};
+    },
+    onEachFeature:function(f,layer){
+      var p=f.properties||{};
+      var cc=parseInt(p.CC,10)||p.CC||'—';
+      var j=p.J||'—';
+      var m=p.M||'—';
+      var n=p.N?'Ruta '+p.N:'';
+      layer.bindPopup(
+        '<div style="background:#1e2436;border-radius:8px;padding:10px 14px;min-width:160px">'
+        +'<div style="font-size:10px;color:#7a8aaa;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Red bajo convenio</div>'
+        +'<div style="font-size:13px;font-weight:800;color:#e0e6f0;margin-bottom:4px">CC N° '+cc+'</div>'
+        +(n?'<div style="font-size:11px;color:#9aaac0">'+n+'<\/div>':'')
+        +'<div style="font-size:11px;color:#9aaac0">'+j+' · '+m+'<\/div>'
+        +'<\/div>',
+        {className:'dark-popup',closeButton:false}
+      );
+    }
+  }).addTo(map);
+}
+function removeCCLayer(){
+  Object.values(CC_LAYERS).forEach(function(l){map.removeLayer(l);});
+  CC_LAYERS={};
+}
+function showCCLayer(){
+  Object.values(CC_LAYERS).forEach(function(l){l.addTo(map);});
+}
 <\/script>
 </body>
 </html>`;
@@ -337,6 +379,7 @@ export default function MapaScreen() {
     rpMejorada: true,
     rpEnObra: true,
     rpTierra: false,
+    redCC: false,
   });
 
   const mapHtml = useMemo(
@@ -402,6 +445,32 @@ export default function MapaScreen() {
   useEffect(() => {
     return () => { locationSub.current?.remove?.(); };
   }, []);
+
+  // ── Inyección lazy de Red CC ───────────────────────────────────────────────
+  const ccInjected = useRef(false);
+  useEffect(() => {
+    if (layers.redCC && !ccInjected.current) {
+      // Primera vez que se activa: inyectar datos zona por zona
+      ccInjected.current = true;
+      ZONAS_LIST.forEach(zona => {
+        const data = GEO_BUNDLE_CC[zona];
+        if (!data) return;
+        const json = JSON.stringify(data);
+        webviewRef.current?.injectJavaScript(
+          `if(typeof addCCLayer==='function'){addCCLayer(${JSON.stringify(zona)},${json});} true;`
+        );
+      });
+    } else if (!layers.redCC) {
+      webviewRef.current?.injectJavaScript(
+        `if(typeof removeCCLayer==='function'){removeCCLayer();} true;`
+      );
+      ccInjected.current = false;
+    } else if (layers.redCC && ccInjected.current) {
+      webviewRef.current?.injectJavaScript(
+        `if(typeof showCCLayer==='function'){showCCLayer();} true;`
+      );
+    }
+  }, [layers.redCC]);
 
   const sedesCount = useMemo(
     () => GEO_BUNDLE.sedes.filter((c: any) => sedesZonas[c.zona]).length,
@@ -507,6 +576,16 @@ export default function MapaScreen() {
               <Text style={[styles.layerLabel, !layers[key] && styles.layerLabelOff]}>{label}</Text>
             </TouchableOpacity>
           ))}
+
+          {/* ── Red bajo convenio CC ────────────────────────────────────── */}
+          <Text style={[styles.drawerSection, { marginTop: 20 }]}>Red bajo Convenio CC</Text>
+          <TouchableOpacity style={styles.layerRow} onPress={() => toggleLayer('redCC')}>
+            <View style={[styles.layerCheck, layers.redCC && styles.layerCheckOn]}>
+              {layers.redCC && <Text style={styles.layerCheckMark}>✓</Text>}
+            </View>
+            <Text style={styles.layerIcon}>🛤</Text>
+            <Text style={[styles.layerLabel, !layers.redCC && styles.layerLabelOff]}>Red CC (todas las zonas)</Text>
+          </TouchableOpacity>
 
           {/* ── Rutas Provinciales ──────────────────────────────────────── */}
           <Text style={[styles.drawerSection, { marginTop: 20 }]}>Rutas Provinciales</Text>
