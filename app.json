@@ -23,6 +23,7 @@
         "backgroundColor": "#2C2C2C"
       },
       "package": "com.consorcio.caminero",
+      "versionCode": 2,
       "permissions": [
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION"
