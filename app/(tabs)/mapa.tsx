@@ -162,7 +162,7 @@ if(LAYERS.zonaBoundaries)
   Object.entries(LIMITES_ZONAS).forEach(function([zona,gj]){
     var c=ZONA_COLORS[zona]||'#aaa';
     L.geoJSON(gj,{
-      style:{color:c,weight:3.5,fillColor:c,fillOpacity:0.10,dashArray:'6 4'},
+      style:{color:c,weight:1.5,fillColor:c,fillOpacity:0.10},smoothFactor:0,
       onEachFeature:function(f,layer){
         var p=f.properties||{};
         var nombre=p.NOMBRE||p.Nombre||'';
@@ -311,7 +311,7 @@ sedesFiltradas.forEach(function(c){
     +'<div class="kc"><div class="kv" style="color:#27ae60">'+Math.round(c.redSecundaria||0)+' km<\/div><div class="kl">Secundaria<\/div><\/div>'
     +'<div class="kc"><div class="kv" style="color:#e67e22">'+Math.round(c.redPrimaria||0)+' km<\/div><div class="kl">Primaria<\/div><\/div>'
     +'<\/div>'
-    +'<button onclick="calcRoute(SEDES_MAP['+c.numero+'].lat,SEDES_MAP['+c.numero+'].lng,SEDES_MAP['+c.numero+'].nombre)" style="margin-top:10px;width:100%;background:linear-gradient(135deg,#1a5fc4,#0e3d8a);border:none;color:#fff;padding:9px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;letter-spacing:.3px">🛤 Ruta por Red CC<\/button>'
+    +'<button onclick="calcRoute(SEDES_MAP['+c.numero+'].lat,SEDES_MAP['+c.numero+'].lng,SEDES_MAP['+c.numero+'].nombre)" style="margin-top:10px;width:100%;background:linear-gradient(135deg,#1a5fc4,#0e3d8a);border:none;color:#fff;padding:9px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;letter-spacing:.3px">📍 Cómo llegar<\/button>'
     +'<\/div><\/div>';
   L.marker([c.lat,c.lng],{icon:icon}).bindPopup(popup,{maxWidth:270}).addTo(map);
 });
@@ -333,35 +333,76 @@ var CC_COLORS={ZI:'#6baed6',ZII:'#fb6a4a',ZIII:'#fdd44c',ZIV:'#74c476',ZV:'#9e9a
 var JERARQ_COLOR={PRIMARIA:'#c0392b',SECUNDARIA:'#2980b9',TERCIARIA:'#7f8c8d'};
 var routeGraph=null,routeLayer=null;
 
+var _ccHL=null,_ccHLStyle=null;
+function ccHighlight(visLayer,baseStyle){
+  if(_ccHL){_ccHL.setStyle(_ccHLStyle);}
+  _ccHL=visLayer;_ccHLStyle=baseStyle;
+  visLayer.setStyle({color:'#F5C300',weight:(baseStyle.weight||2)+5,opacity:1});
+  if(visLayer.bringToFront)visLayer.bringToFront();
+}
+function ccReset(){if(_ccHL){_ccHL.setStyle(_ccHLStyle);_ccHL=null;_ccHLStyle=null;}}
+
 function addCCData(cc,zona,gj){
   if(CC_LAYERS_CC[cc])return;
   CC_DATA_CC[cc]=gj;
   routeGraph=null;
   var zColor=CC_COLORS[zona]||'#999';
-  CC_LAYERS_CC[cc]=L.geoJSON(gj,{
+  var visLayers=[],hi=0;
+  var visLayer=L.geoJSON(gj,{
+    interactive:false,
     style:function(f){
       var j=(f.properties&&f.properties.J)||'TERCIARIA';
       var c=JERARQ_COLOR[j]||zColor;
       var w=j==='PRIMARIA'?2.5:j==='SECUNDARIA'?1.8:1.2;
       return{color:c,weight:w,opacity:0.85};
     },
-    onEachFeature:function(f,layer){
+    onEachFeature:function(f,l){visLayers.push(l);}
+  });
+  var hitLayer=L.geoJSON(gj,{
+    style:function(){return{color:'#000',weight:22,opacity:0.001};},
+    onEachFeature:function(f,l){
+      var vi=hi++;
       var p=f.properties||{};
-      var num=parseInt(p.CC,10)||p.CC||'—';
-      var j=p.J||'—';
+      var ccNum=parseInt(p.CC,10)||p.CC||'—';
+      var j=p.J||'TERCIARIA';
+      var jLabel=j.charAt(0)+j.slice(1).toLowerCase();
+      var jColor=JERARQ_COLOR[j]||zColor;
       var m=p.M||'—';
-      var n=p.N?'Ruta '+p.N:'';
-      layer.bindPopup(
-        '<div style="background:#1e2436;border-radius:8px;padding:10px 14px;min-width:160px">'
-        +'<div style="font-size:10px;color:#7a8aaa;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Red bajo convenio<\/div>'
-        +'<div style="font-size:13px;font-weight:800;color:#e0e6f0;margin-bottom:4px">CC N° '+num+'<\/div>'
-        +(n?'<div style="font-size:11px;color:#9aaac0">'+n+'<\/div>':'')
-        +'<div style="font-size:11px;color:#9aaac0">'+j+' · '+m+'<\/div>'
+      var ruta=p.N?'N° '+p.N:'—';
+      var mn=p.Mn||'—';
+      var baseStyle={color:jColor,weight:j==='PRIMARIA'?2.5:j==='SECUNDARIA'?1.8:1.2,opacity:0.85};
+      l.bindPopup(
+        '<div style="background:#1e2436;border-radius:10px;overflow:hidden;font-family:sans-serif;min-width:210px;max-width:250px">'
+        +'<div style="background:'+jColor+';padding:10px 14px">'
+        +'<div style="font-size:10px;color:rgba(255,255,255,0.75);text-transform:uppercase;letter-spacing:1px">Red bajo Convenio CC<\/div>'
+        +'<div style="font-size:20px;font-weight:900;color:#fff;margin-top:2px">CC N° '+ccNum+'<\/div>'
+        +'<\/div>'
+        +'<div style="padding:10px 14px">'
+        +'<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #2a3045">'
+        +'<span style="font-size:10px;color:#7a8aaa;width:90px">Ruta<\/span>'
+        +'<span style="font-size:12px;color:#e0e6f0;font-weight:600">'+ruta+'<\/span>'
+        +'<\/div>'
+        +'<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #2a3045">'
+        +'<span style="font-size:10px;color:#7a8aaa;width:90px">Jerarquía<\/span>'
+        +'<span style="font-size:12px;color:#e0e6f0;font-weight:600">'+jLabel+'<\/span>'
+        +'<\/div>'
+        +'<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #2a3045">'
+        +'<span style="font-size:10px;color:#7a8aaa;width:90px">Superficie<\/span>'
+        +'<span style="font-size:12px;color:#e0e6f0;font-weight:600">'+m+'<\/span>'
+        +'<\/div>'
+        +'<div style="display:flex;align-items:center;gap:8px;padding:5px 0">'
+        +'<span style="font-size:10px;color:#7a8aaa;width:90px">Mantenimiento<\/span>'
+        +'<span style="font-size:12px;color:#e0e6f0;font-weight:600">'+mn+'<\/span>'
+        +'<\/div>'
+        +'<\/div>'
         +'<\/div>',
-        {className:'dark-popup',closeButton:false}
+        {className:'dark-popup',closeButton:true,maxWidth:260}
       );
+      l.on('click',function(){if(visLayers[vi])ccHighlight(visLayers[vi],baseStyle);});
+      l.on('popupclose',function(){ccReset();});
     }
   });
+  CC_LAYERS_CC[cc]=L.layerGroup([visLayer,hitLayer]);
 }
 function showCCNum(cc){if(CC_LAYERS_CC[cc])CC_LAYERS_CC[cc].addTo(map);}
 function hideCCNum(cc){if(CC_LAYERS_CC[cc])map.removeLayer(CC_LAYERS_CC[cc]);}
@@ -403,16 +444,21 @@ function buildRouteGraph(){
   routeGraph={};
   routeNodes=[];
   var nodeMap={},nId=0;
-  function snap(c){return c[0].toFixed(4)+','+c[1].toFixed(4);}
+  function snap(c){return c[0].toFixed(3)+','+c[1].toFixed(3);}
   function getNode(c){
     var k=snap(c);
     if(nodeMap[k]===undefined){nodeMap[k]=nId;routeNodes.push([c[1],c[0]]);routeGraph[nId]=[];nId++;}
     return nodeMap[k];
   }
-  Object.values(CC_DATA_CC).forEach(function(gj){
-    (gj.features||[]).forEach(function(f){
+  var sources=Object.values(CC_DATA_CC).concat([RUTAS,RP_PAV,RP_MEJ,RP_OBR,RP_TIE]);
+  sources.forEach(function(gj){
+    if(!gj||!gj.features)return;
+    gj.features.forEach(function(f){
       var geom=f.geometry;
-      var lines=geom.type==='MultiLineString'?geom.coordinates:[geom.coordinates];
+      if(!geom)return;
+      var lines=geom.type==='MultiLineString'?geom.coordinates:
+                geom.type==='LineString'?[geom.coordinates]:null;
+      if(!lines)return;
       lines.forEach(function(line){
         for(var i=0;i<line.length-1;i++){
           var a=line[i],b=line[i+1];
@@ -472,10 +518,6 @@ function clearRoute(){
 }
 
 function calcRoute(sedeLat,sedeLng,nombre){
-  if(Object.keys(CC_DATA_CC).length===0){
-    alert('Activá la capa "Red CC" en el menú de capas primero.');
-    return;
-  }
   if(!userMarker){
     alert('Activá el GPS (botón ubicación) para conocer tu posición.');
     return;
@@ -493,8 +535,8 @@ function calcRoute(sedeLat,sedeLng,nombre){
     L.popup({closeButton:true,maxWidth:240})
       .setLatLng([sedeLat,sedeLng])
       .setContent('<div style="background:#1e2436;border-radius:8px;padding:10px 14px">'
-        +'<div style="color:#ff8c00;font-weight:800;font-size:13px">⚠ Sin ruta CC directa<\/div>'
-        +'<div style="color:#9aaac0;font-size:11px;margin-top:4px">La red CC no conecta los puntos.<br>Se muestra línea recta.<\/div>'
+        +'<div style="color:#ff8c00;font-weight:800;font-size:13px">⚠ Sin ruta encontrada<\/div>'
+        +'<div style="color:#9aaac0;font-size:11px;margin-top:4px">No se encontró camino en la red vial.<br>Se muestra línea recta.<\/div>'
         +'<button onclick="clearRoute()" style="margin-top:8px;background:#2a3450;border:none;color:#9aaac0;padding:5px 12px;border-radius:6px;font-size:11px;cursor:pointer">✕ Cerrar<\/button>'
         +'<\/div>')
       .openOn(map);
@@ -511,7 +553,7 @@ function calcRoute(sedeLat,sedeLng,nombre){
   L.popup({closeButton:true,maxWidth:260})
     .setLatLng([sedeLat,sedeLng])
     .setContent('<div style="background:#1e2436;border-radius:8px;padding:12px 16px">'
-      +'<div style="font-size:10px;color:#7a8aaa;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Ruta por Red CC · '+nombre+'<\/div>'
+      +'<div style="font-size:10px;color:#7a8aaa;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Cómo llegar · '+nombre+'<\/div>'
       +'<div style="font-size:20px;font-weight:900;color:#00d4ff;margin-bottom:2px">'+km+' km<\/div>'
       +'<div style="font-size:12px;color:#9aaac0">≈ '+mins+' min a 40 km/h<\/div>'
       +'<button onclick="clearRoute()" style="margin-top:10px;background:#2a3450;border:none;color:#9aaac0;padding:6px 14px;border-radius:7px;font-size:11px;cursor:pointer">✕ Limpiar ruta<\/button>'
