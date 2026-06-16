@@ -609,6 +609,14 @@ export default function MapaScreen() {
   const ccDataCache = useRef<Record<number, any>>({});
   const prevCCRef = useRef<Record<string, CCZonaState>>({});
 
+  // Cuando el WebView recarga (por cambio de mapHtml), reseteamos los refs
+  // para que el efecto de CC re-inyecte todas las capas activas
+  const onWebViewLoad = useCallback(() => {
+    prevCCRef.current = {};
+    ccLoadedNums.current = new Set();
+    setCCState(s => ({ ...s }));
+  }, []);
+
   const mapHtml = useMemo(
     () => buildMapHtml(sedesZonas, layers),
     [sedesZonas, layers]
@@ -781,6 +789,7 @@ export default function MapaScreen() {
         startInLoadingState={false}
         scrollEnabled={false}
         overScrollMode="never"
+        onLoad={onWebViewLoad}
       />
 
       {/* ── OVERLAY del drawer ────────────────────────────────────────────── */}
