@@ -276,8 +276,10 @@ if(LAYERS.salud){
 
 // ── Sedes Sociales ────────────────────────────────────────────────
 var sedesFiltradas=SEDES.filter(function(c){return SEDES_ZONAS[c.zona];});
+var SEDES_MAP={};
 if(sedesFiltradas.length>0){
 sedesFiltradas.forEach(function(c){
+  SEDES_MAP[c.numero]={lat:c.lat,lng:c.lng,nombre:c.nombre||('CC N° '+c.numero)};
   var icon=L.divIcon({className:'',
     html:'<div class="custom-marker" style="background:'+c.color+'">'+c.numero+'<\/div>',
     iconSize:[26,26],iconAnchor:[13,13],popupAnchor:[0,-14]});
@@ -296,7 +298,9 @@ sedesFiltradas.forEach(function(c){
     +'<div class="kc"><div class="kv">'+Math.round(c.redTerciaria||0)+' km<\/div><div class="kl">Terciaria<\/div><\/div>'
     +'<div class="kc"><div class="kv" style="color:#27ae60">'+Math.round(c.redSecundaria||0)+' km<\/div><div class="kl">Secundaria<\/div><\/div>'
     +'<div class="kc"><div class="kv" style="color:#e67e22">'+Math.round(c.redPrimaria||0)+' km<\/div><div class="kl">Primaria<\/div><\/div>'
-    +'<\/div><\/div><\/div>';
+    +'<\/div>'
+    +'<button onclick="calcRoute(SEDES_MAP['+c.numero+'].lat,SEDES_MAP['+c.numero+'].lng,SEDES_MAP['+c.numero+'].nombre)" style="margin-top:10px;width:100%;background:linear-gradient(135deg,#1a5fc4,#0e3d8a);border:none;color:#fff;padding:9px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;letter-spacing:.3px">🛤 Ruta por Red CC<\/button>'
+    +'<\/div><\/div>';
   L.marker([c.lat,c.lng],{icon:icon}).bindPopup(popup,{maxWidth:270}).addTo(map);
 });
 } // end if LAYERS.sedes
@@ -312,10 +316,14 @@ function updateUserLocation(lat,lng,acc){
 
 // ── Red bajo convenio CC (inyección lazy) ─────────────────────────
 var CC_LAYERS={};
+var CC_DATA={};
 var CC_COLORS={ZI:'#6baed6',ZII:'#fb6a4a',ZIII:'#fdd44c',ZIV:'#74c476',ZV:'#9e9ac8'};
 var JERARQ_COLOR={PRIMARIA:'#c0392b',SECUNDARIA:'#2980b9',TERCIARIA:'#7f8c8d'};
+var routeGraph=null,routeLayer=null;
 function addCCLayer(zona,gj){
   if(CC_LAYERS[zona]) return;
+  CC_DATA[zona]=gj;
+  routeGraph=null;
   var zColor=CC_COLORS[zona]||'#999';
   CC_LAYERS[zona]=L.geoJSON(gj,{
     style:function(f){
@@ -345,9 +353,164 @@ function addCCLayer(zona,gj){
 function removeCCLayer(){
   Object.values(CC_LAYERS).forEach(function(l){map.removeLayer(l);});
   CC_LAYERS={};
+  CC_DATA={};
+  routeGraph=null;
+  clearRoute();
 }
 function showCCLayer(){
   Object.values(CC_LAYERS).forEach(function(l){l.addTo(map);});
+}
+
+// ── Routing Dijkstra sobre Red CC ─────────────────────────────────
+function haversineM(lat1,lon1,lat2,lon2){
+  var R=6371000;
+  var p1=lat1*Math.PI/180,p2=lat2*Math.PI/180;
+  var dp=(lat2-lat1)*Math.PI/180,dl=(lon2-lon1)*Math.PI/180;
+  var a=Math.sin(dp/2)*Math.sin(dp/2)+Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)*Math.sin(dl/2);
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+
+function MinHeap(){this.h=[];}
+MinHeap.prototype.push=function(item){
+  this.h.push(item);
+  var i=this.h.length-1;
+  while(i>0){var p=Math.floor((i-1)/2);if(this.h[p][0]<=this.h[i][0])break;var t=this.h[p];this.h[p]=this.h[i];this.h[i]=t;i=p;}
+};
+MinHeap.prototype.pop=function(){
+  var top=this.h[0],last=this.h.pop();
+  if(this.h.length>0){this.h[0]=last;var i=0,n=this.h.length;
+    while(true){var l=2*i+1,r=2*i+2,m=i;
+      if(l<n&&this.h[l][0]<this.h[m][0])m=l;
+      if(r<n&&this.h[r][0]<this.h[m][0])m=r;
+      if(m===i)break;var t=this.h[m];this.h[m]=this.h[i];this.h[i]=t;i=m;}}
+  return top;
+};
+MinHeap.prototype.size=function(){return this.h.length;};
+
+var routeNodes=[];
+
+function buildRouteGraph(){
+  routeGraph={};
+  routeNodes=[];
+  var nodeMap={},nId=0;
+  function snap(c){return c[0].toFixed(4)+','+c[1].toFixed(4);}
+  function getNode(c){
+    var k=snap(c);
+    if(nodeMap[k]===undefined){nodeMap[k]=nId;routeNodes.push([c[1],c[0]]);routeGraph[nId]=[];nId++;}
+    return nodeMap[k];
+  }
+  Object.values(CC_DATA).forEach(function(gj){
+    (gj.features||[]).forEach(function(f){
+      var geom=f.geometry;
+      var lines=geom.type==='MultiLineString'?geom.coordinates:[geom.coordinates];
+      lines.forEach(function(line){
+        for(var i=0;i<line.length-1;i++){
+          var a=line[i],b=line[i+1];
+          var na=getNode(a),nb=getNode(b);
+          if(na===nb)continue;
+          var d=haversineM(a[1],a[0],b[1],b[0]);
+          routeGraph[na].push({id:nb,dist:d,a:a,b:b});
+          routeGraph[nb].push({id:na,dist:d,a:b,b:a});
+        }
+      });
+    });
+  });
+}
+
+function findNearestNode(lat,lng){
+  var best=0,bestDist=Infinity;
+  for(var i=0;i<routeNodes.length;i++){
+    var n=routeNodes[i];
+    var d=haversineM(lat,lng,n[0],n[1]);
+    if(d<bestDist){bestDist=d;best=i;}
+  }
+  return {id:best,dist:bestDist};
+}
+
+function dijkstra(startId,endId){
+  var INF=Infinity;
+  var n=routeNodes.length;
+  var dist=new Array(n).fill(INF);
+  var prev=new Array(n).fill(-1);
+  var prevEdge=new Array(n).fill(null);
+  dist[startId]=0;
+  var pq=new MinHeap();
+  pq.push([0,startId]);
+  while(pq.size()>0){
+    var top=pq.pop(),d=top[0],u=top[1];
+    if(u===endId)break;
+    if(d>dist[u])continue;
+    var nb=routeGraph[u]||[];
+    for(var i=0;i<nb.length;i++){
+      var e=nb[i],nd=d+e.dist;
+      if(nd<dist[e.id]){dist[e.id]=nd;prev[e.id]=u;prevEdge[e.id]=[e.a,e.b];pq.push([nd,e.id]);}
+    }
+  }
+  if(dist[endId]===INF)return null;
+  var segs=[];
+  var cur=endId;
+  while(cur!==startId&&cur!==-1){
+    var edge=prevEdge[cur];
+    if(edge)segs.unshift([[edge[0][1],edge[0][0]],[edge[1][1],edge[1][0]]]);
+    cur=prev[cur];
+  }
+  return{segs:segs,distM:dist[endId]};
+}
+
+function clearRoute(){
+  if(routeLayer){map.removeLayer(routeLayer);routeLayer=null;}
+}
+
+function calcRoute(sedeLat,sedeLng,nombre){
+  if(Object.keys(CC_DATA).length===0){
+    alert('Activá la capa "Red CC" en el menú de capas primero.');
+    return;
+  }
+  if(!userMarker){
+    alert('Activá el GPS (botón ubicación) para conocer tu posición.');
+    return;
+  }
+  var uLL=userMarker.getLatLng();
+  if(!routeGraph)buildRouteGraph();
+  var startN=findNearestNode(uLL.lat,uLL.lng);
+  var endN=findNearestNode(sedeLat,sedeLng);
+  clearRoute();
+  var result=dijkstra(startN.id,endN.id);
+  if(!result||result.segs.length===0){
+    routeLayer=L.layerGroup([
+      L.polyline([[uLL.lat,uLL.lng],[sedeLat,sedeLng]],{color:'#ff6600',weight:3,dashArray:'10 8',opacity:0.85})
+    ]).addTo(map);
+    L.popup({closeButton:true,maxWidth:240})
+      .setLatLng([sedeLat,sedeLng])
+      .setContent('<div style="background:#1e2436;border-radius:8px;padding:10px 14px">'
+        +'<div style="color:#ff8c00;font-weight:800;font-size:13px">⚠ Sin ruta CC directa<\/div>'
+        +'<div style="color:#9aaac0;font-size:11px;margin-top:4px">La red CC no conecta los puntos.<br>Se muestra línea recta.<\/div>'
+        +'<button onclick="clearRoute()" style="margin-top:8px;background:#2a3450;border:none;color:#9aaac0;padding:5px 12px;border-radius:6px;font-size:11px;cursor:pointer">✕ Cerrar<\/button>'
+        +'<\/div>')
+      .openOn(map);
+    return;
+  }
+  var allLL=[];
+  result.segs.forEach(function(s){allLL=allLL.concat(s);});
+  routeLayer=L.layerGroup([
+    L.polyline(allLL,{color:'#000',weight:7,opacity:0.25}),
+    L.polyline(allLL,{color:'#00d4ff',weight:4,opacity:1})
+  ]).addTo(map);
+  var km=(result.distM/1000).toFixed(1);
+  var mins=Math.round(result.distM/1000/40*60);
+  L.popup({closeButton:true,maxWidth:260})
+    .setLatLng([sedeLat,sedeLng])
+    .setContent('<div style="background:#1e2436;border-radius:8px;padding:12px 16px">'
+      +'<div style="font-size:10px;color:#7a8aaa;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Ruta por Red CC · '+nombre+'<\/div>'
+      +'<div style="font-size:20px;font-weight:900;color:#00d4ff;margin-bottom:2px">'+km+' km<\/div>'
+      +'<div style="font-size:12px;color:#9aaac0">≈ '+mins+' min a 40 km/h<\/div>'
+      +'<button onclick="clearRoute()" style="margin-top:10px;background:#2a3450;border:none;color:#9aaac0;padding:6px 14px;border-radius:7px;font-size:11px;cursor:pointer">✕ Limpiar ruta<\/button>'
+      +'<\/div>')
+    .openOn(map);
+  try{
+    var bounds=L.latLngBounds(allLL);
+    map.fitBounds(bounds,{padding:[50,50]});
+  }catch(e){}
 }
 <\/script>
 </body>
