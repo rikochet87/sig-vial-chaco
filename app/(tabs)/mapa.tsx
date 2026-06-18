@@ -526,7 +526,9 @@ function buildRouteGraph(){
     if(nodeMap[k]===undefined){nodeMap[k]=nId;routeNodes.push([c[1],c[0]]);routeGraph[nId]=[];nId++;}
     return nodeMap[k];
   }
-  var sources=Object.values(CC_DATA_CC).concat([RUTAS,RP_PAV,RP_MEJ,RP_OBR,RP_TIE]);
+  var sources=Object.values(CC_DATA_CC)
+    .concat(Object.values(RUTAS))
+    .concat([RP_PAV,RP_MEJ,RP_OBR,RP_TIE]);
   sources.forEach(function(gj){
     if(!gj||!gj.features)return;
     gj.features.forEach(function(f){
@@ -625,41 +627,63 @@ function _execRoute(uLL,sedeLat,sedeLng,nombre){
   var startN=findNearestNode(uLL.lat,uLL.lng);
   var endN=findNearestNode(sedeLat,sedeLng);
   clearRoute();
-  var result=dijkstra(startN.id,endN.id);
-  if(!result||result.segs.length===0){
-    routeLayer=L.layerGroup([
-      L.polyline([[uLL.lat,uLL.lng],[sedeLat,sedeLng]],{color:'#ff6600',weight:3,dashArray:'10 8',opacity:0.85})
-    ]).addTo(map);
-    L.popup({closeButton:true,maxWidth:240})
-      .setLatLng([sedeLat,sedeLng])
-      .setContent('<div style="background:#1e2436;border-radius:8px;padding:10px 14px">'
-        +'<div style="color:#ff8c00;font-weight:800;font-size:13px">⚠ Sin ruta encontrada<\/div>'
-        +'<div style="color:#9aaac0;font-size:11px;margin-top:4px">No se encontró camino en la red vial.<br>Se muestra línea recta.<\/div>'
-        +'<button onclick="clearRoute()" style="margin-top:8px;background:#2a3450;border:none;color:#9aaac0;padding:5px 12px;border-radius:6px;font-size:11px;cursor:pointer">✕ Cerrar<\/button>'
-        +'<\/div>')
-      .openOn(map);
-    return;
+
+  var startNode=routeNodes[startN.id];  // [lat,lng] del nodo más cercano al usuario
+  var endNode=routeNodes[endN.id];      // [lat,lng] del nodo más cercano a la sede
+
+  var layers=[];
+  var totalDist=0;
+
+  // Segmento de acceso: posición usuario → entrada a la red vial (línea punteada)
+  if(startN.dist>30){
+    layers.push(L.polyline([[uLL.lat,uLL.lng],[startNode[0],startNode[1]]],
+      {color:'#00d4ff',weight:2.5,dashArray:'7 6',opacity:0.75}));
+    totalDist+=startN.dist;
   }
-  var allLL=[];
-  result.segs.forEach(function(s){allLL=allLL.concat(s);});
-  routeLayer=L.layerGroup([
-    L.polyline(allLL,{color:'#000',weight:7,opacity:0.25}),
-    L.polyline(allLL,{color:'#00d4ff',weight:4,opacity:1})
-  ]).addTo(map);
-  var km=(result.distM/1000).toFixed(1);
-  var mins=Math.round(result.distM/1000/40*60);
+
+  var result=dijkstra(startN.id,endN.id);
+
+  if(result&&result.segs.length>0){
+    // Ruta por red vial
+    var allLL=[];
+    result.segs.forEach(function(s){allLL=allLL.concat(s);});
+    layers.push(L.polyline(allLL,{color:'#000',weight:7,opacity:0.2}));
+    layers.push(L.polyline(allLL,{color:'#00d4ff',weight:4,opacity:1}));
+    totalDist+=result.distM;
+  } else {
+    // Sin conexión en la red — línea recta entre nodos de entrada y salida
+    layers.push(L.polyline([[startNode[0],startNode[1]],[endNode[0],endNode[1]]],
+      {color:'#00d4ff',weight:3,dashArray:'10 7',opacity:0.7}));
+    totalDist+=haversineM(startNode[0],startNode[1],endNode[0],endNode[1]);
+  }
+
+  // Segmento de llegada: salida de la red vial → sede (línea punteada)
+  if(endN.dist>30){
+    layers.push(L.polyline([[endNode[0],endNode[1]],[sedeLat,sedeLng]],
+      {color:'#00d4ff',weight:2.5,dashArray:'7 6',opacity:0.75}));
+    totalDist+=endN.dist;
+  }
+
+  routeLayer=L.layerGroup(layers).addTo(map);
+
+  var km=(totalDist/1000).toFixed(1);
+  var mins=Math.round(totalDist/1000/40*60);
+  var sinRed=(!result||result.segs.length===0);
   L.popup({closeButton:true,maxWidth:260})
     .setLatLng([sedeLat,sedeLng])
     .setContent('<div style="background:#1e2436;border-radius:8px;padding:12px 16px">'
       +'<div style="font-size:10px;color:#7a8aaa;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Cómo llegar · '+nombre+'<\/div>'
       +'<div style="font-size:20px;font-weight:900;color:#00d4ff;margin-bottom:2px">'+km+' km<\/div>'
       +'<div style="font-size:12px;color:#9aaac0">≈ '+mins+' min a 40 km/h<\/div>'
+      +(sinRed?'<div style="font-size:10px;color:#ff8c00;margin-top:6px">⚠ Ruta aproximada · sin conexión en red vial<\/div>':'')
       +'<button onclick="clearRoute()" style="margin-top:10px;background:#2a3450;border:none;color:#9aaac0;padding:6px 14px;border-radius:7px;font-size:11px;cursor:pointer">✕ Limpiar ruta<\/button>'
       +'<\/div>')
     .openOn(map);
+
   try{
-    var bounds=L.latLngBounds(allLL);
-    map.fitBounds(bounds,{padding:[50,50]});
+    var allPts=[[uLL.lat,uLL.lng],[sedeLat,sedeLng]];
+    if(result&&result.segs.length>0){result.segs.forEach(function(s){allPts=allPts.concat(s);});}
+    map.fitBounds(L.latLngBounds(allPts),{padding:[50,50]});
   }catch(e){}
 }
 <\/script>
