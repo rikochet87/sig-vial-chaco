@@ -656,86 +656,108 @@ function showRouteToast(msg){
 }
 function hideRouteToast(){if(_routeToast){map.closePopup(_routeToast);_routeToast=null;}}
 
-function calcRoute(sedeLat,sedeLng,nombre){
-  if(!userMarker){
-    alert('Activá el GPS (botón ubicación) para conocer tu posición.');
-    return;
-  }
-  var uLL=userMarker.getLatLng();
-  if(!routeGraph){
-    showRouteToast('⏳ Calculando red vial...');
-    setTimeout(function(){
-      buildRouteGraph();
-      hideRouteToast();
-      _execRoute(uLL,sedeLat,sedeLng,nombre);
-    },50);
-    return;
-  }
-  _execRoute(uLL,sedeLat,sedeLng,nombre);
+// ── Popup de resultado de ruta ────────────────────────────────────
+function _showRoutePopup(sedeLat,sedeLng,nombre,km,mins,tag){
+  L.popup({closeButton:true,maxWidth:260})
+    .setLatLng([sedeLat,sedeLng])
+    .setContent('<div style="background:#1e2436;border-radius:8px;padding:12px 16px">'
+      +'<div style="font-size:10px;color:#7a8aaa;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Cómo llegar · '+nombre+'<\/div>'
+      +'<div style="font-size:20px;font-weight:900;color:#00d4ff;margin-bottom:2px">'+km+' km<\/div>'
+      +'<div style="font-size:12px;color:#9aaac0">≈ '+mins+' min<\/div>'
+      +(tag?'<div style="font-size:10px;color:#7a8aaa;margin-top:5px">'+tag+'<\/div>':'')
+      +'<button onclick="clearRoute()" style="margin-top:10px;background:#2a3450;border:none;color:#9aaac0;padding:6px 14px;border-radius:7px;font-size:11px;cursor:pointer">✕ Limpiar ruta<\/button>'
+      +'<\/div>')
+    .openOn(map);
 }
 
-function _execRoute(uLL,sedeLat,sedeLng,nombre){
+// ── Ruta online con OSRM ──────────────────────────────────────────
+function _drawOSRMRoute(uLL,route,sedeLat,sedeLng,nombre){
+  clearRoute();
+  var coords=route.geometry.coordinates;
+  var allLL=coords.map(function(c){return[c[1],c[0]];});
+  routeLayer=L.layerGroup([
+    L.polyline(allLL,{color:'#000',weight:7,opacity:0.2}),
+    L.polyline(allLL,{color:'#00d4ff',weight:4,opacity:1})
+  ]).addTo(map);
+  var km=(route.distance/1000).toFixed(1);
+  var mins=Math.round(route.duration/60);
+  _showRoutePopup(sedeLat,sedeLng,nombre,km,mins,'🌐 Ruta via OSM (online)');
+  try{map.fitBounds(L.latLngBounds(allLL),{padding:[50,50]});}catch(e){}
+}
+
+// ── Ruta offline con Dijkstra ─────────────────────────────────────
+function _execOfflineRoute(uLL,sedeLat,sedeLng,nombre){
+  if(!routeGraph){buildRouteGraph();}
   var startN=findNearestNode(uLL.lat,uLL.lng);
   var endN=findNearestNode(sedeLat,sedeLng);
   clearRoute();
+  var startNode=routeNodes[startN.id];
+  var endNode=routeNodes[endN.id];
+  var layers=[],totalDist=0;
 
-  var startNode=routeNodes[startN.id];  // [lat,lng] del nodo más cercano al usuario
-  var endNode=routeNodes[endN.id];      // [lat,lng] del nodo más cercano a la sede
-
-  var layers=[];
-  var totalDist=0;
-
-  // Segmento de acceso: posición usuario → entrada a la red vial (línea punteada)
   if(startN.dist>30){
     layers.push(L.polyline([[uLL.lat,uLL.lng],[startNode[0],startNode[1]]],
       {color:'#00d4ff',weight:2.5,dashArray:'7 6',opacity:0.75}));
     totalDist+=startN.dist;
   }
-
   var result=dijkstra(startN.id,endN.id);
-
   if(result&&result.segs.length>0){
-    // Ruta por red vial
     var allLL=[];
     result.segs.forEach(function(s){allLL=allLL.concat(s);});
     layers.push(L.polyline(allLL,{color:'#000',weight:7,opacity:0.2}));
     layers.push(L.polyline(allLL,{color:'#00d4ff',weight:4,opacity:1}));
     totalDist+=result.distM;
   } else {
-    // Sin conexión en la red — línea recta entre nodos de entrada y salida
     layers.push(L.polyline([[startNode[0],startNode[1]],[endNode[0],endNode[1]]],
       {color:'#00d4ff',weight:3,dashArray:'10 7',opacity:0.7}));
     totalDist+=haversineM(startNode[0],startNode[1],endNode[0],endNode[1]);
   }
-
-  // Segmento de llegada: salida de la red vial → sede (línea punteada)
   if(endN.dist>30){
     layers.push(L.polyline([[endNode[0],endNode[1]],[sedeLat,sedeLng]],
       {color:'#00d4ff',weight:2.5,dashArray:'7 6',opacity:0.75}));
     totalDist+=endN.dist;
   }
-
   routeLayer=L.layerGroup(layers).addTo(map);
-
   var km=(totalDist/1000).toFixed(1);
   var mins=Math.round(totalDist/1000/40*60);
   var sinRed=(!result||result.segs.length===0);
-  L.popup({closeButton:true,maxWidth:260})
-    .setLatLng([sedeLat,sedeLng])
-    .setContent('<div style="background:#1e2436;border-radius:8px;padding:12px 16px">'
-      +'<div style="font-size:10px;color:#7a8aaa;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Cómo llegar · '+nombre+'<\/div>'
-      +'<div style="font-size:20px;font-weight:900;color:#00d4ff;margin-bottom:2px">'+km+' km<\/div>'
-      +'<div style="font-size:12px;color:#9aaac0">≈ '+mins+' min a 40 km/h<\/div>'
-      +(sinRed?'<div style="font-size:10px;color:#ff8c00;margin-top:6px">⚠ Ruta aproximada · sin conexión en red vial<\/div>':'')
-      +'<button onclick="clearRoute()" style="margin-top:10px;background:#2a3450;border:none;color:#9aaac0;padding:6px 14px;border-radius:7px;font-size:11px;cursor:pointer">✕ Limpiar ruta<\/button>'
-      +'<\/div>')
-    .openOn(map);
-
+  var tag=sinRed?'⚠ Ruta aproximada · sin conexión en red':'📡 Modo offline · red vial provincial';
+  _showRoutePopup(sedeLat,sedeLng,nombre,km,mins,tag);
   try{
     var allPts=[[uLL.lat,uLL.lng],[sedeLat,sedeLng]];
     if(result&&result.segs.length>0){result.segs.forEach(function(s){allPts=allPts.concat(s);});}
     map.fitBounds(L.latLngBounds(allPts),{padding:[50,50]});
   }catch(e){}
+}
+
+// ── calcRoute: intenta OSRM online, cae a offline si falla ────────
+function calcRoute(sedeLat,sedeLng,nombre){
+  if(!userMarker){
+    alert('Activá el GPS (botón ubicación) para conocer tu posición.');
+    return;
+  }
+  var uLL=userMarker.getLatLng();
+  showRouteToast('⏳ Calculando ruta...');
+  var ctrl=new AbortController();
+  var timer=setTimeout(function(){ctrl.abort();},5000);
+  var osrmUrl='https://router.project-osrm.org/route/v1/driving/'
+    +uLL.lng+','+uLL.lat+';'+sedeLng+','+sedeLat
+    +'?overview=full&geometries=geojson';
+  fetch(osrmUrl,{signal:ctrl.signal})
+    .then(function(r){clearTimeout(timer);return r.json();})
+    .then(function(data){
+      hideRouteToast();
+      if(data.code==='Ok'&&data.routes&&data.routes[0]){
+        _drawOSRMRoute(uLL,data.routes[0],sedeLat,sedeLng,nombre);
+      } else {
+        _execOfflineRoute(uLL,sedeLat,sedeLng,nombre);
+      }
+    })
+    .catch(function(){
+      clearTimeout(timer);
+      hideRouteToast();
+      _execOfflineRoute(uLL,sedeLat,sedeLng,nombre);
+    });
 }
 <\/script>
 </body>
