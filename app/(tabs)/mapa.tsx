@@ -106,8 +106,9 @@ html,body,#map{width:100%;height:100vh;background:#f0ebe3}
 .dark-popup .leaflet-popup-content-wrapper{background:#1e2436;border:1px solid #2a3045;border-radius:8px;padding:0;box-shadow:0 4px 12px rgba(0,0,0,.5)}
 .dark-popup .leaflet-popup-tip{background:#1e2436}
 .dark-popup .leaflet-popup-content{margin:0}
-.leaflet-tooltip.rn-label{background:transparent!important;border:none!important;box-shadow:none!important;padding:0!important;color:transparent!important;}
-.leaflet-tooltip.rn-label::before{display:none!important;}
+.rn-popup .leaflet-popup-content-wrapper{background:transparent!important;border:none!important;box-shadow:none!important;padding:0!important;min-width:0!important;}
+.rn-popup .leaflet-popup-tip-container{display:none!important;}
+.rn-popup .leaflet-popup-content{margin:0!important;width:auto!important;}
 </style>
 </head>
 <body>
@@ -209,12 +210,12 @@ if(LAYERS.rutasNacionales)
       style:function(){return{color:'#000',weight:22,opacity:0.001};},
       onEachFeature:function(f,l){
         var n=(f.properties||{}).Nombre||(f.properties||{}).nombre||ruta;
-        l.bindTooltip(
-          '<div style="background:'+hexToRgba(c,0.85)+';border-radius:4px;padding:3px 7px;font-family:sans-serif;white-space:nowrap;display:inline-block">'
-          +'<div style="font-size:7px;color:rgba(255,255,255,0.8);text-transform:uppercase;letter-spacing:0.8px">Ruta Nac.<\/div>'
-          +'<div style="font-size:12px;font-weight:900;color:#fff;line-height:1.2">'+n+'<\/div>'
+        l.bindPopup(
+          '<div style="background:'+hexToRgba(c,0.88)+';border-radius:5px;padding:4px 10px;font-family:sans-serif;white-space:nowrap;display:inline-block">'
+          +'<div style="font-size:7px;color:rgba(255,255,255,0.75);text-transform:uppercase;letter-spacing:1px">Ruta Nacional<\/div>'
+          +'<div style="font-size:14px;font-weight:900;color:#fff;line-height:1.3">'+n+'<\/div>'
           +'<\/div>',
-          {className:'rn-label',sticky:false}
+          {className:'rn-popup',closeButton:false,maxWidth:300}
         );
       }
     }).addTo(map);
