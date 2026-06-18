@@ -343,12 +343,63 @@ sedesFiltradas.forEach(function(c){
 } // end if LAYERS.sedes
 
 // ── GPS: ubicación del usuario ────────────────────────────────────
-var userMarker=null,userCircle=null;
+var userMarker=null,userCircle=null,manualMode=false;
+
+function _attachMarkerClick(isManual){
+  if(!userMarker)return;
+  userMarker.on('click',function(){
+    map.closePopup();
+    var ll=userMarker.getLatLng();
+    var btns=isManual
+      ? '<div style="display:flex;gap:8px;margin-top:10px">'
+        +'<button onclick="enterManualMode()" style="flex:1;background:#2a3450;border:none;color:#e0e6f0;padding:6px 0;border-radius:7px;font-size:11px;cursor:pointer">📍 Mover<\/button>'
+        +'<button onclick="exitManualMode()" style="flex:1;background:#2a3450;border:none;color:#9aaac0;padding:6px 0;border-radius:7px;font-size:11px;cursor:pointer">🧭 GPS real<\/button>'
+        +'<\/div>'
+      : '<button onclick="enterManualMode()" style="margin-top:10px;width:100%;background:#2a3450;border:none;color:#e0e6f0;padding:6px 0;border-radius:7px;font-size:11px;cursor:pointer">📍 Mover ubicación<\/button>';
+    L.popup({closeButton:true,maxWidth:220,className:'dark-popup'})
+      .setLatLng(ll)
+      .setContent('<div style="background:#1e2436;border-radius:8px;padding:10px 14px">'
+        +'<div style="font-size:10px;color:#7a8aaa;text-transform:uppercase;letter-spacing:1px">'+(isManual?'Ubicación manual':'Tu ubicación')+'<\/div>'
+        +'<div style="font-size:12px;color:#e0e6f0;margin-top:4px">'+ll.lat.toFixed(5)+', '+ll.lng.toFixed(5)+'<\/div>'
+        +btns+'<\/div>')
+      .openOn(map);
+  });
+}
+
 function updateUserLocation(lat,lng,acc){
+  if(manualMode)return;
   if(userMarker){map.removeLayer(userMarker);map.removeLayer(userCircle);}
   userCircle=L.circle([lat,lng],{radius:acc||20,fillColor:'#4285f4',fillOpacity:.15,color:'#4285f4',weight:1}).addTo(map);
   userMarker=L.circleMarker([lat,lng],{radius:8,fillColor:'#4285f4',color:'#fff',fillOpacity:1,weight:2.5}).addTo(map);
+  _attachMarkerClick(false);
   map.setView([lat,lng],Math.max(map.getZoom(),14));
+}
+
+function enterManualMode(){
+  map.closePopup();
+  manualMode=true;
+  showRouteToast('📍 Tocá el mapa para elegir tu punto de partida');
+  map.once('click',function(e){
+    hideRouteToast();
+    _placeManualPin(e.latlng.lat,e.latlng.lng);
+  });
+}
+
+function _placeManualPin(lat,lng){
+  if(userMarker)map.removeLayer(userMarker);
+  if(userCircle)map.removeLayer(userCircle);
+  userCircle=L.circle([lat,lng],{radius:60,fillColor:'#ff8c00',fillOpacity:.18,color:'#ff8c00',weight:1.5}).addTo(map);
+  userMarker=L.circleMarker([lat,lng],{radius:9,fillColor:'#ff8c00',color:'#fff',fillOpacity:1,weight:2.5}).addTo(map);
+  _attachMarkerClick(true);
+}
+
+function exitManualMode(){
+  manualMode=false;
+  map.closePopup();
+  if(userMarker){map.removeLayer(userMarker);userMarker=null;}
+  if(userCircle){map.removeLayer(userCircle);userCircle=null;}
+  showRouteToast('🧭 GPS restaurado');
+  setTimeout(hideRouteToast,1800);
 }
 
 // ── Red bajo convenio CC (inyección por consorcio individual) ─────
