@@ -195,11 +195,23 @@ if(LAYERS.zonaBoundaries)
 if(LAYERS.rutasNacionales)
   Object.entries(RUTAS).forEach(function([ruta,gj]){
     var c=RUTAS_COLORS[ruta]||'#e74c3c';
+    var hitLayers=[];
     L.geoJSON(gj,{
       style:{color:c,weight:3.5,opacity:.9},
+      interactive:false
+    }).addTo(map);
+    L.geoJSON(gj,{
+      style:function(){return{color:'#000',weight:22,opacity:0.001};},
       onEachFeature:function(f,l){
         var n=(f.properties||{}).Nombre||(f.properties||{}).nombre||ruta;
-        l.bindTooltip(n,{direction:'center',className:''});
+        l.bindPopup(
+          '<div style="background:#1e2436;border-radius:8px;overflow:hidden;font-family:sans-serif;min-width:140px">'
+          +'<div style="background:'+c+';padding:8px 12px">'
+          +'<div style="font-size:9px;color:rgba(255,255,255,0.75);text-transform:uppercase;letter-spacing:1px">Ruta Nacional<\/div>'
+          +'<div style="font-size:18px;font-weight:900;color:#fff;margin-top:1px">'+n+'<\/div>'
+          +'<\/div><\/div>',
+          {className:'dark-popup',closeButton:true,maxWidth:200}
+        );
       }
     }).addTo(map);
   });
