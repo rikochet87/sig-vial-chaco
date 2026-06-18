@@ -567,6 +567,9 @@ MinHeap.prototype.size=function(){return this.h.length;};
 
 var routeNodes=[];
 
+// Velocidades por tipo de capa (km/h)
+var SPEED={CC:80, RN:110, RP:110, ACCESS:50};
+
 function buildRouteGraph(){
   routeGraph={};
   routeNodes=[];
@@ -577,10 +580,7 @@ function buildRouteGraph(){
     if(nodeMap[k]===undefined){nodeMap[k]=nId;routeNodes.push([c[1],c[0]]);routeGraph[nId]=[];nId++;}
     return nodeMap[k];
   }
-  var sources=Object.values(CC_DATA_CC)
-    .concat(Object.values(RUTAS))
-    .concat([RP_PAV,RP_MEJ,RP_OBR,RP_TIE]);
-  sources.forEach(function(gj){
+  function addLayer(gj,kmh){
     if(!gj||!gj.features)return;
     gj.features.forEach(function(f){
       var geom=f.geometry;
@@ -594,12 +594,16 @@ function buildRouteGraph(){
           var na=getNode(a),nb=getNode(b);
           if(na===nb)continue;
           var d=haversineM(a[1],a[0],b[1],b[0]);
-          routeGraph[na].push({id:nb,dist:d,a:a,b:b});
-          routeGraph[nb].push({id:na,dist:d,a:b,b:a});
+          var t=d/(kmh/3.6); // segundos
+          routeGraph[na].push({id:nb,dist:d,time:t,a:a,b:b});
+          routeGraph[nb].push({id:na,dist:d,time:t,a:b,b:a});
         }
       });
     });
-  });
+  }
+  Object.values(CC_DATA_CC).forEach(function(gj){addLayer(gj,SPEED.CC);});
+  Object.values(RUTAS).forEach(function(gj){addLayer(gj,SPEED.RN);});
+  [RP_PAV,RP_MEJ,RP_OBR,RP_TIE].forEach(function(gj){addLayer(gj,SPEED.RP);});
 }
 
 function findNearestNode(lat,lng){
@@ -615,23 +619,30 @@ function findNearestNode(lat,lng){
 function dijkstra(startId,endId){
   var INF=Infinity;
   var n=routeNodes.length;
-  var dist=new Array(n).fill(INF);
+  var time=new Array(n).fill(INF);  // optimizar por tiempo
+  var distM=new Array(n).fill(0);   // acumular distancia real
   var prev=new Array(n).fill(-1);
   var prevEdge=new Array(n).fill(null);
-  dist[startId]=0;
+  time[startId]=0;
   var pq=new MinHeap();
   pq.push([0,startId]);
   while(pq.size()>0){
-    var top=pq.pop(),d=top[0],u=top[1];
+    var top=pq.pop(),t=top[0],u=top[1];
     if(u===endId)break;
-    if(d>dist[u])continue;
+    if(t>time[u])continue;
     var nb=routeGraph[u]||[];
     for(var i=0;i<nb.length;i++){
-      var e=nb[i],nd=d+e.dist;
-      if(nd<dist[e.id]){dist[e.id]=nd;prev[e.id]=u;prevEdge[e.id]=[e.a,e.b];pq.push([nd,e.id]);}
+      var e=nb[i],nt=t+e.time;
+      if(nt<time[e.id]){
+        time[e.id]=nt;
+        distM[e.id]=distM[u]+e.dist;
+        prev[e.id]=u;
+        prevEdge[e.id]=[e.a,e.b];
+        pq.push([nt,e.id]);
+      }
     }
   }
-  if(dist[endId]===INF)return null;
+  if(time[endId]===INF)return null;
   var segs=[];
   var cur=endId;
   while(cur!==startId&&cur!==-1){
@@ -639,7 +650,7 @@ function dijkstra(startId,endId){
     if(edge)segs.unshift([[edge[0][1],edge[0][0]],[edge[1][1],edge[1][0]]]);
     cur=prev[cur];
   }
-  return{segs:segs,distM:dist[endId]};
+  return{segs:segs,distM:distM[endId],timeS:time[endId]};
 }
 
 function clearRoute(){
@@ -681,7 +692,7 @@ function _drawOSRMRoute(uLL,route,sedeLat,sedeLng,nombre){
   ]).addTo(map);
   var km=(route.distance/1000).toFixed(1);
   var mins=Math.round(route.duration/60);
-  _showRoutePopup(sedeLat,sedeLng,nombre,km,mins,'🌐 Ruta via OSM (online)');
+  _showRoutePopup(sedeLat,sedeLng,nombre,km,mins,'🌐 Ruta OSM · velocidades reales por tipo de vía');
   try{map.fitBounds(L.latLngBounds(allLL),{padding:[50,50]});}catch(e){}
 }
 
@@ -718,8 +729,14 @@ function _execOfflineRoute(uLL,sedeLat,sedeLng,nombre){
     totalDist+=endN.dist;
   }
   routeLayer=L.layerGroup(layers).addTo(map);
+  // Tiempo de acceso urbano (50 km/h) + tiempo en red vial (velocidad del segmento)
+  var accessTimeS=(startN.dist>30?startN.dist/(SPEED.ACCESS/3.6):0)
+                 +(endN.dist>30?endN.dist/(SPEED.ACCESS/3.6):0);
+  var roadTimeS=result&&result.timeS?result.timeS
+    :haversineM(startNode[0],startNode[1],endNode[0],endNode[1])/(SPEED.CC/3.6);
+  var totalTimeS=accessTimeS+roadTimeS;
   var km=(totalDist/1000).toFixed(1);
-  var mins=Math.round(totalDist/1000/40*60);
+  var mins=Math.round(totalTimeS/60);
   var sinRed=(!result||result.segs.length===0);
   var tag=sinRed?'⚠ Ruta aproximada · sin conexión en red':'📡 Modo offline · red vial provincial';
   _showRoutePopup(sedeLat,sedeLng,nombre,km,mins,tag);
