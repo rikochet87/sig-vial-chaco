@@ -105,6 +105,7 @@ export default function ConsorciosScreen() {
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
+        style={styles.filterScroll}
         contentContainerStyle={styles.filterRow}
       >
         <TouchableOpacity
@@ -162,7 +163,8 @@ const styles = StyleSheet.create({
     elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 3,
   },
   searchInput: { flex: 1, fontSize: 14, color: Colors.textPrimary },
-  filterRow: { paddingHorizontal: 12, paddingRight: 24, gap: 6, marginBottom: 8, flexDirection: 'row', alignItems: 'center' },
+  filterScroll: { flexShrink: 0, flexGrow: 0 },
+  filterRow: { paddingHorizontal: 12, paddingRight: 24, paddingVertical: 6, gap: 6, marginBottom: 4, flexDirection: 'row', alignItems: 'center' },
   filterChip: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
     paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20,
