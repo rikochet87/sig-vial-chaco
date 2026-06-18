@@ -205,12 +205,11 @@ if(LAYERS.rutasNacionales)
       onEachFeature:function(f,l){
         var n=(f.properties||{}).Nombre||(f.properties||{}).nombre||ruta;
         l.bindPopup(
-          '<div style="background:#1e2436;border-radius:8px;overflow:hidden;font-family:sans-serif;min-width:140px">'
-          +'<div style="background:'+c+';padding:8px 12px">'
-          +'<div style="font-size:9px;color:rgba(255,255,255,0.75);text-transform:uppercase;letter-spacing:1px">Ruta Nacional<\/div>'
-          +'<div style="font-size:18px;font-weight:900;color:#fff;margin-top:1px">'+n+'<\/div>'
-          +'<\/div><\/div>',
-          {className:'dark-popup',closeButton:true,maxWidth:200}
+          '<div style="background:'+c+';opacity:0.6;border-radius:6px;overflow:hidden;font-family:sans-serif;padding:6px 10px;display:inline-block">'
+          +'<div style="font-size:8px;color:rgba(255,255,255,0.85);text-transform:uppercase;letter-spacing:1px">Ruta Nacional<\/div>'
+          +'<div style="font-size:13px;font-weight:900;color:#fff;margin-top:1px">'+n+'<\/div>'
+          +'<\/div>',
+          {className:'dark-popup',closeButton:false,maxWidth:130}
         );
       }
     }).addTo(map);
