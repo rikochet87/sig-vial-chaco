@@ -1,12 +1,16 @@
 import { useState, useRef, useMemo, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  ScrollView, Animated, Dimensions, StatusBar, Platform,
+  ScrollView, Animated, Dimensions, StatusBar, Platform, Alert,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { GEO_BUNDLE } from '@/constants/geoBundle';
 import { RP_BUNDLE } from '@/constants/geoBundleRP';
 import { GEO_BUNDLE_CC } from '@/constants/geoBundleCC';
+import { useRelevamientos } from '@/hooks/useRelevamientos';
+import RelevamientoModal from '@/components/RelevamientoModal';
+import type { Relevamiento } from '@/types/relevamiento';
+import { ESTADO_COLORS } from '@/types/relevamiento';
 
 // expo-location: importación condicional para evitar crash si no está instalado aún
 let Location: any = null;
@@ -375,14 +379,21 @@ function updateUserLocation(lat,lng,acc){
   map.setView([lat,lng],Math.max(map.getZoom(),14));
 }
 
+var _manualClickFn=null;
 function enterManualMode(){
   map.closePopup();
   manualMode=true;
-  showRouteToast('📍 Tocá el mapa para elegir tu punto de partida');
-  map.once('click',function(e){
+  showRouteToast('📍 Tocá el mapa para mover la ubicación');
+  _manualClickFn=function(e){
+    map.getContainer().removeEventListener('click',_manualClickFn,true);
+    _manualClickFn=null;
+    var pt=map.mouseEventToContainerPoint(e);
+    var ll=map.containerPointToLatLng(pt);
     hideRouteToast();
-    _placeManualPin(e.latlng.lat,e.latlng.lng);
-  });
+    _placeManualPin(ll.lat,ll.lng);
+    e.stopPropagation();
+  };
+  map.getContainer().addEventListener('click',_manualClickFn,true);
 }
 
 function _placeManualPin(lat,lng){
@@ -391,10 +402,12 @@ function _placeManualPin(lat,lng){
   userCircle=L.circle([lat,lng],{radius:60,fillColor:'#ff8c00',fillOpacity:.18,color:'#ff8c00',weight:1.5}).addTo(map);
   userMarker=L.circleMarker([lat,lng],{radius:9,fillColor:'#ff8c00',color:'#fff',fillOpacity:1,weight:2.5}).addTo(map);
   _attachMarkerClick(true);
+  if(window.ReactNativeWebView)window.ReactNativeWebView.postMessage(JSON.stringify({type:'manualPos',lat:lat,lng:lng}));
 }
 
 function exitManualMode(){
   manualMode=false;
+  if(_manualClickFn){map.getContainer().removeEventListener('click',_manualClickFn,true);_manualClickFn=null;}
   map.closePopup();
   if(userMarker){map.removeLayer(userMarker);userMarker=null;}
   if(userCircle){map.removeLayer(userCircle);userCircle=null;}
@@ -776,6 +789,60 @@ function calcRoute(sedeLat,sedeLng,nombre){
       _execOfflineRoute(uLL,sedeLat,sedeLng,nombre);
     });
 }
+
+// ── Relevamiento markers ─────────────────────────────────────────────────────
+var RELEV_MARKERS={};
+var RELEV_COLORS={Bueno:'#27ae60',Regular:'#f39c12',Malo:'#e67e22','Crítico':'#e74c3c'};
+var RELEV_LABELS={Puente:'PTE',Alcantarilla:'ALC',Tubos:'TUB',Otro:'?'};
+function _relevColor(estado){
+  return RELEV_COLORS[estado]||RELEV_COLORS[estado.replace('\u00ed','i')]||'#888';
+}
+function _relevLabel(estructura){
+  return RELEV_LABELS[estructura]||'?';
+}
+function _relevDivIcon(estructura,c){
+  var lbl=_relevLabel(estructura);
+  var fs=lbl.length>1?'11':'15';
+  var html='<div style="background:'+c+';color:#fff;border:2.5px solid #fff;border-radius:50%;'
+    +'width:34px;height:34px;line-height:30px;text-align:center;font-size:'+fs+'px;font-weight:900;'
+    +'box-shadow:0 2px 6px rgba(0,0,0,0.45)">'+lbl+'<\/div>';
+  return L.divIcon({html:html,className:'',iconSize:[34,34],iconAnchor:[17,17],popupAnchor:[0,-18]});
+}
+function addRelevMarker(id,lat,lng,estado,estructura,ccAsociado,fecha,obs){
+  if(RELEV_MARKERS[id])return;
+  var c=_relevColor(estado);
+  var m=L.marker([lat,lng],{icon:_relevDivIcon(estructura,c),zIndexOffset:600});
+  var d=new Date(fecha);
+  var fechaStr=d.toLocaleDateString('es-AR')+' '+d.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+  var estructuraTxt=(estructura&&estructura!=='Ninguna')?'<div style="font-size:11px;color:#b0bec5;margin-bottom:3px">Estructura: '+estructura+'<\/div>':'';
+  var ccTxt=ccAsociado?'<div style="font-size:11px;color:#b0bec5;margin-bottom:3px">'+ccAsociado+'<\/div>':'';
+  var obsTxt=obs?'<div style="font-size:11px;color:#cdd4de;border-top:1px solid #2a3450;padding-top:5px;margin-top:5px">'+obs+'<\/div>':'';
+  m.bindPopup(
+    '<div style="background:#1e2436;border-radius:10px;padding:12px 14px;min-width:180px">'
+    +'<div style="font-size:10px;color:#7a8aaa;text-transform:uppercase;letter-spacing:1px">Relevamiento<\/div>'
+    +'<div style="font-size:15px;font-weight:900;color:'+c+';margin:3px 0">'+estado+'<\/div>'
+    +estructuraTxt+ccTxt
+    +'<div style="font-size:10px;color:#7a8aaa;margin-bottom:8px">'+fechaStr+'<\/div>'
+    +obsTxt
+    +'<button class="rdel-btn" data-rid="'+id+'" '
+    +'style="margin-top:8px;width:100%;background:rgba(192,57,43,0.15);border:1px solid rgba(192,57,43,0.5);color:#e74c3c;'
+    +'padding:6px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer">Eliminar relevamiento<\/button>'
+    +'<\/div>',
+    {closeButton:true,maxWidth:260}
+  );
+  m.on('popupopen',function(){
+    setTimeout(function(){
+      var btn=document.querySelector('.rdel-btn[data-rid="'+id+'"]');
+      if(btn)btn.onclick=function(){
+        if(window.ReactNativeWebView)window.ReactNativeWebView.postMessage(JSON.stringify({type:'deleteRelev',id:id}));
+      };
+    },80);
+  });
+  RELEV_MARKERS[id]=m.addTo(map);
+}
+function removeRelevMarker(id){
+  if(RELEV_MARKERS[id]){map.removeLayer(RELEV_MARKERS[id]);delete RELEV_MARKERS[id];}
+}
 <\/script>
 </body>
 </html>`;
@@ -793,6 +860,13 @@ export default function MapaScreen() {
   );
   const [tracking, setTracking] = useState(false);
   const locationSub = useRef<any>(null);
+  const gpsCoords = useRef<{ lat: number; lng: number } | null>(null);
+
+  // ── Relevamientos ─────────────────────────────────────────────────────────
+  const { relevamientos, add: addRelevamiento, remove: removeRelevamiento } = useRelevamientos();
+  const [relevModalVisible, setRelevModalVisible] = useState(false);
+  const [webViewLoadCount, setWebViewLoadCount] = useState(0);
+  const relevLoaded = useRef(false);
 
   const [layers, setLayers] = useState<Layers>({
     basemap: true,
@@ -841,6 +915,47 @@ export default function MapaScreen() {
     }
   }, [dvpZVOn]);
 
+  // ── Relevamiento markers ──────────────────────────────────────────────────
+  useEffect(() => {
+    if (webViewLoadCount === 0) return; // WebView not ready yet
+    if (!relevLoaded.current && relevamientos.length > 0) {
+      relevLoaded.current = true;
+    }
+    // Inject/refresh all markers on relevamientos change
+    const js = relevamientos.map(r =>
+      `addRelevMarker(${JSON.stringify(r.id)},${r.coords.lat},${r.coords.lng},${JSON.stringify(r.estadoCalzada)},${JSON.stringify(r.tipo)},${JSON.stringify(r.rutaTramo || r.ccAsociado || '')},${JSON.stringify(r.fecha)},${JSON.stringify(r.observaciones.slice(0,80))});`
+    ).join('') + ' true;';
+    webviewRef.current?.injectJavaScript(js);
+  }, [relevamientos, webViewLoadCount]);
+
+  const handleSaveRelevamiento = useCallback(async (r: Relevamiento) => {
+    await addRelevamiento(r);
+    const js = `addRelevMarker(${JSON.stringify(r.id)},${r.coords.lat},${r.coords.lng},${JSON.stringify(r.estadoCalzada)},${JSON.stringify(r.tipo)},${JSON.stringify(r.rutaTramo || r.ccAsociado || '')},${JSON.stringify(r.fecha)},${JSON.stringify(r.observaciones.slice(0,80))}); true;`;
+    webviewRef.current?.injectJavaScript(js);
+  }, [addRelevamiento]);
+
+
+  const onWebViewMessage = useCallback((event: any) => {
+    try {
+      const msg = JSON.parse(event.nativeEvent.data);
+      if (msg.type === 'manualPos' && msg.lat !== undefined) {
+        gpsCoords.current = { lat: msg.lat, lng: msg.lng };
+      }
+      if (msg.type === 'deleteRelev' && msg.id) {
+        Alert.alert('Eliminar relevamiento', '¿Seguro que querés eliminarlo?', [
+          { text: 'Cancelar', style: 'cancel' },
+          {
+            text: 'Eliminar', style: 'destructive',
+            onPress: async () => {
+              await removeRelevamiento(msg.id);
+              webviewRef.current?.injectJavaScript(`removeRelevMarker(${JSON.stringify(msg.id)}); true;`);
+            },
+          },
+        ]);
+      }
+    } catch (_) {}
+  }, [removeRelevamiento]);
+
   // ── Estado CC por zona/consorcio ────────────────────────────────────────────
   const [ccState, setCCState] = useState<Record<string, CCZonaState>>(() =>
     Object.fromEntries(
@@ -861,6 +976,8 @@ export default function MapaScreen() {
     ccLoadedNums.current = new Set();
     dvpZIVLoaded.current = false;
     dvpZVLoaded.current  = false;
+    relevLoaded.current  = false;
+    setWebViewLoadCount(c => c + 1);
     setCCState(s => ({ ...s }));
     setDvpZIVOn(v => { if (v) { setTimeout(() => setDvpZIVOn(true), 100); } return v; });
     setDvpZVOn(v  => { if (v) { setTimeout(() => setDvpZVOn(true),  100); } return v; });
@@ -943,6 +1060,7 @@ export default function MapaScreen() {
       },
       (loc: any) => {
         const { latitude, longitude, accuracy } = loc.coords;
+        gpsCoords.current = { lat: latitude, lng: longitude };
         webviewRef.current?.injectJavaScript(
           `updateUserLocation(${latitude}, ${longitude}, ${accuracy ?? 20}); true;`
         );
@@ -1039,6 +1157,7 @@ export default function MapaScreen() {
         scrollEnabled={false}
         overScrollMode="never"
         onLoad={onWebViewLoad}
+        onMessage={onWebViewMessage}
       />
 
       {/* ── OVERLAY del drawer ────────────────────────────────────────────── */}
@@ -1205,6 +1324,14 @@ export default function MapaScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* ── BOTÓN RELEVAR (bottom-right, encima del GPS) ─────────────────── */}
+      <TouchableOpacity
+        style={styles.btnRelevar}
+        onPress={() => setRelevModalVisible(true)}
+      >
+        <Text style={styles.btnRelevarIcon}>📋</Text>
+      </TouchableOpacity>
+
       {/* ── BOTÓN GPS (bottom-right) ─────────────────────────────────────── */}
       <TouchableOpacity
         style={[styles.btnGps, tracking && styles.btnGpsActive]}
@@ -1212,6 +1339,14 @@ export default function MapaScreen() {
       >
         <Text style={styles.btnGpsIcon}>{tracking ? '📍' : '🧭'}</Text>
       </TouchableOpacity>
+
+      {/* ── MODAL RELEVAMIENTO ───────────────────────────────────────────── */}
+      <RelevamientoModal
+        visible={relevModalVisible}
+        coords={gpsCoords.current}
+        onSave={handleSaveRelevamiento}
+        onClose={() => setRelevModalVisible(false)}
+      />
 
     </View>
   );
@@ -1293,23 +1428,23 @@ const styles = StyleSheet.create({
   sedesActions: {
     flexDirection: 'row',
     gap: 8,
-    marginBottom: 10,
+    marginBottom: 12,
   },
   sedesActionBtn: {
     flex: 1,
     paddingVertical: 7,
-    borderRadius: 7,
-    borderWidth: 1,
-    borderColor: '#3C3C3C',
-    backgroundColor: '#3A3A3A',
     alignItems: 'center',
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#555555',
+    backgroundColor: 'transparent',
   },
   sedesActionBtnActive: {
     backgroundColor: '#F5C300',
     borderColor: '#D4A900',
   },
   sedesActionText: {
-    color: '#DDDDDD',
+    color: '#AAAAAA',
     fontSize: 12,
     fontWeight: '700',
   },
@@ -1432,6 +1567,30 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: '#3C3C3C',
     marginHorizontal: 6,
+  },
+
+  // ── Relevar FAB ────────────────────────────────────────────────────────────
+  btnRelevar: {
+    position: 'absolute',
+    bottom: 94,
+    right: 12,
+    width: 50,
+    height: 50,
+    backgroundColor: '#2C2C2C',
+    borderRadius: 25,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 5,
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 4,
+    borderWidth: 2,
+    borderColor: '#F5C300',
+  },
+  btnRelevarIcon: {
+    fontSize: 22,
   },
 
   // ── GPS button ─────────────────────────────────────────────────────────────

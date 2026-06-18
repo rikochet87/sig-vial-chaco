@@ -1,109 +1,345 @@
-import { useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
+import { useState, useCallback } from 'react';
+import {
+  View, Text, StyleSheet, FlatList, TouchableOpacity,
+  ScrollView, Share, Alert, Platform,
+} from 'react-native';
+import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
 import { Colors } from '@/constants/Colors';
-import { CONSORCIOS } from '@/constants/realData';
-import type { Reporte } from '@/types';
+import { useRelevamientos } from '@/hooks/useRelevamientos';
+import type { Relevamiento, EstadoCalzada } from '@/types/relevamiento';
+import { ESTADO_COLORS } from '@/types/relevamiento';
 
-const REPORTES: Reporte[] = [];
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
-const TIPO_CONFIG = {
-  mensual: { color: Colors.primaryLight, icon: 'calendar', label: 'Mensual' },
-  trimestral: { color: Colors.success, icon: 'stats-chart', label: 'Trimestral' },
-  anual: { color: Colors.primary, icon: 'trophy', label: 'Anual' },
-  incidente: { color: Colors.danger, icon: 'warning', label: 'Incidente' },
-} as const;
+function formatFecha(iso: string) {
+  const d = new Date(iso);
+  return d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+    + ' ' + d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+}
 
-function ReporteCard({ item }: { item: Reporte }) {
-  const config = TIPO_CONFIG[item.tipo];
-  const consorcio = CONSORCIOS.find(c => String(c.numero) === item.consorcioId);
+function buildGeoJSON(items: Relevamiento[]) {
+  return {
+    type: 'FeatureCollection',
+    features: items.map(r => ({
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: [r.coords.lng, r.coords.lat] },
+      properties: {
+        id: r.id,
+        fecha: r.fecha,
+        zona: r.autoDeteccion?.zona ?? '',
+        cc_numero: r.autoDeteccion?.ccNumero ?? '',
+        cc_nombre: r.autoDeteccion?.ccNombre ?? '',
+        ruta_tramo: r.rutaTramo || r.ccAsociado || '',
+        estado_calzada: r.estadoCalzada,
+        tipo: r.tipo ?? '',
+        tecnico: r.tecnico,
+        observaciones: r.observaciones,
+        // sub-form data flattened
+        ...(r.datosPuente ?? {}),
+        ...(r.datosAlcantarilla ?? {}),
+        ...(r.datosTubos ?? {}),
+        descripcion_otro: r.datosOtro?.descripcion ?? '',
+        fotos: r.fotos.length,
+      },
+    })),
+  };
+}
 
+async function exportarRelevamiento(r: Relevamiento) {
+  const geojson = JSON.stringify(buildGeoJSON([r]), null, 2);
+  const fecha = new Date(r.fecha).toLocaleDateString('es-AR').replace(/\//g, '-');
+  const id = r.rutaTramo || r.ccAsociado || r.id;
+  await Share.share({
+    message: geojson,
+    title: `Relevamiento_${id}_${fecha}.geojson`,
+  });
+}
+
+async function exportarTodos(items: Relevamiento[]) {
+  if (items.length === 0) return;
+  const geojson = JSON.stringify(buildGeoJSON(items), null, 2);
+  await Share.share({
+    message: geojson,
+    title: `Relevamientos_SIG_Vial_${items.length}.geojson`,
+  });
+}
+
+// ── Sub-form summary ──────────────────────────────────────────────────────────
+
+function SubFormDetail({ r }: { r: Relevamiento }) {
+  const tipo = r.tipo;
+  if (!tipo) return null;
+
+  if (tipo === 'Puente' && r.datosPuente) {
+    const d = r.datosPuente;
+    const items = [
+      d.estructura && `Estructura: ${d.estructura}`,
+      d.longitudTotal && `Long. total: ${d.longitudTotal} m`,
+      d.anchoTotal && `Ancho total: ${d.anchoTotal} m`,
+      d.anchoCalzada && `Ancho calzada: ${d.anchoCalzada} m`,
+      d.cantidadLuces && `Luces: ${d.cantidadLuces}`,
+      d.longitudLuces && `Long. luces: ${d.longitudLuces} m`,
+      d.h && `H: ${d.h} m`,
+      d.materialesAlas && `Mat. alas: ${d.materialesAlas}`,
+      d.longitudAlas && `Long. alas: ${d.longitudAlas} m`,
+      d.barandasTipo && `Barandas: ${d.barandasTipo}`,
+      d.hBarandas && `H barandas: ${d.hBarandas} m`,
+      d.estadoEstructural && `Est. estructural: ${d.estadoEstructural}`,
+      d.situacionHidraulica && `Situación hidr.: ${d.situacionHidraulica}`,
+    ].filter(Boolean) as string[];
+    return <FieldList items={items} />;
+  }
+
+  if (tipo === 'Alcantarilla' && r.datosAlcantarilla) {
+    const d = r.datosAlcantarilla;
+    const items = [
+      d.longitudTotal && `Long. total: ${d.longitudTotal} m`,
+      d.cantidadLuces && `Luces: ${d.cantidadLuces}`,
+      d.longitudLuces && `Long. luces: ${d.longitudLuces} m`,
+      d.anchoTotal && `Ancho total: ${d.anchoTotal} m`,
+      d.anchoCalzada && `Ancho calzada: ${d.anchoCalzada} m`,
+      d.h && `H: ${d.h} m`,
+      d.materialesAlas && `Mat. alas: ${d.materialesAlas}`,
+      d.longitudAlas && `Long. alas: ${d.longitudAlas} m`,
+      d.estadoEstructural && `Est. estructural: ${d.estadoEstructural}`,
+      d.situacionHidraulica && `Situación hidr.: ${d.situacionHidraulica}`,
+    ].filter(Boolean) as string[];
+    return <FieldList items={items} />;
+  }
+
+  if (tipo === 'Tubos' && r.datosTubos) {
+    const d = r.datosTubos;
+    const items = [
+      d.jAncho && `J ancho: ${d.jAncho} m`,
+      d.d && `Diámetro: ${d.d} m`,
+      d.cabezales && `Cabezales: ${d.cabezales}`,
+      d.tapada && `Tapada: ${d.tapada} m`,
+      `Cantidad: ${d.cantidad}`,
+    ].filter(Boolean) as string[];
+    return <FieldList items={items} />;
+  }
+
+  if (tipo === 'Otro' && r.datosOtro?.descripcion) {
+    return <FieldList items={[r.datosOtro.descripcion]} />;
+  }
+
+  return null;
+}
+
+function FieldList({ items }: { items: string[] }) {
   return (
-    <TouchableOpacity style={styles.card} onPress={() => router.push(`/reporte/${item.id}` as any)}>
-      <View style={[styles.iconContainer, { backgroundColor: config.color + '20' }]}>
-        <Ionicons name={config.icon as any} size={22} color={config.color} />
-      </View>
-      <View style={styles.cardContent}>
-        <View style={styles.cardHeader}>
-          <Text style={styles.cardTitle} numberOfLines={2}>{item.titulo}</Text>
-          <View style={[styles.tipoBadge, { backgroundColor: config.color }]}>
-            <Text style={styles.tipoBadgeText}>{config.label}</Text>
-          </View>
+    <View style={styles.fieldList}>
+      {items.map((item, i) => (
+        <View key={i} style={styles.fieldRow}>
+          <View style={styles.fieldDot} />
+          <Text style={styles.fieldText}>{item}</Text>
         </View>
-        <Text style={styles.consorcioName} numberOfLines={1}>{consorcio?.nombre ?? 'Consorcio'}</Text>
-        <View style={styles.cardFooter}>
-          <View style={styles.footerItem}>
-            <Ionicons name="calendar-outline" size={12} color={Colors.textMuted} />
-            <Text style={styles.footerText}>{item.fecha}</Text>
-          </View>
-          {item.monto && (
-            <View style={styles.footerItem}>
-              <Ionicons name="cash-outline" size={12} color={Colors.textMuted} />
-              <Text style={styles.footerText}>${(item.monto / 1000).toFixed(0)}K</Text>
-            </View>
-          )}
-          <Ionicons name="chevron-forward" size={14} color={Colors.primary} style={{ marginLeft: 'auto' }} />
-        </View>
-      </View>
-    </TouchableOpacity>
+      ))}
+    </View>
   );
 }
 
-export default function ReportesScreen() {
-  const [filtro, setFiltro] = useState<'todos' | 'mensual' | 'incidente' | 'trimestral' | 'anual'>('todos');
+// ── Card ─────────────────────────────────────────────────────────────────────
 
-  const filtrados = REPORTES.filter(r => filtro === 'todos' || r.tipo === filtro);
+const TIPO_LABELS: Record<string, string> = {
+  Puente: 'PTE', Alcantarilla: 'ALC', Tubos: 'TUB', Otro: '?',
+};
 
-  const totalMonto = filtrados.reduce((acc, r) => acc + (r.monto ?? 0), 0);
+function RelevamientoCard({
+  item,
+  onDelete,
+}: {
+  item: Relevamiento;
+  onDelete: (id: string) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const color = ESTADO_COLORS[item.estadoCalzada as EstadoCalzada] ?? '#888';
+  const tipo = item.tipo ?? (item.estructura ?? '');
+  const rutaLabel = item.rutaTramo || item.ccAsociado || 'Sin ruta/tramo';
+
+  const confirmDelete = () => {
+    Alert.alert('Eliminar relevamiento', '¿Seguro que querés eliminarlo?', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Eliminar', style: 'destructive', onPress: () => onDelete(item.id) },
+    ]);
+  };
+
+  return (
+    <View style={[styles.card, { borderLeftColor: color }]}>
+      {/* Header */}
+      <TouchableOpacity style={styles.cardHeader} onPress={() => setExpanded(v => !v)}>
+        <View style={[styles.estadoBadge, { backgroundColor: color }]}>
+          <Text style={styles.estadoBadgeText}>{item.estadoCalzada}</Text>
+        </View>
+        {tipo ? (
+          <View style={styles.tipoBadge}>
+            <Text style={styles.tipoBadgeText}>{TIPO_LABELS[tipo] ?? tipo}</Text>
+          </View>
+        ) : null}
+        <View style={{ flex: 1 }}>
+          <Text style={styles.cardTitle} numberOfLines={1}>
+            {rutaLabel}{item.tecnico ? ` · ${item.tecnico}` : ''}
+          </Text>
+          <View style={styles.cardMeta}>
+            {item.autoDeteccion && (
+              <Text style={styles.cardZona}>{item.autoDeteccion.zona} · CC {item.autoDeteccion.ccNumero}</Text>
+            )}
+            <Ionicons name="time-outline" size={11} color={Colors.textMuted} />
+            <Text style={styles.cardMetaText}>{formatFecha(item.fecha)}</Text>
+          </View>
+        </View>
+        <Ionicons
+          name={expanded ? 'chevron-up' : 'chevron-down'}
+          size={16}
+          color={Colors.textMuted}
+        />
+      </TouchableOpacity>
+
+      {/* Expanded detail */}
+      {expanded && (
+        <View style={styles.detail}>
+          {/* Coords */}
+          <View style={styles.detailRow}>
+            <Ionicons name="location-outline" size={13} color={Colors.textMuted} />
+            <Text style={styles.detailMono}>
+              {item.coords.lat.toFixed(5)}, {item.coords.lng.toFixed(5)}
+            </Text>
+          </View>
+
+          {/* Auto-detección */}
+          {item.autoDeteccion && (
+            <View style={styles.detailRow}>
+              <Ionicons name="business-outline" size={13} color={Colors.textMuted} />
+              <Text style={styles.detailText} numberOfLines={2}>{item.autoDeteccion.ccNombre}</Text>
+            </View>
+          )}
+
+          {/* Tipo + sub-form */}
+          {tipo ? (
+            <View style={styles.tipoSection}>
+              <Text style={styles.tipoSectionLabel}>{tipo}</Text>
+              <SubFormDetail r={item} />
+            </View>
+          ) : null}
+
+          {/* Observaciones */}
+          {item.observaciones?.length > 0 && (
+            <View style={[styles.detailRow, { alignItems: 'flex-start' }]}>
+              <Ionicons name="document-text-outline" size={13} color={Colors.textMuted} style={{ marginTop: 2 }} />
+              <Text style={styles.detailText}>{item.observaciones}</Text>
+            </View>
+          )}
+
+          {/* Fotos */}
+          {item.fotos.length > 0 && (
+            <View style={styles.detailRow}>
+              <Ionicons name="camera-outline" size={13} color={Colors.textMuted} />
+              <Text style={styles.detailText}>{item.fotos.length} foto{item.fotos.length !== 1 ? 's' : ''}</Text>
+            </View>
+          )}
+
+          <View style={styles.actions}>
+            <TouchableOpacity style={styles.actionBtn} onPress={() => exportarRelevamiento(item)}>
+              <Ionicons name="share-outline" size={15} color={Colors.accent} />
+              <Text style={[styles.actionText, { color: Colors.accent }]}>Exportar GeoJSON</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.actionBtn, styles.actionBtnDanger]} onPress={confirmDelete}>
+              <Ionicons name="trash-outline" size={15} color={Colors.danger} />
+              <Text style={[styles.actionText, { color: Colors.danger }]}>Eliminar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+    </View>
+  );
+}
+
+// ── Screen ────────────────────────────────────────────────────────────────────
+
+const FILTROS: Array<EstadoCalzada | 'Todos'> = ['Todos', 'Bueno', 'Regular', 'Malo'];
+
+export default function RelevamientosScreen() {
+  const { relevamientos, loading, remove, reload } = useRelevamientos();
+  const [filtro, setFiltro] = useState<EstadoCalzada | 'Todos'>('Todos');
+
+  useFocusEffect(useCallback(() => { reload(); }, [reload]));
+
+  const filtrados = filtro === 'Todos'
+    ? relevamientos
+    : relevamientos.filter(r => r.estadoCalzada === filtro);
+
+  const conteos = relevamientos.reduce<Record<string, number>>((acc, r) => {
+    acc[r.estadoCalzada] = (acc[r.estadoCalzada] ?? 0) + 1;
+    return acc;
+  }, {});
 
   return (
     <View style={styles.container}>
       {/* Resumen */}
       <View style={styles.summary}>
-        <View style={styles.summaryItem}>
-          <Text style={styles.summaryValue}>{filtrados.length}</Text>
-          <Text style={styles.summaryLabel}>Reportes</Text>
-        </View>
-        <View style={styles.summaryDivider} />
-        <View style={styles.summaryItem}>
-          <Text style={styles.summaryValue}>${(totalMonto / 1e6).toFixed(2)}M</Text>
-          <Text style={styles.summaryLabel}>Monto total</Text>
-        </View>
-        <View style={styles.summaryDivider} />
-        <View style={styles.summaryItem}>
-          <Text style={[styles.summaryValue, { color: Colors.danger }]}>
-            {filtrados.filter(r => r.tipo === 'incidente').length}
-          </Text>
-          <Text style={styles.summaryLabel}>Incidentes</Text>
-        </View>
+        {(['Bueno', 'Regular', 'Malo'] as EstadoCalzada[]).map(e => (
+          <View key={e} style={styles.summaryItem}>
+            <Text style={[styles.summaryValue, { color: ESTADO_COLORS[e] }]}>
+              {conteos[e] ?? 0}
+            </Text>
+            <Text style={styles.summaryLabel}>{e}</Text>
+          </View>
+        ))}
       </View>
 
       {/* Filtros */}
-      <View style={styles.filterRow}>
-        {(['todos', 'mensual', 'trimestral', 'anual', 'incidente'] as const).map(f => (
-          <TouchableOpacity
-            key={f}
-            style={[styles.filterChip, filtro === f && { backgroundColor: TIPO_CONFIG[f === 'todos' ? 'mensual' : f]?.color ?? Colors.primary }]}
-            onPress={() => setFiltro(f)}
-          >
-            <Text style={[styles.filterChipText, filtro === f && styles.filterChipTextActive]}>
-              {f.charAt(0).toUpperCase() + f.slice(1)}
-            </Text>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.filterScroll}
+        contentContainerStyle={styles.filterRow}
+      >
+        {FILTROS.map(f => {
+          const active = filtro === f;
+          const bgColor = f === 'Todos' ? Colors.primary : ESTADO_COLORS[f as EstadoCalzada];
+          return (
+            <TouchableOpacity
+              key={f}
+              style={[styles.filterChip, active && { backgroundColor: bgColor, borderColor: bgColor }]}
+              onPress={() => setFiltro(f)}
+            >
+              <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>
+                {f === 'Todos' ? `Todos (${relevamientos.length})` : `${f} (${conteos[f] ?? 0})`}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+
+      {/* Count + export */}
+      <View style={styles.topBar}>
+        <Text style={styles.countText}>
+          {filtrados.length} relevamiento{filtrados.length !== 1 ? 's' : ''}
+        </Text>
+        {filtrados.length > 0 && (
+          <TouchableOpacity style={styles.exportAllBtn} onPress={() => exportarTodos(filtrados)}>
+            <Ionicons name="cloud-download-outline" size={14} color={Colors.accent} />
+            <Text style={styles.exportAllText}>Exportar todos</Text>
           </TouchableOpacity>
-        ))}
+        )}
       </View>
 
       <FlatList
         data={filtrados}
         keyExtractor={item => item.id}
-        renderItem={({ item }) => <ReporteCard item={item} />}
+        renderItem={({ item }) => <RelevamientoCard item={item} onDelete={remove} />}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Ionicons name="document-text-outline" size={48} color={Colors.textMuted} />
-            <Text style={styles.emptyText}>No hay reportes en esta categoría</Text>
+            <Text style={styles.emptyIcon}>{'📋'}</Text>
+            <Text style={styles.emptyTitle}>
+              {loading ? 'Cargando...' : 'Sin relevamientos'}
+            </Text>
+            <Text style={styles.emptyText}>
+              {loading ? '' : 'Andá al mapa y tocá el botón 📋 para registrar un relevamiento de campo.'}
+            </Text>
           </View>
         }
       />
@@ -111,39 +347,110 @@ export default function ReportesScreen() {
   );
 }
 
+// ── Styles ────────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
+
   summary: {
-    flexDirection: 'row', backgroundColor: Colors.primary, padding: 16,
-    justifyContent: 'space-around', alignItems: 'center',
+    flexDirection: 'row', backgroundColor: Colors.primary,
+    paddingVertical: 14, paddingHorizontal: 8, justifyContent: 'space-around',
   },
   summaryItem: { alignItems: 'center' },
-  summaryValue: { fontSize: 20, fontWeight: 'bold', color: Colors.white },
-  summaryLabel: { fontSize: 11, color: 'rgba(255,255,255,0.7)', marginTop: 2 },
-  summaryDivider: { width: 1, height: 30, backgroundColor: 'rgba(255,255,255,0.3)' },
-  filterRow: { flexDirection: 'row', flexWrap: 'wrap', padding: 12, gap: 6 },
+  summaryValue: { fontSize: 22, fontWeight: '800', lineHeight: 26 },
+  summaryLabel: { fontSize: 11, color: 'rgba(255,255,255,0.65)', marginTop: 2 },
+
+  filterScroll: { flexShrink: 0, flexGrow: 0 },
+  filterRow: {
+    paddingHorizontal: 12, paddingRight: 24, paddingVertical: 8,
+    gap: 6, flexDirection: 'row', alignItems: 'center',
+  },
   filterChip: {
     paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20,
     backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border,
   },
   filterChipText: { fontSize: 12, color: Colors.textSecondary, fontWeight: '600' },
-  filterChipTextActive: { color: Colors.white },
-  list: { padding: 12, paddingTop: 4 },
-  card: {
-    flexDirection: 'row', backgroundColor: Colors.surface, borderRadius: 14, padding: 14,
-    marginBottom: 10, elevation: 2, shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 3,
+  filterChipTextActive: { color: '#fff' },
+
+  topBar: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 16, paddingBottom: 4,
   },
-  iconContainer: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
-  cardContent: { flex: 1 },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, marginBottom: 4 },
-  cardTitle: { flex: 1, fontSize: 14, fontWeight: '700', color: Colors.textPrimary },
-  tipoBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 },
-  tipoBadgeText: { fontSize: 10, fontWeight: 'bold', color: Colors.white },
-  consorcioName: { fontSize: 12, color: Colors.textSecondary, marginBottom: 8 },
-  cardFooter: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  footerItem: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  footerText: { fontSize: 11, color: Colors.textMuted },
-  empty: { alignItems: 'center', paddingTop: 60, gap: 12 },
-  emptyText: { fontSize: 14, color: Colors.textMuted },
+  countText: { fontSize: 12, color: Colors.textMuted },
+  exportAllBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingVertical: 4, paddingHorizontal: 8, borderRadius: 8,
+    backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border,
+  },
+  exportAllText: { fontSize: 12, color: Colors.accent, fontWeight: '600' },
+
+  list: { padding: 12, paddingTop: 4 },
+
+  card: {
+    backgroundColor: Colors.surface, borderRadius: 12, marginBottom: 10,
+    borderLeftWidth: 4, elevation: 2, shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 3,
+    overflow: 'hidden',
+  },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12 },
+  estadoBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 7, flexShrink: 0 },
+  estadoBadgeText: { fontSize: 10, fontWeight: '800', color: '#fff' },
+  tipoBadge: {
+    backgroundColor: Colors.background, borderRadius: 6,
+    paddingHorizontal: 6, paddingVertical: 4, flexShrink: 0,
+    borderWidth: 1, borderColor: Colors.border,
+  },
+  tipoBadgeText: { fontSize: 10, fontWeight: '900', color: Colors.textSecondary },
+  cardTitle: { fontSize: 13, fontWeight: '700', color: Colors.textPrimary },
+  cardMeta: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2, flexWrap: 'wrap' },
+  cardZona: { fontSize: 10, color: Colors.accent, fontWeight: '700', marginRight: 4 },
+  cardMetaText: { fontSize: 11, color: Colors.textMuted },
+
+  detail: {
+    backgroundColor: Colors.background, paddingHorizontal: 14,
+    paddingTop: 10, paddingBottom: 4, borderTopWidth: 1, borderTopColor: Colors.border,
+  },
+  detailRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
+  detailText: { fontSize: 12, color: Colors.textSecondary, flex: 1 },
+  detailMono: {
+    fontSize: 12, color: Colors.textSecondary,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+  },
+
+  tipoSection: {
+    backgroundColor: Colors.surface, borderRadius: 8,
+    padding: 10, marginBottom: 10,
+    borderWidth: 1, borderColor: Colors.border,
+  },
+  tipoSectionLabel: {
+    fontSize: 10, fontWeight: '800', color: Colors.accent,
+    textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6,
+  },
+  fieldList: { gap: 3 },
+  fieldRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 6 },
+  fieldDot: {
+    width: 4, height: 4, borderRadius: 2,
+    backgroundColor: Colors.textMuted, marginTop: 5, flexShrink: 0,
+  },
+  fieldText: { fontSize: 11, color: Colors.textSecondary, flex: 1, lineHeight: 16 },
+
+  actions: {
+    flexDirection: 'row', gap: 8, paddingVertical: 10,
+    borderTopWidth: 1, borderTopColor: Colors.border, marginTop: 4,
+  },
+  actionBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 5, paddingVertical: 8, borderRadius: 8,
+    backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border,
+  },
+  actionBtnDanger: {
+    borderColor: Colors.danger + '40',
+    backgroundColor: Colors.danger + '08',
+  },
+  actionText: { fontSize: 12, fontWeight: '700' },
+
+  empty: { alignItems: 'center', paddingTop: 70, gap: 10, paddingHorizontal: 32 },
+  emptyIcon: { fontSize: 48 },
+  emptyTitle: { fontSize: 16, fontWeight: '700', color: Colors.textSecondary },
+  emptyText: { fontSize: 13, color: Colors.textMuted, textAlign: 'center', lineHeight: 19 },
 });

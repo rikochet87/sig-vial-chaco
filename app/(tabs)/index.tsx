@@ -80,9 +80,9 @@ export default function HomeScreen() {
           onPress={() => router.push('/distribucion')}
         />
         <StatCard
-          label="Reportes"
+          label="Relevamientos"
           value="Ver"
-          icon="document-text"
+          icon="clipboard"
           color="#9C27B0"
           onPress={() => router.push('/(tabs)/reportes')}
         />

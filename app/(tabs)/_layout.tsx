@@ -64,9 +64,9 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="reportes"
         options={{
-          title: 'Reportes',
-          tabBarIcon: ({ focused }) => <TabIcon name={focused ? 'document-text' : 'document-text-outline'} focused={focused} />,
-          headerTitle: 'Reportes',
+          title: 'Relevamientos',
+          tabBarIcon: ({ focused }) => <TabIcon name={focused ? 'clipboard' : 'clipboard-outline'} focused={focused} />,
+          headerTitle: 'Relevamientos',
         }}
       />
     </Tabs>
