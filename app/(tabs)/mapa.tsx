@@ -106,8 +106,8 @@ html,body,#map{width:100%;height:100vh;background:#f0ebe3}
 .dark-popup .leaflet-popup-content-wrapper{background:#1e2436;border:1px solid #2a3045;border-radius:8px;padding:0;box-shadow:0 4px 12px rgba(0,0,0,.5)}
 .dark-popup .leaflet-popup-tip{background:#1e2436}
 .dark-popup .leaflet-popup-content{margin:0}
-.rn-label{background:transparent!important;border:none!important;box-shadow:none!important;padding:0!important;}
-.rn-label::before{display:none!important;}
+.leaflet-tooltip.rn-label{background:transparent!important;border:none!important;box-shadow:none!important;padding:0!important;color:transparent!important;}
+.leaflet-tooltip.rn-label::before{display:none!important;}
 </style>
 </head>
 <body>
