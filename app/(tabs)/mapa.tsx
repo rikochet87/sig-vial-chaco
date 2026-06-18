@@ -192,10 +192,13 @@ if(LAYERS.zonaBoundaries)
   });
 
 // ── Rutas Nacionales ──────────────────────────────────────────────
+function hexToRgba(h,a){
+  var r=parseInt(h.slice(1,3),16),g=parseInt(h.slice(3,5),16),b=parseInt(h.slice(5,7),16);
+  return 'rgba('+r+','+g+','+b+','+a+')';
+}
 if(LAYERS.rutasNacionales)
   Object.entries(RUTAS).forEach(function([ruta,gj]){
     var c=RUTAS_COLORS[ruta]||'#e74c3c';
-    var hitLayers=[];
     L.geoJSON(gj,{
       style:{color:c,weight:3.5,opacity:.9},
       interactive:false
@@ -205,11 +208,11 @@ if(LAYERS.rutasNacionales)
       onEachFeature:function(f,l){
         var n=(f.properties||{}).Nombre||(f.properties||{}).nombre||ruta;
         l.bindPopup(
-          '<div style="background:'+c+';opacity:0.6;border-radius:6px;overflow:hidden;font-family:sans-serif;padding:6px 10px;display:inline-block">'
-          +'<div style="font-size:8px;color:rgba(255,255,255,0.85);text-transform:uppercase;letter-spacing:1px">Ruta Nacional<\/div>'
+          '<div style="background:'+hexToRgba(c,0.85)+';border-radius:5px;padding:5px 9px;font-family:sans-serif">'
+          +'<div style="font-size:8px;color:rgba(255,255,255,0.8);text-transform:uppercase;letter-spacing:0.8px">Ruta Nacional<\/div>'
           +'<div style="font-size:13px;font-weight:900;color:#fff;margin-top:1px">'+n+'<\/div>'
           +'<\/div>',
-          {className:'dark-popup',closeButton:false,maxWidth:130}
+          {className:'dark-popup',closeButton:false,maxWidth:120}
         );
       }
     }).addTo(map);
