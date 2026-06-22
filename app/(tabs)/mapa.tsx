@@ -878,12 +878,12 @@ export default function MapaScreen() {
     zonaBoundaries: true,
     limiteProv: true,
     departamentos: false,
-    rutasNacionales: true,
-    campamentos: true,
+    rutasNacionales: false,
+    campamentos: false,
     salud: false,
-    rpPavimentada: true,
-    rpMejorada: true,
-    rpEnObra: true,
+    rpPavimentada: false,
+    rpMejorada: false,
+    rpEnObra: false,
     rpTierra: false,
   });
 

@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import * as FileSystem from 'expo-file-system';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import * as FileSystem from 'expo-file-system/legacy';
 import type { Relevamiento } from '@/types/relevamiento';
 
 const FILE_PATH = FileSystem.documentDirectory + 'relevamientos.json';
@@ -7,13 +7,16 @@ const FILE_PATH = FileSystem.documentDirectory + 'relevamientos.json';
 export function useRelevamientos() {
   const [relevamientos, setRelevamientos] = useState<Relevamiento[]>([]);
   const [loading, setLoading] = useState(true);
+  const listRef = useRef<Relevamiento[]>([]);
 
   const load = useCallback(async () => {
     try {
       const info = await FileSystem.getInfoAsync(FILE_PATH);
       if (info.exists) {
         const raw = await FileSystem.readAsStringAsync(FILE_PATH);
-        setRelevamientos(JSON.parse(raw));
+        const parsed = JSON.parse(raw);
+        listRef.current = parsed;
+        setRelevamientos(parsed);
       }
     } catch (_) {
       setRelevamientos([]);
@@ -24,25 +27,18 @@ export function useRelevamientos() {
 
   useEffect(() => { load(); }, [load]);
 
-  const persist = useCallback(async (list: Relevamiento[]) => {
-    await FileSystem.writeAsStringAsync(FILE_PATH, JSON.stringify(list));
-    setRelevamientos(list);
-  }, []);
-
   const add = useCallback(async (r: Relevamiento) => {
-    setRelevamientos(prev => {
-      const next = [r, ...prev];
-      FileSystem.writeAsStringAsync(FILE_PATH, JSON.stringify(next));
-      return next;
-    });
+    const next = [r, ...listRef.current];
+    listRef.current = next;
+    await FileSystem.writeAsStringAsync(FILE_PATH, JSON.stringify(next));
+    setRelevamientos(next);
   }, []);
 
   const remove = useCallback(async (id: string) => {
-    setRelevamientos(prev => {
-      const next = prev.filter(r => r.id !== id);
-      FileSystem.writeAsStringAsync(FILE_PATH, JSON.stringify(next));
-      return next;
-    });
+    const next = listRef.current.filter(item => item.id !== id);
+    listRef.current = next;
+    await FileSystem.writeAsStringAsync(FILE_PATH, JSON.stringify(next));
+    setRelevamientos(next);
   }, []);
 
   return { relevamientos, loading, add, remove, reload: load };
