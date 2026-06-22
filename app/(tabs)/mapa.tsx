@@ -843,6 +843,11 @@ function addRelevMarker(id,lat,lng,estado,estructura,ccAsociado,fecha,obs){
 function removeRelevMarker(id){
   if(RELEV_MARKERS[id]){map.removeLayer(RELEV_MARKERS[id]);delete RELEV_MARKERS[id];}
 }
+function clearRelevMarkers(){
+  Object.keys(RELEV_MARKERS).forEach(function(id){
+    map.removeLayer(RELEV_MARKERS[id]);delete RELEV_MARKERS[id];
+  });
+}
 <\/script>
 </body>
 </html>`;
@@ -921,8 +926,8 @@ export default function MapaScreen() {
     if (!relevLoaded.current && relevamientos.length > 0) {
       relevLoaded.current = true;
     }
-    // Inject/refresh all markers on relevamientos change
-    const js = relevamientos.map(r =>
+    // Limpiar marcadores viejos y re-agregar los actuales
+    const js = 'clearRelevMarkers();' + relevamientos.map(r =>
       `addRelevMarker(${JSON.stringify(r.id)},${r.coords.lat},${r.coords.lng},${JSON.stringify(r.estadoCalzada)},${JSON.stringify(r.tipo)},${JSON.stringify(r.rutaTramo || r.ccAsociado || '')},${JSON.stringify(r.fecha)},${JSON.stringify(r.observaciones.slice(0,80))});`
     ).join('') + ' true;';
     webviewRef.current?.injectJavaScript(js);
@@ -1047,10 +1052,13 @@ export default function MapaScreen() {
     if (tracking) {
       locationSub.current?.remove?.();
       setTracking(false);
+      gpsCoords.current = null;
       return;
     }
     const { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== 'granted') return;
+    // Salir del modo manual en el WebView antes de reactivar GPS
+    webviewRef.current?.injectJavaScript(`exitManualMode(); true;`);
     setTracking(true);
     locationSub.current = await Location.watchPositionAsync(
       {
