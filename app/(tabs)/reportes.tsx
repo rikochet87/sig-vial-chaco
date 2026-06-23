@@ -81,7 +81,8 @@ function SubFormDetail({ r }: { r: Relevamiento }) {
       d.h && `H libre: ${d.h} m`,
       d.j && `J camino: ${d.j} m`,
       d.tipoEstructura && `Estructura: ${d.tipoEstructura}`,
-      d.guarniruedas !== undefined && `Guarniruedas: ${d.guarniruedas ? 'Sí' : 'No'}`,
+      d.guiaRuedas !== undefined && `Guía ruedas: ${d.guiaRuedas ? 'Sí' : 'No'}`,
+      d.guiaRuedas && d.estadoGuiaRuedas && `Est. guía ruedas: ${d.estadoGuiaRuedas}`,
       d.barandas !== undefined && `Barandas: ${d.barandas ? 'Sí' : 'No'}`,
       d.barandas && d.hBarandas && `H barandas: ${d.hBarandas} m`,
       d.estadoEstructural && `Est. estructural: ${d.estadoEstructural}`,
@@ -450,5 +451,5 @@ const styles = StyleSheet.create({
   empty: { alignItems: 'center', paddingTop: 70, gap: 10, paddingHorizontal: 32 },
   emptyIcon: { fontSize: 48 },
   emptyTitle: { fontSize: 16, fontWeight: '700', color: Colors.textSecondary },
-  emptyText: { fontSize: 13, color: Colors.textMuted, textAlign: 'center', lineHeight: 19 },
+  emptyText:{ fontSize: 13, color: Colors.textMuted, textAlign: 'center', lineHeight: 19 },
 });

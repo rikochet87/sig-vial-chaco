@@ -8,7 +8,7 @@ import { Colors } from '@/constants/Colors';
 import { CONSORCIOS } from '@/constants/realData';
 import type {
   Relevamiento, EstadoCalzada, TipoInfraestructura,
-  DatosPuente, DatosAlcantarilla, DatosTubos, TipoEstructuraPuente,
+  DatosPuente, DatosAlcantarilla, DatosTubos,
 } from '@/types/relevamiento';
 import {
   ESTADO_COLORS, DEFAULT_PUENTE, DEFAULT_ALCANTARILLA, DEFAULT_TUBOS,
@@ -102,8 +102,6 @@ function EstadoEstructuralBtns({
 
 // ── Formulario Puente ─────────────────────────────────────────────────────────
 
-const TIPOS_ESTRUCTURA: TipoEstructuraPuente[] = ['Madera', 'Viga Metálica', 'Viga Madera'];
-
 function PuenteForm({ data, onChange }: {
   data: DatosPuente;
   onChange: (d: DatosPuente) => void;
@@ -131,17 +129,11 @@ function PuenteForm({ data, onChange }: {
 
         <FLabel text="Cantidad de palizadas" />
         <View style={s.cantidadRow}>
-          <TouchableOpacity
-            style={s.cantBtn}
-            onPress={() => setCantidadPalizadas(data.cantidadPalizadas - 1)}
-          >
+          <TouchableOpacity style={s.cantBtn} onPress={() => setCantidadPalizadas(data.cantidadPalizadas - 1)}>
             <Text style={s.cantBtnTxt}>−</Text>
           </TouchableOpacity>
           <Text style={s.cantValue}>{data.cantidadPalizadas}</Text>
-          <TouchableOpacity
-            style={s.cantBtn}
-            onPress={() => setCantidadPalizadas(data.cantidadPalizadas + 1)}
-          >
+          <TouchableOpacity style={s.cantBtn} onPress={() => setCantidadPalizadas(data.cantidadPalizadas + 1)}>
             <Text style={s.cantBtnTxt}>+</Text>
           </TouchableOpacity>
         </View>
@@ -162,36 +154,34 @@ function PuenteForm({ data, onChange }: {
 
       <FGroup label="Estructura">
         <FLabel text="Tipo de estructura" />
-        <View style={s.estructuraRow}>
-          {TIPOS_ESTRUCTURA.map(te => (
-            <TouchableOpacity
-              key={te}
-              style={[s.estructuraBtn, data.tipoEstructura === te && s.estructuraBtnOn]}
-              onPress={() => set('tipoEstructura')(te)}
-            >
-              <Text style={[s.estructuraBtnTxt, data.tipoEstructura === te && s.estructuraBtnTxtOn]}>
-                {te}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+        <FInput
+          value={data.tipoEstructura}
+          onChange={set('tipoEstructura')}
+          placeholder="Ej: Madera, Hormigón, Metálico..."
+        />
       </FGroup>
 
-      <FGroup label="Guarniruedas">
+      <FGroup label="Guía ruedas">
         <View style={s.siNoRow}>
           <TouchableOpacity
-            style={[s.siNoBtn, data.guarniruedas && s.siNoBtnOn]}
-            onPress={() => set('guarniruedas')(true)}
+            style={[s.siNoBtn, data.guiaRuedas && s.siNoBtnOn]}
+            onPress={() => set('guiaRuedas')(true)}
           >
-            <Text style={[s.siNoBtnTxt, data.guarniruedas && s.siNoBtnTxtOn]}>Sí</Text>
+            <Text style={[s.siNoBtnTxt, data.guiaRuedas && s.siNoBtnTxtOn]}>Sí</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[s.siNoBtn, !data.guarniruedas && s.siNoBtnOn]}
-            onPress={() => set('guarniruedas')(false)}
+            style={[s.siNoBtn, !data.guiaRuedas && s.siNoBtnOn]}
+            onPress={() => set('guiaRuedas')(false)}
           >
-            <Text style={[s.siNoBtnTxt, !data.guarniruedas && s.siNoBtnTxtOn]}>No</Text>
+            <Text style={[s.siNoBtnTxt, !data.guiaRuedas && s.siNoBtnTxtOn]}>No</Text>
           </TouchableOpacity>
         </View>
+        {data.guiaRuedas && (
+          <>
+            <FLabel text="Estado guía ruedas" />
+            <EstadoEstructuralBtns value={data.estadoGuiaRuedas} onChange={set('estadoGuiaRuedas')} />
+          </>
+        )}
       </FGroup>
 
       <FGroup label="Barandas">

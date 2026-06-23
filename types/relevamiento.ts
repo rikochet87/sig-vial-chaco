@@ -12,16 +12,15 @@ export const ESTADO_COLORS: Record<EstadoCalzada, string> = {
 
 // ── Sub-formularios ───────────────────────────────────────────────────────────
 
-export type TipoEstructuraPuente = 'Madera' | 'Viga Metálica' | 'Viga Madera';
-
 export interface DatosPuente {
   longitudTotal: string;        // L(m) longitud total
   cantidadPalizadas: number;    // 1–10
   lucesPalizadas: string[];     // N-1 vanos, cada uno en metros
   h: string;                    // H(m) altura libre
   j: string;                    // J(m) ancho de camino
-  tipoEstructura: TipoEstructuraPuente;
-  guarniruedas: boolean;
+  tipoEstructura: string;       // texto libre: Madera, Hormigón, etc.
+  guiaRuedas: boolean;
+  estadoGuiaRuedas: EstadoCalzada;  // solo si guiaRuedas = true
   barandas: boolean;
   hBarandas: string;            // solo si barandas = true
   estadoEstructural: EstadoCalzada;
@@ -89,11 +88,12 @@ export interface Relevamiento {
 export const DEFAULT_PUENTE: DatosPuente = {
   longitudTotal: '',
   cantidadPalizadas: 2,
-  lucesPalizadas: [''],   // 2 palizadas → 1 vano
+  lucesPalizadas: [''],
   h: '',
   j: '',
-  tipoEstructura: 'Madera',
-  guarniruedas: false,
+  tipoEstructura: '',
+  guiaRuedas: false,
+  estadoGuiaRuedas: 'Regular',
   barandas: false,
   hBarandas: '',
   estadoEstructural: 'Regular',
