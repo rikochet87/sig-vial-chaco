@@ -14,7 +14,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.consorcio.caminero"
+      "bundleIdentifier": "com.rosello.sigvialchaco"
     },
     "android": {
       "adaptiveIcon": {
@@ -22,7 +22,7 @@
         "monochromeImage": "./assets/android-icon-monochrome.png",
         "backgroundColor": "#2C2C2C"
       },
-      "package": "com.consorcio.caminero",
+      "package": "com.rosello.sigvialchaco",
       "versionCode": 2,
       "permissions": [
         "android.permission.ACCESS_COARSE_LOCATION",
