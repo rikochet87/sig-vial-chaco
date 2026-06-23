@@ -1,4 +1,4 @@
-{
+﻿{
   "expo": {
     "name": "SIG Vial",
     "slug": "sig-vial-chaco",
@@ -42,7 +42,21 @@
         "expo-build-properties",
         {
           "android": {
-            "kotlinVersion": "1.9.25"
+            "kotlinVersion": "1.9.25",
+            "compileSdkVersion": 35,
+            "targetSdkVersion": 35,
+            "buildToolsVersion": "35.0.0",
+            "packagingOptions": {
+              "pickFirst": [
+                "**/libc++_shared.so",
+                "**/libfbjni.so",
+                "**/libglog.so",
+                "**/libfolly_json.so",
+                "**/libfolly_futures.so",
+                "**/libreact_render_core.so",
+                "**/libjsi.so"
+              ]
+            }
           }
         }
       ],
