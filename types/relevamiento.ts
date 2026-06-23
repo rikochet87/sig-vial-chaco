@@ -2,7 +2,7 @@
 
 export type EstadoCalzada = 'Bueno' | 'Regular' | 'Malo';
 
-export type TipoInfraestructura = 'Puente' | 'Alcantarilla' | 'Tubos' | 'Otro';
+export type TipoInfraestructura = 'Puente' | 'Alcantarilla' | 'Tubos' | 'Otro' | 'Ripio';
 
 export const ESTADO_COLORS: Record<EstadoCalzada, string> = {
   Bueno:   '#27ae60',
@@ -51,6 +51,14 @@ export interface DatosOtro {
   descripcion: string;
 }
 
+export interface DatosRipio {
+  ancho: string;          // m — ancho de la calzada enripiada
+  longitud: string;       // m — longitud del tramo
+  espesor: string;        // m — espesor del ripio colocado
+  empresa: string;        // empresa ejecutora
+  fechaEjecucion: string; // DD/MM/AAAA — puede diferir de la fecha de relevamiento
+}
+
 // ── Auto-deteccion ───────────────────────────────────────────────────────────
 
 export interface AutoDeteccion {
@@ -66,6 +74,7 @@ export interface Relevamiento {
   id: string;
   fecha: string;
   coords: { lat: number; lng: number };
+  coordsLinea?: { lat: number; lng: number }[]; // para features lineales (Ripio)
   autoDeteccion?: AutoDeteccion;
   rutaTramo: string;
   estadoCalzada: EstadoCalzada;
@@ -74,6 +83,7 @@ export interface Relevamiento {
   datosAlcantarilla?: DatosAlcantarilla;
   datosTubos?: DatosTubos;
   datosOtro?: DatosOtro;
+  datosRipio?: DatosRipio;
   observaciones: string;
   tecnico: string;
   fotos: string[];
@@ -93,18 +103,4 @@ export const DEFAULT_PUENTE: DatosPuente = {
   j: '',
   tipoEstructura: '',
   guiaRuedas: false,
-  estadoGuiaRuedas: 'Regular',
-  barandas: false,
-  hBarandas: '',
-  estadoEstructural: 'Regular',
-};
-
-export const DEFAULT_ALCANTARILLA: DatosAlcantarilla = {
-  longitudTotal: '', cantidadLuces: '', longitudLuces: '', anchoTotal: '',
-  anchoCalzada: '', h: '', materialesAlas: '', longitudAlas: '',
-  estadoEstructural: 'Regular', situacionHidraulica: '',
-};
-
-export const DEFAULT_TUBOS: DatosTubos = {
-  jAncho: '', d: '', cabezales: '', tapada: '', cantidad: 1,
-};
+  

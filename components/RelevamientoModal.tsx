@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   Modal, View, Text, StyleSheet, ScrollView, TextInput,
   TouchableOpacity, KeyboardAvoidingView, Platform, Alert,
@@ -8,11 +8,15 @@ import { Colors } from '@/constants/Colors';
 import { CONSORCIOS } from '@/constants/realData';
 import type {
   Relevamiento, EstadoCalzada, TipoInfraestructura,
-  DatosPuente, DatosAlcantarilla, DatosTubos,
+  DatosPuente, DatosAlcantarilla, DatosTubos, DatosRipio,
 } from '@/types/relevamiento';
 import {
-  ESTADO_COLORS, DEFAULT_PUENTE, DEFAULT_ALCANTARILLA, DEFAULT_TUBOS,
+  ESTADO_COLORS, DEFAULT_PUENTE, DEFAULT_ALCANTARILLA, DEFAULT_TUBOS, DEFAULT_RIPIO,
 } from '@/types/relevamiento';
+
+// expo-location: importación condicional para captura GPS en formulario ripio
+let Location: any = null;
+try { Location = require('expo-location'); } catch (_) {}
 
 // Importación condicional de expo-image-picker
 let ImagePicker: any = null;
@@ -322,27 +326,271 @@ function TubosForm({ data, onChange }: {
   );
 }
 
+// ── Formulario Ripio ──────────────────────────────────────────────────────────
+
+type LatLngPunto = { lat: number; lng: number };
+
+const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+
+// Haversine: distancia en metros entre dos coordenadas
+function haversine(a: LatLngPunto, b: LatLngPunto): number {
+  const R = 6371000;
+  const dLat = (b.lat - a.lat) * Math.PI / 180;
+  const dLng = (b.lng - a.lng) * Math.PI / 180;
+  const s = Math.sin(dLat/2)**2 + Math.cos(a.lat*Math.PI/180) * Math.cos(b.lat*Math.PI/180) * Math.sin(dLng/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1-s));
+}
+function totalMetros(pts: LatLngPunto[]): number {
+  let d = 0;
+  for (let i = 1; i < pts.length; i++) d += haversine(pts[i-1], pts[i]);
+  return d;
+}
+
+function RipioForm({ data, onChange, puntos, onCoordsChange, onRequestDraw }: {
+  data: DatosRipio;
+  onChange: (d: DatosRipio) => void;
+  puntos: LatLngPunto[];
+  onCoordsChange: (pts: LatLngPunto[]) => void;
+  onRequestDraw?: () => void;
+}) {
+  const set = (k: keyof DatosRipio) => (v: string) => onChange({ ...data, [k]: v });
+
+  // ── GPS Track inline ───────────────────────────────────────────────────────
+  const [trackPhase, setTrackPhase] = useState<'idle'|'recording'>('idle');
+  const [trackPts,   setTrackPts]   = useState<LatLngPunto[]>([]);
+  const trackSubRef = useRef<any>(null);
+
+  const startTrack = async () => {
+    if (!Location) { Alert.alert('GPS no disponible', 'expo-location no está instalado.'); return; }
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') { Alert.alert('Permiso denegado', 'Se necesita GPS para grabar el track.'); return; }
+    setTrackPts([]);
+    setTrackPhase('recording');
+    trackSubRef.current = await Location.watchPositionAsync(
+      { accuracy: Location.Accuracy.High, distanceInterval: 10, timeInterval: 4000 },
+      (loc: any) => {
+        setTrackPts(prev => [...prev, { lat: loc.coords.latitude, lng: loc.coords.longitude }]);
+      }
+    );
+  };
+
+  const stopTrack = () => {
+    trackSubRef.current?.remove();
+    trackSubRef.current = null;
+    setTrackPhase('idle');
+    setTrackPts(prev => {
+      if (prev.length >= 2) {
+        onCoordsChange(prev);
+      } else {
+        Alert.alert('Track muy corto', 'Se necesitan al menos 2 puntos GPS para definir el tramo.');
+      }
+      return prev; // no limpiar — el usuario ve los datos
+    });
+  };
+
+  const cancelTrack = () => {
+    trackSubRef.current?.remove();
+    trackSubRef.current = null;
+    setTrackPhase('idle');
+    setTrackPts([]);
+  };
+
+  // ── Date stepper ──────────────────────────────────────────────────────────
+  const today = new Date();
+  const [dDay,   setDDay]   = useState(today.getDate());
+  const [dMonth, setDMonth] = useState(today.getMonth() + 1);
+  const [dYear,  setDYear]  = useState(today.getFullYear());
+
+  const daysInMonth = (m: number, y: number) => new Date(y, m, 0).getDate();
+  const clampDay = (d: number, m: number, y: number) => Math.min(d, daysInMonth(m, y));
+
+  const changeDay   = (n: number) => { const d = clampDay(n, dMonth, dYear); setDDay(d);   syncFecha(d, dMonth, dYear);   };
+  const changeMonth = (n: number) => { const m = ((n-1+12)%12)+1; const d = clampDay(dDay, m, dYear); setDMonth(m); setDDay(d); syncFecha(d, m, dYear);   };
+  const changeYear  = (n: number) => { const d = clampDay(dDay, dMonth, n); setDYear(n);  setDDay(d); syncFecha(d, dMonth, n); };
+  const syncFecha   = (d: number, m: number, y: number) =>
+    onChange({ ...data, fechaEjecucion: `${String(d).padStart(2,'0')}/${String(m).padStart(2,'0')}/${y}` });
+
+  // ── Toneladas ─────────────────────────────────────────────────────────────
+  const ancho    = parseFloat(data.ancho)    || 0;
+  const longitud = parseFloat(data.longitud) || 0;
+  const espesor  = parseFloat(data.espesor)  || 0;
+  const toneladas = ancho > 0 && longitud > 0 && espesor > 0
+    ? (ancho * longitud * espesor * 2.1).toFixed(2) : null;
+
+  const metros = trackPts.length >= 2 ? totalMetros(trackPts) : 0;
+
+  return (
+    <>
+      {/* ── TRAMO ─────────────────────────────────────────────────────────── */}
+      <FGroup label="Tramo enripiado">
+        {puntos.length >= 2 ? (
+          // Tramo ya definido
+          <View style={s.tramoOk}>
+            <Text style={s.tramoOkTitle}>✓ Tramo definido — {puntos.length} puntos</Text>
+            <Text style={s.tramoOkPt}>▶ Inicio: {puntos[0].lat.toFixed(5)}, {puntos[0].lng.toFixed(5)}</Text>
+            <Text style={s.tramoOkPt}>⏹ Final:  {puntos[puntos.length-1].lat.toFixed(5)}, {puntos[puntos.length-1].lng.toFixed(5)}</Text>
+          </View>
+        ) : trackPhase === 'recording' ? (
+          // Panel GPS Track activo
+          <View style={s.trackPanel}>
+            <View style={s.trackPanelHeader}>
+              <View style={s.trackDot} />
+              <Text style={s.trackPanelTitle}>Grabando track GPS…</Text>
+            </View>
+            <Text style={s.trackStat}>
+              {trackPts.length} punto{trackPts.length !== 1 ? 's' : ''} registrado{trackPts.length !== 1 ? 's' : ''}
+              {metros > 0 ? `  ·  ≈ ${metros >= 1000 ? (metros/1000).toFixed(2)+' km' : Math.round(metros)+' m'}` : ''}
+            </Text>
+            {trackPts.length > 0 && (
+              <Text style={s.trackCoord}>
+                Última pos.: {trackPts[trackPts.length-1].lat.toFixed(5)}, {trackPts[trackPts.length-1].lng.toFixed(5)}
+              </Text>
+            )}
+            <View style={s.trackPanelBtns}>
+              <TouchableOpacity style={[s.trackPanelBtn, s.trackBtnStop]} onPress={stopTrack}>
+                <Text style={s.trackPanelBtnTxt}>■  FIN — guardar tramo</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[s.trackPanelBtn, s.trackBtnCancelSm]} onPress={cancelTrack}>
+                <Text style={s.trackPanelBtnTxt}>✕  Cancelar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : (
+          // Sin tramo: dos tarjetas de método
+          <View style={s.metodoCards}>
+            {/* Tarjeta: Dibujar en mapa */}
+            <View style={s.metodoCard}>
+              <Text style={s.metodoCardIcon}>✏️</Text>
+              <View style={s.metodoCardBody}>
+                <Text style={s.metodoCardTitle}>Dibujar en mapa</Text>
+                <Text style={s.metodoCardDesc}>
+                  Trazá el tramo tocando puntos sobre el mapa OSM. Útil para trabajar desde gabinete o cuando no estás en el lugar.
+                </Text>
+                <TouchableOpacity style={s.metodoCardBtn} onPress={onRequestDraw}>
+                  <Text style={s.metodoCardBtnTxt}>Ir al mapa →</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={s.metodoDivider} />
+
+            {/* Tarjeta: GPS Track */}
+            <View style={s.metodoCard}>
+              <Text style={s.metodoCardIcon}>📍</Text>
+              <View style={s.metodoCardBody}>
+                <Text style={s.metodoCardTitle}>GPS Track</Text>
+                <Text style={s.metodoCardDesc}>
+                  Grabá el recorrido automáticamente mientras conducís por el tramo. El GPS registra la ruta real cada 10 m.
+                </Text>
+                <TouchableOpacity style={[s.metodoCardBtn, s.metodoCardBtnGps]} onPress={startTrack}>
+                  <Text style={s.metodoCardBtnTxt}>▶ Iniciar grabación</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        )}
+      </FGroup>
+
+      {/* ── DIMENSIONES ────────────────────────────────────────────────────── */}
+      <FGroup label="Dimensiones">
+        <FRow>
+          <View style={{ flex: 1 }}>
+            <FLabel text="Ancho" />
+            <FInput value={data.ancho} onChange={set('ancho')} numeric unit="m" />
+          </View>
+          <View style={{ width: 10 }} />
+          <View style={{ flex: 1 }}>
+            <FLabel text="Longitud" />
+            <FInput value={data.longitud} onChange={set('longitud')} numeric unit="m" />
+          </View>
+        </FRow>
+        <FLabel text="Espesor del ripio" />
+        <FInput value={data.espesor} onChange={set('espesor')} numeric unit="m" />
+
+        {toneladas !== null && (
+          <View style={s.tonesBox}>
+            <Text style={s.tonesLabel}>Toneladas estimadas</Text>
+            <Text style={s.tonesValue}>{toneladas} t</Text>
+            <Text style={s.tonesNote}>Densidad 2,1 t/m³ · {ancho}m × {longitud}m × {espesor}m</Text>
+          </View>
+        )}
+      </FGroup>
+
+      {/* ── OBRA ───────────────────────────────────────────────────────────── */}
+      <FGroup label="Obra">
+        <FLabel text="Empresa ejecutora" />
+        <FInput value={data.empresa} onChange={set('empresa')} placeholder="Nombre de la empresa..." />
+
+        <FLabel text="Fecha de ejecución" />
+        <View style={s.dateRow}>
+          {/* Día */}
+          <View style={s.dateCol}>
+            <TouchableOpacity style={s.dateBtn} onPress={() => changeDay(dDay - 1 < 1 ? daysInMonth(dMonth, dYear) : dDay - 1)}>
+              <Text style={s.dateBtnTxt}>−</Text>
+            </TouchableOpacity>
+            <Text style={s.dateValue}>{String(dDay).padStart(2,'0')}</Text>
+            <TouchableOpacity style={s.dateBtn} onPress={() => changeDay(dDay + 1 > daysInMonth(dMonth, dYear) ? 1 : dDay + 1)}>
+              <Text style={s.dateBtnTxt}>+</Text>
+            </TouchableOpacity>
+            <Text style={s.dateUnit}>Día</Text>
+          </View>
+          <Text style={s.dateSep}>/</Text>
+          {/* Mes */}
+          <View style={s.dateCol}>
+            <TouchableOpacity style={s.dateBtn} onPress={() => changeMonth(dMonth - 1)}>
+              <Text style={s.dateBtnTxt}>−</Text>
+            </TouchableOpacity>
+            <Text style={s.dateValue}>{MESES[dMonth - 1]}</Text>
+            <TouchableOpacity style={s.dateBtn} onPress={() => changeMonth(dMonth + 1)}>
+              <Text style={s.dateBtnTxt}>+</Text>
+            </TouchableOpacity>
+            <Text style={s.dateUnit}>Mes</Text>
+          </View>
+          <Text style={s.dateSep}>/</Text>
+          {/* Año */}
+          <View style={[s.dateCol, { flex: 1.4 }]}>
+            <TouchableOpacity style={s.dateBtn} onPress={() => changeYear(dYear - 1)}>
+              <Text style={s.dateBtnTxt}>−</Text>
+            </TouchableOpacity>
+            <Text style={s.dateValue}>{dYear}</Text>
+            <TouchableOpacity style={s.dateBtn} onPress={() => changeYear(dYear + 1)}>
+              <Text style={s.dateBtnTxt}>+</Text>
+            </TouchableOpacity>
+            <Text style={s.dateUnit}>Año</Text>
+          </View>
+        </View>
+      </FGroup>
+    </>
+  );
+}
+
 // ── Props & main component ────────────────────────────────────────────────────
 
 interface Props {
   visible: boolean;
   coords: { lat: number; lng: number } | null;
+  /** Puntos pre-dibujados desde el mapa — activa automáticamente el tipo Ripio */
+  initialCoordsLinea?: LatLngPunto[];
+  /** Llamado cuando el usuario elige "Dibujar en mapa" desde el formulario */
+  onRequestDraw?: () => void;
   onSave: (r: Relevamiento) => void;
   onClose: () => void;
 }
 
-const TIPOS: TipoInfraestructura[] = ['Puente', 'Alcantarilla', 'Tubos', 'Otro'];
+const TIPOS: TipoInfraestructura[] = ['Puente', 'Alcantarilla', 'Tubos', 'Ripio', 'Otro'];
 const TIPO_ICONS: Record<TipoInfraestructura, string> = {
-  Puente: 'PTE', Alcantarilla: 'ALC', Tubos: 'TUB', Otro: '?',
+  Puente: 'PTE', Alcantarilla: 'ALC', Tubos: 'TUB', Ripio: 'RIP', Otro: '?',
 };
 const ESTADOS: EstadoCalzada[] = ['Bueno', 'Regular', 'Malo'];
 
-export default function RelevamientoModal({ visible, coords, onSave, onClose }: Props) {
+export default function RelevamientoModal({ visible, coords, initialCoordsLinea, onRequestDraw, onSave, onClose }: Props) {
   const [estadoCalzada, setEstadoCalzada] = useState<EstadoCalzada>('Regular');
   const [tipo, setTipo] = useState<TipoInfraestructura>('Puente');
   const [datosPuente, setDatosPuente] = useState<DatosPuente>({ ...DEFAULT_PUENTE });
   const [datosAlcantarilla, setDatosAlcantarilla] = useState<DatosAlcantarilla>({ ...DEFAULT_ALCANTARILLA });
   const [datosTubos, setDatosTubos] = useState<DatosTubos>({ ...DEFAULT_TUBOS });
+  const [datosRipio, setDatosRipio] = useState<DatosRipio>({ ...DEFAULT_RIPIO });
+  const [coordsLinea, setCoordsLinea] = useState<LatLngPunto[]>([]);
   const [otroDesc, setOtroDesc] = useState('');
   const [rutaTramo, setRutaTramo] = useState('');
   const [observaciones, setObservaciones] = useState('');
@@ -350,10 +598,24 @@ export default function RelevamientoModal({ visible, coords, onSave, onClose }: 
   const [fotos, setFotos] = useState<string[]>([]);
   const [fechaModal] = useState(() => new Date().toISOString());
 
+  // Pre-carga el tramo dibujado desde el mapa y activa el tipo Ripio automáticamente
+  useEffect(() => {
+    if (visible && initialCoordsLinea && initialCoordsLinea.length >= 2) {
+      setCoordsLinea([...initialCoordsLinea]);
+      setTipo('Ripio');
+    }
+  }, [visible]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Para Ripio usamos el primer punto del tramo; para los demás, el GPS del mapa
+  const effectiveCoords = useMemo(() => {
+    if (tipo === 'Ripio' && coordsLinea.length > 0) return coordsLinea[0];
+    return coords;
+  }, [tipo, coords, coordsLinea]);
+
   const autoCC = useMemo(() => {
-    if (!coords) return null;
-    return nearestCC(coords.lat, coords.lng);
-  }, [coords]);
+    if (!effectiveCoords) return null;
+    return nearestCC(effectiveCoords.lat, effectiveCoords.lng);
+  }, [effectiveCoords]);
 
   const reset = () => {
     setEstadoCalzada('Regular');
@@ -361,6 +623,8 @@ export default function RelevamientoModal({ visible, coords, onSave, onClose }: 
     setDatosPuente({ ...DEFAULT_PUENTE });
     setDatosAlcantarilla({ ...DEFAULT_ALCANTARILLA });
     setDatosTubos({ ...DEFAULT_TUBOS });
+    setDatosRipio({ ...DEFAULT_RIPIO });
+    setCoordsLinea([]);
     setOtroDesc('');
     setRutaTramo('');
     setObservaciones('');
@@ -384,14 +648,24 @@ export default function RelevamientoModal({ visible, coords, onSave, onClose }: 
   };
 
   const handleSave = () => {
-    if (!coords) {
+    // Para Ripio, la ubicación viene de los puntos del tramo
+    if (tipo === 'Ripio') {
+      if (coordsLinea.length < 2) {
+        Alert.alert('Tramo incompleto', 'Agregá al menos el punto de inicio y final del tramo.');
+        return;
+      }
+    } else if (!coords) {
       Alert.alert('Sin ubicación', 'Activá el GPS en el mapa antes de registrar.');
       return;
     }
+
+    const baseCoords = tipo === 'Ripio' ? coordsLinea[0] : coords!;
+
     const r: Relevamiento = {
       id: Date.now().toString(),
       fecha: new Date().toISOString(),
-      coords,
+      coords: baseCoords,
+      coordsLinea: tipo === 'Ripio' ? [...coordsLinea] : undefined,
       autoDeteccion: autoCC
         ? {
             zona: autoCC.zona,
@@ -407,6 +681,7 @@ export default function RelevamientoModal({ visible, coords, onSave, onClose }: 
       datosAlcantarilla: tipo === 'Alcantarilla' ? { ...datosAlcantarilla } : undefined,
       datosTubos: tipo === 'Tubos' ? { ...datosTubos } : undefined,
       datosOtro: tipo === 'Otro' ? { descripcion: otroDesc.trim() } : undefined,
+      datosRipio: tipo === 'Ripio' ? { ...datosRipio } : undefined,
       observaciones: observaciones.trim(),
       tecnico: tecnico.trim(),
       fotos,
@@ -430,322 +705,4 @@ export default function RelevamientoModal({ visible, coords, onSave, onClose }: 
           {/* Header */}
           <View style={s.header}>
             <View style={{ flex: 1 }}>
-              <Text style={s.title}>📋 Nuevo Relevamiento</Text>
-              <Text style={s.fechaHora}>{formatFechaHora(fechaModal)}</Text>
-            </View>
-            <TouchableOpacity onPress={onClose} style={s.closeBtn}>
-              <Ionicons name="close" size={20} color={Colors.textMuted} />
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={s.body}
-            keyboardShouldPersistTaps="handled"
-          >
-            {/* GPS + auto-detección */}
-            <View style={s.gpsBlock}>
-              <View style={s.gpsRow}>
-                <Ionicons name="location" size={13} color={coords ? activeColor : Colors.danger} />
-                <Text style={[s.gpsText, !coords && { color: Colors.danger }]}>
-                  {coords
-                    ? `${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)}`
-                    : 'Sin GPS — activá la ubicación en el mapa'}
-                </Text>
-              </View>
-              {autoCC && coords && (
-                <View style={s.autoRow}>
-                  <View style={s.autoChip}>
-                    <Text style={s.autoChipLabel}>ZONA</Text>
-                    <Text style={s.autoChipValue}>{autoCC.zona}</Text>
-                  </View>
-                  <View style={s.autoChip}>
-                    <Text style={s.autoChipLabel}>CC N°</Text>
-                    <Text style={s.autoChipValue}>{autoCC.numero}</Text>
-                  </View>
-                  <View style={[s.autoChip, { flex: 2 }]}>
-                    <Text style={s.autoChipLabel}>RED</Text>
-                    <Text style={s.autoChipValue} numberOfLines={1}>{autoCC.redKm} km</Text>
-                  </View>
-                </View>
-              )}
-              {autoCC && coords && (
-                <Text style={s.autoNombre} numberOfLines={2}>{autoCC.nombre}</Text>
-              )}
-            </View>
-
-            {/* Ruta / Tramo */}
-            <Text style={s.label}>Ruta / Tramo</Text>
-            <TextInput
-              style={s.input}
-              placeholder="Ej: RP 6 km 34, Camino vecinal..."
-              placeholderTextColor={Colors.textMuted}
-              value={rutaTramo}
-              onChangeText={setRutaTramo}
-            />
-
-            {/* Estado calzada — oculto para Puente (tiene su propio estado estructural) */}
-            {tipo !== 'Puente' && (
-              <>
-                <Text style={s.label}>Estado de la calzada</Text>
-                <View style={s.estadoRow}>
-                  {ESTADOS.map(e => (
-                    <TouchableOpacity
-                      key={e}
-                      style={[s.estadoBtn, estadoCalzada === e && { backgroundColor: ESTADO_COLORS[e], borderColor: ESTADO_COLORS[e] }]}
-                      onPress={() => setEstadoCalzada(e)}
-                    >
-                      <Text style={[s.estadoBtnTxt, estadoCalzada === e && s.estadoBtnTxtOn]}>{e}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </>
-            )}
-
-            {/* Tipo de infraestructura */}
-            <Text style={s.label}>Tipo de infraestructura</Text>
-            <View style={s.tipoRow}>
-              {TIPOS.map(t => {
-                const on = tipo === t;
-                return (
-                  <TouchableOpacity
-                    key={t}
-                    style={[s.tipoBtn, on && { backgroundColor: activeColor, borderColor: activeColor }]}
-                    onPress={() => setTipo(t)}
-                  >
-                    <Text style={[s.tipoBtnTag, on && { color: '#fff' }]}>{TIPO_ICONS[t]}</Text>
-                    <Text style={[s.tipoBtnTxt, on && s.tipoBtnTxtOn]}>{t}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            {/* Sub-formulario dinámico */}
-            <View style={s.subform}>
-              {tipo === 'Puente' && (
-                <PuenteForm data={datosPuente} onChange={setDatosPuente} />
-              )}
-              {tipo === 'Alcantarilla' && (
-                <AlcantarillaForm data={datosAlcantarilla} onChange={setDatosAlcantarilla} />
-              )}
-              {tipo === 'Tubos' && (
-                <TubosForm data={datosTubos} onChange={setDatosTubos} />
-              )}
-              {tipo === 'Otro' && (
-                <>
-                  <Text style={s.label}>Descripción del problema</Text>
-                  <TextInput
-                    style={[s.input, s.textArea]}
-                    placeholder="Describí el problema detalladamente..."
-                    placeholderTextColor={Colors.textMuted}
-                    value={otroDesc}
-                    onChangeText={setOtroDesc}
-                    multiline
-                    numberOfLines={5}
-                    textAlignVertical="top"
-                  />
-                </>
-              )}
-            </View>
-
-            {/* Inspector */}
-            <Text style={s.label}>Inspector / Técnico</Text>
-            <TextInput
-              style={s.input}
-              placeholder="Nombre del técnico..."
-              placeholderTextColor={Colors.textMuted}
-              value={tecnico}
-              onChangeText={setTecnico}
-            />
-
-            {/* Observaciones */}
-            <Text style={s.label}>Observaciones generales</Text>
-            <TextInput
-              style={[s.input, s.textArea]}
-              placeholder="Observaciones adicionales..."
-              placeholderTextColor={Colors.textMuted}
-              value={observaciones}
-              onChangeText={setObservaciones}
-              multiline
-              numberOfLines={3}
-              textAlignVertical="top"
-            />
-
-            {/* Fotos */}
-            <View style={s.fotosHeader}>
-              <Text style={s.label}>Fotos</Text>
-              {fotos.length > 0 && (
-                <Text style={s.fotosCount}>{fotos.length} adjunta{fotos.length !== 1 ? 's' : ''}</Text>
-              )}
-            </View>
-            <TouchableOpacity style={s.fotoBtn} onPress={takeFoto}>
-              <Ionicons name="camera-outline" size={18} color={Colors.accent} />
-              <Text style={s.fotoBtnTxt}>
-                {ImagePicker ? 'Tomar foto' : 'Requiere expo-image-picker'}
-              </Text>
-            </TouchableOpacity>
-
-            {/* Guardar */}
-            <TouchableOpacity
-              style={[s.saveBtn, { backgroundColor: activeColor }]}
-              onPress={handleSave}
-            >
-              <Ionicons name="save-outline" size={18} color="#fff" />
-              <Text style={s.saveBtnTxt}>Guardar Relevamiento</Text>
-            </TouchableOpacity>
-          </ScrollView>
-        </View>
-      </KeyboardAvoidingView>
-    </Modal>
-  );
-}
-
-// ── Styles ────────────────────────────────────────────────────────────────────
-
-const s = StyleSheet.create({
-  overlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.55)' },
-  sheet: {
-    backgroundColor: Colors.surface,
-    borderTopLeftRadius: 20, borderTopRightRadius: 20,
-    maxHeight: '95%',
-    paddingBottom: Platform.OS === 'ios' ? 34 : 16,
-  },
-  handle: {
-    alignSelf: 'center', width: 40, height: 4, borderRadius: 2,
-    backgroundColor: Colors.border, marginTop: 10, marginBottom: 4,
-  },
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingVertical: 10,
-    borderBottomWidth: 1, borderBottomColor: Colors.border,
-  },
-  title: { fontSize: 15, fontWeight: '700', color: Colors.textPrimary },
-  fechaHora: { fontSize: 11, color: Colors.textMuted, marginTop: 2 },
-  closeBtn: { padding: 4 },
-  body: { padding: 16, paddingBottom: 8 },
-
-  // GPS block
-  gpsBlock: {
-    backgroundColor: Colors.background, borderRadius: 10,
-    padding: 10, marginBottom: 14,
-    borderWidth: 1, borderColor: Colors.border,
-  },
-  gpsRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
-  gpsText: { fontSize: 12, color: Colors.textSecondary, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace' },
-  autoRow: { flexDirection: 'row', gap: 6, marginBottom: 6 },
-  autoChip: {
-    flex: 1, backgroundColor: Colors.surface, borderRadius: 7,
-    paddingHorizontal: 8, paddingVertical: 5, alignItems: 'center',
-    borderWidth: 1, borderColor: Colors.border,
-  },
-  autoChipLabel: { fontSize: 9, fontWeight: '700', color: Colors.textMuted, letterSpacing: 0.8 },
-  autoChipValue: { fontSize: 13, fontWeight: '800', color: Colors.textPrimary },
-  autoNombre: { fontSize: 11, color: Colors.textSecondary, lineHeight: 15 },
-
-  // Form fields
-  label: {
-    fontSize: 11, fontWeight: '700', color: Colors.textSecondary,
-    textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6, marginTop: 2,
-  },
-  input: {
-    backgroundColor: Colors.background, borderRadius: 8,
-    paddingHorizontal: 12, paddingVertical: 9,
-    fontSize: 14, color: Colors.textPrimary,
-    borderWidth: 1, borderColor: Colors.border, marginBottom: 12,
-  },
-  textArea: { minHeight: 70, paddingTop: 9 },
-
-  // Estado buttons
-  estadoRow: { flexDirection: 'row', gap: 8, marginBottom: 14 },
-  estadoBtn: {
-    flex: 1, paddingVertical: 9, alignItems: 'center',
-    borderRadius: 8, borderWidth: 1.5, borderColor: Colors.border,
-    backgroundColor: Colors.background,
-  },
-  estadoBtnTxt: { fontSize: 12, fontWeight: '700', color: Colors.textSecondary },
-  estadoBtnTxtOn: { color: '#fff' },
-
-  // Tipo buttons
-  tipoRow: { flexDirection: 'row', gap: 7, marginBottom: 14 },
-  tipoBtn: {
-    flex: 1, alignItems: 'center', paddingVertical: 9,
-    borderRadius: 9, borderWidth: 1.5, borderColor: Colors.border,
-    backgroundColor: Colors.background,
-  },
-  tipoBtnTag: { fontSize: 11, fontWeight: '900', color: Colors.textMuted, letterSpacing: 0.5 },
-  tipoBtnTxt: { fontSize: 10, fontWeight: '700', color: Colors.textSecondary, marginTop: 2 },
-  tipoBtnTxtOn: { color: '#fff' },
-
-  // Sub-form
-  subform: {
-    backgroundColor: Colors.background, borderRadius: 10,
-    padding: 12, marginBottom: 14,
-    borderWidth: 1, borderColor: Colors.border,
-  },
-  fGroup: { marginBottom: 10 },
-  fGroupTitle: {
-    fontSize: 10, fontWeight: '700', color: Colors.accent,
-    textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6,
-    borderBottomWidth: 1, borderBottomColor: Colors.border, paddingBottom: 4,
-  },
-  fLabel: { fontSize: 11, color: Colors.textSecondary, fontWeight: '600', marginBottom: 4, marginTop: 6 },
-  fInputWrap: { flexDirection: 'row', alignItems: 'center', marginBottom: 2 },
-  fInput: {
-    flex: 1, backgroundColor: Colors.surface, borderRadius: 7,
-    paddingHorizontal: 10, paddingVertical: 7,
-    fontSize: 13, color: Colors.textPrimary,
-    borderWidth: 1, borderColor: Colors.border,
-  },
-  fInputMulti: { minHeight: 60, textAlignVertical: 'top', paddingTop: 7 },
-  fUnit: { fontSize: 11, color: Colors.textMuted, marginLeft: 6, minWidth: 16 },
-  fRow: { flexDirection: 'row', alignItems: 'flex-start' },
-
-  // Tipo estructura puente
-  estructuraRow: { flexDirection: 'row', gap: 6, marginBottom: 2, flexWrap: 'wrap' },
-  estructuraBtn: {
-    paddingHorizontal: 10, paddingVertical: 7, borderRadius: 7,
-    borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.surface,
-    marginBottom: 4,
-  },
-  estructuraBtnOn: { backgroundColor: Colors.accent, borderColor: Colors.accent },
-  estructuraBtnTxt: { fontSize: 12, fontWeight: '600', color: Colors.textSecondary },
-  estructuraBtnTxtOn: { color: '#fff' },
-
-  // Si/No buttons
-  siNoRow: { flexDirection: 'row', gap: 8, marginBottom: 4 },
-  siNoBtn: {
-    flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 8,
-    borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.surface,
-  },
-  siNoBtnOn: { backgroundColor: Colors.accent, borderColor: Colors.accent },
-  siNoBtnTxt: { fontSize: 13, fontWeight: '700', color: Colors.textSecondary },
-  siNoBtnTxtOn: { color: '#fff' },
-
-  // Cantidad stepper (shared)
-  cantidadRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4 },
-  cantBtn: {
-    width: 36, height: 36, borderRadius: 18,
-    backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  cantBtnTxt: { fontSize: 20, fontWeight: '700', color: Colors.textPrimary },
-  cantValue: { fontSize: 22, fontWeight: '800', color: Colors.textPrimary, minWidth: 36, textAlign: 'center' },
-
-  // Fotos
-  fotosHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6, marginTop: 2 },
-  fotosCount: { fontSize: 12, color: Colors.accent, fontWeight: '600' },
-  fotoBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: Colors.background, borderRadius: 8,
-    paddingHorizontal: 14, paddingVertical: 10,
-    borderWidth: 1, borderColor: Colors.border, borderStyle: 'dashed', marginBottom: 18,
-  },
-  fotoBtnTxt: { fontSize: 13, color: Colors.accent, fontWeight: '600' },
-
-  // Save
-  saveBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 8, paddingVertical: 14, borderRadius: 10, marginTop: 4,
-  },
-  saveBtnTxt: { fontSize: 15, fontWeight: '700', color: '#fff' },
-});
+              <Text style={s.titl

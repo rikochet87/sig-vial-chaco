@@ -21,28 +21,44 @@ function formatFecha(iso: string) {
 function buildGeoJSON(items: Relevamiento[]) {
   return {
     type: 'FeatureCollection',
-    features: items.map(r => ({
-      type: 'Feature',
-      geometry: { type: 'Point', coordinates: [r.coords.lng, r.coords.lat] },
-      properties: {
-        id: r.id,
-        fecha: r.fecha,
-        zona: r.autoDeteccion?.zona ?? '',
-        cc_numero: r.autoDeteccion?.ccNumero ?? '',
-        cc_nombre: r.autoDeteccion?.ccNombre ?? '',
-        ruta_tramo: r.rutaTramo || r.ccAsociado || '',
-        estado_calzada: r.estadoCalzada,
-        tipo: r.tipo ?? '',
-        tecnico: r.tecnico,
-        observaciones: r.observaciones,
-        // sub-form data flattened
-        ...(r.datosPuente ?? {}),
-        ...(r.datosAlcantarilla ?? {}),
-        ...(r.datosTubos ?? {}),
-        descripcion_otro: r.datosOtro?.descripcion ?? '',
-        fotos: r.fotos.length,
-      },
-    })),
+    features: items.map(r => {
+      // Ripio → LineString; el resto → Point
+      const geometry = r.tipo === 'Ripio' && r.coordsLinea && r.coordsLinea.length >= 2
+        ? { type: 'LineString', coordinates: r.coordsLinea.map(p => [p.lng, p.lat]) }
+        : { type: 'Point', coordinates: [r.coords.lng, r.coords.lat] };
+
+      const ancho = parseFloat(r.datosRipio?.ancho ?? '') || 0;
+      const longitud = parseFloat(r.datosRipio?.longitud ?? '') || 0;
+      const espesor = parseFloat(r.datosRipio?.espesor ?? '') || 0;
+      const toneladas = ancho > 0 && longitud > 0 && espesor > 0
+        ? parseFloat((ancho * longitud * espesor * 2.1).toFixed(2))
+        : null;
+
+      return {
+        type: 'Feature',
+        geometry,
+        properties: {
+          id: r.id,
+          fecha: r.fecha,
+          zona: r.autoDeteccion?.zona ?? '',
+          cc_numero: r.autoDeteccion?.ccNumero ?? '',
+          cc_nombre: r.autoDeteccion?.ccNombre ?? '',
+          ruta_tramo: r.rutaTramo || r.ccAsociado || '',
+          estado_calzada: r.estadoCalzada,
+          tipo: r.tipo ?? '',
+          tecnico: r.tecnico,
+          observaciones: r.observaciones,
+          // sub-form data flattened
+          ...(r.datosPuente ?? {}),
+          ...(r.datosAlcantarilla ?? {}),
+          ...(r.datosTubos ?? {}),
+          descripcion_otro: r.datosOtro?.descripcion ?? '',
+          ...(r.datosRipio ?? {}),
+          toneladas_estimadas: toneladas,
+          fotos: r.fotos.length,
+        },
+      };
+    }),
   };
 }
 
@@ -123,6 +139,26 @@ function SubFormDetail({ r }: { r: Relevamiento }) {
     return <FieldList items={[r.datosOtro.descripcion]} />;
   }
 
+  if (tipo === 'Ripio' && r.datosRipio) {
+    const d = r.datosRipio;
+    const ancho = parseFloat(d.ancho) || 0;
+    const longitud = parseFloat(d.longitud) || 0;
+    const espesor = parseFloat(d.espesor) || 0;
+    const toneladas = ancho > 0 && longitud > 0 && espesor > 0
+      ? (ancho * longitud * espesor * 2.1).toFixed(2)
+      : null;
+    const items = [
+      r.coordsLinea && `Tramo: ${r.coordsLinea.length} puntos GPS`,
+      d.ancho && `Ancho: ${d.ancho} m`,
+      d.longitud && `Longitud: ${d.longitud} m`,
+      d.espesor && `Espesor: ${d.espesor} m`,
+      toneladas && `Toneladas estimadas: ${toneladas} t`,
+      d.empresa && `Empresa: ${d.empresa}`,
+      d.fechaEjecucion && `Fecha ejecución: ${d.fechaEjecucion}`,
+    ].filter(Boolean) as string[];
+    return <FieldList items={items} />;
+  }
+
   return null;
 }
 
@@ -142,7 +178,7 @@ function FieldList({ items }: { items: string[] }) {
 // ── Card ─────────────────────────────────────────────────────────────────────
 
 const TIPO_LABELS: Record<string, string> = {
-  Puente: 'PTE', Alcantarilla: 'ALC', Tubos: 'TUB', Otro: '?',
+  Puente: 'PTE', Alcantarilla: 'ALC', Tubos: 'TUB', Ripio: 'RIP', Otro: '?',
 };
 
 function RelevamientoCard({
@@ -412,44 +448,4 @@ const styles = StyleSheet.create({
   detailRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
   detailText: { fontSize: 12, color: Colors.textSecondary, flex: 1 },
   detailMono: {
-    fontSize: 12, color: Colors.textSecondary,
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
-  },
-
-  tipoSection: {
-    backgroundColor: Colors.surface, borderRadius: 8,
-    padding: 10, marginBottom: 10,
-    borderWidth: 1, borderColor: Colors.border,
-  },
-  tipoSectionLabel: {
-    fontSize: 10, fontWeight: '800', color: Colors.accent,
-    textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6,
-  },
-  fieldList: { gap: 3 },
-  fieldRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 6 },
-  fieldDot: {
-    width: 4, height: 4, borderRadius: 2,
-    backgroundColor: Colors.textMuted, marginTop: 5, flexShrink: 0,
-  },
-  fieldText: { fontSize: 11, color: Colors.textSecondary, flex: 1, lineHeight: 16 },
-
-  actions: {
-    flexDirection: 'row', gap: 8, paddingVertical: 10,
-    borderTopWidth: 1, borderTopColor: Colors.border, marginTop: 4,
-  },
-  actionBtn: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 5, paddingVertical: 8, borderRadius: 8,
-    backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border,
-  },
-  actionBtnDanger: {
-    borderColor: Colors.danger + '40',
-    backgroundColor: Colors.danger + '08',
-  },
-  actionText: { fontSize: 12, fontWeight: '700' },
-
-  empty: { alignItems: 'center', paddingTop: 70, gap: 10, paddingHorizontal: 32 },
-  emptyIcon: { fontSize: 48 },
-  emptyTitle: { fontSize: 16, fontWeight: '700', color: Colors.textSecondary },
-  emptyText:{ fontSize: 13, color: Colors.textMuted, textAlign: 'center', lineHeight: 19 },
-});
+    fontSiz
