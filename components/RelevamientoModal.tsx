@@ -8,7 +8,7 @@ import { Colors } from '@/constants/Colors';
 import { CONSORCIOS } from '@/constants/realData';
 import type {
   Relevamiento, EstadoCalzada, TipoInfraestructura,
-  DatosPuente, DatosAlcantarilla, DatosTubos,
+  DatosPuente, DatosAlcantarilla, DatosTubos, TipoEstructuraPuente,
 } from '@/types/relevamiento';
 import {
   ESTADO_COLORS, DEFAULT_PUENTE, DEFAULT_ALCANTARILLA, DEFAULT_TUBOS,
@@ -102,69 +102,124 @@ function EstadoEstructuralBtns({
 
 // ── Formulario Puente ─────────────────────────────────────────────────────────
 
+const TIPOS_ESTRUCTURA: TipoEstructuraPuente[] = ['Madera', 'Viga Metálica', 'Viga Madera'];
+
 function PuenteForm({ data, onChange }: {
   data: DatosPuente;
   onChange: (d: DatosPuente) => void;
 }) {
   const set = (k: keyof DatosPuente) => (v: any) => onChange({ ...data, [k]: v });
+
+  const setCantidadPalizadas = (n: number) => {
+    const cantidad = Math.max(1, Math.min(10, n));
+    const vanos = cantidad - 1;
+    const luces = Array.from({ length: vanos }, (_, i) => data.lucesPalizadas[i] ?? '');
+    onChange({ ...data, cantidadPalizadas: cantidad, lucesPalizadas: luces });
+  };
+
+  const setLuzVano = (idx: number, val: string) => {
+    const luces = [...data.lucesPalizadas];
+    luces[idx] = val;
+    onChange({ ...data, lucesPalizadas: luces });
+  };
+
   return (
     <>
       <FGroup label="Dimensiones">
-        <FLabel text="Longitud total" />
+        <FLabel text="L (m) — Longitud total" />
         <FInput value={data.longitudTotal} onChange={set('longitudTotal')} numeric unit="m" />
-        <FRow>
-          <View style={{ flex: 1 }}>
-            <FLabel text="Ancho total" />
-            <FInput value={data.anchoTotal} onChange={set('anchoTotal')} numeric unit="m" />
-          </View>
-          <View style={{ width: 10 }} />
-          <View style={{ flex: 1 }}>
-            <FLabel text="Ancho calzada" />
-            <FInput value={data.anchoCalzada} onChange={set('anchoCalzada')} numeric unit="m" />
-          </View>
-        </FRow>
-        <FLabel text="H (altura libre)" />
-        <FInput value={data.h} onChange={set('h')} numeric unit="m" />
-      </FGroup>
 
-      <FGroup label="Luces">
-        <FRow>
-          <View style={{ flex: 1 }}>
-            <FLabel text="Cantidad" />
-            <FInput value={data.cantidadLuces} onChange={set('cantidadLuces')} numeric />
+        <FLabel text="Cantidad de palizadas" />
+        <View style={s.cantidadRow}>
+          <TouchableOpacity
+            style={s.cantBtn}
+            onPress={() => setCantidadPalizadas(data.cantidadPalizadas - 1)}
+          >
+            <Text style={s.cantBtnTxt}>−</Text>
+          </TouchableOpacity>
+          <Text style={s.cantValue}>{data.cantidadPalizadas}</Text>
+          <TouchableOpacity
+            style={s.cantBtn}
+            onPress={() => setCantidadPalizadas(data.cantidadPalizadas + 1)}
+          >
+            <Text style={s.cantBtnTxt}>+</Text>
+          </TouchableOpacity>
+        </View>
+
+        {data.lucesPalizadas.map((luz, idx) => (
+          <View key={idx}>
+            <FLabel text={`Luz vano ${idx + 1} (m)`} />
+            <FInput value={luz} onChange={(v) => setLuzVano(idx, v)} numeric unit="m" />
           </View>
-          <View style={{ width: 10 }} />
-          <View style={{ flex: 1 }}>
-            <FLabel text="Longitud" />
-            <FInput value={data.longitudLuces} onChange={set('longitudLuces')} numeric unit="m" />
-          </View>
-        </FRow>
+        ))}
+
+        <FLabel text="H (m) — Altura libre" />
+        <FInput value={data.h} onChange={set('h')} numeric unit="m" />
+
+        <FLabel text="J (m) — Ancho de camino" />
+        <FInput value={data.j} onChange={set('j')} numeric unit="m" />
       </FGroup>
 
       <FGroup label="Estructura">
         <FLabel text="Tipo de estructura" />
-        <FInput value={data.estructura} onChange={set('estructura')} placeholder="Ej: Hormigón armado, Metálico..." />
+        <View style={s.estructuraRow}>
+          {TIPOS_ESTRUCTURA.map(te => (
+            <TouchableOpacity
+              key={te}
+              style={[s.estructuraBtn, data.tipoEstructura === te && s.estructuraBtnOn]}
+              onPress={() => set('tipoEstructura')(te)}
+            >
+              <Text style={[s.estructuraBtnTxt, data.tipoEstructura === te && s.estructuraBtnTxtOn]}>
+                {te}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
       </FGroup>
 
-      <FGroup label="Alas">
-        <FLabel text="Materiales" />
-        <FInput value={data.materialesAlas} onChange={set('materialesAlas')} placeholder="Ej: Hormigón, Piedra..." />
-        <FLabel text="Longitud de alas" />
-        <FInput value={data.longitudAlas} onChange={set('longitudAlas')} numeric unit="m" />
+      <FGroup label="Guarniruedas">
+        <View style={s.siNoRow}>
+          <TouchableOpacity
+            style={[s.siNoBtn, data.guarniruedas && s.siNoBtnOn]}
+            onPress={() => set('guarniruedas')(true)}
+          >
+            <Text style={[s.siNoBtnTxt, data.guarniruedas && s.siNoBtnTxtOn]}>Sí</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[s.siNoBtn, !data.guarniruedas && s.siNoBtnOn]}
+            onPress={() => set('guarniruedas')(false)}
+          >
+            <Text style={[s.siNoBtnTxt, !data.guarniruedas && s.siNoBtnTxtOn]}>No</Text>
+          </TouchableOpacity>
+        </View>
       </FGroup>
 
       <FGroup label="Barandas">
-        <FLabel text="Tipo" />
-        <FInput value={data.barandasTipo} onChange={set('barandasTipo')} placeholder="Ej: Metálica, Hormigón..." />
-        <FLabel text="H barandas" />
-        <FInput value={data.hBarandas} onChange={set('hBarandas')} numeric unit="m" />
+        <View style={s.siNoRow}>
+          <TouchableOpacity
+            style={[s.siNoBtn, data.barandas && s.siNoBtnOn]}
+            onPress={() => set('barandas')(true)}
+          >
+            <Text style={[s.siNoBtnTxt, data.barandas && s.siNoBtnTxtOn]}>Sí</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[s.siNoBtn, !data.barandas && s.siNoBtnOn]}
+            onPress={() => set('barandas')(false)}
+          >
+            <Text style={[s.siNoBtnTxt, !data.barandas && s.siNoBtnTxtOn]}>No</Text>
+          </TouchableOpacity>
+        </View>
+        {data.barandas && (
+          <>
+            <FLabel text="Altura (m)" />
+            <FInput value={data.hBarandas} onChange={set('hBarandas')} numeric unit="m" />
+          </>
+        )}
       </FGroup>
 
       <FGroup label="Estado">
         <FLabel text="Estado estructural" />
         <EstadoEstructuralBtns value={data.estadoEstructural} onChange={set('estadoEstructural')} />
-        <FLabel text="Situación hidráulica" />
-        <FInput value={data.situacionHidraulica} onChange={set('situacionHidraulica')} placeholder="Descripción..." multiline />
       </FGroup>
     </>
   );
@@ -439,19 +494,23 @@ export default function RelevamientoModal({ visible, coords, onSave, onClose }: 
               onChangeText={setRutaTramo}
             />
 
-            {/* Estado calzada */}
-            <Text style={s.label}>Estado de la calzada</Text>
-            <View style={s.estadoRow}>
-              {ESTADOS.map(e => (
-                <TouchableOpacity
-                  key={e}
-                  style={[s.estadoBtn, estadoCalzada === e && { backgroundColor: ESTADO_COLORS[e], borderColor: ESTADO_COLORS[e] }]}
-                  onPress={() => setEstadoCalzada(e)}
-                >
-                  <Text style={[s.estadoBtnTxt, estadoCalzada === e && s.estadoBtnTxtOn]}>{e}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+            {/* Estado calzada — oculto para Puente (tiene su propio estado estructural) */}
+            {tipo !== 'Puente' && (
+              <>
+                <Text style={s.label}>Estado de la calzada</Text>
+                <View style={s.estadoRow}>
+                  {ESTADOS.map(e => (
+                    <TouchableOpacity
+                      key={e}
+                      style={[s.estadoBtn, estadoCalzada === e && { backgroundColor: ESTADO_COLORS[e], borderColor: ESTADO_COLORS[e] }]}
+                      onPress={() => setEstadoCalzada(e)}
+                    >
+                      <Text style={[s.estadoBtnTxt, estadoCalzada === e && s.estadoBtnTxtOn]}>{e}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </>
+            )}
 
             {/* Tipo de infraestructura */}
             <Text style={s.label}>Tipo de infraestructura</Text>
@@ -651,7 +710,28 @@ const s = StyleSheet.create({
   fUnit: { fontSize: 11, color: Colors.textMuted, marginLeft: 6, minWidth: 16 },
   fRow: { flexDirection: 'row', alignItems: 'flex-start' },
 
-  // Tubos cantidad
+  // Tipo estructura puente
+  estructuraRow: { flexDirection: 'row', gap: 6, marginBottom: 2, flexWrap: 'wrap' },
+  estructuraBtn: {
+    paddingHorizontal: 10, paddingVertical: 7, borderRadius: 7,
+    borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.surface,
+    marginBottom: 4,
+  },
+  estructuraBtnOn: { backgroundColor: Colors.accent, borderColor: Colors.accent },
+  estructuraBtnTxt: { fontSize: 12, fontWeight: '600', color: Colors.textSecondary },
+  estructuraBtnTxtOn: { color: '#fff' },
+
+  // Si/No buttons
+  siNoRow: { flexDirection: 'row', gap: 8, marginBottom: 4 },
+  siNoBtn: {
+    flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 8,
+    borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.surface,
+  },
+  siNoBtnOn: { backgroundColor: Colors.accent, borderColor: Colors.accent },
+  siNoBtnTxt: { fontSize: 13, fontWeight: '700', color: Colors.textSecondary },
+  siNoBtnTxtOn: { color: '#fff' },
+
+  // Cantidad stepper (shared)
   cantidadRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4 },
   cantBtn: {
     width: 36, height: 36, borderRadius: 18,

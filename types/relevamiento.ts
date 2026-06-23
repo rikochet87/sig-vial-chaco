@@ -12,20 +12,19 @@ export const ESTADO_COLORS: Record<EstadoCalzada, string> = {
 
 // ── Sub-formularios ───────────────────────────────────────────────────────────
 
+export type TipoEstructuraPuente = 'Madera' | 'Viga Metálica' | 'Viga Madera';
+
 export interface DatosPuente {
-  estructura: string;
-  longitudTotal: string;
-  anchoTotal: string;
-  anchoCalzada: string;
-  cantidadLuces: string;
-  longitudLuces: string;
-  h: string;
-  materialesAlas: string;
-  longitudAlas: string;
-  barandasTipo: string;
-  hBarandas: string;
+  longitudTotal: string;        // L(m) longitud total
+  cantidadPalizadas: number;    // 1–10
+  lucesPalizadas: string[];     // N-1 vanos, cada uno en metros
+  h: string;                    // H(m) altura libre
+  j: string;                    // J(m) ancho de camino
+  tipoEstructura: TipoEstructuraPuente;
+  guarniruedas: boolean;
+  barandas: boolean;
+  hBarandas: string;            // solo si barandas = true
   estadoEstructural: EstadoCalzada;
-  situacionHidraulica: string;
 }
 
 export interface DatosAlcantarilla {
@@ -88,10 +87,16 @@ export interface Relevamiento {
 // ── Defaults ─────────────────────────────────────────────────────────────────
 
 export const DEFAULT_PUENTE: DatosPuente = {
-  estructura: '', longitudTotal: '', anchoTotal: '', anchoCalzada: '',
-  cantidadLuces: '', longitudLuces: '', h: '', materialesAlas: '',
-  longitudAlas: '', barandasTipo: '', hBarandas: '',
-  estadoEstructural: 'Regular', situacionHidraulica: '',
+  longitudTotal: '',
+  cantidadPalizadas: 2,
+  lucesPalizadas: [''],   // 2 palizadas → 1 vano
+  h: '',
+  j: '',
+  tipoEstructura: 'Madera',
+  guarniruedas: false,
+  barandas: false,
+  hBarandas: '',
+  estadoEstructural: 'Regular',
 };
 
 export const DEFAULT_ALCANTARILLA: DatosAlcantarilla = {

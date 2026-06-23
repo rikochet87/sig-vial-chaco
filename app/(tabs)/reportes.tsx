@@ -73,20 +73,18 @@ function SubFormDetail({ r }: { r: Relevamiento }) {
 
   if (tipo === 'Puente' && r.datosPuente) {
     const d = r.datosPuente;
+    const vanos = d.lucesPalizadas?.map((l, i) => l ? `Vano ${i + 1}: ${l} m` : null).filter(Boolean) ?? [];
     const items = [
-      d.estructura && `Estructura: ${d.estructura}`,
       d.longitudTotal && `Long. total: ${d.longitudTotal} m`,
-      d.anchoTotal && `Ancho total: ${d.anchoTotal} m`,
-      d.anchoCalzada && `Ancho calzada: ${d.anchoCalzada} m`,
-      d.cantidadLuces && `Luces: ${d.cantidadLuces}`,
-      d.longitudLuces && `Long. luces: ${d.longitudLuces} m`,
-      d.h && `H: ${d.h} m`,
-      d.materialesAlas && `Mat. alas: ${d.materialesAlas}`,
-      d.longitudAlas && `Long. alas: ${d.longitudAlas} m`,
-      d.barandasTipo && `Barandas: ${d.barandasTipo}`,
-      d.hBarandas && `H barandas: ${d.hBarandas} m`,
+      d.cantidadPalizadas && `Palizadas: ${d.cantidadPalizadas}`,
+      ...vanos,
+      d.h && `H libre: ${d.h} m`,
+      d.j && `J camino: ${d.j} m`,
+      d.tipoEstructura && `Estructura: ${d.tipoEstructura}`,
+      d.guarniruedas !== undefined && `Guarniruedas: ${d.guarniruedas ? 'Sí' : 'No'}`,
+      d.barandas !== undefined && `Barandas: ${d.barandas ? 'Sí' : 'No'}`,
+      d.barandas && d.hBarandas && `H barandas: ${d.hBarandas} m`,
       d.estadoEstructural && `Est. estructural: ${d.estadoEstructural}`,
-      d.situacionHidraulica && `Situación hidr.: ${d.situacionHidraulica}`,
     ].filter(Boolean) as string[];
     return <FieldList items={items} />;
   }
