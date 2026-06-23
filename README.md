@@ -98,3 +98,19 @@ ConsorcioCaminero/
 - [ ] Exportar reportes a PDF
 - [ ] Modo offline con sincronización
 - [ ] Notificaciones push para incidentes
+
+---
+
+## Licencia y autoría
+
+**© 2026 Matias Rosello. Todos los derechos reservados.**
+
+Este proyecto está licenciado bajo [CC BY-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/deed.es).
+
+- ✅ Podés ver y compartir el código con atribución al autor.
+- ❌ **No está permitido el uso comercial** sin autorización expresa del autor.
+- ❌ No está permitida la distribución de versiones modificadas.
+
+Para solicitar una licencia comercial o de uso: **rosellomatias87@gmail.com**
+
+El incumplimiento puede dar lugar a acciones legales bajo la **Ley 11.723 de Propiedad Intelectual** (Argentina) y tratados internacionales aplicables.
