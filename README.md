@@ -1,103 +1,114 @@
-# Consorcio Caminero — App Móvil (React Native + Expo)
+# SIG Vial Chaco
 
-App Android & iOS para gestión de consorcios viales: mapa SIG, administración de caminos, gastos y reportes.
+**Sistema de Información Geográfica para Gestión de Infraestructura Vial Rural — Provincia del Chaco, Argentina**
+
+Aplicación móvil (Android & iOS) para el relevamiento y gestión de infraestructura vial rural. Permite a inspectores y técnicos de campo registrar, visualizar y exportar información geoespacial sobre puentes, alcantarillas, tubos, ripio y otros tipos de obra vial, trabajando sobre un mapa SIG offline con capas GeoJSON de elaboración propia.
+
+---
+
+## Características principales
+
+- **Mapa SIG offline** basado en OpenStreetMap + Leaflet.js (sin API key, funciona sin internet)
+- **103 consorcios viales** del Chaco con geometrías GeoJSON propias organizados en 5 zonas (ZI–ZV)
+- **Capas de red vial provincial** — pavimentada, mejorada, en obra y de tierra
+- **GPS en tiempo real** con punto azul animado y posicionamiento continuo
+- **Sistema de relevamientos** con formularios especializados por tipo de obra:
+  - Puente (palizadas, vanos, altura, estructura, guiarruedas, barandas)
+  - Alcantarilla (dimensiones, materiales, estado estructural, situación hidráulica)
+  - Tubos (dimensiones, cabezales, tapada, cantidad)
+  - Ripio — tipo lineal, con dos modos de captura:
+    - **Dibujar en mapa**: trazado interactivo sobre OSM desde gabinete o campo
+    - **GPS Track**: grabación automática del recorrido en vehículo (cada 10 m)
+    - Cálculo automático de toneladas (densidad 2,1 t/m³), empresa ejecutora y fecha
+  - Otro (descripción libre)
+- **Auto-detección** del consorcio más cercano a las coordenadas GPS
+- **Fotografías** adjuntas desde la cámara del dispositivo
+- **Exportación GeoJSON** (puntos y linestrings según tipo de obra)
+- **Eliminación sincronizada** entre mapa y lista de relevamientos
+- **Persistencia local** — los datos se guardan en el dispositivo, sin servidor
+
+---
+
+## Stack tecnológico
+
+| | |
+|---|---|
+| Framework | React Native + Expo SDK 54 |
+| Lenguaje | TypeScript |
+| Navegación | expo-router v6 |
+| Mapa | Leaflet.js 1.9 via WebView (offline) |
+| GPS | expo-location |
+| Almacenamiento | expo-file-system |
+| Cámara | expo-image-picker |
 
 ---
 
 ## Requisitos previos
 
 - [Node.js 18+](https://nodejs.org)
-- [Expo CLI](https://docs.expo.dev/get-started/installation/)
+- Expo Go en el celular (Android o iOS) para desarrollo
 
 ```bash
 npm install -g expo-cli
 ```
 
-- Para Android: Android Studio + emulador, o celular físico con la app **Expo Go**
-- Para iOS: Mac con Xcode, o celular físico con **Expo Go**
-
 ---
 
-## Instalación
+## Instalación y ejecución
 
 ```bash
-cd ConsorcioCaminero
+# Clonar el repositorio
+git clone https://github.com/rikochet87/sig-vial-chaco.git
+cd sig-vial-chaco
+
+# Instalar dependencias
 npm install
-```
 
----
-
-## Correr la app
-
-```bash
-# Inicia el servidor de desarrollo
+# Iniciar servidor de desarrollo
 npm start
-
-# O directamente para cada plataforma:
-npm run android
-npm run ios
-npm run web
 ```
 
-Escaneá el QR con **Expo Go** desde tu celular, o presioná `a` (Android) / `i` (iOS) en la terminal para abrir en emulador.
+Escaneá el QR con **Expo Go** desde tu celular, o presioná `a` (Android) / `i` (iOS) para abrir en emulador.
 
 ---
 
 ## Estructura del proyecto
 
 ```
-ConsorcioCaminero/
-├── app/                      # Pantallas (expo-router)
-│   ├── _layout.tsx           # Layout raíz
-│   ├── (tabs)/               # Navegación por tabs
-│   │   ├── _layout.tsx       # Configuración de tabs
-│   │   ├── index.tsx         # 🏠 Dashboard / Inicio
-│   │   ├── mapa.tsx          # 🗺️  Mapa vial (SIG)
-│   │   ├── consorcios.tsx    # 🏢 Lista de consorcios
-│   │   └── reportes.tsx      # 📄 Reportes
-│   ├── consorcio/[id].tsx    # Detalle de consorcio
-│   └── reporte/[id].tsx      # Detalle de reporte
-├── constants/
-│   ├── Colors.ts             # Paleta de colores
-│   └── mockData.ts           # Datos de ejemplo
+sig-vial-chaco/
+├── app/
+│   ├── (tabs)/
+│   │   ├── index.tsx          # Dashboard / Inicio
+│   │   ├── mapa.tsx           # Mapa SIG + relevamientos
+│   │   ├── consorcios.tsx     # Lista de consorcios
+│   │   └── reportes.tsx       # Lista de relevamientos
+│   ├── red-vial.tsx           # Red vial por zona
+│   ├── distribucion.tsx       # Distribución territorial
+│   └── autoridades.tsx        # Autoridades de consorcios
+├── components/
+│   └── RelevamientoModal.tsx  # Formulario de relevamiento
+├── hooks/
+│   └── useRelevamientos.ts    # Persistencia de relevamientos
 ├── types/
-│   └── index.ts              # TypeScript types
-├── app.json                  # Configuración Expo
-├── package.json
-└── tsconfig.json
+│   └── relevamiento.ts        # Tipos e interfaces
+├── constants/
+│   ├── Colors.ts              # Paleta de colores
+│   ├── realData.ts            # Datos de consorcios
+│   ├── geoBundle.ts           # GeoJSON bundleado offline
+│   ├── geoBundleCC.ts         # GeoJSON red CC por zona
+│   └── geoBundleRP.ts         # GeoJSON rutas provinciales
+└── assets/geojson/            # Capas GeoJSON originales (QGIS)
 ```
 
 ---
 
-## Pantallas incluidas
+## Roadmap
 
-| Pantalla | Descripción |
-|---|---|
-| Dashboard | KPIs, ejecución presupuestaria, accesos rápidos |
-| Mapa Vial | Mapa híbrido con marcadores y tramos coloreados por estado |
-| Consorcios | Lista filtrable y buscable con cards de información |
-| Reportes | Listado por tipo (mensual, incidente, etc.) con montos |
-| Detalle Consorcio | Red vial, presupuesto, tramos, gastos y reportes |
-| Detalle Reporte | Información completa del reporte |
-
----
-
-## Configurar Google Maps (para producción)
-
-1. Obtener una API Key en [Google Cloud Console](https://console.cloud.google.com)
-2. Habilitar **Maps SDK for Android** y **Maps SDK for iOS**
-3. Reemplazar `TU_API_KEY_AQUI` en `app.json`
-
----
-
-## Próximos pasos sugeridos
-
-- [ ] Conectar a backend/API real (reemplazar `mockData.ts`)
-- [ ] Autenticación de usuarios
-- [ ] Carga de fotos desde terreno
-- [ ] Exportar reportes a PDF
-- [ ] Modo offline con sincronización
-- [ ] Notificaciones push para incidentes
+- [ ] Autenticación de usuarios con roles (inspector / supervisor)
+- [ ] Sincronización con backend / base de datos central
+- [ ] Exportación a PDF de informes de relevamiento
+- [ ] Notificaciones push para asignación de tareas
+- [ ] Panel web de visualización y análisis
 
 ---
 
@@ -111,6 +122,6 @@ Este proyecto está licenciado bajo [CC BY-NC-ND 4.0](https://creativecommons.or
 - ❌ **No está permitido el uso comercial** sin autorización expresa del autor.
 - ❌ No está permitida la distribución de versiones modificadas.
 
-Para solicitar una licencia comercial o de uso: **rosellomatias87@gmail.com**
+Para solicitar una licencia comercial: **rosellomatias87@gmail.com**
 
 El incumplimiento puede dar lugar a acciones legales bajo la **Ley 11.723 de Propiedad Intelectual** (Argentina) y tratados internacionales aplicables.
