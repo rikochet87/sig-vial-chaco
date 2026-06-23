@@ -13,7 +13,7 @@ GEOJSON_DIR = os.path.join(BASE_DIR, 'assets', 'geojson')
 OUT_FILE = os.path.join(BASE_DIR, 'constants', 'geoBundle.ts')
 
 # Simplificacion adaptiva: zonas con pocos puntos NO se simplifican
-ZONA_STEPS = {'ZI': 2, 'ZII': 1, 'ZIII': 1, 'ZIV': 3, 'ZV': 4}
+ZONA_STEPS = {'ZI': 1, 'ZII': 1, 'ZIII': 1, 'ZIV': 1, 'ZV': 1}
 ZONA_COLORS = {'ZI':'#6baed6','ZII':'#fb6a4a','ZIII':'#fdd44c','ZIV':'#74c476','ZV':'#9e9ac8'}
 
 def load(path):
@@ -46,9 +46,9 @@ def build_bundle():
 
     limites_zonas = {}
     for zona, fname in [
-        ('ZI','01 Limite Zona I.geojson'), ('ZII','02 Limite Zona II.geojson'),
-        ('ZIII','03 Limite Zona III.geojson'), ('ZIV','04 Limite Zona IV.geojson'),
-        ('ZV','05 Limite Zona V.geojson')]:
+        ('ZI','Zona I limite.geojson'), ('ZII','Zona II limite.geojson'),
+        ('ZIII','Zona III limite.geojson'), ('ZIV','Zona IV limite.geojson'),
+        ('ZV','Zona V limite.geojson')]:
         limites_zonas[zona] = simplify_geojson(
             load(os.path.join(lim_dir, fname)), step=ZONA_STEPS[zona])
 
