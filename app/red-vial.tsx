@@ -117,7 +117,7 @@ export default function RedVialScreen() {
         </TouchableOpacity>
         <View style={styles.headerText}>
           <Text style={styles.headerTitle}>Red Vial</Text>
-          <Text style={styles.headerSub}>Dirección de Conservación Vial — Dpto. Consorcios Camineros</Text>
+          <Text style={styles.headerSub}>SIG Vial Chaco — Red Vial Rural</Text>
         </View>
       </View>
 

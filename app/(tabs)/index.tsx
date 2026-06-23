@@ -42,15 +42,15 @@ export default function HomeScreen() {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
 
-      {/* ── Banner DVP ─────────────────────────────────────────────────────── */}
+      {/* ── Banner ─────────────────────────────────────────────────────────── */}
       <View style={styles.banner}>
         <View style={styles.bannerLeft}>
           <View style={styles.bannerBadge}>
-            <Text style={styles.bannerBadgeText}>DVP</Text>
+            <Text style={styles.bannerBadgeText}>SIG</Text>
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.bannerTitle} numberOfLines={2}>Dirección de Conservación Vial</Text>
-            <Text style={styles.bannerSubtitle}>Dpto. Consorcios Camineros</Text>
+            <Text style={styles.bannerTitle} numberOfLines={2}>SIG Vial Chaco</Text>
+            <Text style={styles.bannerSubtitle}>Sistema de Gestión de Infraestructura Vial Rural</Text>
           </View>
         </View>
       </View>
