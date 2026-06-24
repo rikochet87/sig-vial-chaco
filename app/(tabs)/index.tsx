@@ -1,7 +1,10 @@
 import { ScrollView, View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
+import { useMemo } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { Colors } from '@/constants/Colors';
+import { useColors, useTheme } from '@/context/ThemeContext';
+import type { ColorPalette } from '@/constants/Colors';
+import { type ThemeName, THEME_LABELS, THEMES } from '@/constants/Colors';
 import { GEO_BUNDLE } from '@/constants/geoBundle';
 
 const CONSORCIOS = GEO_BUNDLE.sedes as any[];
@@ -15,10 +18,19 @@ const ZONAS_CONFIG = [
 
 const { width } = Dimensions.get('window');
 
+const THEME_ICONS: Record<ThemeName, string> = {
+  original: '🌑',
+  dark:     '🌙',
+  light:    '☀️',
+};
+
 function StatCard({
-  label, value, icon, color, onPress,
+  label, value, icon, color, onPress, styles, C,
 }: {
-  label: string; value: string; icon: string; color: string; onPress?: () => void;
+  label: string; value: string; icon: string; color: string;
+  onPress?: () => void;
+  styles: ReturnType<typeof makeStyles>;
+  C: ColorPalette;
 }) {
   return (
     <TouchableOpacity
@@ -36,7 +48,11 @@ function StatCard({
 }
 
 export default function HomeScreen() {
-  const totalKm = CONSORCIOS.reduce((acc, c) => acc + c.redKm, 0);
+  const C = useColors();
+  const { theme, setTheme } = useTheme();
+  const styles = useMemo(() => makeStyles(C), [C]);
+
+  const totalKm = useMemo(() => CONSORCIOS.reduce((acc, c) => acc + c.redKm, 0), []);
   const consorciosActivos = CONSORCIOS.length;
 
   return (
@@ -58,34 +74,14 @@ export default function HomeScreen() {
       {/* ── KPIs ───────────────────────────────────────────────────────────── */}
       <Text style={styles.sectionTitle}>Resumen General</Text>
       <View style={styles.statsGrid}>
-        <StatCard
-          label="Red Vial Total"
-          value={`${Math.round(totalKm).toLocaleString('es-AR')} km`}
-          icon="git-network"
-          color={Colors.accent}
-          onPress={() => router.push('/red-vial')}
-        />
-        <StatCard
-          label="Consorcios"
-          value={`${consorciosActivos}`}
-          icon="business"
-          color="#4CAF50"
-          onPress={() => router.push('/autoridades')}
-        />
-        <StatCard
-          label="Distribución de la Red"
-          value="5 Zonas"
-          icon="pie-chart"
-          color="#2196F3"
-          onPress={() => router.push('/distribucion')}
-        />
-        <StatCard
-          label="Relevamientos"
-          value="Ver"
-          icon="clipboard"
-          color="#9C27B0"
-          onPress={() => router.push('/(tabs)/reportes')}
-        />
+        <StatCard label="Red Vial Total" value={`${Math.round(totalKm).toLocaleString('es-AR')} km`}
+          icon="git-network" color={C.accent} onPress={() => router.push('/red-vial')} styles={styles} C={C} />
+        <StatCard label="Consorcios" value={`${consorciosActivos}`}
+          icon="business" color="#4CAF50" onPress={() => router.push('/autoridades')} styles={styles} C={C} />
+        <StatCard label="Distribución de la Red" value="5 Zonas"
+          icon="pie-chart" color="#2196F3" onPress={() => router.push('/distribucion')} styles={styles} C={C} />
+        <StatCard label="Relevamientos" value="Ver"
+          icon="clipboard" color="#9C27B0" onPress={() => router.push('/(tabs)/reportes')} styles={styles} C={C} />
       </View>
 
       {/* ── Red vial por zona ─────────────────────────────────────────────── */}
@@ -113,67 +109,107 @@ export default function HomeScreen() {
         })}
       </View>
 
+      {/* ── Selector de tema ──────────────────────────────────────────────── */}
+      <Text style={styles.sectionTitle}>Tema de la aplicación</Text>
+      <View style={styles.themeCard}>
+        {(['original', 'dark', 'light'] as ThemeName[]).map(t => {
+          const active = theme === t;
+          const palette = THEMES[t];
+          return (
+            <TouchableOpacity
+              key={t}
+              style={[styles.themeBtn, active && { borderColor: C.accent, backgroundColor: C.accent + '18' }]}
+              onPress={() => setTheme(t)}
+              activeOpacity={0.75}
+            >
+              {/* Mini preview */}
+              <View style={[styles.themePreview, { backgroundColor: palette.primary }]}>
+                <View style={[styles.themePreviewBar, { backgroundColor: palette.accent }]} />
+                <View style={[styles.themePreviewDot, { backgroundColor: palette.surface }]} />
+                <View style={[styles.themePreviewDot, { backgroundColor: palette.surface }]} />
+              </View>
+              <Text style={styles.themeIcon}>{THEME_ICONS[t]}</Text>
+              <Text style={[styles.themeLabel, active && { color: C.accent, fontWeight: '800' }]}>
+                {THEME_LABELS[t]}
+              </Text>
+              {active && (
+                <View style={[styles.themeCheckmark, { backgroundColor: C.accent }]}>
+                  <Text style={[styles.themeCheckmarkText, { color: C.primary }]}>✓</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
       <View style={{ height: 24 }} />
     </ScrollView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
+function makeStyles(C: ColorPalette) { return StyleSheet.create({
+  container: { flex: 1, backgroundColor: C.background },
   content: { padding: 16 },
 
-  // Banner
   banner: {
-    backgroundColor: Colors.primary,
-    borderRadius: 16, padding: 18,
-    marginBottom: 20,
-    borderBottomWidth: 4,
-    borderBottomColor: Colors.accent,
+    backgroundColor: C.primary, borderRadius: 16, padding: 18, marginBottom: 20,
+    borderBottomWidth: 4, borderBottomColor: C.accent,
   },
   bannerLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  bannerBadge: {
-    backgroundColor: Colors.accent,
-    borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6,
-  },
-  bannerBadgeText: { color: Colors.primary, fontSize: 16, fontWeight: '900', letterSpacing: 1 },
-  bannerTitle: { color: Colors.white, fontSize: 17, fontWeight: '800' },
-  bannerSubtitle: { color: '#aaaaaa', fontSize: 12, marginTop: 1 },
+  bannerBadge: { backgroundColor: C.accent, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 },
+  bannerBadgeText: { color: C.primary, fontSize: 16, fontWeight: '900', letterSpacing: 1 },
+  bannerTitle: { color: C.white, fontSize: 17, fontWeight: '800' },
+  bannerSubtitle: { color: C.textMuted, fontSize: 12, marginTop: 1 },
 
   sectionTitle: {
-    fontSize: 13, fontWeight: '800', color: Colors.textSecondary,
-    textTransform: 'uppercase', letterSpacing: 0.8,
-    marginBottom: 10, marginTop: 4,
+    fontSize: 13, fontWeight: '800', color: C.textSecondary,
+    textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 10, marginTop: 4,
   },
 
-  // Stat cards
   statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 },
   statCard: {
-    backgroundColor: Colors.surface, borderRadius: 12, padding: 14,
-    width: (width - 42) / 2, alignItems: 'center',
-    borderBottomWidth: 3,
-    elevation: 2,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08, shadowRadius: 3,
+    backgroundColor: C.surface, borderRadius: 12, padding: 14,
+    width: (width - 42) / 2, alignItems: 'center', borderBottomWidth: 3,
+    elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 3,
   },
   statIconWrap: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
-  statValue: { fontSize: 18, fontWeight: '800', color: Colors.textPrimary },
-  statLabel: { fontSize: 11, color: Colors.textSecondary, marginTop: 2, textAlign: 'center' },
+  statValue: { fontSize: 18, fontWeight: '800', color: C.textPrimary },
+  statLabel: { fontSize: 11, color: C.textSecondary, marginTop: 2, textAlign: 'center' },
 
-  // Zona rows
   card: {
-    backgroundColor: Colors.surface, borderRadius: 12, padding: 14,
-    marginBottom: 16, elevation: 2,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08, shadowRadius: 3,
+    backgroundColor: C.surface, borderRadius: 12, padding: 14, marginBottom: 16,
+    elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 3,
   },
   zonaRow: { marginBottom: 12 },
   zonaRowHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 },
   zonaRowLeft: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   zonaDot: { width: 10, height: 10, borderRadius: 5 },
-  zonaLabel: { fontSize: 13, fontWeight: '700', color: Colors.textPrimary },
-  zonaCount: { fontSize: 11, color: Colors.textMuted, marginLeft: 2 },
-  zonaKm: { fontSize: 12, fontWeight: '700', color: Colors.textSecondary },
-  progressBar: { height: 7, backgroundColor: Colors.border, borderRadius: 4, overflow: 'hidden' },
+  zonaLabel: { fontSize: 13, fontWeight: '700', color: C.textPrimary },
+  zonaCount: { fontSize: 11, color: C.textMuted, marginLeft: 2 },
+  zonaKm: { fontSize: 12, fontWeight: '700', color: C.textSecondary },
+  progressBar: { height: 7, backgroundColor: C.border, borderRadius: 4, overflow: 'hidden' },
   progressFill: { height: '100%', borderRadius: 4 },
 
-});
+  // ── Selector de tema ──────────────────────────────────────────────────────
+  themeCard: {
+    flexDirection: 'row', gap: 10, marginBottom: 16,
+  },
+  themeBtn: {
+    flex: 1, alignItems: 'center', padding: 12, borderRadius: 12,
+    backgroundColor: C.surface, borderWidth: 1.5, borderColor: C.border,
+    elevation: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 2,
+  },
+  themePreview: {
+    width: '100%', height: 36, borderRadius: 7, marginBottom: 8,
+    overflow: 'hidden', justifyContent: 'flex-end', padding: 5, gap: 3,
+  },
+  themePreviewBar: { width: '100%', height: 4, borderRadius: 2 },
+  themePreviewDot: { width: 14, height: 4, borderRadius: 2, opacity: 0.85 },
+  themeIcon: { fontSize: 20, marginBottom: 4 },
+  themeLabel: { fontSize: 11, fontWeight: '600', color: C.textSecondary },
+  themeCheckmark: {
+    position: 'absolute', top: 6, right: 6, width: 18, height: 18,
+    borderRadius: 9, alignItems: 'center', justifyContent: 'center',
+  },
+  themeCheckmarkText: { fontSize: 11, fontWeight: '900' },
+}); }

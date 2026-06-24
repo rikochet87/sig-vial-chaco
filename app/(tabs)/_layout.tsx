@@ -1,39 +1,48 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '@/constants/Colors';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useColors } from '@/context/ThemeContext';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
 function TabIcon({ name, focused }: { name: IoniconsName; focused: boolean }) {
+  const colors = useColors();
   return (
     <Ionicons
       name={name}
       size={24}
-      color={focused ? Colors.tabBarActive : Colors.tabBarInactive}
+      color={focused ? colors.tabBarActive : colors.tabBarInactive}
     />
   );
 }
 
 export default function TabsLayout() {
+  const colors = useColors();
+  const insets = useSafeAreaInsets();
+
+  // Altura total = contenido fijo (52) + safe area bottom
+  const TAB_HEIGHT = 52 + insets.bottom;
+
   return (
     <Tabs
       screenOptions={{
         tabBarStyle: {
-          backgroundColor: Colors.tabBar,
+          backgroundColor: colors.tabBar,
           borderTopWidth: 0,
           elevation: 8,
           shadowColor: '#000',
           shadowOffset: { width: 0, height: -2 },
           shadowOpacity: 0.15,
           shadowRadius: 4,
-          height: 60,
-          paddingBottom: 8,
+          height: TAB_HEIGHT,
+          paddingBottom: insets.bottom > 0 ? insets.bottom : 6,
+          paddingTop: 6,
         },
-        tabBarActiveTintColor: Colors.tabBarActive,
-        tabBarInactiveTintColor: Colors.tabBarInactive,
+        tabBarActiveTintColor: colors.tabBarActive,
+        tabBarInactiveTintColor: colors.tabBarInactive,
         tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
-        headerStyle: { backgroundColor: Colors.primary },
-        headerTintColor: Colors.white,
+        headerStyle: { backgroundColor: colors.primary },
+        headerTintColor: colors.white,
         headerTitleStyle: { fontWeight: 'bold', fontSize: 18 },
       }}
     >

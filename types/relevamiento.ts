@@ -103,4 +103,30 @@ export const DEFAULT_PUENTE: DatosPuente = {
   j: '',
   tipoEstructura: '',
   guiaRuedas: false,
-  
+  estadoGuiaRuedas: 'Regular',
+  barandas: false,
+  hBarandas: '',
+  estadoEstructural: 'Regular',
+};
+
+export const DEFAULT_ALCANTARILLA: DatosAlcantarilla = {
+  longitudTotal: '', cantidadLuces: '', longitudLuces: '', anchoTotal: '',
+  anchoCalzada: '', h: '', materialesAlas: '', longitudAlas: '',
+  estadoEstructural: 'Regular', situacionHidraulica: '',
+};
+
+export const DEFAULT_TUBOS: DatosTubos = {
+  jAncho: '', d: '', cabezales: '', tapada: '', cantidad: 1,
+};
+
+export const DEFAULT_RIPIO: DatosRipio = {
+  ancho: '',
+  longitud: '',
+  espesor: '',
+  empresa: '',
+  fechaEjecucion: '',
+};
+
+export const DEFAULT_OTRO: DatosOtro = {
+  descripcion: '',
+};

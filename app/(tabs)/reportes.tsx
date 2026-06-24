@@ -1,22 +1,22 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo, createContext, useContext } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   ScrollView, Share, Alert, Platform,
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '@/constants/Colors';
+import { useColors } from '@/context/ThemeContext';
+import type { ColorPalette } from '@/constants/Colors';
 import { useRelevamientos } from '@/hooks/useRelevamientos';
 import type { Relevamiento, EstadoCalzada } from '@/types/relevamiento';
 import { ESTADO_COLORS } from '@/types/relevamiento';
+import { formatFechaHora } from '@/utils/formatDate';
+import { exportarKMZ } from '@/utils/exportKMZ';
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function formatFecha(iso: string) {
-  const d = new Date(iso);
-  return d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })
-    + ' ' + d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
-}
+// Contexto interno para distribuir estilos a subcomponentes sin prop drilling
+type StylesType = ReturnType<typeof makeStyles>;
+const StylesCtx = createContext<StylesType | null>(null);
+const useStyles = () => useContext(StylesCtx)!;
 
 function buildGeoJSON(items: Relevamiento[]) {
   return {
@@ -163,6 +163,7 @@ function SubFormDetail({ r }: { r: Relevamiento }) {
 }
 
 function FieldList({ items }: { items: string[] }) {
+  const styles = useStyles();
   return (
     <View style={styles.fieldList}>
       {items.map((item, i) => (
@@ -189,6 +190,8 @@ function RelevamientoCard({
   onDelete: (id: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const styles = useStyles();
+  const Colors = useColors();
   const color = ESTADO_COLORS[item.estadoCalzada as EstadoCalzada] ?? '#888';
   const tipo = item.tipo ?? (item.estructura ?? '');
   const rutaLabel = item.rutaTramo || item.ccAsociado || 'Sin ruta/tramo';
@@ -221,7 +224,7 @@ function RelevamientoCard({
               <Text style={styles.cardZona}>{item.autoDeteccion.zona} · CC {item.autoDeteccion.ccNumero}</Text>
             )}
             <Ionicons name="time-outline" size={11} color={Colors.textMuted} />
-            <Text style={styles.cardMetaText}>{formatFecha(item.fecha)}</Text>
+            <Text style={styles.cardMetaText}>{formatFechaHora(item.fecha)}</Text>
           </View>
         </View>
         <Ionicons
@@ -297,6 +300,8 @@ const FILTROS: Array<EstadoCalzada | 'Todos'> = ['Todos', 'Bueno', 'Regular', 'M
 export default function RelevamientosScreen() {
   const { relevamientos, loading, remove, reload } = useRelevamientos();
   const [filtro, setFiltro] = useState<EstadoCalzada | 'Todos'>('Todos');
+  const Colors = useColors();
+  const styles = useMemo(() => makeStyles(Colors), [Colors]);
 
   useFocusEffect(useCallback(() => { reload(); }, [reload]));
 
@@ -310,6 +315,7 @@ export default function RelevamientosScreen() {
   }, {});
 
   return (
+    <StylesCtx.Provider value={styles}>
     <View style={styles.container}>
       {/* Resumen */}
       <View style={styles.summary}>
@@ -353,10 +359,16 @@ export default function RelevamientosScreen() {
           {filtrados.length} relevamiento{filtrados.length !== 1 ? 's' : ''}
         </Text>
         {filtrados.length > 0 && (
-          <TouchableOpacity style={styles.exportAllBtn} onPress={() => exportarTodos(filtrados)}>
-            <Ionicons name="cloud-download-outline" size={14} color={Colors.accent} />
-            <Text style={styles.exportAllText}>Exportar todos</Text>
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', gap: 6 }}>
+            <TouchableOpacity style={styles.exportAllBtn} onPress={() => exportarTodos(filtrados)}>
+              <Ionicons name="cloud-download-outline" size={14} color={Colors.accent} />
+              <Text style={styles.exportAllText}>GeoJSON</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.exportAllBtn} onPress={() => exportarKMZ(filtrados)}>
+              <Ionicons name="earth-outline" size={14} color="#27ae60" />
+              <Text style={[styles.exportAllText, { color: '#27ae60' }]}>KMZ</Text>
+            </TouchableOpacity>
+          </View>
         )}
       </View>
 
@@ -379,73 +391,116 @@ export default function RelevamientosScreen() {
         }
       />
     </View>
+    </StylesCtx.Provider>
   );
 }
 
 // ── Styles ────────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
+function makeStyles(C: ColorPalette) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: C.background },
 
-  summary: {
-    flexDirection: 'row', backgroundColor: Colors.primary,
-    paddingVertical: 14, paddingHorizontal: 8, justifyContent: 'space-around',
-  },
-  summaryItem: { alignItems: 'center' },
-  summaryValue: { fontSize: 22, fontWeight: '800', lineHeight: 26 },
-  summaryLabel: { fontSize: 11, color: 'rgba(255,255,255,0.65)', marginTop: 2 },
+    summary: {
+      flexDirection: 'row', backgroundColor: C.primary,
+      paddingVertical: 14, paddingHorizontal: 8, justifyContent: 'space-around',
+    },
+    summaryItem: { alignItems: 'center' },
+    summaryValue: { fontSize: 22, fontWeight: '800', lineHeight: 26 },
+    summaryLabel: { fontSize: 11, color: 'rgba(255,255,255,0.65)', marginTop: 2 },
 
-  filterScroll: { flexShrink: 0, flexGrow: 0 },
-  filterRow: {
-    paddingHorizontal: 12, paddingRight: 24, paddingVertical: 8,
-    gap: 6, flexDirection: 'row', alignItems: 'center',
-  },
-  filterChip: {
-    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20,
-    backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border,
-  },
-  filterChipText: { fontSize: 12, color: Colors.textSecondary, fontWeight: '600' },
-  filterChipTextActive: { color: '#fff' },
+    filterScroll: { flexShrink: 0, flexGrow: 0 },
+    filterRow: {
+      paddingHorizontal: 12, paddingRight: 24, paddingVertical: 8,
+      gap: 6, flexDirection: 'row', alignItems: 'center',
+    },
+    filterChip: {
+      paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20,
+      backgroundColor: C.surface, borderWidth: 1, borderColor: C.border,
+    },
+    filterChipText: { fontSize: 12, color: C.textSecondary, fontWeight: '600' },
+    filterChipTextActive: { color: '#fff' },
 
-  topBar: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingBottom: 4,
-  },
-  countText: { fontSize: 12, color: Colors.textMuted },
-  exportAllBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    paddingVertical: 4, paddingHorizontal: 8, borderRadius: 8,
-    backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border,
-  },
-  exportAllText: { fontSize: 12, color: Colors.accent, fontWeight: '600' },
+    topBar: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      paddingHorizontal: 16, paddingBottom: 4,
+    },
+    countText: { fontSize: 12, color: C.textMuted },
+    exportAllBtn: {
+      flexDirection: 'row', alignItems: 'center', gap: 4,
+      paddingVertical: 4, paddingHorizontal: 8, borderRadius: 8,
+      backgroundColor: C.surface, borderWidth: 1, borderColor: C.border,
+    },
+    exportAllText: { fontSize: 12, color: C.accent, fontWeight: '600' },
 
-  list: { padding: 12, paddingTop: 4 },
+    list: { padding: 12, paddingTop: 4 },
 
-  card: {
-    backgroundColor: Colors.surface, borderRadius: 12, marginBottom: 10,
-    borderLeftWidth: 4, elevation: 2, shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 3,
-    overflow: 'hidden',
-  },
-  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12 },
-  estadoBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 7, flexShrink: 0 },
-  estadoBadgeText: { fontSize: 10, fontWeight: '800', color: '#fff' },
-  tipoBadge: {
-    backgroundColor: Colors.background, borderRadius: 6,
-    paddingHorizontal: 6, paddingVertical: 4, flexShrink: 0,
-    borderWidth: 1, borderColor: Colors.border,
-  },
-  tipoBadgeText: { fontSize: 10, fontWeight: '900', color: Colors.textSecondary },
-  cardTitle: { fontSize: 13, fontWeight: '700', color: Colors.textPrimary },
-  cardMeta: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2, flexWrap: 'wrap' },
-  cardZona: { fontSize: 10, color: Colors.accent, fontWeight: '700', marginRight: 4 },
-  cardMetaText: { fontSize: 11, color: Colors.textMuted },
+    card: {
+      backgroundColor: C.surface, borderRadius: 12, marginBottom: 10,
+      borderLeftWidth: 4, elevation: 2, shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 3,
+      overflow: 'hidden',
+    },
+    cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12 },
+    estadoBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 7, flexShrink: 0 },
+    estadoBadgeText: { fontSize: 10, fontWeight: '800', color: '#fff' },
+    tipoBadge: {
+      backgroundColor: C.background, borderRadius: 6,
+      paddingHorizontal: 6, paddingVertical: 4, flexShrink: 0,
+      borderWidth: 1, borderColor: C.border,
+    },
+    tipoBadgeText: { fontSize: 10, fontWeight: '900', color: C.textSecondary },
+    cardTitle: { fontSize: 13, fontWeight: '700', color: C.textPrimary },
+    cardMeta: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2, flexWrap: 'wrap' },
+    cardZona: { fontSize: 10, color: C.accent, fontWeight: '700', marginRight: 4 },
+    cardMetaText: { fontSize: 11, color: C.textMuted },
 
-  detail: {
-    backgroundColor: Colors.background, paddingHorizontal: 14,
-    paddingTop: 10, paddingBottom: 4, borderTopWidth: 1, borderTopColor: Colors.border,
-  },
-  detailRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
-  detailText: { fontSize: 12, color: Colors.textSecondary, flex: 1 },
-  detailMono: {
-    fontSiz
+    detail: {
+      backgroundColor: C.background, paddingHorizontal: 14,
+      paddingTop: 10, paddingBottom: 4, borderTopWidth: 1, borderTopColor: C.border,
+    },
+    detailRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
+    detailText: { fontSize: 12, color: C.textSecondary, flex: 1 },
+    detailMono: {
+      fontSize: 12, color: C.textSecondary,
+      fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    },
+
+    tipoSection: {
+      backgroundColor: C.surface, borderRadius: 8,
+      padding: 10, marginBottom: 10,
+      borderWidth: 1, borderColor: C.border,
+    },
+    tipoSectionLabel: {
+      fontSize: 10, fontWeight: '800', color: C.accent,
+      textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6,
+    },
+    fieldList: { gap: 3 },
+    fieldRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 6 },
+    fieldDot: {
+      width: 4, height: 4, borderRadius: 2,
+      backgroundColor: C.textMuted, marginTop: 5, flexShrink: 0,
+    },
+    fieldText: { fontSize: 11, color: C.textSecondary, flex: 1, lineHeight: 16 },
+
+    actions: {
+      flexDirection: 'row', gap: 8, paddingVertical: 10,
+      borderTopWidth: 1, borderTopColor: C.border, marginTop: 4,
+    },
+    actionBtn: {
+      flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+      gap: 5, paddingVertical: 8, borderRadius: 8,
+      backgroundColor: C.surface, borderWidth: 1, borderColor: C.border,
+    },
+    actionBtnDanger: {
+      borderColor: C.danger + '40',
+      backgroundColor: C.danger + '08',
+    },
+    actionText: { fontSize: 12, fontWeight: '700' },
+
+    empty: { alignItems: 'center', paddingTop: 70, gap: 10, paddingHorizontal: 32 },
+    emptyIcon: { fontSize: 48 },
+    emptyTitle: { fontSize: 16, fontWeight: '700', color: C.textSecondary },
+    emptyText: { fontSize: 13, color: C.textMuted, textAlign: 'center', lineHeight: 19 },
+  });
+}

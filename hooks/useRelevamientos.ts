@@ -28,17 +28,29 @@ export function useRelevamientos() {
   useEffect(() => { load(); }, [load]);
 
   const add = useCallback(async (r: Relevamiento) => {
-    const next = [r, ...listRef.current];
+    const prev = listRef.current;
+    const next = [r, ...prev];
     listRef.current = next;
-    await FileSystem.writeAsStringAsync(FILE_PATH, JSON.stringify(next));
-    setRelevamientos(next);
+    try {
+      await FileSystem.writeAsStringAsync(FILE_PATH, JSON.stringify(next));
+      setRelevamientos(next);
+    } catch (e) {
+      listRef.current = prev;
+      throw e;
+    }
   }, []);
 
   const remove = useCallback(async (id: string) => {
-    const next = listRef.current.filter(item => item.id !== id);
+    const prev = listRef.current;
+    const next = prev.filter(item => item.id !== id);
     listRef.current = next;
-    await FileSystem.writeAsStringAsync(FILE_PATH, JSON.stringify(next));
-    setRelevamientos(next);
+    try {
+      await FileSystem.writeAsStringAsync(FILE_PATH, JSON.stringify(next));
+      setRelevamientos(next);
+    } catch (e) {
+      listRef.current = prev;
+      throw e;
+    }
   }, []);
 
   return { relevamientos, loading, add, remove, reload: load };

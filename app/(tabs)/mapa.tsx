@@ -1,4 +1,6 @@
 import { useState, useRef, useMemo, useEffect, useCallback } from 'react';
+import { useColors } from '@/context/ThemeContext';
+import type { ColorPalette } from '@/constants/Colors';
 import { useFocusEffect } from 'expo-router';
 import {
   View, Text, StyleSheet, TouchableOpacity,
@@ -134,6 +136,16 @@ html,body,#map{width:100%;height:100vh;background:#f0ebe3}
     <button onclick="cancelDraw()" style="flex:1;background:rgba(231,76,60,0.15);border:1px solid rgba(231,76,60,0.4);color:#e74c3c;border-radius:9px;padding:10px 4px;font-size:12px;font-weight:600;cursor:pointer">✗ Cancelar</button>
     <button onclick="confirmDraw()" style="flex:1;background:#e67e22;border:none;color:#fff;border-radius:9px;padding:10px 4px;font-size:13px;font-weight:700;cursor:pointer">✓ Confirmar</button>
   </div>
+</div>
+
+<!-- ── Panel de colocación de punto puntual ─────────────────────────── -->
+<div id="point-pick-ctrl" style="display:none;position:fixed;bottom:110px;left:50%;transform:translateX(-50%);
+  background:#1e2436;border-radius:14px;padding:14px 16px;z-index:2000;
+  border:1.5px solid #27ae60;box-shadow:0 6px 24px rgba(0,0,0,0.65);min-width:260px;max-width:90vw">
+  <div style="color:#27ae60;font-size:11px;font-weight:700;text-align:center;letter-spacing:0.6px;margin-bottom:10px">
+    📍 COLOCAR PUNTO — Tocá el mapa para ubicar la obra
+  </div>
+  <button onclick="cancelPointPick()" style="width:100%;background:rgba(231,76,60,0.15);border:1px solid rgba(231,76,60,0.4);color:#e74c3c;border-radius:9px;padding:10px;font-size:12px;font-weight:600;cursor:pointer">✗ Cancelar</button>
 </div>
 
 <script>
@@ -812,8 +824,26 @@ function calcRoute(sedeLat,sedeLng,nombre){
 // ── Relevamiento markers ─────────────────────────────────────────────────────
 var RELEV_MARKERS={};
 var RIPIO_LAYERS={};
+var RELEV_TIPO_MAP={};
+var RELEV_TIPOS_VISIBLE={Puente:true,Alcantarilla:true,Tubos:true,Ripio:true,Otro:true};
 var RELEV_COLORS={Bueno:'#27ae60',Regular:'#f39c12',Malo:'#e67e22','Crítico':'#e74c3c'};
 var RELEV_LABELS={Puente:'PTE',Alcantarilla:'ALC',Tubos:'TUB',Ripio:'RIP',Otro:'?'};
+function setRelevTipoVisible(tipo,visible){
+  RELEV_TIPOS_VISIBLE[tipo]=visible;
+  Object.keys(RELEV_MARKERS).forEach(function(id){
+    if(RELEV_TIPO_MAP[id]===tipo){
+      if(visible){if(!map.hasLayer(RELEV_MARKERS[id]))RELEV_MARKERS[id].addTo(map);}
+      else{if(map.hasLayer(RELEV_MARKERS[id]))map.removeLayer(RELEV_MARKERS[id]);}
+    }
+  });
+  if(tipo==='Ripio'){
+    Object.keys(RIPIO_LAYERS).forEach(function(id){
+      if(visible){if(!map.hasLayer(RIPIO_LAYERS[id]))RIPIO_LAYERS[id].addTo(map);}
+      else{if(map.hasLayer(RIPIO_LAYERS[id]))map.removeLayer(RIPIO_LAYERS[id]);}
+    });
+  }
+}
+function escHtml(s){return s?s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'):'';}
 function _relevColor(estado){
   return RELEV_COLORS[estado]||RELEV_COLORS[estado.replace('\u00ed','i')]||'#888';
 }
@@ -828,20 +858,20 @@ function _relevDivIcon(estructura,c){
     +'box-shadow:0 2px 6px rgba(0,0,0,0.45)">'+lbl+'<\/div>';
   return L.divIcon({html:html,className:'',iconSize:[34,34],iconAnchor:[17,17],popupAnchor:[0,-18]});
 }
-function addRelevMarker(id,lat,lng,estado,estructura,ccAsociado,fecha,obs){
+function addRelevMarker(id,lat,lng,estado,tipo,ccAsociado,fecha,obs){
   if(RELEV_MARKERS[id])return;
   var c=_relevColor(estado);
-  var m=L.marker([lat,lng],{icon:_relevDivIcon(estructura,c),zIndexOffset:600});
+  var m=L.marker([lat,lng],{icon:_relevDivIcon(tipo,c),zIndexOffset:600});
   var d=new Date(fecha);
   var fechaStr=d.toLocaleDateString('es-AR')+' '+d.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
-  var estructuraTxt=(estructura&&estructura!=='Ninguna')?'<div style="font-size:11px;color:#b0bec5;margin-bottom:3px">Estructura: '+estructura+'<\/div>':'';
-  var ccTxt=ccAsociado?'<div style="font-size:11px;color:#b0bec5;margin-bottom:3px">'+ccAsociado+'<\/div>':'';
-  var obsTxt=obs?'<div style="font-size:11px;color:#cdd4de;border-top:1px solid #2a3450;padding-top:5px;margin-top:5px">'+obs+'<\/div>':'';
+  var tipoTxt=(tipo&&tipo!=='Ninguna')?'<div style="font-size:11px;color:#b0bec5;margin-bottom:3px">Tipo: '+escHtml(tipo)+'<\/div>':'';
+  var ccTxt=ccAsociado?'<div style="font-size:11px;color:#b0bec5;margin-bottom:3px">'+escHtml(ccAsociado)+'<\/div>':'';
+  var obsTxt=obs?'<div style="font-size:11px;color:#cdd4de;border-top:1px solid #2a3450;padding-top:5px;margin-top:5px">'+escHtml(obs)+'<\/div>':'';
   m.bindPopup(
     '<div style="background:#1e2436;border-radius:10px;padding:12px 14px;min-width:180px">'
     +'<div style="font-size:10px;color:#7a8aaa;text-transform:uppercase;letter-spacing:1px">Relevamiento<\/div>'
     +'<div style="font-size:15px;font-weight:900;color:'+c+';margin:3px 0">'+estado+'<\/div>'
-    +estructuraTxt+ccTxt
+    +tipoTxt+ccTxt
     +'<div style="font-size:10px;color:#7a8aaa;margin-bottom:8px">'+fechaStr+'<\/div>'
     +obsTxt
     +'<button class="rdel-btn" data-rid="'+id+'" '
@@ -858,10 +888,12 @@ function addRelevMarker(id,lat,lng,estado,estructura,ccAsociado,fecha,obs){
       };
     },80);
   });
-  RELEV_MARKERS[id]=m.addTo(map);
+  RELEV_TIPO_MAP[id]=tipo;
+  RELEV_MARKERS[id]=m;
+  if(RELEV_TIPOS_VISIBLE[tipo]!==false)m.addTo(map);
 }
 function removeRelevMarker(id){
-  if(RELEV_MARKERS[id]){map.removeLayer(RELEV_MARKERS[id]);delete RELEV_MARKERS[id];}
+  if(RELEV_MARKERS[id]){map.removeLayer(RELEV_MARKERS[id]);delete RELEV_MARKERS[id];delete RELEV_TIPO_MAP[id];}
 }
 function addRipioLine(id,latlngs,empresa,ruta,fecha){
   if(RIPIO_LAYERS[id])return;
@@ -880,7 +912,8 @@ function addRipioLine(id,latlngs,empresa,ruta,fecha){
     +'<\/div>',
     {closeButton:true,maxWidth:260}
   );
-  RIPIO_LAYERS[id]=line.addTo(map);
+  RIPIO_LAYERS[id]=line;
+  if(RELEV_TIPOS_VISIBLE['Ripio']!==false)line.addTo(map);
 }
 function clearRelevMarkers(){
   Object.keys(RELEV_MARKERS).forEach(function(id){
@@ -889,6 +922,7 @@ function clearRelevMarkers(){
   Object.keys(RIPIO_LAYERS).forEach(function(id){
     map.removeLayer(RIPIO_LAYERS[id]);delete RIPIO_LAYERS[id];
   });
+  RELEV_TIPO_MAP={};
 }
 function removeRipioLayer(id){
   if(RIPIO_LAYERS[id]){map.removeLayer(RIPIO_LAYERS[id]);delete RIPIO_LAYERS[id];}
@@ -964,6 +998,37 @@ function _exitDrawMode(){
   _drawPts=[];
   document.getElementById('draw-ctrl').style.display='none';
 }
+
+// ── Modo colocación de punto puntual ─────────────────────────────────────────
+var _ppMode=false,_ppMarker=null,_ppClickFn=null;
+function enterPointPickMode(){
+  _ppMode=true;
+  map.getContainer().style.cursor='crosshair';
+  document.getElementById('point-pick-ctrl').style.display='block';
+  if(_ppMarker){map.removeLayer(_ppMarker);_ppMarker=null;}
+  _ppClickFn=function(e){
+    if(!_ppMode)return;
+    var lat=e.latlng.lat,lng=e.latlng.lng;
+    if(_ppMarker){map.removeLayer(_ppMarker);}
+    _ppMarker=L.circleMarker([lat,lng],{radius:10,fillColor:'#27ae60',color:'#fff',fillOpacity:1,weight:2.5}).addTo(map);
+    _exitPointPickMode();
+    _rn({type:'pointPicked',lat:lat,lng:lng});
+  };
+  map.on('click',_ppClickFn);
+}
+function cancelPointPick(){
+  _exitPointPickMode();
+  _rn({type:'pointPickCancelled'});
+}
+function _exitPointPickMode(){
+  _ppMode=false;
+  map.getContainer().style.cursor='';
+  if(_ppClickFn){map.off('click',_ppClickFn);_ppClickFn=null;}
+  document.getElementById('point-pick-ctrl').style.display='none';
+}
+function clearPickedPointMarker(){
+  if(_ppMarker){map.removeLayer(_ppMarker);_ppMarker=null;}
+}
 <\/script>
 </body>
 </html>`;
@@ -972,6 +1037,8 @@ function _exitDrawMode(){
 // ── Componente principal ─────────────────────────────────────────────────────
 export default function MapaScreen() {
   const webviewRef = useRef<WebView>(null);
+  const C = useColors();
+  const styles = useMemo(() => makeStyles(C), [C]);
   const drawerAnim = useRef(new Animated.Value(-DRAWER_WIDTH)).current;
   const overlayAnim = useRef(new Animated.Value(0)).current;
 
@@ -987,25 +1054,33 @@ export default function MapaScreen() {
   const { relevamientos, add: addRelevamiento, remove: removeRelevamiento, reload: reloadRelevamientos } = useRelevamientos();
   const [relevModalVisible, setRelevModalVisible] = useState(false);
   const [drawnCoordsLinea, setDrawnCoordsLinea] = useState<{lat:number;lng:number}[]>([]);
+  const [pickedPointCoord, setPickedPointCoord] = useState<{lat:number;lng:number}|null>(null);
   const [webViewLoadCount, setWebViewLoadCount] = useState(0);
-  const relevLoaded = useRef(false);
 
   // Recargar relevamientos al volver al tab (sincroniza eliminaciones desde Reportes)
   useFocusEffect(useCallback(() => { reloadRelevamientos(); }, [reloadRelevamientos]));
 
-  // ── Ripio: "Dibujar en mapa" iniciado desde dentro del modal ────────────────
+  // ── Ripio: "Dibujar en mapa" iniciado desde el modal ────────────────────────
   const handleRequestDraw = useCallback(() => {
-    // Cierra el modal y entra en modo dibujo Leaflet
     setRelevModalVisible(false);
     setDrawnCoordsLinea([]);
     setTimeout(() => {
       webviewRef.current?.injectJavaScript('enterDrawMode(); true;');
-    }, 300); // pequeño delay para que el modal termine de cerrar
+    }, 300);
+  }, []);
+
+  // ── Obras puntuales: "Ir al mapa" para colocar un punto ─────────────────────
+  const handleRequestPickPoint = useCallback(() => {
+    setRelevModalVisible(false);
+    setPickedPointCoord(null);
+    setTimeout(() => {
+      webviewRef.current?.injectJavaScript('enterPointPickMode(); true;');
+    }, 300);
   }, []);
 
   const [layers, setLayers] = useState<Layers>({
     basemap: true,
-    zonaBoundaries: true,
+    zonaBoundaries: false,
     limiteProv: true,
     departamentos: false,
     rutasNacionales: false,
@@ -1023,6 +1098,7 @@ export default function MapaScreen() {
   const dvpZVLoaded  = useRef(false);
 
   useEffect(() => {
+    if (webViewLoadCount === 0) return;
     if (dvpZIVOn) {
       if (!dvpZIVLoaded.current) {
         const gj = JSON.stringify((GEO_BUNDLE_CC as any)['ZIV_DVP']);
@@ -1034,9 +1110,10 @@ export default function MapaScreen() {
     } else {
       webviewRef.current?.injectJavaScript(`hideDVP('ZIV'); true;`);
     }
-  }, [dvpZIVOn]);
+  }, [dvpZIVOn, webViewLoadCount]);
 
   useEffect(() => {
+    if (webViewLoadCount === 0) return;
     if (dvpZVOn) {
       if (!dvpZVLoaded.current) {
         const gj = JSON.stringify((GEO_BUNDLE_CC as any)['ZV_DVP']);
@@ -1048,27 +1125,62 @@ export default function MapaScreen() {
     } else {
       webviewRef.current?.injectJavaScript(`hideDVP('ZV'); true;`);
     }
-  }, [dvpZVOn]);
+  }, [dvpZVOn, webViewLoadCount]);
+
+  // ── Capa Relevamientos: visibilidad por tipo ──────────────────────────────
+  type RelevLayers = { all: boolean; Puente: boolean; Alcantarilla: boolean; Tubos: boolean; Ripio: boolean; Otro: boolean };
+  const RELEV_TIPOS = ['Puente', 'Alcantarilla', 'Tubos', 'Ripio', 'Otro'] as const;
+  const [relevLayers, setRelevLayers] = useState<RelevLayers>({
+    all: true, Puente: true, Alcantarilla: true, Tubos: true, Ripio: true, Otro: true,
+  });
+  const relevLayersRef = useRef(relevLayers);
+  useEffect(() => { relevLayersRef.current = relevLayers; }, [relevLayers]);
+
+  const toggleAllRelev = useCallback(() => {
+    setRelevLayers(prev => {
+      const newAll = !prev.all;
+      return { all: newAll, Puente: newAll, Alcantarilla: newAll, Tubos: newAll, Ripio: newAll, Otro: newAll };
+    });
+  }, []);
+
+  const toggleRelevTipo = useCallback((tipo: keyof Omit<RelevLayers, 'all'>) => {
+    setRelevLayers(prev => {
+      const updated = { ...prev, [tipo]: !prev[tipo] };
+      updated.all = RELEV_TIPOS.every(t => updated[t]);
+      return updated;
+    });
+  }, []);
+
+  // Sincronizar visibilidad de subcapas → WebView
+  useEffect(() => {
+    if (webViewLoadCount === 0) return;
+    const js = RELEV_TIPOS.map(t => `setRelevTipoVisible(${JSON.stringify(t)},${relevLayers[t]});`).join('') + ' true;';
+    webviewRef.current?.injectJavaScript(js);
+  }, [relevLayers, webViewLoadCount]);
 
   // ── Relevamiento markers ──────────────────────────────────────────────────
   useEffect(() => {
     if (webViewLoadCount === 0) return; // WebView not ready yet
-    if (!relevLoaded.current && relevamientos.length > 0) {
-      relevLoaded.current = true;
-    }
-    // Limpiar marcadores viejos y re-agregar los actuales
-    const js = 'clearRelevMarkers();' + relevamientos.map(r => {
+    // Limpiar marcadores viejos y re-agregar los actuales; luego restaurar visibilidad
+    const layers = relevLayersRef.current;
+    const markerJs = 'clearRelevMarkers();' + relevamientos.map(r => {
       let s = `addRelevMarker(${JSON.stringify(r.id)},${r.coords.lat},${r.coords.lng},${JSON.stringify(r.estadoCalzada)},${JSON.stringify(r.tipo)},${JSON.stringify(r.rutaTramo || r.ccAsociado || '')},${JSON.stringify(r.fecha)},${JSON.stringify(r.observaciones.slice(0,80))});`;
       if (r.tipo === 'Ripio' && r.coordsLinea && r.coordsLinea.length >= 2) {
         s += `addRipioLine(${JSON.stringify(r.id)},${JSON.stringify(r.coordsLinea)},${JSON.stringify(r.datosRipio?.empresa ?? '')},${JSON.stringify(r.rutaTramo || '')},${JSON.stringify(r.fecha)});`;
       }
       return s;
-    }).join('') + ' true;';
-    webviewRef.current?.injectJavaScript(js);
+    }).join('');
+    const visJs = RELEV_TIPOS.map(t => `setRelevTipoVisible(${JSON.stringify(t)},${layers[t]});`).join('');
+    webviewRef.current?.injectJavaScript(markerJs + visJs + ' true;');
   }, [relevamientos, webViewLoadCount]);
 
   const handleSaveRelevamiento = useCallback(async (r: Relevamiento) => {
-    await addRelevamiento(r);
+    try {
+      await addRelevamiento(r);
+    } catch {
+      Alert.alert('Error al guardar', 'No se pudo guardar el relevamiento. Verificá el almacenamiento del dispositivo.');
+      return;
+    }
     let js = `addRelevMarker(${JSON.stringify(r.id)},${r.coords.lat},${r.coords.lng},${JSON.stringify(r.estadoCalzada)},${JSON.stringify(r.tipo)},${JSON.stringify(r.rutaTramo || r.ccAsociado || '')},${JSON.stringify(r.fecha)},${JSON.stringify(r.observaciones.slice(0,80))});`;
     if (r.tipo === 'Ripio' && r.coordsLinea && r.coordsLinea.length >= 2) {
       js += `addRipioLine(${JSON.stringify(r.id)},${JSON.stringify(r.coordsLinea)},${JSON.stringify(r.datosRipio?.empresa ?? '')},${JSON.stringify(r.rutaTramo || '')},${JSON.stringify(r.fecha)});`;
@@ -1106,6 +1218,16 @@ export default function MapaScreen() {
       }
       if (msg.type === 'drawModeCancelled') {
         setDrawnCoordsLinea([]);
+        setRelevModalVisible(true);
+      }
+      // Punto puntual colocado desde el mapa
+      if (msg.type === 'pointPicked' && msg.lat !== undefined) {
+        setPickedPointCoord({ lat: msg.lat, lng: msg.lng });
+        setRelevModalVisible(true);
+      }
+      if (msg.type === 'pointPickCancelled') {
+        setPickedPointCoord(null);
+        setRelevModalVisible(true);
       }
     } catch (_) {}
   }, [removeRelevamiento]);
@@ -1130,11 +1252,8 @@ export default function MapaScreen() {
     ccLoadedNums.current = new Set();
     dvpZIVLoaded.current = false;
     dvpZVLoaded.current  = false;
-    relevLoaded.current  = false;
     setWebViewLoadCount(c => c + 1);
     setCCState(s => ({ ...s }));
-    setDvpZIVOn(v => { if (v) { setTimeout(() => setDvpZIVOn(true), 100); } return v; });
-    setDvpZVOn(v  => { if (v) { setTimeout(() => setDvpZVOn(true),  100); } return v; });
   }, []);
 
   const mapHtml = useMemo(
@@ -1145,8 +1264,8 @@ export default function MapaScreen() {
   const toggleZona = useCallback((zona: string) =>
     setSedesZonas(prev => ({ ...prev, [zona]: !prev[zona] })), []);
 
-  const todasActivas = ZONAS_LIST.every(z => sedesZonas[z]);
-  const ningunaActiva = ZONAS_LIST.every(z => !sedesZonas[z]);
+  const todasActivas = useMemo(() => ZONAS_LIST.every(z => sedesZonas[z]), [sedesZonas]);
+  const ningunaActiva = useMemo(() => ZONAS_LIST.every(z => !sedesZonas[z]), [sedesZonas]);
 
   // ── Drawer ────────────────────────────────────────────────────────────────
   const openDrawer = useCallback(() => {
@@ -1459,6 +1578,54 @@ export default function MapaScreen() {
             </TouchableOpacity>
           ))}
 
+          {/* ── Relevamientos ───────────────────────────────────────────── */}
+          <Text style={[styles.drawerSection, { marginTop: 20 }]}>
+            Relevamientos — {relevamientos.length}
+          </Text>
+          {/* Toggle general */}
+          <TouchableOpacity style={styles.layerRow} onPress={toggleAllRelev}>
+            <View style={[styles.layerCheck, relevLayers.all && styles.layerCheckOn]}>
+              {relevLayers.all && <Text style={styles.layerCheckMark}>✓</Text>}
+            </View>
+            <Text style={styles.layerIcon}>📋</Text>
+            <Text style={[styles.layerLabel, !relevLayers.all && styles.layerLabelOff]}>
+              Todos los relevamientos
+            </Text>
+          </TouchableOpacity>
+          {/* Subcapas por tipo */}
+          {(
+            [
+              { tipo: 'Puente',       icon: '🌉', color: '#4444cc' },
+              { tipo: 'Alcantarilla', icon: '🏗️', color: '#44cc44' },
+              { tipo: 'Tubos',        icon: '⭕',  color: '#cc4444' },
+              { tipo: 'Ripio',        icon: '🛣️', color: '#22aaee' },
+              { tipo: 'Otro',         icon: '❓',  color: '#888888' },
+            ] as Array<{ tipo: keyof Omit<RelevLayers,'all'>; icon: string; color: string }>
+          ).map(({ tipo, icon, color }) => {
+            const count = relevamientos.filter(r => r.tipo === tipo).length;
+            const on = relevLayers[tipo];
+            return (
+              <TouchableOpacity
+                key={tipo}
+                style={[styles.layerRow, { paddingLeft: 14 }]}
+                onPress={() => toggleRelevTipo(tipo)}
+              >
+                <View style={[styles.layerCheck, { width: 16, height: 16, borderRadius: 3 }, on && { backgroundColor: color, borderColor: color }]}>
+                  {on && <Text style={[styles.layerCheckMark, { fontSize: 10, lineHeight: 12 }]}>✓</Text>}
+                </View>
+                <Text style={[styles.layerIcon, { fontSize: 13 }]}>{icon}</Text>
+                <Text style={[styles.layerLabel, { fontSize: 12 }, !on && styles.layerLabelOff]}>
+                  {tipo}
+                </Text>
+                {count > 0 && (
+                  <Text style={{ fontSize: 11, color: on ? color : '#555', fontWeight: '700', marginLeft: 'auto' }}>
+                    {count}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            );
+          })}
+
           <View style={{ height: 40 }} />
         </ScrollView>
       </Animated.View>
@@ -1514,11 +1681,15 @@ export default function MapaScreen() {
         visible={relevModalVisible}
         coords={gpsCoords.current}
         initialCoordsLinea={drawnCoordsLinea}
+        initialCoord={pickedPointCoord}
         onRequestDraw={handleRequestDraw}
+        onRequestPickPoint={handleRequestPickPoint}
         onSave={handleSaveRelevamiento}
         onClose={() => {
           setRelevModalVisible(false);
           setDrawnCoordsLinea([]);
+          setPickedPointCoord(null);
+          webviewRef.current?.injectJavaScript('clearPickedPointMarker(); true;');
         }}
       />
 
@@ -1527,295 +1698,103 @@ export default function MapaScreen() {
 }
 
 // ── STYLES ──────────────────────────────────────────────────────────────────
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#000',
-  },
+function makeStyles(C: ColorPalette) { return StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#000' },
 
-  // ── Overlay ────────────────────────────────────────────────────────────────
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    zIndex: 10,
-  },
+  overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.55)', zIndex: 10 },
 
-  // ── Drawer ─────────────────────────────────────────────────────────────────
   drawer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width: DRAWER_WIDTH,
-    height: '100%',
-    backgroundColor: '#2C2C2C',
-    zIndex: 20,
-    elevation: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 4, height: 0 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
+    position: 'absolute', top: 0, left: 0, width: DRAWER_WIDTH, height: '100%',
+    backgroundColor: C.primary, zIndex: 20, elevation: 16,
+    shadowColor: '#000', shadowOffset: { width: 4, height: 0 }, shadowOpacity: 0.4, shadowRadius: 12,
   },
   drawerHeader: {
-    backgroundColor: '#1A1A1A',
+    backgroundColor: C.primaryDark,
     paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) + 12 : 52,
-    paddingBottom: 14,
-    paddingHorizontal: 16,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderBottomWidth: 2,
-    borderBottomColor: '#F5C300',
+    paddingBottom: 14, paddingHorizontal: 16,
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    borderBottomWidth: 2, borderBottomColor: C.accent,
   },
-  drawerTitle: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
-  drawerClose: {
-    width: 30,
-    height: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  drawerCloseText: {
-    color: '#999999',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  drawerScroll: {
-    flex: 1,
-    paddingHorizontal: 14,
-    paddingTop: 12,
-  },
+  drawerTitle: { color: C.white, fontSize: 16, fontWeight: '800', letterSpacing: 0.5 },
+  drawerClose: { width: 30, height: 30, alignItems: 'center', justifyContent: 'center' },
+  drawerCloseText: { color: C.textMuted, fontSize: 18, fontWeight: '600' },
+  drawerScroll: { flex: 1, paddingHorizontal: 14, paddingTop: 12 },
   drawerSection: {
-    color: '#F5C300',
-    fontSize: 11,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginBottom: 10,
-    marginTop: 4,
+    color: C.accent, fontSize: 11, fontWeight: '800',
+    textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10, marginTop: 4,
   },
 
-  // ── Sedes actions ──────────────────────────────────────────────────────────
-  sedesActions: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 12,
-  },
+  sedesActions: { flexDirection: 'row', gap: 8, marginBottom: 12 },
   sedesActionBtn: {
-    flex: 1,
-    paddingVertical: 7,
-    alignItems: 'center',
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#555555',
-    backgroundColor: 'transparent',
+    flex: 1, paddingVertical: 7, alignItems: 'center', borderRadius: 6,
+    borderWidth: 1, borderColor: C.textSecondary, backgroundColor: 'transparent',
   },
-  sedesActionBtnActive: {
-    backgroundColor: '#F5C300',
-    borderColor: '#D4A900',
-  },
-  sedesActionText: {
-    color: '#AAAAAA',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  sedesActionTextActive: {
-    color: '#2C2C2C',
-  },
+  sedesActionBtnActive: { backgroundColor: C.accent, borderColor: C.accentDark },
+  sedesActionText: { color: C.textMuted, fontSize: 12, fontWeight: '700' },
+  sedesActionTextActive: { color: C.primary },
 
-  // ── Layer rows ─────────────────────────────────────────────────────────────
   layerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 9,
-    borderBottomWidth: 1,
-    borderBottomColor: '#3C3C3C',
-    gap: 10,
+    flexDirection: 'row', alignItems: 'center', paddingVertical: 9,
+    borderBottomWidth: 1, borderBottomColor: C.border, gap: 10,
   },
   layerCheck: {
-    width: 20,
-    height: 20,
-    borderRadius: 4,
-    borderWidth: 1.5,
-    borderColor: '#555555',
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 20, height: 20, borderRadius: 4, borderWidth: 1.5,
+    borderColor: C.textSecondary, alignItems: 'center', justifyContent: 'center',
     backgroundColor: 'transparent',
   },
-  layerCheckOn: {
-    backgroundColor: '#F5C300',
-    borderColor: '#D4A900',
-  },
-  layerCheckMark: {
-    color: '#2C2C2C',
-    fontSize: 12,
-    fontWeight: '900',
-    lineHeight: 14,
-  },
-  layerIcon: {
-    fontSize: 15,
-    width: 22,
-    textAlign: 'center',
-  },
-  layerLabel: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '600',
-    flex: 1,
-  },
-  layerLabelOff: {
-    color: '#666666',
-  },
-  zonaDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
-  layerLine: {
-    width: 22,
-    height: 3,
-    borderRadius: 1.5,
-  },
+  layerCheckOn: { backgroundColor: C.accent, borderColor: C.accentDark },
+  layerCheckMark: { color: C.primary, fontSize: 12, fontWeight: '900', lineHeight: 14 },
+  layerIcon: { fontSize: 15, width: 22, textAlign: 'center' },
+  layerLabel: { color: C.white, fontSize: 13, fontWeight: '600', flex: 1 },
+  layerLabelOff: { color: C.textMuted },
+  zonaDot: { width: 10, height: 10, borderRadius: 5 },
+  layerLine: { width: 22, height: 3, borderRadius: 1.5 },
 
-  // ── Hamburger button ───────────────────────────────────────────────────────
   btnHamburger: {
-    position: 'absolute',
-    top: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) + 2 : 38,
-    left: 12,
-    width: 38,
-    height: 38,
-    backgroundColor: '#2C2C2C',
-    borderRadius: 7,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    zIndex: 5,
-    elevation: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.35,
-    shadowRadius: 4,
-    borderWidth: 1,
-    borderColor: '#F5C300',
+    position: 'absolute', top: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) + 2 : 38,
+    left: 12, width: 38, height: 38, backgroundColor: C.primary, borderRadius: 7,
+    alignItems: 'center', justifyContent: 'center', gap: 4, zIndex: 5, elevation: 6,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.35, shadowRadius: 4,
+    borderWidth: 1, borderColor: C.accent,
   },
-  hamburgerLine: {
-    width: 17,
-    height: 2,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 1,
-  },
+  hamburgerLine: { width: 17, height: 2, backgroundColor: C.white, borderRadius: 1 },
 
-  // ── Zoom group ─────────────────────────────────────────────────────────────
   zoomGroup: {
-    position: 'absolute',
-    top: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) + 2 : 38,
-    right: 12,
-    backgroundColor: '#2C2C2C',
-    borderRadius: 7,
-    overflow: 'hidden',
-    zIndex: 5,
-    elevation: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.35,
-    shadowRadius: 4,
-    borderWidth: 1,
-    borderColor: '#F5C300',
+    position: 'absolute', top: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) + 2 : 38,
+    right: 12, backgroundColor: C.primary, borderRadius: 7, overflow: 'hidden',
+    zIndex: 5, elevation: 6,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.35, shadowRadius: 4,
+    borderWidth: 1, borderColor: C.accent,
   },
-  zoomBtn: {
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  zoomText: {
-    color: '#FFFFFF',
-    fontSize: 19,
-    fontWeight: '300',
-    lineHeight: 22,
-  },
-  zoomDivider: {
-    height: 1,
-    backgroundColor: '#3C3C3C',
-    marginHorizontal: 6,
-  },
+  zoomBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+  zoomText: { color: C.white, fontSize: 19, fontWeight: '300', lineHeight: 22 },
+  zoomDivider: { height: 1, backgroundColor: C.border, marginHorizontal: 6 },
 
-  // ── Ripio draw FAB ─────────────────────────────────────────────────────────
   btnRipio: {
-    position: 'absolute',
-    bottom: 156,
-    right: 12,
-    width: 50,
-    height: 50,
-    backgroundColor: '#e67e22',
-    borderRadius: 25,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 5,
-    elevation: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.35,
-    shadowRadius: 4,
-    borderWidth: 2,
-    borderColor: '#d35400',
+    position: 'absolute', bottom: 156, right: 12, width: 50, height: 50,
+    backgroundColor: '#e67e22', borderRadius: 25, alignItems: 'center', justifyContent: 'center',
+    zIndex: 5, elevation: 6,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.35, shadowRadius: 4,
+    borderWidth: 2, borderColor: '#d35400',
   },
-  btnRipioIcon: {
-    fontSize: 22,
-  },
+  btnRipioIcon: { fontSize: 22 },
 
-  // ── Relevar FAB ────────────────────────────────────────────────────────────
   btnRelevar: {
-    position: 'absolute',
-    bottom: 94,
-    right: 12,
-    width: 50,
-    height: 50,
-    backgroundColor: '#2C2C2C',
-    borderRadius: 25,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 5,
-    elevation: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.35,
-    shadowRadius: 4,
-    borderWidth: 2,
-    borderColor: '#F5C300',
+    position: 'absolute', bottom: 94, right: 12, width: 50, height: 50,
+    backgroundColor: C.primary, borderRadius: 25, alignItems: 'center', justifyContent: 'center',
+    zIndex: 5, elevation: 6,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.35, shadowRadius: 4,
+    borderWidth: 2, borderColor: C.accent,
   },
-  btnRelevarIcon: {
-    fontSize: 22,
-  },
+  btnRelevarIcon: { fontSize: 22 },
 
-  // ── GPS button ─────────────────────────────────────────────────────────────
   btnGps: {
-    position: 'absolute',
-    bottom: 32,
-    right: 12,
-    width: 50,
-    height: 50,
-    backgroundColor: '#2C2C2C',
-    borderRadius: 25,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 5,
-    elevation: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.35,
-    shadowRadius: 4,
-    borderWidth: 2,
-    borderColor: '#444444',
+    position: 'absolute', bottom: 32, right: 12, width: 50, height: 50,
+    backgroundColor: C.primary, borderRadius: 25, alignItems: 'center', justifyContent: 'center',
+    zIndex: 5, elevation: 6,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.35, shadowRadius: 4,
+    borderWidth: 2, borderColor: C.primaryLight,
   },
-  btnGpsActive: {
-    backgroundColor: '#F5C300',
-    borderColor: '#D4A900',
-  },
-  btnGpsIcon: {
-    fontSize: 22,
-  },
-});
+  btnGpsActive: { backgroundColor: C.accent, borderColor: C.accentDark },
+  btnGpsIcon: { fontSize: 22 },
+}); }
