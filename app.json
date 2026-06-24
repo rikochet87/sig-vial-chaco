@@ -76,6 +76,14 @@
         {
           "locationAlwaysAndWhenInUsePermission": "La app necesita tu ubicacion para mostrarte en el mapa vial del Chaco."
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "La app necesita acceso a la cámara para fotografiar relevamientos viales.",
+          "photosPermission": "La app necesita acceso a las fotos para adjuntarlas a los relevamientos.",
+          "microphonePermission": false
+        }
       ]
     ],
     "newArchEnabled": true,
