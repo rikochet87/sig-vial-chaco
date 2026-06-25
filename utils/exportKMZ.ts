@@ -170,7 +170,7 @@ function buildKML(items: Relevamiento[]): string {
 </kml>`;
 }
 
-export async function exportarKMZ(items: Relevamiento[]): Promise<void> {
+export async function exportarKMZ(items: Relevamiento[], filename?: string): Promise<void> {
   if (items.length === 0) return;
 
   const kml = buildKML(items);
@@ -178,7 +178,8 @@ export async function exportarKMZ(items: Relevamiento[]): Promise<void> {
   zip.file('doc.kml', kml);
 
   const base64 = await zip.generateAsync({ type: 'base64', compression: 'DEFLATE' });
-  const fileUri = (FileSystem.cacheDirectory ?? '') + `relevamientos_${items.length}.kmz`;
+  const name = filename ?? `relevamientos_${items.length}`;
+  const fileUri = (FileSystem.cacheDirectory ?? '') + `${name}.kmz`;
   await FileSystem.writeAsStringAsync(fileUri, base64, {
     encoding: FileSystem.EncodingType.Base64,
   });
@@ -186,6 +187,6 @@ export async function exportarKMZ(items: Relevamiento[]): Promise<void> {
   await Sharing.shareAsync(fileUri, {
     mimeType: 'application/vnd.google-earth.kmz',
     UTI: 'com.google.earth.kmz',
-    dialogTitle: `Exportar ${items.length} relevamiento${items.length !== 1 ? 's' : ''} como KMZ`,
+    dialogTitle: `Exportar como KMZ`,
   });
 }

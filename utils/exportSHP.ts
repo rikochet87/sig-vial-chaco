@@ -170,7 +170,7 @@ const PRJ = 'GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",SPHEROID["WGS_1984",637813
 
 // ── Export principal ──────────────────────────────────────────────────────────
 
-export async function exportarSHP(items: Relevamiento[]): Promise<void> {
+export async function exportarSHP(items: Relevamiento[], filename?: string): Promise<void> {
   if (!items.length) return;
 
   const puntuales = items.filter(r => r.tipo !== 'Ripio');
@@ -297,13 +297,14 @@ export async function exportarSHP(items: Relevamiento[]): Promise<void> {
   }
 
   const base64 = await zip.generateAsync({ type: 'base64', compression: 'DEFLATE' });
-  const uri = (FileSystem.cacheDirectory ?? '') + `relevamientos_${items.length}.zip`;
+  const name = filename ?? `relevamientos_${items.length}`;
+  const uri = (FileSystem.cacheDirectory ?? '') + `${name}.zip`;
   await FileSystem.writeAsStringAsync(uri, base64, {
     encoding: FileSystem.EncodingType.Base64,
   });
   await Sharing.shareAsync(uri, {
     mimeType: 'application/zip',
     UTI: 'public.zip-archive',
-    dialogTitle: `Exportar ${items.length} relevamiento${items.length !== 1 ? 's' : ''} como SHP (ESRI)`,
+    dialogTitle: `Exportar como SHP (ESRI)`,
   });
 }

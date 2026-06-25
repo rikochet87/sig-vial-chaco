@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo, createContext, useContext } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  ScrollView, Share, Alert, Platform,
+  ScrollView, Alert, Platform,
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -64,7 +64,16 @@ function buildGeoJSON(items: Relevamiento[]) {
   };
 }
 
-// buildGeoJSON se conserva por si se necesita en el futuro
+// ── Nombre de archivo para exportaciones individuales ────────────────────────
+function makeExportName(r: Relevamiento): string {
+  const tipo = (r.tipo ?? 'relev').toLowerCase();
+  const cc = r.autoDeteccion?.ccNumero != null
+    ? `CC${String(r.autoDeteccion.ccNumero).padStart(2, '0')}` : '';
+  const fecha = r.fecha
+    ? new Date(r.fecha).toLocaleDateString('es-AR').replace(/\//g, '')
+    : '';
+  return [tipo, cc, fecha].filter(Boolean).join('_');
+}
 
 // ── Sub-form summary ──────────────────────────────────────────────────────────
 
@@ -177,6 +186,7 @@ function RelevamientoCard({
   onEdit: (item: Relevamiento) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
   const styles = useStyles();
   const Colors = useColors();
   const color = ESTADO_COLORS[item.estadoCalzada as EstadoCalzada] ?? '#888';
@@ -269,11 +279,47 @@ function RelevamientoCard({
               <Ionicons name="create-outline" size={15} color={Colors.accent} />
               <Text style={[styles.actionText, { color: Colors.accent }]}>Editar</Text>
             </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.actionBtn, exportOpen && { borderColor: Colors.accent }]}
+              onPress={() => setExportOpen(v => !v)}
+            >
+              <Ionicons name="share-outline" size={15} color={Colors.textSecondary} />
+              <Text style={[styles.actionText, { color: Colors.textSecondary }]}>Exportar</Text>
+            </TouchableOpacity>
             <TouchableOpacity style={[styles.actionBtn, styles.actionBtnDanger]} onPress={confirmDelete}>
               <Ionicons name="trash-outline" size={15} color={Colors.danger} />
               <Text style={[styles.actionText, { color: Colors.danger }]}>Eliminar</Text>
             </TouchableOpacity>
           </View>
+
+          {/* Mini-menú de exportación */}
+          {exportOpen && (
+            <View style={styles.exportMenu}>
+              <TouchableOpacity
+                style={styles.exportMenuBtn}
+                onPress={() => {
+                  setExportOpen(false);
+                  exportarKMZ([item], makeExportName(item));
+                }}
+              >
+                <Ionicons name="earth-outline" size={14} color="#27ae60" />
+                <Text style={[styles.exportMenuTxt, { color: '#27ae60' }]}>KMZ</Text>
+                <Text style={styles.exportMenuDesc}>Google Earth / QGIS</Text>
+              </TouchableOpacity>
+              <View style={styles.exportMenuDivider} />
+              <TouchableOpacity
+                style={styles.exportMenuBtn}
+                onPress={() => {
+                  setExportOpen(false);
+                  exportarSHP([item], makeExportName(item));
+                }}
+              >
+                <Ionicons name="layers-outline" size={14} color="#8844CC" />
+                <Text style={[styles.exportMenuTxt, { color: '#8844CC' }]}>SHP</Text>
+                <Text style={styles.exportMenuDesc}>ESRI Shapefile / QGIS</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
       )}
     </View>
@@ -341,23 +387,11 @@ export default function RelevamientosScreen() {
         })}
       </ScrollView>
 
-      {/* Count + export */}
+      {/* Count */}
       <View style={styles.topBar}>
         <Text style={styles.countText}>
           {filtrados.length} relevamiento{filtrados.length !== 1 ? 's' : ''}
         </Text>
-        {filtrados.length > 0 && (
-          <View style={{ flexDirection: 'row', gap: 6 }}>
-            <TouchableOpacity style={styles.exportAllBtn} onPress={() => exportarSHP(filtrados)}>
-              <Ionicons name="layers-outline" size={14} color="#8844CC" />
-              <Text style={[styles.exportAllText, { color: '#8844CC' }]}>SHP</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.exportAllBtn} onPress={() => exportarKMZ(filtrados)}>
-              <Ionicons name="earth-outline" size={14} color="#27ae60" />
-              <Text style={[styles.exportAllText, { color: '#27ae60' }]}>KMZ</Text>
-            </TouchableOpacity>
-          </View>
-        )}
       </View>
 
       <FlatList
@@ -500,7 +534,19 @@ function makeStyles(C: ColorPalette) {
       borderColor: C.danger + '40',
       backgroundColor: C.danger + '08',
     },
-    actionText: { fontSize: 12, fontWeight: '700' },
+    actionText: { fontSize: 11, fontWeight: '700' },
+
+    // Mini-menú de exportación
+    exportMenu: {
+      flexDirection: 'row', borderTopWidth: 1, borderTopColor: C.border,
+    },
+    exportMenuBtn: {
+      flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+      gap: 5, paddingVertical: 9, paddingHorizontal: 6,
+    },
+    exportMenuTxt: { fontSize: 12, fontWeight: '800' },
+    exportMenuDesc: { fontSize: 10, color: C.textMuted },
+    exportMenuDivider: { width: 1, backgroundColor: C.border, marginVertical: 8 },
 
     empty: { alignItems: 'center', paddingTop: 70, gap: 10, paddingHorizontal: 32 },
     emptyIcon: { fontSize: 48 },
