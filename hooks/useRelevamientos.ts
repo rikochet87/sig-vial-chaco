@@ -53,5 +53,21 @@ export function useRelevamientos() {
     }
   }, []);
 
-  return { relevamientos, loading, add, remove, reload: load };
+  const update = useCallback(async (updated: Relevamiento) => {
+    const prev = listRef.current;
+    const idx = prev.findIndex(r => r.id === updated.id);
+    if (idx === -1) return;
+    const next = [...prev];
+    next[idx] = updated;
+    listRef.current = next;
+    try {
+      await FileSystem.writeAsStringAsync(FILE_PATH, JSON.stringify(next));
+      setRelevamientos(next);
+    } catch (e) {
+      listRef.current = prev;
+      throw e;
+    }
+  }, []);
+
+  return { relevamientos, loading, add, remove, update, reload: load };
 }

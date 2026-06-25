@@ -2,9 +2,8 @@ import { ScrollView, View, Text, StyleSheet, TouchableOpacity, Dimensions } from
 import { useMemo } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useColors, useTheme } from '@/context/ThemeContext';
+import { useColors } from '@/context/ThemeContext';
 import type { ColorPalette } from '@/constants/Colors';
-import { type ThemeName, THEME_LABELS, THEMES } from '@/constants/Colors';
 import { GEO_BUNDLE } from '@/constants/geoBundle';
 
 const CONSORCIOS = GEO_BUNDLE.sedes as any[];
@@ -17,12 +16,6 @@ const ZONAS_CONFIG = [
 ];
 
 const { width } = Dimensions.get('window');
-
-const THEME_ICONS: Record<ThemeName, string> = {
-  original: '🌑',
-  dark:     '🌙',
-  light:    '☀️',
-};
 
 function StatCard({
   label, value, icon, color, onPress, styles, C,
@@ -49,7 +42,6 @@ function StatCard({
 
 export default function HomeScreen() {
   const C = useColors();
-  const { theme, setTheme } = useTheme();
   const styles = useMemo(() => makeStyles(C), [C]);
 
   const totalKm = useMemo(() => CONSORCIOS.reduce((acc, c) => acc + c.redKm, 0), []);
@@ -109,39 +101,6 @@ export default function HomeScreen() {
         })}
       </View>
 
-      {/* ── Selector de tema ──────────────────────────────────────────────── */}
-      <Text style={styles.sectionTitle}>Tema de la aplicación</Text>
-      <View style={styles.themeCard}>
-        {(['original', 'dark', 'light'] as ThemeName[]).map(t => {
-          const active = theme === t;
-          const palette = THEMES[t];
-          return (
-            <TouchableOpacity
-              key={t}
-              style={[styles.themeBtn, active && { borderColor: C.accent, backgroundColor: C.accent + '18' }]}
-              onPress={() => setTheme(t)}
-              activeOpacity={0.75}
-            >
-              {/* Mini preview */}
-              <View style={[styles.themePreview, { backgroundColor: palette.primary }]}>
-                <View style={[styles.themePreviewBar, { backgroundColor: palette.accent }]} />
-                <View style={[styles.themePreviewDot, { backgroundColor: palette.surface }]} />
-                <View style={[styles.themePreviewDot, { backgroundColor: palette.surface }]} />
-              </View>
-              <Text style={styles.themeIcon}>{THEME_ICONS[t]}</Text>
-              <Text style={[styles.themeLabel, active && { color: C.accent, fontWeight: '800' }]}>
-                {THEME_LABELS[t]}
-              </Text>
-              {active && (
-                <View style={[styles.themeCheckmark, { backgroundColor: C.accent }]}>
-                  <Text style={[styles.themeCheckmarkText, { color: C.primary }]}>✓</Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-
       <View style={{ height: 24 }} />
     </ScrollView>
   );
@@ -189,27 +148,4 @@ function makeStyles(C: ColorPalette) { return StyleSheet.create({
   zonaKm: { fontSize: 12, fontWeight: '700', color: C.textSecondary },
   progressBar: { height: 7, backgroundColor: C.border, borderRadius: 4, overflow: 'hidden' },
   progressFill: { height: '100%', borderRadius: 4 },
-
-  // ── Selector de tema ──────────────────────────────────────────────────────
-  themeCard: {
-    flexDirection: 'row', gap: 10, marginBottom: 16,
-  },
-  themeBtn: {
-    flex: 1, alignItems: 'center', padding: 12, borderRadius: 12,
-    backgroundColor: C.surface, borderWidth: 1.5, borderColor: C.border,
-    elevation: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 2,
-  },
-  themePreview: {
-    width: '100%', height: 36, borderRadius: 7, marginBottom: 8,
-    overflow: 'hidden', justifyContent: 'flex-end', padding: 5, gap: 3,
-  },
-  themePreviewBar: { width: '100%', height: 4, borderRadius: 2 },
-  themePreviewDot: { width: 14, height: 4, borderRadius: 2, opacity: 0.85 },
-  themeIcon: { fontSize: 20, marginBottom: 4 },
-  themeLabel: { fontSize: 11, fontWeight: '600', color: C.textSecondary },
-  themeCheckmark: {
-    position: 'absolute', top: 6, right: 6, width: 18, height: 18,
-    borderRadius: 9, alignItems: 'center', justifyContent: 'center',
-  },
-  themeCheckmarkText: { fontSize: 11, fontWeight: '900' },
 }); }

@@ -410,10 +410,18 @@ function RipioForm({ data, onChange, puntos, onCoordsChange, onRequestDraw }: {
   };
 
   // ── Date stepper ──────────────────────────────────────────────────────────
-  const today = new Date();
-  const [dDay,   setDDay]   = useState(today.getDate());
-  const [dMonth, setDMonth] = useState(today.getMonth() + 1);
-  const [dYear,  setDYear]  = useState(today.getFullYear());
+  // Inicializa desde data.fechaEjecucion (formato DD/MM/AAAA) si existe, si no desde hoy
+  const _initDate = (() => {
+    if (data.fechaEjecucion) {
+      const [dd, mm, yy] = data.fechaEjecucion.split('/').map(Number);
+      if (dd && mm && yy) return { d: dd, m: mm, y: yy };
+    }
+    const t = new Date();
+    return { d: t.getDate(), m: t.getMonth() + 1, y: t.getFullYear() };
+  })();
+  const [dDay,   setDDay]   = useState(_initDate.d);
+  const [dMonth, setDMonth] = useState(_initDate.m);
+  const [dYear,  setDYear]  = useState(_initDate.y);
 
   const daysInMonth = (m: number, y: number) => new Date(y, m, 0).getDate();
   const clampDay = (d: number, m: number, y: number) => Math.min(d, daysInMonth(m, y));
@@ -602,20 +610,23 @@ function UbicacionPuntualSection({
         </View>
       ) : (
         <View style={s.metodoCards}>
-          <View style={s.metodoCard}>
-            <Text style={s.metodoCardIcon}>🗺️</Text>
-            <View style={s.metodoCardBody}>
-              <Text style={s.metodoCardTitle}>Colocar en mapa</Text>
-              <Text style={s.metodoCardDesc}>
-                Tocá el punto exacto de la obra sobre el mapa OSM. Ideal para trabajar desde gabinete o verificar la ubicación.
-              </Text>
-              <TouchableOpacity style={s.metodoCardBtn} onPress={onPickFromMap}>
-                <Text style={s.metodoCardBtnTxt}>Ir al mapa →</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          <View style={s.metodoDivider} />
+          {onPickFromMap && (
+            <>
+              <View style={s.metodoCard}>
+                <Text style={s.metodoCardIcon}>🗺️</Text>
+                <View style={s.metodoCardBody}>
+                  <Text style={s.metodoCardTitle}>Colocar en mapa</Text>
+                  <Text style={s.metodoCardDesc}>
+                    Tocá el punto exacto de la obra sobre el mapa OSM. Ideal para trabajar desde gabinete o verificar la ubicación.
+                  </Text>
+                  <TouchableOpacity style={s.metodoCardBtn} onPress={onPickFromMap}>
+                    <Text style={s.metodoCardBtnTxt}>Ir al mapa →</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+              <View style={s.metodoDivider} />
+            </>
+          )}
 
           <View style={s.metodoCard}>
             <Text style={s.metodoCardIcon}>📍</Text>
@@ -647,6 +658,10 @@ function UbicacionPuntualSection({
 interface Props {
   visible: boolean;
   coords: { lat: number; lng: number } | null;
+  /** Relevamiento a editar — activa el modo edición con todos los campos precargados */
+  editando?: Relevamiento;
+  /** Callback para guardar cambios en modo edición */
+  onUpdate?: (r: Relevamiento) => void;
   /** Puntos pre-dibujados desde el mapa — activa automáticamente el tipo Ripio */
   initialCoordsLinea?: LatLngPunto[];
   /** Coordenada puntual pre-colocada desde el mapa para obras puntuales */
@@ -655,7 +670,7 @@ interface Props {
   onRequestDraw?: () => void;
   /** Llamado cuando el usuario elige "Ir al mapa" para colocar un punto puntual */
   onRequestPickPoint?: () => void;
-  onSave: (r: Relevamiento) => void;
+  onSave?: (r: Relevamiento) => void;
   onClose: () => void;
 }
 
@@ -665,7 +680,7 @@ const TIPO_ICONS: Record<TipoInfraestructura, string> = {
 };
 const ESTADOS: EstadoCalzada[] = ['Bueno', 'Regular', 'Malo'];
 
-export default function RelevamientoModal({ visible, coords, initialCoordsLinea, initialCoord, onRequestDraw, onRequestPickPoint, onSave, onClose }: Props) {
+export default function RelevamientoModal({ visible, coords, editando, onUpdate, initialCoordsLinea, initialCoord, onRequestDraw, onRequestPickPoint, onSave, onClose }: Props) {
   const Colors = useColors();
   const s = useMemo(() => makeStyles(Colors), [Colors]);
   const [estadoCalzada, setEstadoCalzada] = useState<EstadoCalzada>('Regular');
@@ -684,15 +699,30 @@ export default function RelevamientoModal({ visible, coords, initialCoordsLinea,
   const [fotos, setFotos] = useState<string[]>([]);
   const [fechaModal] = useState(() => new Date().toISOString());
 
-  // Pre-carga tramo Ripio o punto puntual al abrir el modal
+  // Pre-carga campos al abrir el modal (modo edición o nuevo con tramo/punto pre-dibujado)
   useEffect(() => {
     if (!visible) return;
-    if (initialCoordsLinea && initialCoordsLinea.length >= 2) {
-      setCoordsLinea([...initialCoordsLinea]);
-      setTipo('Ripio');
-    }
-    if (initialCoord) {
-      setPointCoord(initialCoord);
+    if (editando) {
+      // Modo edición: precarga todos los campos del relevamiento existente
+      setEstadoCalzada(editando.estadoCalzada ?? 'Regular');
+      setTipo(editando.tipo ?? 'Puente');
+      if (editando.datosPuente)      setDatosPuente({ ...editando.datosPuente });
+      if (editando.datosAlcantarilla) setDatosAlcantarilla({ ...editando.datosAlcantarilla });
+      if (editando.datosTubos)       setDatosTubos({ ...editando.datosTubos });
+      if (editando.datosRipio)       setDatosRipio({ ...editando.datosRipio });
+      setCoordsLinea(editando.coordsLinea ? [...editando.coordsLinea] : []);
+      setOtroDesc(editando.datosOtro?.descripcion ?? DEFAULT_OTRO.descripcion);
+      setRutaTramo(editando.rutaTramo ?? '');
+      setObservaciones(editando.observaciones ?? '');
+      setTecnico(editando.tecnico ?? '');
+      setFotos([...editando.fotos]);
+      setPointCoord(editando.tipo !== 'Ripio' ? (editando.coords ?? null) : null);
+    } else {
+      if (initialCoordsLinea && initialCoordsLinea.length >= 2) {
+        setCoordsLinea([...initialCoordsLinea]);
+        setTipo('Ripio');
+      }
+      if (initialCoord) setPointCoord(initialCoord);
     }
   }, [visible]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -757,8 +787,8 @@ export default function RelevamientoModal({ visible, coords, initialCoordsLinea,
     const baseCoords = tipo === 'Ripio' ? coordsLinea[0] : effectiveCoords!;
 
     const r: Relevamiento = {
-      id: Date.now().toString(),
-      fecha: new Date().toISOString(),
+      id: editando ? editando.id : Date.now().toString(),
+      fecha: editando ? editando.fecha : new Date().toISOString(),
       coords: baseCoords,
       coordsLinea: tipo === 'Ripio' ? [...coordsLinea] : undefined,
       autoDeteccion: autoCC
@@ -781,7 +811,11 @@ export default function RelevamientoModal({ visible, coords, initialCoordsLinea,
       tecnico: tecnico.trim(),
       fotos,
     };
-    onSave(r);
+    if (editando && onUpdate) {
+      onUpdate(r);
+    } else {
+      onSave?.(r);
+    }
     reset();
     onClose();
   };
@@ -802,8 +836,8 @@ export default function RelevamientoModal({ visible, coords, initialCoordsLinea,
           {/* Header */}
           <View style={s.header}>
             <View style={{ flex: 1 }}>
-              <Text style={s.title}>📋 Nuevo Relevamiento</Text>
-              <Text style={s.fechaHora}>{formatFechaHora(fechaModal)}</Text>
+              <Text style={s.title}>{editando ? '✏️ Editar Relevamiento' : '📋 Nuevo Relevamiento'}</Text>
+              <Text style={s.fechaHora}>{formatFechaHora(editando ? editando.fecha : fechaModal)}</Text>
             </View>
             <TouchableOpacity onPress={onClose} style={s.closeBtn}>
               <Ionicons name="close" size={20} color={Colors.textMuted} />
@@ -1006,8 +1040,8 @@ export default function RelevamientoModal({ visible, coords, initialCoordsLinea,
               style={[s.saveBtn, { backgroundColor: activeColor }]}
               onPress={handleSave}
             >
-              <Ionicons name="save-outline" size={18} color="#fff" />
-              <Text style={s.saveBtnTxt}>Guardar Relevamiento</Text>
+              <Ionicons name={editando ? 'checkmark-outline' : 'save-outline'} size={18} color="#fff" />
+              <Text style={s.saveBtnTxt}>{editando ? 'Guardar cambios' : 'Guardar Relevamiento'}</Text>
             </TouchableOpacity>
           </ScrollView>
         </View>

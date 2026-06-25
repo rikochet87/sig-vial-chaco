@@ -12,6 +12,8 @@ import type { Relevamiento, EstadoCalzada } from '@/types/relevamiento';
 import { ESTADO_COLORS } from '@/types/relevamiento';
 import { formatFechaHora } from '@/utils/formatDate';
 import { exportarKMZ } from '@/utils/exportKMZ';
+import { exportarSHP } from '@/utils/exportSHP';
+import RelevamientoModal from '@/components/RelevamientoModal';
 
 // Contexto interno para distribuir estilos a subcomponentes sin prop drilling
 type StylesType = ReturnType<typeof makeStyles>;
@@ -62,24 +64,7 @@ function buildGeoJSON(items: Relevamiento[]) {
   };
 }
 
-async function exportarRelevamiento(r: Relevamiento) {
-  const geojson = JSON.stringify(buildGeoJSON([r]), null, 2);
-  const fecha = new Date(r.fecha).toLocaleDateString('es-AR').replace(/\//g, '-');
-  const id = r.rutaTramo || r.ccAsociado || r.id;
-  await Share.share({
-    message: geojson,
-    title: `Relevamiento_${id}_${fecha}.geojson`,
-  });
-}
-
-async function exportarTodos(items: Relevamiento[]) {
-  if (items.length === 0) return;
-  const geojson = JSON.stringify(buildGeoJSON(items), null, 2);
-  await Share.share({
-    message: geojson,
-    title: `Relevamientos_SIG_Vial_${items.length}.geojson`,
-  });
-}
+// buildGeoJSON se conserva por si se necesita en el futuro
 
 // ── Sub-form summary ──────────────────────────────────────────────────────────
 
@@ -185,9 +170,11 @@ const TIPO_LABELS: Record<string, string> = {
 function RelevamientoCard({
   item,
   onDelete,
+  onEdit,
 }: {
   item: Relevamiento;
   onDelete: (id: string) => void;
+  onEdit: (item: Relevamiento) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const styles = useStyles();
@@ -278,9 +265,9 @@ function RelevamientoCard({
           )}
 
           <View style={styles.actions}>
-            <TouchableOpacity style={styles.actionBtn} onPress={() => exportarRelevamiento(item)}>
-              <Ionicons name="share-outline" size={15} color={Colors.accent} />
-              <Text style={[styles.actionText, { color: Colors.accent }]}>Exportar GeoJSON</Text>
+            <TouchableOpacity style={styles.actionBtn} onPress={() => onEdit(item)}>
+              <Ionicons name="create-outline" size={15} color={Colors.accent} />
+              <Text style={[styles.actionText, { color: Colors.accent }]}>Editar</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[styles.actionBtn, styles.actionBtnDanger]} onPress={confirmDelete}>
               <Ionicons name="trash-outline" size={15} color={Colors.danger} />
@@ -298,8 +285,9 @@ function RelevamientoCard({
 const FILTROS: Array<EstadoCalzada | 'Todos'> = ['Todos', 'Bueno', 'Regular', 'Malo'];
 
 export default function RelevamientosScreen() {
-  const { relevamientos, loading, remove, reload } = useRelevamientos();
+  const { relevamientos, loading, remove, update, reload } = useRelevamientos();
   const [filtro, setFiltro] = useState<EstadoCalzada | 'Todos'>('Todos');
+  const [editingItem, setEditingItem] = useState<Relevamiento | null>(null);
   const Colors = useColors();
   const styles = useMemo(() => makeStyles(Colors), [Colors]);
 
@@ -360,9 +348,9 @@ export default function RelevamientosScreen() {
         </Text>
         {filtrados.length > 0 && (
           <View style={{ flexDirection: 'row', gap: 6 }}>
-            <TouchableOpacity style={styles.exportAllBtn} onPress={() => exportarTodos(filtrados)}>
-              <Ionicons name="cloud-download-outline" size={14} color={Colors.accent} />
-              <Text style={styles.exportAllText}>GeoJSON</Text>
+            <TouchableOpacity style={styles.exportAllBtn} onPress={() => exportarSHP(filtrados)}>
+              <Ionicons name="layers-outline" size={14} color="#8844CC" />
+              <Text style={[styles.exportAllText, { color: '#8844CC' }]}>SHP</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.exportAllBtn} onPress={() => exportarKMZ(filtrados)}>
               <Ionicons name="earth-outline" size={14} color="#27ae60" />
@@ -375,7 +363,7 @@ export default function RelevamientosScreen() {
       <FlatList
         data={filtrados}
         keyExtractor={item => item.id}
-        renderItem={({ item }) => <RelevamientoCard item={item} onDelete={remove} />}
+        renderItem={({ item }) => <RelevamientoCard item={item} onDelete={remove} onEdit={setEditingItem} />}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
@@ -389,6 +377,22 @@ export default function RelevamientosScreen() {
             </Text>
           </View>
         }
+      />
+
+      {/* Modal de edición */}
+      <RelevamientoModal
+        visible={!!editingItem}
+        editando={editingItem ?? undefined}
+        coords={editingItem?.coords ?? null}
+        onUpdate={async (r) => {
+          try {
+            await update(r);
+            setEditingItem(null);
+          } catch {
+            Alert.alert('Error', 'No se pudo guardar los cambios. Intentá de nuevo.');
+          }
+        }}
+        onClose={() => setEditingItem(null)}
       />
     </View>
     </StylesCtx.Provider>
