@@ -13,7 +13,6 @@ import { GEO_BUNDLE_CC } from '@/constants/geoBundleCC';
 import { useRelevamientos } from '@/hooks/useRelevamientos';
 import RelevamientoModal from '@/components/RelevamientoModal';
 import type { Relevamiento } from '@/types/relevamiento';
-import { ESTADO_COLORS } from '@/types/relevamiento';
 
 // expo-location: importación condicional para evitar crash si no está instalado aún
 let Location: any = null;
@@ -68,6 +67,13 @@ type Layers = {
 };
 
 type SedesZonas = Record<string, boolean>;
+
+// ── Tipos para control de visibilidad de relevamientos ───────────────────────
+type RelevLayers = {
+  all: boolean; Puente: boolean; Alcantarilla: boolean;
+  Tubos: boolean; Ripio: boolean; Otro: boolean;
+};
+const RELEV_TIPOS = ['Puente', 'Alcantarilla', 'Tubos', 'Ripio', 'Otro'] as const;
 
 // ── HTML Leaflet (mínimo UI, sin controles propios) ──────────────────────────
 function buildMapHtml(sedesZonas: SedesZonas, layers: Layers): string {
@@ -1128,8 +1134,6 @@ export default function MapaScreen() {
   }, [dvpZVOn, webViewLoadCount]);
 
   // ── Capa Relevamientos: visibilidad por tipo ──────────────────────────────
-  type RelevLayers = { all: boolean; Puente: boolean; Alcantarilla: boolean; Tubos: boolean; Ripio: boolean; Otro: boolean };
-  const RELEV_TIPOS = ['Puente', 'Alcantarilla', 'Tubos', 'Ripio', 'Otro'] as const;
   const [relevLayers, setRelevLayers] = useState<RelevLayers>({
     all: true, Puente: true, Alcantarilla: true, Tubos: true, Ripio: true, Otro: true,
   });
