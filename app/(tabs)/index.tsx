@@ -1,19 +1,12 @@
-import { ScrollView, View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
+import { ScrollView, View, Text, StyleSheet, TouchableOpacity, Dimensions, Alert } from 'react-native';
 import { useMemo } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useColors } from '@/context/ThemeContext';
+import { useAuth } from '@/context/AuthContext';
 import type { ColorPalette } from '@/constants/Colors';
-import { GEO_BUNDLE } from '@/constants/geoBundle';
-
-const CONSORCIOS = GEO_BUNDLE.sedes as any[];
-const ZONAS_CONFIG = [
-  { id: 'ZI',   label: 'Zona I',   color: '#6baed6' },
-  { id: 'ZII',  label: 'Zona II',  color: '#fb6a4a' },
-  { id: 'ZIII', label: 'Zona III', color: '#fdd44c' },
-  { id: 'ZIV',  label: 'Zona IV',  color: '#74c476' },
-  { id: 'ZV',   label: 'Zona V',   color: '#9e9ac8' },
-];
+import { ZONAS_CONFIG } from '@/constants/realData';
+import { useConsorcios } from '@/hooks/useConsorcios';
 
 const { width } = Dimensions.get('window');
 
@@ -43,9 +36,18 @@ function StatCard({
 export default function HomeScreen() {
   const C = useColors();
   const styles = useMemo(() => makeStyles(C), [C]);
+  const { profile, signOut } = useAuth();
+  const { consorcios: CONSORCIOS } = useConsorcios();
 
-  const totalKm = useMemo(() => CONSORCIOS.reduce((acc, c) => acc + c.redKm, 0), []);
+  const totalKm = useMemo(() => CONSORCIOS.reduce((acc, c) => acc + c.redKm, 0), [CONSORCIOS]);
   const consorciosActivos = CONSORCIOS.length;
+
+  const handleLogout = () => {
+    Alert.alert('Cerrar sesión', '¿Seguro que querés salir?', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Salir', style: 'destructive', onPress: signOut },
+    ]);
+  };
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -60,7 +62,15 @@ export default function HomeScreen() {
             <Text style={styles.bannerTitle} numberOfLines={2}>SIG Vial Chaco</Text>
             <Text style={styles.bannerSubtitle}>Sistema de Gestión de Infraestructura Vial Rural</Text>
           </View>
+          <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn} activeOpacity={0.7}>
+            <Ionicons name="log-out-outline" size={20} color="#9E9E9E" />
+          </TouchableOpacity>
         </View>
+        {profile && (
+          <Text style={styles.userInfo}>
+            {profile.nombre}{profile.zona ? ` · ${profile.zona}` : ''}
+          </Text>
+        )}
       </View>
 
       {/* ── KPIs ───────────────────────────────────────────────────────────── */}
@@ -119,6 +129,8 @@ function makeStyles(C: ColorPalette) { return StyleSheet.create({
   bannerBadgeText: { color: C.primary, fontSize: 16, fontWeight: '900', letterSpacing: 1 },
   bannerTitle: { color: C.white, fontSize: 17, fontWeight: '800' },
   bannerSubtitle: { color: C.textMuted, fontSize: 12, marginTop: 1 },
+  logoutBtn: { padding: 4 },
+  userInfo: { color: C.textMuted, fontSize: 11, marginTop: 8 },
 
   sectionTitle: {
     fontSize: 13, fontWeight: '800', color: C.textSecondary,

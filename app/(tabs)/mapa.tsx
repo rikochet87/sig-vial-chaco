@@ -433,13 +433,48 @@ function enterManualMode(){
   map.getContainer().addEventListener('click',_manualClickFn,true);
 }
 
+function snapToRoad(lat,lng){
+  var SNAP_DEG=0.0007;
+  var best=null,bestDist=Infinity,bestProps=null;
+  var ccKeys=Object.keys(CC_DATA_CC);
+  for(var ki=0;ki<ccKeys.length;ki++){
+    var gj=CC_DATA_CC[ccKeys[ki]];
+    if(!gj||!gj.features)continue;
+    for(var fi=0;fi<gj.features.length;fi++){
+      var feat=gj.features[fi];
+      var geom=feat&&feat.geometry;
+      if(!geom)continue;
+      var lines=geom.type==='LineString'?[geom.coordinates]:geom.type==='MultiLineString'?geom.coordinates:[];
+      for(var li=0;li<lines.length;li++){
+        var coords=lines[li];
+        for(var ci=0;ci<coords.length-1;ci++){
+          var ax=coords[ci][0],ay=coords[ci][1];
+          var bx=coords[ci+1][0],by=coords[ci+1][1];
+          var dx=bx-ax,dy=by-ay;
+          var lenSq=dx*dx+dy*dy;
+          var t=lenSq>0?Math.max(0,Math.min(1,((lng-ax)*dx+(lat-ay)*dy)/lenSq)):0;
+          var px=ax+t*dx,py=ay+t*dy;
+          var dist=Math.sqrt((lng-px)*(lng-px)+(lat-py)*(lat-py));
+          if(dist<bestDist){bestDist=dist;best={lat:py,lng:px};bestProps=feat.properties||{};}
+        }
+      }
+    }
+  }
+  if(best&&bestDist<SNAP_DEG)return{lat:best.lat,lng:best.lng,snapped:true,snapProps:bestProps};
+  return{lat:lat,lng:lng,snapped:false,snapProps:null};
+}
+
 function _placeManualPin(lat,lng){
+  var snap=snapToRoad(lat,lng);
+  var finalLat=snap.lat,finalLng=snap.lng;
   if(userMarker)map.removeLayer(userMarker);
   if(userCircle)map.removeLayer(userCircle);
-  userCircle=L.circle([lat,lng],{radius:60,fillColor:'#ff8c00',fillOpacity:.18,color:'#ff8c00',weight:1.5}).addTo(map);
-  userMarker=L.circleMarker([lat,lng],{radius:9,fillColor:'#ff8c00',color:'#fff',fillOpacity:1,weight:2.5}).addTo(map);
+  userCircle=L.circle([finalLat,finalLng],{radius:60,fillColor:'#ff8c00',fillOpacity:.18,color:'#ff8c00',weight:1.5}).addTo(map);
+  var pinColor=snap.snapped?'#F5C300':'#ff8c00';
+  var borderColor=snap.snapped?'#F5C300':'#fff';
+  userMarker=L.circleMarker([finalLat,finalLng],{radius:9,fillColor:pinColor,color:borderColor,fillOpacity:1,weight:snap.snapped?3:2.5}).addTo(map);
   _attachMarkerClick(true);
-  if(window.ReactNativeWebView)window.ReactNativeWebView.postMessage(JSON.stringify({type:'manualPos',lat:lat,lng:lng}));
+  if(window.ReactNativeWebView)window.ReactNativeWebView.postMessage(JSON.stringify({type:'manualPos',lat:finalLat,lng:finalLng,snapped:snap.snapped,snapProps:snap.snapProps}));
 }
 
 function exitManualMode(){
@@ -1061,6 +1096,7 @@ export default function MapaScreen() {
   const [relevModalVisible, setRelevModalVisible] = useState(false);
   const [drawnCoordsLinea, setDrawnCoordsLinea] = useState<{lat:number;lng:number}[]>([]);
   const [pickedPointCoord, setPickedPointCoord] = useState<{lat:number;lng:number}|null>(null);
+  const snapInfoRef = useRef<Record<string,any>|null>(null);
   const [webViewLoadCount, setWebViewLoadCount] = useState(0);
 
   // Recargar relevamientos al volver al tab (sincroniza eliminaciones desde Reportes)
@@ -1199,6 +1235,7 @@ export default function MapaScreen() {
       const msg = JSON.parse(event.nativeEvent.data);
       if (msg.type === 'manualPos' && msg.lat !== undefined) {
         gpsCoords.current = { lat: msg.lat, lng: msg.lng };
+        snapInfoRef.current = msg.snapped ? (msg.snapProps ?? null) : null;
       }
       if (msg.type === 'deleteRelev' && msg.id) {
         Alert.alert('Eliminar relevamiento', '¿Seguro que querés eliminarlo?', [
@@ -1686,6 +1723,7 @@ export default function MapaScreen() {
         coords={gpsCoords.current}
         initialCoordsLinea={drawnCoordsLinea}
         initialCoord={pickedPointCoord}
+        snapInfo={snapInfoRef.current}
         onRequestDraw={handleRequestDraw}
         onRequestPickPoint={handleRequestPickPoint}
         onSave={handleSaveRelevamiento}
@@ -1693,6 +1731,7 @@ export default function MapaScreen() {
           setRelevModalVisible(false);
           setDrawnCoordsLinea([]);
           setPickedPointCoord(null);
+          snapInfoRef.current = null;
           webviewRef.current?.injectJavaScript('clearPickedPointMarker(); true;');
         }}
       />

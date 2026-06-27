@@ -1,8 +1,23 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import * as FileSystem from 'expo-file-system/legacy';
 import type { Relevamiento } from '@/types/relevamiento';
+import { supabase } from '@/lib/supabase';
+import { syncOne, syncPendientes } from '@/hooks/useSupabaseSync';
 
 const FILE_PATH = FileSystem.documentDirectory + 'relevamientos.json';
+
+async function getUserId(): Promise<string | null> {
+  try {
+    const { data } = await supabase.auth.getUser();
+    return data?.user?.id ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function writeFile(list: Relevamiento[]) {
+  await FileSystem.writeAsStringAsync(FILE_PATH, JSON.stringify(list));
+}
 
 export function useRelevamientos() {
   const [relevamientos, setRelevamientos] = useState<Relevamiento[]>([]);
@@ -27,25 +42,48 @@ export function useRelevamientos() {
 
   useEffect(() => { load(); }, [load]);
 
-  const add = useCallback(async (r: Relevamiento) => {
+  // Actualiza el syncStatus de un ítem en local sin disparar sync de nuevo
+  const _patchStatus = useCallback(async (id: string, status: Relevamiento['syncStatus']) => {
     const prev = listRef.current;
-    const next = [r, ...prev];
+    const idx = prev.findIndex(r => r.id === id);
+    if (idx === -1) return;
+    const next = [...prev];
+    next[idx] = { ...next[idx], syncStatus: status };
+    listRef.current = next;
+    setRelevamientos(next);
+    try { await writeFile(next); } catch (_) {}
+  }, []);
+
+  const add = useCallback(async (r: Relevamiento) => {
+    const withPending: Relevamiento = { ...r, syncStatus: 'pendiente' };
+    const prev = listRef.current;
+    const next = [withPending, ...prev];
     listRef.current = next;
     try {
-      await FileSystem.writeAsStringAsync(FILE_PATH, JSON.stringify(next));
+      await writeFile(next);
       setRelevamientos(next);
     } catch (e) {
       listRef.current = prev;
       throw e;
     }
-  }, []);
+    // Intento sync en background
+    const userId = await getUserId();
+    if (userId) {
+      try {
+        await syncOne(withPending, userId);
+        await _patchStatus(withPending.id, 'sincronizado');
+      } catch {
+        await _patchStatus(withPending.id, 'error');
+      }
+    }
+  }, [_patchStatus]);
 
   const remove = useCallback(async (id: string) => {
     const prev = listRef.current;
     const next = prev.filter(item => item.id !== id);
     listRef.current = next;
     try {
-      await FileSystem.writeAsStringAsync(FILE_PATH, JSON.stringify(next));
+      await writeFile(next);
       setRelevamientos(next);
     } catch (e) {
       listRef.current = prev;
@@ -54,20 +92,38 @@ export function useRelevamientos() {
   }, []);
 
   const update = useCallback(async (updated: Relevamiento) => {
+    const withPending: Relevamiento = { ...updated, syncStatus: 'pendiente' };
     const prev = listRef.current;
-    const idx = prev.findIndex(r => r.id === updated.id);
+    const idx = prev.findIndex(r => r.id === withPending.id);
     if (idx === -1) return;
     const next = [...prev];
-    next[idx] = updated;
+    next[idx] = withPending;
     listRef.current = next;
     try {
-      await FileSystem.writeAsStringAsync(FILE_PATH, JSON.stringify(next));
+      await writeFile(next);
       setRelevamientos(next);
     } catch (e) {
       listRef.current = prev;
       throw e;
     }
-  }, []);
+    const userId = await getUserId();
+    if (userId) {
+      try {
+        await syncOne(withPending, userId);
+        await _patchStatus(withPending.id, 'sincronizado');
+      } catch {
+        await _patchStatus(withPending.id, 'error');
+      }
+    }
+  }, [_patchStatus]);
 
-  return { relevamientos, loading, add, remove, update, reload: load };
+  const syncTodos = useCallback(async () => {
+    const userId = await getUserId();
+    if (!userId) return;
+    await syncPendientes(listRef.current, userId, (id, status) => {
+      _patchStatus(id, status);
+    });
+  }, [_patchStatus]);
+
+  return { relevamientos, loading, add, remove, update, reload: load, syncTodos };
 }

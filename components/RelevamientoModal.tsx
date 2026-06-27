@@ -666,6 +666,8 @@ interface Props {
   initialCoordsLinea?: LatLngPunto[];
   /** Coordenada puntual pre-colocada desde el mapa para obras puntuales */
   initialCoord?: { lat: number; lng: number } | null;
+  /** Propiedades del segmento CC al que snapeó el pin manual (null si no snapeó) */
+  snapInfo?: Record<string, any> | null;
   /** Llamado cuando el usuario elige "Dibujar en mapa" para Ripio */
   onRequestDraw?: () => void;
   /** Llamado cuando el usuario elige "Ir al mapa" para colocar un punto puntual */
@@ -680,7 +682,7 @@ const TIPO_ICONS: Record<TipoInfraestructura, string> = {
 };
 const ESTADOS: EstadoCalzada[] = ['Bueno', 'Regular', 'Malo'];
 
-export default function RelevamientoModal({ visible, coords, editando, onUpdate, initialCoordsLinea, initialCoord, onRequestDraw, onRequestPickPoint, onSave, onClose }: Props) {
+export default function RelevamientoModal({ visible, coords, editando, onUpdate, initialCoordsLinea, initialCoord, snapInfo, onRequestDraw, onRequestPickPoint, onSave, onClose }: Props) {
   const Colors = useColors();
   const s = useMemo(() => makeStyles(Colors), [Colors]);
   const [estadoCalzada, setEstadoCalzada] = useState<EstadoCalzada>('Regular');
@@ -723,6 +725,18 @@ export default function RelevamientoModal({ visible, coords, editando, onUpdate,
         setTipo('Ripio');
       }
       if (initialCoord) setPointCoord(initialCoord);
+      if (snapInfo) {
+        const p = snapInfo;
+        let autoRuta = '';
+        if (p.Nc) {
+          autoRuta = p.Nc;
+        } else if (p.CC && p.T) {
+          autoRuta = `CC N°${p.CC} - Tramo N°${p.T}`;
+        } else if (p.CC) {
+          autoRuta = `CC N°${p.CC}`;
+        }
+        if (autoRuta) setRutaTramo(autoRuta);
+      }
     }
   }, [visible]); // eslint-disable-line react-hooks/exhaustive-deps
 

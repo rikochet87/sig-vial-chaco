@@ -5,7 +5,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
-import { CONSORCIOS, ZONAS_CONFIG } from '@/constants/realData';
+import { ZONAS_CONFIG } from '@/constants/realData';
+import { useConsorcios } from '@/hooks/useConsorcios';
 import type { ConsorcioDato } from '@/types';
 
 function ConsorcioCard({ item }: { item: ConsorcioDato }) {
@@ -21,7 +22,7 @@ function ConsorcioCard({ item }: { item: ConsorcioDato }) {
           <View style={styles.zonaPill}>
             <View style={[styles.zonaCircle, { backgroundColor: item.color }]} />
             <Text style={styles.zonaText}>
-              {ZONAS_CONFIG.find(z => z.id === item.zona)?.label} · Chaco
+              {ZONAS_CONFIG.find((z: any) => z.id === item.zona)?.label} · Chaco
             </Text>
           </View>
         </View>
@@ -68,10 +69,11 @@ function ConsorcioCard({ item }: { item: ConsorcioDato }) {
 }
 
 export default function ConsorciosScreen() {
+  const { consorcios, source } = useConsorcios();
   const [search, setSearch] = useState('');
   const [zonaFiltro, setZonaFiltro] = useState<string>('TODAS');
 
-  const filtrados = CONSORCIOS.filter(c => {
+  const filtrados = consorcios.filter(c => {
     const q = search.toLowerCase();
     const matchSearch = !q ||
       c.nombre.toLowerCase().includes(q) ||
@@ -113,11 +115,11 @@ export default function ConsorciosScreen() {
           onPress={() => setZonaFiltro('TODAS')}
         >
           <Text style={[styles.filterChipText, zonaFiltro === 'TODAS' && styles.filterChipTextActive]}>
-            Todas ({CONSORCIOS.length})
+            Todas ({consorcios.length})
           </Text>
         </TouchableOpacity>
         {ZONAS_CONFIG.map(z => {
-          const count = CONSORCIOS.filter(c => c.zona === z.id).length;
+          const count = consorcios.filter(c => c.zona === z.id).length;
           const active = zonaFiltro === z.id;
           return (
             <TouchableOpacity
@@ -149,6 +151,11 @@ export default function ConsorciosScreen() {
             <Ionicons name="search-outline" size={48} color={Colors.textMuted} />
             <Text style={styles.emptyText}>No se encontraron consorcios</Text>
           </View>
+        }
+        ListFooterComponent={
+          <Text style={styles.sourceText}>
+            {source === 'remoto' ? `Datos actualizados` : 'Datos locales'}
+          </Text>
         }
       />
     </View>
@@ -200,4 +207,5 @@ const styles = StyleSheet.create({
   authText: { fontSize: 12, color: Colors.textMuted, flex: 1 },
   empty: { alignItems: 'center', paddingTop: 60, gap: 12 },
   emptyText: { fontSize: 14, color: Colors.textMuted },
+  sourceText: { fontSize: 10, color: Colors.textMuted, textAlign: 'center', paddingVertical: 12 },
 });

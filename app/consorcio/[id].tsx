@@ -2,12 +2,14 @@ import { ScrollView, View, Text, StyleSheet, TouchableOpacity } from 'react-nati
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
-import { CONSORCIOS, ZONAS_CONFIG } from '@/constants/realData';
+import { ZONAS_CONFIG } from '@/constants/realData';
+import { useConsorcios } from '@/hooks/useConsorcios';
 
 export default function ConsorcioDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { consorcios } = useConsorcios();
   // id is "zona-numero-idx" format (from consorcios list) or just index
-  const consorcio = CONSORCIOS.find((c, idx) =>
+  const consorcio = consorcios.find((c, idx) =>
     String(idx) === id ||
     `${c.zona}-${c.numero}` === id ||
     String(c.numero) === id

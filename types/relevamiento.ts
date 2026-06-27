@@ -73,6 +73,7 @@ export interface AutoDeteccion {
 export interface Relevamiento {
   id: string;
   fecha: string;
+  syncStatus?: 'pendiente' | 'sincronizado' | 'error';
   coords: { lat: number; lng: number };
   coordsLinea?: { lat: number; lng: number }[]; // para features lineales (Ripio)
   autoDeteccion?: AutoDeteccion;

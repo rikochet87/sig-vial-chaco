@@ -170,6 +170,18 @@ function FieldList({ items }: { items: string[] }) {
   );
 }
 
+// ── Sync badge ───────────────────────────────────────────────────────────────
+
+function SyncBadge({ status }: { status?: 'pendiente' | 'sincronizado' | 'error' }) {
+  if (!status || status === 'sincronizado') {
+    return <Ionicons name="cloud-done-outline" size={13} color="#27ae60" />;
+  }
+  if (status === 'pendiente') {
+    return <Ionicons name="cloud-upload-outline" size={13} color="#888" />;
+  }
+  return <Ionicons name="warning-outline" size={13} color="#e67e22" />;
+}
+
 // ── Card ─────────────────────────────────────────────────────────────────────
 
 const TIPO_LABELS: Record<string, string> = {
@@ -224,6 +236,7 @@ function RelevamientoCard({
             <Text style={styles.cardMetaText}>{formatFechaHora(item.fecha)}</Text>
           </View>
         </View>
+        <SyncBadge status={item.syncStatus} />
         <Ionicons
           name={expanded ? 'chevron-up' : 'chevron-down'}
           size={16}
@@ -331,13 +344,16 @@ function RelevamientoCard({
 const FILTROS: Array<EstadoCalzada | 'Todos'> = ['Todos', 'Bueno', 'Regular', 'Malo'];
 
 export default function RelevamientosScreen() {
-  const { relevamientos, loading, remove, update, reload } = useRelevamientos();
+  const { relevamientos, loading, remove, update, reload, syncTodos } = useRelevamientos();
   const [filtro, setFiltro] = useState<EstadoCalzada | 'Todos'>('Todos');
   const [editingItem, setEditingItem] = useState<Relevamiento | null>(null);
   const Colors = useColors();
   const styles = useMemo(() => makeStyles(Colors), [Colors]);
 
-  useFocusEffect(useCallback(() => { reload(); }, [reload]));
+  useFocusEffect(useCallback(() => {
+    reload();
+    syncTodos(); // silencioso en background, no bloquea UI
+  }, [reload, syncTodos]));
 
   const filtrados = filtro === 'Todos'
     ? relevamientos
