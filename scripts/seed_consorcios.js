@@ -1,7 +1,7 @@
 const CONSORCIOS = [
   {
     "numero": 22,
-    "nombre": "Consorcio Caminero N\\u00ba 22 \\\"Colonia Popular - Laguna Blanca\\\"",
+    "nombre": "Consorcio Caminero Nº 22 \"Colonia Popular - Laguna Blanca\"",
     "localidad": "Colonia Popular - Laguna Blanca",
     "zona": "ZI",
     "color": "#6baed6",
@@ -11,14 +11,14 @@ const CONSORCIOS = [
     "red_primaria": 0.0,
     "red_secundaria": 25.7,
     "red_terciaria": 131.12,
-    "presidente": "GONZ\\u00c1LEZ, Pedro Maximiliano",
+    "presidente": "GONZÁLEZ, Pedro Maximiliano",
     "vicepresidente": "BASTIANI, Pedro Eugenio",
-    "secretario": "MIRCOVICH, Mar\\u00eda Adela",
+    "secretario": "MIRCOVICH, María Adela",
     "tesorero": "CODUTTI, Claudia Beatriz"
   },
   {
     "numero": 5,
-    "nombre": "Consorcio Caminero N\\u00ba 5 \\\"Santa Elena\\\"",
+    "nombre": "Consorcio Caminero Nº 5 \"Santa Elena\"",
     "localidad": "Santa Elena",
     "zona": "ZI",
     "color": "#6baed6",
@@ -29,14 +29,14 @@ const CONSORCIOS = [
     "red_secundaria": 77.66,
     "red_terciaria": 278.88,
     "presidente": "PEREZ, Nicolas Eusebio",
-    "vicepresidente": "BALLESTEROS, Jos\\u00e9 Antonio",
+    "vicepresidente": "BALLESTEROS, José Antonio",
     "secretario": "YVANOVICH, Juan Jorge",
     "tesorero": "DOLCE, Jorge Oscar"
   },
   {
     "numero": 102,
-    "nombre": "Consorcio Caminero N\\u00ba 102 \\\"Makall\\u00e9\\\"",
-    "localidad": "Makall\\u00e9",
+    "nombre": "Consorcio Caminero Nº 102 \"Makallé\"",
+    "localidad": "Makallé",
     "zona": "ZI",
     "color": "#6baed6",
     "latitude": -27.210375079368493,
@@ -52,7 +52,7 @@ const CONSORCIOS = [
   },
   {
     "numero": 16,
-    "nombre": "Consorcio Caminero N\\u00ba 16 \\\"La Verde\\\"",
+    "nombre": "Consorcio Caminero Nº 16 \"La Verde\"",
     "localidad": "La Verde",
     "zona": "ZI",
     "color": "#6baed6",
@@ -69,8 +69,8 @@ const CONSORCIOS = [
   },
   {
     "numero": 26,
-    "nombre": "Consorcio Caminero N\\u00ba 26 \\\"Margarita Bel\\u00e9n\\\"",
-    "localidad": "Margarita Bel\\u00e9n",
+    "nombre": "Consorcio Caminero Nº 26 \"Margarita Belén\"",
+    "localidad": "Margarita Belén",
     "zona": "ZI",
     "color": "#6baed6",
     "latitude": -27.264493235119996,
@@ -86,8 +86,8 @@ const CONSORCIOS = [
   },
   {
     "numero": 37,
-    "nombre": "Consorcio Caminero N\\u00ba 37 \\\"Colonia Tacuar\\u00ed Oeste\\\"",
-    "localidad": "Colonia Tacuar\\u00ed Oeste",
+    "nombre": "Consorcio Caminero Nº 37 \"Colonia Tacuarí Oeste\"",
+    "localidad": "Colonia Tacuarí Oeste",
     "zona": "ZI",
     "color": "#6baed6",
     "latitude": -27.96562159229657,
@@ -103,7 +103,7 @@ const CONSORCIOS = [
   },
   {
     "numero": 38,
-    "nombre": "Consorcio Caminero N\\u00ba 38 \\\"Basail\\\"",
+    "nombre": "Consorcio Caminero Nº 38 \"Basail\"",
     "localidad": "Basail",
     "zona": "ZI",
     "color": "#6baed6",
@@ -115,12 +115,12 @@ const CONSORCIOS = [
     "red_terciaria": 336.15,
     "presidente": "MASIN, Marcelo Daniel",
     "vicepresidente": "BEAUVAIS, Juan Carlos",
-    "secretario": "MORALES VELASCO, Mauricio Jos\\u00e9",
+    "secretario": "MORALES VELASCO, Mauricio José",
     "tesorero": "FANTIN, Julio Cesar"
   },
   {
     "numero": 40,
-    "nombre": "Consorcio Caminero N\\u00ba 40 \\\"Puerto Tirol\\\"",
+    "nombre": "Consorcio Caminero Nº 40 \"Puerto Tirol\"",
     "localidad": "Puerto Tirol",
     "zona": "ZI",
     "color": "#6baed6",
@@ -130,14 +130,14 @@ const CONSORCIOS = [
     "red_primaria": 0.0,
     "red_secundaria": 31.81,
     "red_terciaria": 116.25,
-    "presidente": "IBARRA Germ\\u00e1n",
+    "presidente": "IBARRA Germán",
     "vicepresidente": "PASCUAL, Luisa Lucia",
-    "secretario": "CAMPESTRINI, Ana Mar\\u00eda",
+    "secretario": "CAMPESTRINI, Ana María",
     "tesorero": "CAMPESTRINI, Marcelino Pedro"
   },
   {
     "numero": 44,
-    "nombre": "Consorcio Caminero N\\u00ba 44 \\\"Cote Lai\\\"",
+    "nombre": "Consorcio Caminero Nº 44 \"Cote Lai\"",
     "localidad": "Cote Lai",
     "zona": "ZI",
     "color": "#6baed6",
@@ -148,13 +148,13 @@ const CONSORCIOS = [
     "red_secundaria": 42.74,
     "red_terciaria": 93.93,
     "presidente": "LOPEZ SOTO, Jorge Miguel",
-    "vicepresidente": "CABRAL, Jose M\\u00e1ximo",
+    "vicepresidente": "CABRAL, Jose Máximo",
     "secretario": "CODUTTI, Roberto Javier",
     "tesorero": "ECHAZARRETA, Alberto Rolando"
   },
   {
     "numero": 45,
-    "nombre": "Consorcio Caminero N\\u00ba 45 \\\"Las Garcitas\\\"",
+    "nombre": "Consorcio Caminero Nº 45 \"Las Garcitas\"",
     "localidad": "Las Garcitas",
     "zona": "ZI",
     "color": "#6baed6",
@@ -167,12 +167,12 @@ const CONSORCIOS = [
     "presidente": "BENITEZ, Rene Armando",
     "vicepresidente": "PRIETO, Fernando",
     "secretario": "ALONSO, Jorge Ismael",
-    "tesorero": "SABADINI, Emilio Ra\\u00fal"
+    "tesorero": "SABADINI, Emilio Raúl"
   },
   {
     "numero": 54,
-    "nombre": "Consorcio Caminero N\\u00ba 54 \\\"Capit\\u00e1n Solari\\\"",
-    "localidad": "Capit\\u00e1n Solari",
+    "nombre": "Consorcio Caminero Nº 54 \"Capitán Solari\"",
+    "localidad": "Capitán Solari",
     "zona": "ZI",
     "color": "#6baed6",
     "latitude": -26.806404314593948,
@@ -188,8 +188,8 @@ const CONSORCIOS = [
   },
   {
     "numero": 62,
-    "nombre": "Consorcio Caminero N\\u00ba 62 \\\"Colonia Ben\\u00edtez\\\"",
-    "localidad": "Colonia Ben\\u00edtez",
+    "nombre": "Consorcio Caminero Nº 62 \"Colonia Benítez\"",
+    "localidad": "Colonia Benítez",
     "zona": "ZI",
     "color": "#6baed6",
     "latitude": -27.31455163500892,
@@ -205,7 +205,7 @@ const CONSORCIOS = [
   },
   {
     "numero": 64,
-    "nombre": "Consorcio Caminero N\\u00ba 64 \\\"Colonia Elisa\\\"",
+    "nombre": "Consorcio Caminero Nº 64 \"Colonia Elisa\"",
     "localidad": "Colonia Elisa",
     "zona": "ZI",
     "color": "#6baed6",
@@ -218,12 +218,12 @@ const CONSORCIOS = [
     "presidente": "REY, Luciano Alberto",
     "vicepresidente": "LOPEZ, Juan Fidel",
     "secretario": "BARRIOS, Jorge Vicente",
-    "tesorero": "NU\\u00d1EZ, Florencio"
+    "tesorero": "NUÑEZ, Florencio"
   },
   {
     "numero": 65,
-    "nombre": "Consorcio Caminero N\\u00ba 65 \\\"Colonia Tacuar\\u00ed Este\\\"",
-    "localidad": "Colonia Tacuar\\u00ed Este",
+    "nombre": "Consorcio Caminero Nº 65 \"Colonia Tacuarí Este\"",
+    "localidad": "Colonia Tacuarí Este",
     "zona": "ZI",
     "color": "#6baed6",
     "latitude": -27.53037433971504,
@@ -239,8 +239,8 @@ const CONSORCIOS = [
   },
   {
     "numero": 67,
-    "nombre": "Consorcio Caminero N\\u00ba 67 \\\"Tapenag\\u00e1\\\"",
-    "localidad": "Tapenag\\u00e1",
+    "nombre": "Consorcio Caminero Nº 67 \"Tapenagá\"",
+    "localidad": "Tapenagá",
     "zona": "ZI",
     "color": "#6baed6",
     "latitude": -27.65401765225115,
@@ -256,7 +256,7 @@ const CONSORCIOS = [
   },
   {
     "numero": 7,
-    "nombre": "Consorcio Caminero N\\u00ba7 \\\"Quitilipi\\\"",
+    "nombre": "Consorcio Caminero Nº7 \"Quitilipi\"",
     "localidad": "Quitilipi",
     "zona": "ZII",
     "color": "#fb6a4a",
@@ -266,14 +266,14 @@ const CONSORCIOS = [
     "red_primaria": 0.0,
     "red_secundaria": 0.0,
     "red_terciaria": 279.18,
-    "presidente": "VUCKO, Hugo Jos\\u00e9",
+    "presidente": "VUCKO, Hugo José",
     "vicepresidente": "VUCKO, Miguel",
     "secretario": "TERZICH, Amalio",
     "tesorero": "RODRIGUEZ, Antonio"
   },
   {
     "numero": 9,
-    "nombre": "Consorcio Caminero N\\u00ba9 \\\"Campo largo\\\"",
+    "nombre": "Consorcio Caminero Nº9 \"Campo largo\"",
     "localidad": "Campo largo",
     "zona": "ZII",
     "color": "#fb6a4a",
@@ -290,7 +290,7 @@ const CONSORCIOS = [
   },
   {
     "numero": 105,
-    "nombre": "Consorcio Caminero N\\u00ba105 \\\"El palmar\\\"",
+    "nombre": "Consorcio Caminero Nº105 \"El palmar\"",
     "localidad": "El palmar",
     "zona": "ZII",
     "color": "#fb6a4a",
@@ -307,7 +307,7 @@ const CONSORCIOS = [
   },
   {
     "numero": 12,
-    "nombre": "Consorcio Caminero N\\u00ba12 \\\"Corzuela\\\"",
+    "nombre": "Consorcio Caminero Nº12 \"Corzuela\"",
     "localidad": "Corzuela",
     "zona": "ZII",
     "color": "#fb6a4a",
@@ -319,12 +319,12 @@ const CONSORCIOS = [
     "red_terciaria": 441.45,
     "presidente": "RADIS, Blas Miguel",
     "vicepresidente": "BARALE, Miguel Angel",
-    "secretario": "HERRERA, Jos\\u00e9 Nicanor",
+    "secretario": "HERRERA, José Nicanor",
     "tesorero": "OSTOICH, Rafael"
   },
   {
     "numero": 13,
-    "nombre": "Consorcio Caminero N\\u00ba13 \\\"Pampa del infierno\\\"",
+    "nombre": "Consorcio Caminero Nº13 \"Pampa del infierno\"",
     "localidad": "Pampa del infierno",
     "zona": "ZII",
     "color": "#fb6a4a",
@@ -334,14 +334,14 @@ const CONSORCIOS = [
     "red_primaria": 0.0,
     "red_secundaria": 41.99,
     "red_terciaria": 885.46,
-    "presidente": "DI SCIASCIO, Omar Jos\\u00e9",
-    "vicepresidente": "CORBALAN, Ram\\u00f3n Alberto",
+    "presidente": "DI SCIASCIO, Omar José",
+    "vicepresidente": "CORBALAN, Ramón Alberto",
     "secretario": "SLABICH, Mateo",
     "tesorero": "MARCHEK, Antonio Oscar"
   },
   {
     "numero": 15,
-    "nombre": "Consorcio Caminero N\\u00ba15 \\\"La tambora\\\"",
+    "nombre": "Consorcio Caminero Nº15 \"La tambora\"",
     "localidad": "La tambora",
     "zona": "ZII",
     "color": "#fb6a4a",
@@ -358,7 +358,7 @@ const CONSORCIOS = [
   },
   {
     "numero": 24,
-    "nombre": "Consorcio Caminero N\\u00ba24 \\\"Pampa grande\\\"",
+    "nombre": "Consorcio Caminero Nº24 \"Pampa grande\"",
     "localidad": "Pampa grande",
     "zona": "ZII",
     "color": "#fb6a4a",
@@ -369,13 +369,13 @@ const CONSORCIOS = [
     "red_secundaria": 0.0,
     "red_terciaria": 234.59,
     "presidente": "SNITIL, Victor Ricardo",
-    "vicepresidente": "ARGA\\u00d1ARAZ, Carlos Manuel",
+    "vicepresidente": "ARGAÑARAZ, Carlos Manuel",
     "secretario": "SVOBODA, Juan Valerio",
     "tesorero": "JAKES, Carlos Dardo"
   },
   {
     "numero": 25,
-    "nombre": "Consorcio Caminero N\\u00ba25 \\\"Machagai\\\"",
+    "nombre": "Consorcio Caminero Nº25 \"Machagai\"",
     "localidad": "Machagai",
     "zona": "ZII",
     "color": "#fb6a4a",
@@ -392,8 +392,8 @@ const CONSORCIOS = [
   },
   {
     "numero": 29,
-    "nombre": "Consorcio Caminero N\\u00ba29 \\\"Concepci\\u00f3n del bermejo\\\"",
-    "localidad": "Concepci\\u00f3n del bermejo",
+    "nombre": "Consorcio Caminero Nº29 \"Concepción del bermejo\"",
+    "localidad": "Concepción del bermejo",
     "zona": "ZII",
     "color": "#fb6a4a",
     "latitude": -26.604241808353056,
@@ -409,7 +409,7 @@ const CONSORCIOS = [
   },
   {
     "numero": 30,
-    "nombre": "Consorcio Caminero N\\u00ba30 \\\"Napenay\\\"",
+    "nombre": "Consorcio Caminero Nº30 \"Napenay\"",
     "localidad": "Napenay",
     "zona": "ZII",
     "color": "#fb6a4a",
@@ -426,7 +426,7 @@ const CONSORCIOS = [
   },
   {
     "numero": 36,
-    "nombre": "Consorcio Caminero N\\u00ba36 \\\"El tacuruzal\\\"",
+    "nombre": "Consorcio Caminero Nº36 \"El tacuruzal\"",
     "localidad": "El tacuruzal",
     "zona": "ZII",
     "color": "#fb6a4a",
@@ -443,7 +443,7 @@ const CONSORCIOS = [
   },
   {
     "numero": 41,
-    "nombre": "Consorcio Caminero N\\u00ba41 \\\"La chiquita\\\"",
+    "nombre": "Consorcio Caminero Nº41 \"La chiquita\"",
     "localidad": "La chiquita",
     "zona": "ZII",
     "color": "#fb6a4a",
@@ -460,8 +460,8 @@ const CONSORCIOS = [
   },
   {
     "numero": 43,
-    "nombre": "Consorcio Caminero N\\u00ba43 \\\"S\\u00e1enz Pe\\u00f1a\\\"",
-    "localidad": "S\\u00e1enz Pe\\u00f1a",
+    "nombre": "Consorcio Caminero Nº43 \"Sáenz Peña\"",
+    "localidad": "Sáenz Peña",
     "zona": "ZII",
     "color": "#fb6a4a",
     "latitude": -26.703523373488558,
@@ -477,7 +477,7 @@ const CONSORCIOS = [
   },
   {
     "numero": 46,
-    "nombre": "Consorcio Caminero N\\u00ba46 \\\"Avia terai\\\"",
+    "nombre": "Consorcio Caminero Nº46 \"Avia terai\"",
     "localidad": "Avia terai",
     "zona": "ZII",
     "color": "#fb6a4a",
@@ -490,11 +490,11 @@ const CONSORCIOS = [
     "presidente": "BABIJ, Wladimiro",
     "vicepresidente": "LISONSKI, Roberto Antonio",
     "secretario": "PENIDA, Andres",
-    "tesorero": "PEREZ, Mateo Jos\\u00e9"
+    "tesorero": "PEREZ, Mateo José"
   },
   {
     "numero": 47,
-    "nombre": "Consorcio Caminero N\\u00ba47 \\\"La matanza\\\"",
+    "nombre": "Consorcio Caminero Nº47 \"La matanza\"",
     "localidad": "La matanza",
     "zona": "ZII",
     "color": "#fb6a4a",
@@ -511,7 +511,7 @@ const CONSORCIOS = [
   },
   {
     "numero": 51,
-    "nombre": "Consorcio Caminero N\\u00ba51 \\\"Bajo Hondo Grande\\\"",
+    "nombre": "Consorcio Caminero Nº51 \"Bajo Hondo Grande\"",
     "localidad": "Bajo Hondo Grande",
     "zona": "ZII",
     "color": "#fb6a4a",
@@ -528,7 +528,7 @@ const CONSORCIOS = [
   },
   {
     "numero": 52,
-    "nombre": "Consorcio Caminero N\\u00ba52 \\\"Bajo hondo chico\\\"",
+    "nombre": "Consorcio Caminero Nº52 \"Bajo hondo chico\"",
     "localidad": "Bajo hondo chico",
     "zona": "ZII",
     "color": "#fb6a4a",
@@ -545,7 +545,7 @@ const CONSORCIOS = [
   },
   {
     "numero": 53,
-    "nombre": "Consorcio Caminero N\\u00ba53 \\\"Rio muerto\\\"",
+    "nombre": "Consorcio Caminero Nº53 \"Rio muerto\"",
     "localidad": "Rio muerto",
     "zona": "ZII",
     "color": "#fb6a4a",
@@ -562,7 +562,7 @@ const CONSORCIOS = [
   },
   {
     "numero": 61,
-    "nombre": "Consorcio Caminero N\\u00ba61 \\\"Las tres colonias\\\"",
+    "nombre": "Consorcio Caminero Nº61 \"Las tres colonias\"",
     "localidad": "Las tres colonias",
     "zona": "ZII",
     "color": "#fb6a4a",
@@ -579,7 +579,7 @@ const CONSORCIOS = [
   },
   {
     "numero": 68,
-    "nombre": "Consorcio Caminero N\\u00ba68 \\\"La Tigra\\\"",
+    "nombre": "Consorcio Caminero Nº68 \"La Tigra\"",
     "localidad": "La Tigra",
     "zona": "ZII",
     "color": "#fb6a4a",
@@ -589,14 +589,14 @@ const CONSORCIOS = [
     "red_primaria": 0.0,
     "red_secundaria": 5.92,
     "red_terciaria": 239.67,
-    "presidente": "TRNOVSKY, Jos\\u00e9 Antonio",
+    "presidente": "TRNOVSKY, José Antonio",
     "vicepresidente": "KRASULAK, Jorge Gabriel",
     "secretario": "KRASULAK, Juan Carlos",
     "tesorero": "POLISZUK, Javier Adolfo"
   },
   {
     "numero": 69,
-    "nombre": "Consorcio Caminero N\\u00ba69 \\\"Taco Pozo\\\"",
+    "nombre": "Consorcio Caminero Nº69 \"Taco Pozo\"",
     "localidad": "Taco Pozo",
     "zona": "ZII",
     "color": "#fb6a4a",
@@ -613,7 +613,7 @@ const CONSORCIOS = [
   },
   {
     "numero": 74,
-    "nombre": "Consorcio Caminero N\\u00ba74 \\\"Los frentones\\\"",
+    "nombre": "Consorcio Caminero Nº74 \"Los frentones\"",
     "localidad": "Los frentones",
     "zona": "ZII",
     "color": "#fb6a4a",
@@ -630,7 +630,7 @@ const CONSORCIOS = [
   },
   {
     "numero": 77,
-    "nombre": "Consorcio Caminero N\\u00ba77 \\\"Cnia. Aborigen\\\"",
+    "nombre": "Consorcio Caminero Nº77 \"Cnia. Aborigen\"",
     "localidad": "Cnia. Aborigen",
     "zona": "ZII",
     "color": "#fb6a4a",
@@ -647,7 +647,7 @@ const CONSORCIOS = [
   },
   {
     "numero": 84,
-    "nombre": "Consorcio Caminero N\\u00ba84 \\\"Picada 60\\\"",
+    "nombre": "Consorcio Caminero Nº84 \"Picada 60\"",
     "localidad": "Picada 60",
     "zona": "ZII",
     "color": "#fb6a4a",
@@ -664,7 +664,7 @@ const CONSORCIOS = [
   },
   {
     "numero": 109,
-    "nombre": "Consorcio Caminero N\\u00ba109 \\\"Col. Gral. Paz\\\"",
+    "nombre": "Consorcio Caminero Nº109 \"Col. Gral. Paz\"",
     "localidad": "Col. Gral. Paz",
     "zona": "ZII",
     "color": "#fb6a4a",
@@ -681,7 +681,7 @@ const CONSORCIOS = [
   },
   {
     "numero": 110,
-    "nombre": "Consorcio Caminero N\\u00ba110 \\\"La montenegrina\\\"",
+    "nombre": "Consorcio Caminero Nº110 \"La montenegrina\"",
     "localidad": "La montenegrina",
     "zona": "ZII",
     "color": "#fb6a4a",
@@ -693,12 +693,12 @@ const CONSORCIOS = [
     "red_terciaria": 267.21,
     "presidente": "DOMBROVSKY, Dante Joel",
     "vicepresidente": "POPOVICH, Mateo Miguel",
-    "secretario": "CAPITANICH, H\\u00e9ctor Leonardo",
-    "tesorero": "MONZON, Dagoberto Jos\\u00e9"
+    "secretario": "CAPITANICH, Héctor Leonardo",
+    "tesorero": "MONZON, Dagoberto José"
   },
   {
     "numero": 1,
-    "nombre": "Consorcio Caminero N\\u00ba01 \\\"General Capdevila\\\"",
+    "nombre": "Consorcio Caminero Nº01 \"General Capdevila\"",
     "localidad": "General Capdevila",
     "zona": "ZIII",
     "color": "#fdd44c",
@@ -708,14 +708,14 @@ const CONSORCIOS = [
     "red_primaria": 0.0,
     "red_secundaria": 0.0,
     "red_terciaria": 136.13,
-    "presidente": "VILLAFA\\u00d1E, Ram\\u00f3n Angel",
+    "presidente": "VILLAFAÑE, Ramón Angel",
     "vicepresidente": "HERLE, Nelson Ariel",
     "secretario": "HERLE, Erica Cristina",
     "tesorero": "HERLE, Gerardo Olegario"
   },
   {
     "numero": 2,
-    "nombre": "Consorcio Caminero N\\u00ba02 \\\"Gancedo\\\"",
+    "nombre": "Consorcio Caminero Nº02 \"Gancedo\"",
     "localidad": "Gancedo",
     "zona": "ZIII",
     "color": "#fdd44c",
@@ -732,7 +732,7 @@ const CONSORCIOS = [
   },
   {
     "numero": 4,
-    "nombre": "Consorcio Caminero N\\u00ba04 \\\"Santa Sylvina\\\"",
+    "nombre": "Consorcio Caminero Nº04 \"Santa Sylvina\"",
     "localidad": "Santa Sylvina",
     "zona": "ZIII",
     "color": "#fdd44c",
@@ -749,7 +749,7 @@ const CONSORCIOS = [
   },
   {
     "numero": 8,
-    "nombre": "Consorcio Caminero N\\u00ba08 \\\"Pampa Roldan\\\"",
+    "nombre": "Consorcio Caminero Nº08 \"Pampa Roldan\"",
     "localidad": "Pampa Roldan",
     "zona": "ZIII",
     "color": "#fdd44c",
@@ -766,7 +766,7 @@ const CONSORCIOS = [
   },
   {
     "numero": 10,
-    "nombre": "Consorcio Caminero N\\u00ba10 \\\"Meson de Fierro\\\"",
+    "nombre": "Consorcio Caminero Nº10 \"Meson de Fierro\"",
     "localidad": "Meson de Fierro",
     "zona": "ZIII",
     "color": "#fdd44c",
@@ -783,8 +783,8 @@ const CONSORCIOS = [
   },
   {
     "numero": 113,
-    "nombre": "Consorcio Caminero N\\u00ba113 \\\"Pampa Ipor\\u00e1 Guaz\\u00fa\\\"",
-    "localidad": "Pampa Ipor\\u00e1 Guaz\\u00fa",
+    "nombre": "Consorcio Caminero Nº113 \"Pampa Iporá Guazú\"",
+    "localidad": "Pampa Iporá Guazú",
     "zona": "ZIII",
     "color": "#fdd44c",
     "latitude": -26.88474719728104,
@@ -800,7 +800,7 @@ const CONSORCIOS = [
   },
   {
     "numero": 14,
-    "nombre": "Consorcio Caminero N\\u00ba14 \\\"Charata\\\"",
+    "nombre": "Consorcio Caminero Nº14 \"Charata\"",
     "localidad": "Charata",
     "zona": "ZIII",
     "color": "#fdd44c",
@@ -817,7 +817,7 @@ const CONSORCIOS = [
   },
   {
     "numero": 17,
-    "nombre": "Consorcio Caminero N\\u00ba17 \\\"Pampa Landriel\\\"",
+    "nombre": "Consorcio Caminero Nº17 \"Pampa Landriel\"",
     "localidad": "Pampa Landriel",
     "zona": "ZIII",
     "color": "#fdd44c",
@@ -834,7 +834,7 @@ const CONSORCIOS = [
   },
   {
     "numero": 20,
-    "nombre": "Consorcio Caminero N\\u00ba20 \\\"Chorotis\\\"",
+    "nombre": "Consorcio Caminero Nº20 \"Chorotis\"",
     "localidad": "Chorotis",
     "zona": "ZIII",
     "color": "#fdd44c",
@@ -845,13 +845,13 @@ const CONSORCIOS = [
     "red_secundaria": 70.14,
     "red_terciaria": 349.7,
     "presidente": "VUCKO, Ivan",
-    "vicepresidente": "IBA\\u00d1EZ, Ramon Eduardo",
+    "vicepresidente": "IBAÑEZ, Ramon Eduardo",
     "secretario": "HERRERA, Fabian Roberto",
     "tesorero": "CEJAS, Ismael Ruben"
   },
   {
     "numero": 23,
-    "nombre": "Consorcio Caminero N\\u00ba23 \\\"Coronel Du Graty\\\"",
+    "nombre": "Consorcio Caminero Nº23 \"Coronel Du Graty\"",
     "localidad": "Coronel Du Graty",
     "zona": "ZIII",
     "color": "#fdd44c",
@@ -862,13 +862,13 @@ const CONSORCIOS = [
     "red_secundaria": 0.0,
     "red_terciaria": 227.95,
     "presidente": "ALBRECHT, Hugo Aldo",
-    "vicepresidente": "WERNER, N\\u00e9stor Humberto",
+    "vicepresidente": "WERNER, Néstor Humberto",
     "secretario": "RICZA, Eduardo Bruno",
-    "tesorero": "MATERSKY, Miguel \\u00c1ngel"
+    "tesorero": "MATERSKY, Miguel Ángel"
   },
   {
     "numero": 27,
-    "nombre": "Consorcio Caminero N\\u00ba27 \\\"Haumonia\\\"",
+    "nombre": "Consorcio Caminero Nº27 \"Haumonia\"",
     "localidad": "Haumonia",
     "zona": "ZIII",
     "color": "#fdd44c",
@@ -878,15 +878,15 @@ const CONSORCIOS = [
     "red_primaria": 0.0,
     "red_secundaria": 44.47,
     "red_terciaria": 145.12,
-    "presidente": "WALTER, Alberto Ren\\u00e9",
-    "vicepresidente": "PETRUNIOR, N\\u00e9stor Esteban",
+    "presidente": "WALTER, Alberto René",
+    "vicepresidente": "PETRUNIOR, Néstor Esteban",
     "secretario": "DUBRAVA, Vanina Noelia",
     "tesorero": "GOMEZ FERRER, Myrna"
   },
   {
     "numero": 31,
-    "nombre": "Consorcio Caminero N\\u00ba31 \\\"Las Bre\\u00f1as\\\"",
-    "localidad": "Las Bre\\u00f1as",
+    "nombre": "Consorcio Caminero Nº31 \"Las Breñas\"",
+    "localidad": "Las Breñas",
     "zona": "ZIII",
     "color": "#fdd44c",
     "latitude": -27.084638150772825,
@@ -902,7 +902,7 @@ const CONSORCIOS = [
   },
   {
     "numero": 32,
-    "nombre": "Consorcio Caminero N\\u00ba32 \\\"Villa Angela\\\"",
+    "nombre": "Consorcio Caminero Nº32 \"Villa Angela\"",
     "localidad": "Villa Angela",
     "zona": "ZIII",
     "color": "#fdd44c",
@@ -914,12 +914,12 @@ const CONSORCIOS = [
     "red_terciaria": 256.72,
     "presidente": "HRYCYNA, Luis Pedro",
     "vicepresidente": "KLATT, Juan",
-    "secretario": "ZAGO, Rub\\u00e9n Luis",
+    "secretario": "ZAGO, Rubén Luis",
     "tesorero": "GUZOWSKI, Roberto"
   },
   {
     "numero": 33,
-    "nombre": "Consorcio Caminero N\\u00ba33 \\\"Colonia Domingo Matheu\\\"",
+    "nombre": "Consorcio Caminero Nº33 \"Colonia Domingo Matheu\"",
     "localidad": "Colonia Domingo Matheu",
     "zona": "ZIII",
     "color": "#fdd44c",
@@ -931,12 +931,12 @@ const CONSORCIOS = [
     "red_terciaria": 205.23,
     "presidente": "LEVAY, Victor Hugo",
     "vicepresidente": "TOMASINI, Tomaso Miguel",
-    "secretario": "SPIGUEL, Jorge Juan Andr\\u00e9s",
+    "secretario": "SPIGUEL, Jorge Juan Andrés",
     "tesorero": "BISCHOF, Jose Luis"
   },
   {
     "numero": 34,
-    "nombre": "Consorcio Caminero N\\u00ba34 \\\"La Clotilde\\\"",
+    "nombre": "Consorcio Caminero Nº34 \"La Clotilde\"",
     "localidad": "La Clotilde",
     "zona": "ZIII",
     "color": "#fdd44c",
@@ -949,11 +949,11 @@ const CONSORCIOS = [
     "presidente": "GRYB, Juan Carlos",
     "vicepresidente": "SOWA, Carlos Javier",
     "secretario": "KOBLUK, David Antonio",
-    "tesorero": "QUERCI, Rub\\u00e9n Alfredo"
+    "tesorero": "QUERCI, Rubén Alfredo"
   },
   {
     "numero": 39,
-    "nombre": "Consorcio Caminero N\\u00ba39 \\\"Enrique Urien\\\"",
+    "nombre": "Consorcio Caminero Nº39 \"Enrique Urien\"",
     "localidad": "Enrique Urien",
     "zona": "ZIII",
     "color": "#fdd44c",
@@ -966,11 +966,11 @@ const CONSORCIOS = [
     "presidente": "BARONI, Miguel Angel",
     "vicepresidente": "MICHELUD, Ottorino",
     "secretario": "LEDESMA, Julia Rosa",
-    "tesorero": "KNESEVICH, Ad\\u00e1n"
+    "tesorero": "KNESEVICH, Adán"
   },
   {
     "numero": 42,
-    "nombre": "Consorcio Caminero N\\u00ba42 \\\"Hermoso Campo\\\"",
+    "nombre": "Consorcio Caminero Nº42 \"Hermoso Campo\"",
     "localidad": "Hermoso Campo",
     "zona": "ZIII",
     "color": "#fdd44c",
@@ -980,14 +980,14 @@ const CONSORCIOS = [
     "red_primaria": 0.0,
     "red_secundaria": 41.65,
     "red_terciaria": 453.57,
-    "presidente": "GUTIERREZ, H\\u00e9ctor Fernando",
+    "presidente": "GUTIERREZ, Héctor Fernando",
     "vicepresidente": "BRAIDOT, Oscar Gerardo",
-    "secretario": "TEHAN, Mario Germ\\u00e1n",
+    "secretario": "TEHAN, Mario Germán",
     "tesorero": "ACOSTA, Luis Alberto"
   },
   {
     "numero": 48,
-    "nombre": "Consorcio Caminero N\\u00ba48 \\\"Villa Berthet\\\"",
+    "nombre": "Consorcio Caminero Nº48 \"Villa Berthet\"",
     "localidad": "Villa Berthet",
     "zona": "ZIII",
     "color": "#fdd44c",
@@ -1004,7 +1004,7 @@ const CONSORCIOS = [
   },
   {
     "numero": 55,
-    "nombre": "Consorcio Caminero N\\u00ba55 \\\"Tres Estacas\\\"",
+    "nombre": "Consorcio Caminero Nº55 \"Tres Estacas\"",
     "localidad": "Tres Estacas",
     "zona": "ZIII",
     "color": "#fdd44c",
@@ -1021,7 +1021,7 @@ const CONSORCIOS = [
   },
   {
     "numero": 56,
-    "nombre": "Consorcio Caminero N\\u00ba56 \\\"General Pinedo\\\"",
+    "nombre": "Consorcio Caminero Nº56 \"General Pinedo\"",
     "localidad": "General Pinedo",
     "zona": "ZIII",
     "color": "#fdd44c",
@@ -1038,7 +1038,7 @@ const CONSORCIOS = [
   },
   {
     "numero": 58,
-    "nombre": "Consorcio Caminero N\\u00ba58 \\\"Campo del Banco\\\"",
+    "nombre": "Consorcio Caminero Nº58 \"Campo del Banco\"",
     "localidad": "Campo del Banco",
     "zona": "ZIII",
     "color": "#fdd44c",
@@ -1050,12 +1050,12 @@ const CONSORCIOS = [
     "red_terciaria": 201.7,
     "presidente": "YENEI, Jorge Alberto",
     "vicepresidente": "BUYATTI, Rene Oscar",
-    "secretario": "KOD\\u00d1IA, Oscar Basilio",
+    "secretario": "KODÑIA, Oscar Basilio",
     "tesorero": "KURYLOWICZ, Carlos Ricardo"
   },
   {
     "numero": 60,
-    "nombre": "Consorcio Caminero N\\u00ba60 \\\"San Bernardo\\\"",
+    "nombre": "Consorcio Caminero Nº60 \"San Bernardo\"",
     "localidad": "San Bernardo",
     "zona": "ZIII",
     "color": "#fdd44c",
@@ -1072,7 +1072,7 @@ const CONSORCIOS = [
   },
   {
     "numero": 63,
-    "nombre": "Consorcio Caminero N\\u00ba63 \\\"La Avanzada\\\"",
+    "nombre": "Consorcio Caminero Nº63 \"La Avanzada\"",
     "localidad": "La Avanzada",
     "zona": "ZIII",
     "color": "#fdd44c",
@@ -1089,7 +1089,7 @@ const CONSORCIOS = [
   },
   {
     "numero": 71,
-    "nombre": "Consorcio Caminero N\\u00ba71 \\\"Las Moreras\\\"",
+    "nombre": "Consorcio Caminero Nº71 \"Las Moreras\"",
     "localidad": "Las Moreras",
     "zona": "ZIII",
     "color": "#fdd44c",
@@ -1099,14 +1099,14 @@ const CONSORCIOS = [
     "red_primaria": 0.0,
     "red_secundaria": 16.26,
     "red_terciaria": 178.3,
-    "presidente": "COVACH, Victor Jos\\u00e9",
+    "presidente": "COVACH, Victor José",
     "vicepresidente": "SILVA, Luis Alberto",
     "secretario": "PETROVICH, Alan Micael",
-    "tesorero": "PETROVICH, Ricardo Ren\\u00e9"
+    "tesorero": "PETROVICH, Ricardo René"
   },
   {
     "numero": 73,
-    "nombre": "Consorcio Caminero N\\u00ba73 \\\"El Triangulo\\\"",
+    "nombre": "Consorcio Caminero Nº73 \"El Triangulo\"",
     "localidad": "El Triangulo",
     "zona": "ZIII",
     "color": "#fdd44c",
@@ -1123,8 +1123,8 @@ const CONSORCIOS = [
   },
   {
     "numero": 75,
-    "nombre": "Consorcio Caminero N\\u00ba75 \\\"El \\u00d1andubay\\\"",
-    "localidad": "El \\u00d1andubay",
+    "nombre": "Consorcio Caminero Nº75 \"El Ñandubay\"",
+    "localidad": "El Ñandubay",
     "zona": "ZIII",
     "color": "#fdd44c",
     "latitude": -27.774579296703827,
@@ -1133,15 +1133,15 @@ const CONSORCIOS = [
     "red_primaria": 0.0,
     "red_secundaria": 0.0,
     "red_terciaria": 154.1,
-    "presidente": "BIELONOVICH, Jos\\u00e9 Luis",
+    "presidente": "BIELONOVICH, José Luis",
     "vicepresidente": "ZABLOCKY, Juan",
     "secretario": "ALBRECHT, Hugo Rafael",
     "tesorero": "SLIWINSKI, Carlos"
   },
   {
     "numero": 76,
-    "nombre": "Consorcio Caminero N\\u00ba76 \\\"Samuh\\u00fa\\\"",
-    "localidad": "Samuh\\u00fa",
+    "nombre": "Consorcio Caminero Nº76 \"Samuhú\"",
+    "localidad": "Samuhú",
     "zona": "ZIII",
     "color": "#fdd44c",
     "latitude": -27.520084361885857,
@@ -1157,7 +1157,7 @@ const CONSORCIOS = [
   },
   {
     "numero": 87,
-    "nombre": "Consorcio Caminero N\\u00ba87 \\\"Radiscok Belich\\\"",
+    "nombre": "Consorcio Caminero Nº87 \"Radiscok Belich\"",
     "localidad": "Radiscok Belich",
     "zona": "ZIII",
     "color": "#fdd44c",
@@ -1174,7 +1174,7 @@ const CONSORCIOS = [
   },
   {
     "numero": 91,
-    "nombre": "Consorcio Caminero N\\u00ba91 \\\"Los Gansos\\\"",
+    "nombre": "Consorcio Caminero Nº91 \"Los Gansos\"",
     "localidad": "Los Gansos",
     "zona": "ZIII",
     "color": "#fdd44c",
@@ -1191,8 +1191,8 @@ const CONSORCIOS = [
   },
   {
     "numero": 98,
-    "nombre": "Consorcio Caminero N\\u00ba98 \\\"El \\u00d1andubay Oeste\\\"",
-    "localidad": "El \\u00d1andubay Oeste",
+    "nombre": "Consorcio Caminero Nº98 \"El Ñandubay Oeste\"",
+    "localidad": "El Ñandubay Oeste",
     "zona": "ZIII",
     "color": "#fdd44c",
     "latitude": -27.7068884634425,
@@ -1201,14 +1201,14 @@ const CONSORCIOS = [
     "red_primaria": 0.0,
     "red_secundaria": 0.0,
     "red_terciaria": 155.92,
-    "presidente": "D\\u00b4AOSTA, Gustavo Alfredo",
+    "presidente": "D´AOSTA, Gustavo Alfredo",
     "vicepresidente": "BARCO, Teodoro Anselmo",
     "secretario": "FECRABEND, Raul Alberto",
     "tesorero": "GIORDANO, Elio Francisco"
   },
   {
     "numero": 3,
-    "nombre": "Consorcio Caminero N\\u00ba03 \\\"Tres Isletas\\\"",
+    "nombre": "Consorcio Caminero Nº03 \"Tres Isletas\"",
     "localidad": "Tres Isletas",
     "zona": "ZIV",
     "color": "#74c476",
@@ -1225,7 +1225,7 @@ const CONSORCIOS = [
   },
   {
     "numero": 100,
-    "nombre": "Consorcio Caminero N\\u00ba100 \\\"Fortin Lavalle\\\"",
+    "nombre": "Consorcio Caminero Nº100 \"Fortin Lavalle\"",
     "localidad": "Fortin Lavalle",
     "zona": "ZIV",
     "color": "#74c476",
@@ -1242,7 +1242,7 @@ const CONSORCIOS = [
   },
   {
     "numero": 101,
-    "nombre": "Consorcio Caminero N\\u00ba101 \\\"Villa Fortuny\\\"",
+    "nombre": "Consorcio Caminero Nº101 \"Villa Fortuny\"",
     "localidad": "Villa Fortuny",
     "zona": "ZIV",
     "color": "#74c476",
@@ -1252,14 +1252,14 @@ const CONSORCIOS = [
     "red_primaria": 0.0,
     "red_secundaria": 0.0,
     "red_terciaria": 309.16,
-    "presidente": "KLOSTER, Jorge Ra\\u00fal",
+    "presidente": "KLOSTER, Jorge Raúl",
     "vicepresidente": "SCHMITT, Felipe",
     "secretario": "SANDER, Mario Daniel",
     "tesorero": "FERSTER, Eduardo Ricardo"
   },
   {
     "numero": 103,
-    "nombre": "Consorcio Caminero N\\u00ba103 \\\"Fuerte Esperanza\\\"",
+    "nombre": "Consorcio Caminero Nº103 \"Fuerte Esperanza\"",
     "localidad": "Fuerte Esperanza",
     "zona": "ZIV",
     "color": "#74c476",
@@ -1276,7 +1276,7 @@ const CONSORCIOS = [
   },
   {
     "numero": 18,
-    "nombre": "Consorcio Caminero N\\u00ba18 \\\"Castelli\\\"",
+    "nombre": "Consorcio Caminero Nº18 \"Castelli\"",
     "localidad": "Castelli",
     "zona": "ZIV",
     "color": "#74c476",
@@ -1293,7 +1293,7 @@ const CONSORCIOS = [
   },
   {
     "numero": 21,
-    "nombre": "Consorcio Caminero N\\u00ba21 \\\"Villa Rio Bermejito\\\"",
+    "nombre": "Consorcio Caminero Nº21 \"Villa Rio Bermejito\"",
     "localidad": "Villa Rio Bermejito",
     "zona": "ZIV",
     "color": "#74c476",
@@ -1310,7 +1310,7 @@ const CONSORCIOS = [
   },
   {
     "numero": 49,
-    "nombre": "Consorcio Caminero N\\u00ba49 \\\"Bulinky Correa\\\"",
+    "nombre": "Consorcio Caminero Nº49 \"Bulinky Correa\"",
     "localidad": "Bulinky Correa",
     "zona": "ZIV",
     "color": "#74c476",
@@ -1327,7 +1327,7 @@ const CONSORCIOS = [
   },
   {
     "numero": 50,
-    "nombre": "Consorcio Caminero N\\u00ba50 \\\"Las Hacheras\\\"",
+    "nombre": "Consorcio Caminero Nº50 \"Las Hacheras\"",
     "localidad": "Las Hacheras",
     "zona": "ZIV",
     "color": "#74c476",
@@ -1344,7 +1344,7 @@ const CONSORCIOS = [
   },
   {
     "numero": 59,
-    "nombre": "Consorcio Caminero N\\u00ba59 \\\"Fortin Frias\\\"",
+    "nombre": "Consorcio Caminero Nº59 \"Fortin Frias\"",
     "localidad": "Fortin Frias",
     "zona": "ZIV",
     "color": "#74c476",
@@ -1361,7 +1361,7 @@ const CONSORCIOS = [
   },
   {
     "numero": 72,
-    "nombre": "Consorcio Caminero N\\u00ba72 \\\"El Boqueron\\\"",
+    "nombre": "Consorcio Caminero Nº72 \"El Boqueron\"",
     "localidad": "El Boqueron",
     "zona": "ZIV",
     "color": "#74c476",
@@ -1378,7 +1378,7 @@ const CONSORCIOS = [
   },
   {
     "numero": 78,
-    "nombre": "Consorcio Caminero N\\u00ba78 \\\"Km82 Juana Azurduy\\\"",
+    "nombre": "Consorcio Caminero Nº78 \"Km82 Juana Azurduy\"",
     "localidad": "Km82 Juana Azurduy",
     "zona": "ZIV",
     "color": "#74c476",
@@ -1395,7 +1395,7 @@ const CONSORCIOS = [
   },
   {
     "numero": 79,
-    "nombre": "Consorcio Caminero N\\u00ba79 \\\"La Rinconada\\\"",
+    "nombre": "Consorcio Caminero Nº79 \"La Rinconada\"",
     "localidad": "La Rinconada",
     "zona": "ZIV",
     "color": "#74c476",
@@ -1412,7 +1412,7 @@ const CONSORCIOS = [
   },
   {
     "numero": 80,
-    "nombre": "Consorcio Caminero N\\u00ba80 \\\"La Piramide\\\"",
+    "nombre": "Consorcio Caminero Nº80 \"La Piramide\"",
     "localidad": "La Piramide",
     "zona": "ZIV",
     "color": "#74c476",
@@ -1424,12 +1424,12 @@ const CONSORCIOS = [
     "red_terciaria": 258.23,
     "presidente": "SOTO, Angela Telesfora",
     "vicepresidente": "SOTO, Angel Daniel",
-    "secretario": "PEREZ, Jos\\u00e9 Orlando",
+    "secretario": "PEREZ, José Orlando",
     "tesorero": "ALEMAN, Alberto"
   },
   {
     "numero": 81,
-    "nombre": "Consorcio Caminero N\\u00ba81 \\\"El Impenetrable\\\"",
+    "nombre": "Consorcio Caminero Nº81 \"El Impenetrable\"",
     "localidad": "El Impenetrable",
     "zona": "ZIV",
     "color": "#74c476",
@@ -1439,15 +1439,15 @@ const CONSORCIOS = [
     "red_primaria": 57.53,
     "red_secundaria": 21.47,
     "red_terciaria": 380.41,
-    "presidente": "ARGA\\u00d1ARAZ, Domingo Ramon",
+    "presidente": "ARGAÑARAZ, Domingo Ramon",
     "vicepresidente": "TEVEZ, Luis Salvador",
     "secretario": "CORREA, Jose Lorenzo",
     "tesorero": "PEREZ, Carlos"
   },
   {
     "numero": 83,
-    "nombre": "Consorcio Caminero N\\u00ba83 \\\"La Cangay\\u00e9\\\"",
-    "localidad": "La Cangay\\u00e9",
+    "nombre": "Consorcio Caminero Nº83 \"La Cangayé\"",
+    "localidad": "La Cangayé",
     "zona": "ZIV",
     "color": "#74c476",
     "latitude": -25.57892386,
@@ -1463,7 +1463,7 @@ const CONSORCIOS = [
   },
   {
     "numero": 85,
-    "nombre": "Consorcio Caminero N\\u00ba85 \\\"Miraflores\\\"",
+    "nombre": "Consorcio Caminero Nº85 \"Miraflores\"",
     "localidad": "Miraflores",
     "zona": "ZIV",
     "color": "#74c476",
@@ -1480,7 +1480,7 @@ const CONSORCIOS = [
   },
   {
     "numero": 86,
-    "nombre": "Consorcio Caminero N\\u00ba86 \\\"El Sauzalito\\\"",
+    "nombre": "Consorcio Caminero Nº86 \"El Sauzalito\"",
     "localidad": "El Sauzalito",
     "zona": "ZIV",
     "color": "#74c476",
@@ -1492,12 +1492,12 @@ const CONSORCIOS = [
     "red_terciaria": 195.33,
     "presidente": "GIANETTI, Luis Miguel",
     "vicepresidente": "SOSA, Rosendo",
-    "secretario": "METZ, Angel Dami\\u00e1n",
+    "secretario": "METZ, Angel Damián",
     "tesorero": "SALAZAR, Dante"
   },
   {
     "numero": 88,
-    "nombre": "Consorcio Caminero N\\u00ba88 \\\"Colonia El 44\\\"",
+    "nombre": "Consorcio Caminero Nº88 \"Colonia El 44\"",
     "localidad": "Colonia El 44",
     "zona": "ZIV",
     "color": "#74c476",
@@ -1514,8 +1514,8 @@ const CONSORCIOS = [
   },
   {
     "numero": 89,
-    "nombre": "Consorcio Caminero N\\u00ba89 \\\"Raices Chaque\\u00f1as\\\"",
-    "localidad": "Raices Chaque\\u00f1as",
+    "nombre": "Consorcio Caminero Nº89 \"Raices Chaqueñas\"",
+    "localidad": "Raices Chaqueñas",
     "zona": "ZIV",
     "color": "#74c476",
     "latitude": -26.28132625,
@@ -1531,7 +1531,7 @@ const CONSORCIOS = [
   },
   {
     "numero": 90,
-    "nombre": "Consorcio Caminero N\\u00ba90 \\\"El Asustado\\\"",
+    "nombre": "Consorcio Caminero Nº90 \"El Asustado\"",
     "localidad": "El Asustado",
     "zona": "ZIV",
     "color": "#74c476",
@@ -1548,7 +1548,7 @@ const CONSORCIOS = [
   },
   {
     "numero": 95,
-    "nombre": "Consorcio Caminero N\\u00ba95 \\\"Pampa Toloza\\\"",
+    "nombre": "Consorcio Caminero Nº95 \"Pampa Toloza\"",
     "localidad": "Pampa Toloza",
     "zona": "ZIV",
     "color": "#74c476",
@@ -1565,7 +1565,7 @@ const CONSORCIOS = [
   },
   {
     "numero": 6,
-    "nombre": "Consorcio Caminero N\\u00b0 06 \\\"Selvas Rio de Oro\\\"",
+    "nombre": "Consorcio Caminero N° 06 \"Selvas Rio de Oro\"",
     "localidad": "Selvas Rio de Oro",
     "zona": "ZV",
     "color": "#9e9ac8",
@@ -1582,7 +1582,7 @@ const CONSORCIOS = [
   },
   {
     "numero": 108,
-    "nombre": "Consorcio Caminero N\\u00b0 108 \\\"La Aurora\\\"",
+    "nombre": "Consorcio Caminero N° 108 \"La Aurora\"",
     "localidad": "La Aurora",
     "zona": "ZV",
     "color": "#9e9ac8",
@@ -1599,7 +1599,7 @@ const CONSORCIOS = [
   },
   {
     "numero": 11,
-    "nombre": "Consorcio Caminero N\\u00b0 11 \\\"Zapallar Norte\\\"",
+    "nombre": "Consorcio Caminero N° 11 \"Zapallar Norte\"",
     "localidad": "Zapallar Norte",
     "zona": "ZV",
     "color": "#9e9ac8",
@@ -1612,11 +1612,11 @@ const CONSORCIOS = [
     "presidente": "CODUTTI, Guillermo Omar",
     "vicepresidente": "CODUTTI, Dario Omar",
     "secretario": "VERZILLI, Claudio Alberto",
-    "tesorero": "VITER, Marcos Fabi\\u00e1n"
+    "tesorero": "VITER, Marcos Fabián"
   },
   {
     "numero": 19,
-    "nombre": "Consorcio Caminero N\\u00b0 19 \\\"Pampa del Indio\\\"",
+    "nombre": "Consorcio Caminero N° 19 \"Pampa del Indio\"",
     "localidad": "Pampa del Indio",
     "zona": "ZV",
     "color": "#9e9ac8",
@@ -1629,11 +1629,11 @@ const CONSORCIOS = [
     "presidente": "VALENZUELA, Nestor Javier",
     "vicepresidente": "VUCKO, Jorge Miguel",
     "secretario": "KANJER, Nelson Edgardo",
-    "tesorero": "VITER, Marcos Fabi\\u00e1n"
+    "tesorero": "VITER, Marcos Fabián"
   },
   {
     "numero": 28,
-    "nombre": "Consorcio Caminero N\\u00b0 28 \\\"Laguna Limpia\\\"",
+    "nombre": "Consorcio Caminero N° 28 \"Laguna Limpia\"",
     "localidad": "Laguna Limpia",
     "zona": "ZV",
     "color": "#9e9ac8",
@@ -1650,8 +1650,8 @@ const CONSORCIOS = [
   },
   {
     "numero": 35,
-    "nombre": "Consorcio Caminero N\\u00b0 35 \\\"Costa Guaycur\\u00fa\\\"",
-    "localidad": "Costa Guaycur\\u00fa",
+    "nombre": "Consorcio Caminero N° 35 \"Costa Guaycurú\"",
+    "localidad": "Costa Guaycurú",
     "zona": "ZV",
     "color": "#9e9ac8",
     "latitude": -26.59346317341511,
@@ -1667,7 +1667,7 @@ const CONSORCIOS = [
   },
   {
     "numero": 57,
-    "nombre": "Consorcio Caminero N\\u00b0 57 \\\"Pcia. Roca\\\"",
+    "nombre": "Consorcio Caminero N° 57 \"Pcia. Roca\"",
     "localidad": "Pcia. Roca",
     "zona": "ZV",
     "color": "#9e9ac8",
@@ -1684,8 +1684,8 @@ const CONSORCIOS = [
   },
   {
     "numero": 66,
-    "nombre": "Consorcio Caminero 66 \\\"Gral. Vedia\\\"",
-    "localidad": "Consorcio Caminero 66 \\\"Gral. Vedia",
+    "nombre": "Consorcio Caminero 66 \"Gral. Vedia\"",
+    "localidad": "Consorcio Caminero 66 \"Gral. Vedia",
     "zona": "ZV",
     "color": "#9e9ac8",
     "latitude": -26.929483195569677,
@@ -1697,11 +1697,11 @@ const CONSORCIOS = [
     "presidente": "TASCON, Orlando Raul",
     "vicepresidente": "ZORRILLA, Leon Ladislao",
     "secretario": "ROLON, Erasmo Carlos",
-    "tesorero": "ROBLES, Ricardo Sebasti\\u00e1n"
+    "tesorero": "ROBLES, Ricardo Sebastián"
   },
   {
     "numero": 70,
-    "nombre": "Consorcio Caminero N\\u00b0 70 \\\"La Leonesa\\\"",
+    "nombre": "Consorcio Caminero N° 70 \"La Leonesa\"",
     "localidad": "La Leonesa",
     "zona": "ZV",
     "color": "#9e9ac8",
@@ -1711,14 +1711,14 @@ const CONSORCIOS = [
     "red_primaria": 0.0,
     "red_secundaria": 12.5,
     "red_terciaria": 187.73,
-    "presidente": "BALBUENA, Hugo C\\u00e9sar",
+    "presidente": "BALBUENA, Hugo César",
     "vicepresidente": "AMARILLA, Emilio Abel",
     "secretario": "CABALLERO, Oscar Luis",
-    "tesorero": "AYALA, Ram\\u00f3n Oscar"
+    "tesorero": "AYALA, Ramón Oscar"
   },
   {
     "numero": 96,
-    "nombre": "Consorcio Caminero N\\u00b0 96 \\\"Colonia La Esperanza\\\"",
+    "nombre": "Consorcio Caminero N° 96 \"Colonia La Esperanza\"",
     "localidad": "Colonia La Esperanza",
     "zona": "ZV",
     "color": "#9e9ac8",
@@ -1735,7 +1735,7 @@ const CONSORCIOS = [
   },
   {
     "numero": 99,
-    "nombre": "Consorcio Caminero N\\u00b0 99 \\\"Campo Winter\\\"",
+    "nombre": "Consorcio Caminero N° 99 \"Campo Winter\"",
     "localidad": "Campo Winter",
     "zona": "ZV",
     "color": "#9e9ac8",
@@ -1745,24 +1745,20 @@ const CONSORCIOS = [
     "red_primaria": 0.0,
     "red_secundaria": 7.41,
     "red_terciaria": 105.58,
-    "presidente": "DENIZ, Benjam\\u00edn",
+    "presidente": "DENIZ, Benjamín",
     "vicepresidente": "MARTINA, Carlos Dante",
     "secretario": "DENIS, Aureliano",
     "tesorero": "MEZA, Argentino Luis"
   }
 ];
 
-
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const SUPABASE_URL = 'https://lgkcciflxleyipncnvav.supabase.co';
 
-if (!SERVICE_ROLE_KEY) {
-  console.error('Falta SUPABASE_SERVICE_ROLE_KEY');
-  process.exit(1);
-}
+if (!SERVICE_ROLE_KEY) { console.error('Falta SUPABASE_SERVICE_ROLE_KEY'); process.exit(1); }
 
 async function seed() {
-  console.log('Subiendo', CONSORCIOS.length, 'consorcios...');
+  console.log('Actualizando', CONSORCIOS.length, 'consorcios...');
   const res = await fetch(SUPABASE_URL + '/rest/v1/consorcios', {
     method: 'POST',
     headers: {
@@ -1774,12 +1770,8 @@ async function seed() {
     body: JSON.stringify(CONSORCIOS),
   });
   const text = await res.text();
-  if (!res.ok) {
-    console.error('Error HTTP', res.status, text);
-    process.exit(1);
-  }
+  if (!res.ok) { console.error('Error HTTP', res.status, text); process.exit(1); }
   console.log('Listo! Status:', res.status);
-  if (text) console.log(text.slice(0, 300));
 }
 
 seed().catch(e => { console.error(e); process.exit(1); });

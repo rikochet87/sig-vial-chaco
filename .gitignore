@@ -13,3 +13,5 @@ ios/
 
 expo-env.d.ts
 # @end expo-cli
+# Admin panel secrets
+admin/.env.local
