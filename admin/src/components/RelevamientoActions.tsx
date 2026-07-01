@@ -107,8 +107,9 @@ export default function RelevamientoActions({ rel }: { rel: Relevamiento }) {
     const geo = buildGeoJSON(rel)
     if (!geo) { alert('Este relevamiento no tiene geometría exportable.'); return }
     try {
-      // @ts-ignore — @mapbox/shp-write no tiene tipos oficiales
-      const shpwrite = await import('@mapbox/shp-write')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const shpwrite = await import('@mapbox/shp-write') as any
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const b64 = await shpwrite.zip(geo) as string
       // b64 es un ZIP en base64
       const binary = atob(b64)
