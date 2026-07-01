@@ -25,7 +25,7 @@ export default async function RelevamientoDetailPage({ params }: { params: Promi
 
   const rel = r as Relevamiento
   const profileMap: Record<string, string> = Object.fromEntries(
-    (profiles ?? []).map(p => [p.id, p.nombre])
+    (profiles ?? []).map((p: { id: string; nombre: string }) => [p.id, p.nombre])
   )
   const tecnicoNombre = rel.tecnico_id ? (profileMap[rel.tecnico_id] ?? rel.tecnico_id) : '-'
 
