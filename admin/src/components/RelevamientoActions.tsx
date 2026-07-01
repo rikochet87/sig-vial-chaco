@@ -109,7 +109,7 @@ export default function RelevamientoActions({ rel }: { rel: Relevamiento }) {
     try {
       // @ts-ignore — @mapbox/shp-write no tiene tipos oficiales
       const shpwrite = await import('@mapbox/shp-write')
-      const b64: string = await shpwrite.zip(geo)
+      const b64 = await shpwrite.zip(geo) as string
       // b64 es un ZIP en base64
       const binary = atob(b64)
       const bytes = new Uint8Array(binary.length)
