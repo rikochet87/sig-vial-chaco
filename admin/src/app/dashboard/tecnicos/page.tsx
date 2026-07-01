@@ -14,10 +14,10 @@ export default async function TecnicosPage() {
 
   // Mapear email desde auth.users por id
   const emailById = Object.fromEntries(
-    (authData?.users ?? []).map(u => [u.id, u.email ?? ''])
+    (authData?.users ?? []).map((u: { id: string; email?: string }) => [u.id, u.email ?? ''])
   )
 
-  const rows = ((profiles as Profile[]) ?? []).map(p => ({
+  const rows = ((profiles as Profile[]) ?? []).map((p: Profile) => ({
     ...p,
     email: emailById[p.id] ?? '',
   }))

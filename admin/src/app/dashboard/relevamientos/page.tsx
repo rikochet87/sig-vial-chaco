@@ -49,7 +49,7 @@ export default function RelevamientosPage() {
       const ts = Array.from(new Set(rows.map(r => r.tecnico_id).filter(Boolean))) as string[]
       setTecnicos(ts)
       const pm: Record<string, string> = Object.fromEntries(
-        (profs ?? []).map(p => [p.id, p.nombre])
+        (profs ?? []).map((p: { id: string; nombre: string }) => [p.id, p.nombre])
       )
       setProfileMap(pm)
       setLoading(false)
