@@ -9,11 +9,13 @@ const ZONAS = ['', 'ZI', 'ZII', 'ZIII', 'ZIV', 'ZV']
 const ESTADOS = ['', 'bueno', 'regular', 'malo', 'muy malo']
 const PAGE_SIZE = 20
 
-function SyncBadge({ status }: { status: string }) {
-  const color = status === 'sincronizado' ? '#4CAF50' : status === 'pendiente' ? '#F5C300' : '#9E9E9E'
+function SyncBadge({ sincronizado_en }: { sincronizado_en: string | null }) {
+  const synced = !!sincronizado_en
+  const color = synced ? '#4CAF50' : '#F5C300'
+  const label = synced ? 'sincronizado' : 'pendiente'
   return (
     <span style={{ background: color + '22', color, border: `1px solid ${color}`, borderRadius: 20, padding: '2px 10px', fontSize: 12, fontWeight: 600 }}>
-      {status}
+      {label}
     </span>
   )
 }
@@ -22,6 +24,7 @@ export default function RelevamientosPage() {
   const router = useRouter()
   const [relevamientos, setRelevamientos] = useState<Relevamiento[]>([])
   const [filtered, setFiltered] = useState<Relevamiento[]>([])
+  const [profileMap, setProfileMap] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
   const [tipo, setTipo] = useState('')
   const [zona, setZona] = useState('')
@@ -34,24 +37,30 @@ export default function RelevamientosPage() {
 
   useEffect(() => {
     const supabase = createClient()
-    supabase.from('relevamientos')
-      .select('id,fecha,tipo,tecnico,estado_calzada,coords,coords_linea,auto_deteccion,ruta_tramo,sync_status,user_id,observaciones,datos_puente,datos_alcantarilla,datos_tubos,datos_ripio,datos_otro,fotos')
-      .order('created_at', { ascending: false })
-      .then(({ data }) => {
-        const rows = (data as Relevamiento[]) ?? []
-        setRelevamientos(rows)
-        setFiltered(rows)
-        const ts = Array.from(new Set(rows.map(r => r.tecnico).filter(Boolean)))
-        setTecnicos(ts)
-        setLoading(false)
-      })
+    Promise.all([
+      supabase.from('relevamientos')
+        .select('id,fecha,tipo,tecnico_id,estado_calzada,coords_lat,coords_lng,coords_linea,cc_asociado,zona,ruta_tramo,observaciones,fotos,datos_especificos,sincronizado_en')
+        .order('fecha', { ascending: false }),
+      supabase.from('profiles').select('id,nombre'),
+    ]).then(([{ data }, { data: profs }]) => {
+      const rows = (data as Relevamiento[]) ?? []
+      setRelevamientos(rows)
+      setFiltered(rows)
+      const ts = Array.from(new Set(rows.map(r => r.tecnico_id).filter(Boolean))) as string[]
+      setTecnicos(ts)
+      const pm: Record<string, string> = Object.fromEntries(
+        (profs ?? []).map(p => [p.id, p.nombre])
+      )
+      setProfileMap(pm)
+      setLoading(false)
+    })
   }, [])
 
   const applyFilters = useCallback(() => {
     let rows = relevamientos
     if (tipo) rows = rows.filter(r => r.tipo === tipo)
-    if (zona) rows = rows.filter(r => r.auto_deteccion?.zona === zona)
-    if (tecnico) rows = rows.filter(r => r.tecnico === tecnico)
+    if (zona) rows = rows.filter(r => r.zona === zona)
+    if (tecnico) rows = rows.filter(r => r.tecnico_id === tecnico)
     if (estado) rows = rows.filter(r => r.estado_calzada === estado)
     if (desde) rows = rows.filter(r => r.fecha >= desde)
     if (hasta) rows = rows.filter(r => r.fecha <= hasta)
@@ -60,6 +69,16 @@ export default function RelevamientosPage() {
   }, [relevamientos, tipo, zona, tecnico, estado, desde, hasta])
 
   useEffect(() => { applyFilters() }, [applyFilters])
+
+  const handleDelete = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!confirm('¿Eliminar este relevamiento? Esta acción no se puede deshacer.')) return
+    const supabase = createClient()
+    const { error } = await supabase.from('relevamientos').delete().eq('id', id)
+    if (error) { alert('Error: ' + error.message); return }
+    setRelevamientos(prev => prev.filter(r => r.id !== id))
+    setFiltered(prev => prev.filter(r => r.id !== id))
+  }
 
   const paged = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE)
@@ -83,11 +102,11 @@ export default function RelevamientosPage() {
         {select('Tipo', tipo, setTipo, TIPOS)}
         {select('Zona', zona, setZona, ZONAS)}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <label style={{ color: '#9E9E9E', fontSize: 12 }}>Técnico</label>
+          <label style={{ color: '#9E9E9E', fontSize: 12 }}>Técnico (ID)</label>
           <select value={tecnico} onChange={e => setTecnico(e.target.value)}
             style={{ background: '#3C3C3C', border: '1px solid #4C4C4C', borderRadius: 6, color: '#fff', padding: '6px 10px', fontSize: 13 }}>
             <option value="">Todos</option>
-            {tecnicos.map(t => <option key={t} value={t}>{t}</option>)}
+            {tecnicos.map(t => <option key={t} value={t}>{profileMap[t] || t}</option>)}
           </select>
         </div>
         {select('Estado calzada', estado, setEstado, ESTADOS)}
@@ -111,7 +130,7 @@ export default function RelevamientosPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: '#3C3C3C' }}>
-                {['Fecha', 'Tipo', 'Técnico', 'Zona', 'Consorcio', 'Tramo', 'Estado', 'Sync'].map(h => (
+                {['Fecha', 'Tipo', 'Técnico', 'Zona', 'Consorcio', 'Tramo', 'Estado', 'Sync', ''].map(h => (
                   <th key={h} style={{ padding: '12px 16px', color: '#9E9E9E', fontSize: 12, fontWeight: 600, textAlign: 'left', textTransform: 'uppercase', letterSpacing: 0.5 }}>{h}</th>
                 ))}
               </tr>
@@ -129,18 +148,25 @@ export default function RelevamientosPage() {
                   onMouseEnter={e => (e.currentTarget.style.background = 'rgba(245,195,0,0.06)')}
                   onMouseLeave={e => (e.currentTarget.style.background = i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.02)')}
                 >
-                  <td style={{ padding: '12px 16px', color: '#fff', fontSize: 13 }}>{r.fecha}</td>
+                  <td style={{ padding: '12px 16px', color: '#fff', fontSize: 13 }}>{r.fecha?.split('T')[0] ?? '-'}</td>
                   <td style={{ padding: '12px 16px', color: '#F5C300', fontSize: 13, fontWeight: 600 }}>{r.tipo}</td>
-                  <td style={{ padding: '12px 16px', color: '#fff', fontSize: 13 }}>{r.tecnico}</td>
-                  <td style={{ padding: '12px 16px', color: '#9E9E9E', fontSize: 13 }}>{r.auto_deteccion?.zona || '-'}</td>
-                  <td style={{ padding: '12px 16px', color: '#9E9E9E', fontSize: 13 }}>{r.auto_deteccion?.consorcio || '-'}</td>
+                  <td style={{ padding: '12px 16px', color: '#fff', fontSize: 13, maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.tecnico_id ? (profileMap[r.tecnico_id] ?? r.tecnico_id) : '-'}</td>
+                  <td style={{ padding: '12px 16px', color: '#9E9E9E', fontSize: 13 }}>{r.zona || '-'}</td>
+                  <td style={{ padding: '12px 16px', color: '#9E9E9E', fontSize: 13 }}>{r.cc_asociado || '-'}</td>
                   <td style={{ padding: '12px 16px', color: '#9E9E9E', fontSize: 13, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.ruta_tramo || '-'}</td>
                   <td style={{ padding: '12px 16px', color: '#9E9E9E', fontSize: 13 }}>{r.estado_calzada || '-'}</td>
-                  <td style={{ padding: '12px 16px' }}><SyncBadge status={r.sync_status} /></td>
+                  <td style={{ padding: '12px 16px' }}><SyncBadge sincronizado_en={r.sincronizado_en} /></td>
+                  <td style={{ padding: '8px 12px' }} onClick={e => e.stopPropagation()}>
+                    <button
+                      onClick={e => handleDelete(r.id, e)}
+                      title="Eliminar"
+                      style={{ background: 'transparent', border: '1px solid #f44336', color: '#f44336', borderRadius: 4, padding: '4px 10px', cursor: 'pointer', fontSize: 13, lineHeight: 1 }}
+                    >✕</button>
+                  </td>
                 </tr>
               ))}
               {paged.length === 0 && (
-                <tr><td colSpan={8} style={{ padding: 32, textAlign: 'center', color: '#9E9E9E' }}>Sin resultados</td></tr>
+                <tr><td colSpan={9} style={{ padding: 32, textAlign: 'center', color: '#9E9E9E' }}>Sin resultados</td></tr>
               )}
             </tbody>
           </table>

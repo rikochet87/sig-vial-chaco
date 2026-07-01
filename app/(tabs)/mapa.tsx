@@ -12,6 +12,8 @@ import { RP_BUNDLE } from '@/constants/geoBundleRP';
 import { GEO_BUNDLE_CC } from '@/constants/geoBundleCC';
 import { useRelevamientos } from '@/hooks/useRelevamientos';
 import RelevamientoModal from '@/components/RelevamientoModal';
+import { supabase } from '@/lib/supabase';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Relevamiento } from '@/types/relevamiento';
 
 // expo-location: importación condicional para evitar crash si no está instalado aún
@@ -122,6 +124,8 @@ html,body,#map{width:100%;height:100vh;background:#f0ebe3}
 .rn-popup .leaflet-popup-content-wrapper{background:transparent!important;border:none!important;box-shadow:none!important;padding:0!important;min-width:0!important;}
 .rn-popup .leaflet-popup-tip-container{display:none!important;}
 .rn-popup .leaflet-popup-content{margin:0!important;width:auto!important;}
+/* En modo dibujo, los paths interactivos no capturan clicks */
+.draw-mode .leaflet-interactive{pointer-events:none!important;}
 </style>
 </head>
 <body>
@@ -434,14 +438,12 @@ function enterManualMode(){
 }
 
 function snapToRoad(lat,lng){
-  var SNAP_DEG=0.0007;
+  var SNAP_DEG=0.0009;
   var best=null,bestDist=Infinity,bestProps=null;
-  var ccKeys=Object.keys(CC_DATA_CC);
-  for(var ki=0;ki<ccKeys.length;ki++){
-    var gj=CC_DATA_CC[ccKeys[ki]];
-    if(!gj||!gj.features)continue;
-    for(var fi=0;fi<gj.features.length;fi++){
-      var feat=gj.features[fi];
+  function _checkFeatures(features,extraProps){
+    if(!features)return;
+    for(var fi=0;fi<features.length;fi++){
+      var feat=features[fi];
       var geom=feat&&feat.geometry;
       if(!geom)continue;
       var lines=geom.type==='LineString'?[geom.coordinates]:geom.type==='MultiLineString'?geom.coordinates:[];
@@ -455,10 +457,30 @@ function snapToRoad(lat,lng){
           var t=lenSq>0?Math.max(0,Math.min(1,((lng-ax)*dx+(lat-ay)*dy)/lenSq)):0;
           var px=ax+t*dx,py=ay+t*dy;
           var dist=Math.sqrt((lng-px)*(lng-px)+(lat-py)*(lat-py));
-          if(dist<bestDist){bestDist=dist;best={lat:py,lng:px};bestProps=feat.properties||{};}
+          if(dist<bestDist){
+            bestDist=dist;best={lat:py,lng:px};
+            bestProps=Object.assign({},feat.properties||{},extraProps||{});
+          }
         }
       }
     }
+  }
+  // Capas CC activas
+  var ccKeys=Object.keys(CC_DATA_CC);
+  for(var ki=0;ki<ccKeys.length;ki++){
+    var gj=CC_DATA_CC[ccKeys[ki]];
+    if(gj&&gj.features)_checkFeatures(gj.features,null);
+  }
+  // Capas RP (siempre disponibles en memoria)
+  var rpSets=[
+    {gj:RP_PAV,label:'RP Pavimentada'},
+    {gj:RP_MEJ,label:'RP Mejorada'},
+    {gj:RP_OBR,label:'RP En Obra'},
+    {gj:RP_TIE,label:'RP Tierra'}
+  ];
+  for(var ri=0;ri<rpSets.length;ri++){
+    var rpGJ=rpSets[ri].gj;
+    if(rpGJ&&rpGJ.features)_checkFeatures(rpGJ.features,{_rpLabel:rpSets[ri].label});
   }
   if(best&&bestDist<SNAP_DEG)return{lat:best.lat,lng:best.lng,snapped:true,snapProps:bestProps};
   return{lat:lat,lng:lng,snapped:false,snapProps:null};
@@ -985,18 +1007,22 @@ function _clearTrackPrev(){
 }
 
 // ── Modo dibujo de tramo Ripio ────────────────────────────────────────────────
-var _drawMode=false,_drawPts=[],_drawLine=null,_drawCircles=[];
+var _drawMode=false,_drawPts=[],_drawLine=null,_drawCircles=[],_drawSnapInfo=null;
 function _rn(msg){if(window.ReactNativeWebView)window.ReactNativeWebView.postMessage(JSON.stringify(msg));}
 function enterDrawMode(){
   _drawMode=true;_drawPts=[];
   map.getContainer().style.cursor='crosshair';
+  map.getContainer().classList.add('draw-mode');
+  map.closePopup();
   document.getElementById('draw-ctrl').style.display='block';
   map.on('click',_onDrawClick);
   _updateDrawPreview();
 }
 function _onDrawClick(e){
   if(!_drawMode)return;
-  _drawPts.push({lat:e.latlng.lat,lng:e.latlng.lng});
+  var snap=snapToRoad(e.latlng.lat,e.latlng.lng);
+  _drawPts.push({lat:snap.lat,lng:snap.lng});
+  if(snap.snapped&&!_drawSnapInfo)_drawSnapInfo=snap.snapProps;
   _updateDrawPreview();
 }
 function _updateDrawPreview(){
@@ -1023,16 +1049,18 @@ function undoDrawPoint(){
 function confirmDraw(){
   if(_drawPts.length<2){alert('Necesitás al menos 2 puntos para definir el tramo.');return;}
   var pts=_drawPts.slice();
+  var si=_drawSnapInfo;
   _exitDrawMode();
-  _rn({type:'ripioDrawn',coordsLinea:pts});
+  _rn({type:'ripioDrawn',coordsLinea:pts,snapProps:si});
 }
 function cancelDraw(){
   _exitDrawMode();
   _rn({type:'drawModeCancelled'});
 }
 function _exitDrawMode(){
-  _drawMode=false;
+  _drawMode=false;_drawSnapInfo=null;
   map.getContainer().style.cursor='';
+  map.getContainer().classList.remove('draw-mode');
   map.off('click',_onDrawClick);
   if(_drawLine){map.removeLayer(_drawLine);_drawLine=null;}
   _drawCircles.forEach(function(c){map.removeLayer(c);});_drawCircles=[];
@@ -1097,6 +1125,28 @@ export default function MapaScreen() {
   const [drawnCoordsLinea, setDrawnCoordsLinea] = useState<{lat:number;lng:number}[]>([]);
   const [pickedPointCoord, setPickedPointCoord] = useState<{lat:number;lng:number}|null>(null);
   const snapInfoRef = useRef<Record<string,any>|null>(null);
+  const [tecnicoNombre, setTecnicoNombre] = useState('');
+  const [tecnicoZona, setTecnicoZona] = useState('');
+
+  // Auto-detectar técnico logueado — con caché offline en AsyncStorage
+  useEffect(() => {
+    // Cargar caché primero (disponible offline)
+    AsyncStorage.multiGet(['tecnico_nombre', 'tecnico_zona']).then(pairs => {
+      const nombre = pairs[0][1]; const zona = pairs[1][1];
+      if (nombre) setTecnicoNombre(nombre);
+      if (zona)   setTecnicoZona(zona);
+    });
+    // Luego actualizar desde Supabase (cuando hay red)
+    supabase.auth.getUser().then(({ data }) => {
+      const uid = data?.user?.id;
+      if (!uid) return;
+      supabase.from('profiles').select('nombre,zona').eq('id', uid).single()
+        .then(({ data: p }) => {
+          if (p?.nombre) { setTecnicoNombre(p.nombre); AsyncStorage.setItem('tecnico_nombre', p.nombre); }
+          if (p?.zona)   { setTecnicoZona(p.zona);   AsyncStorage.setItem('tecnico_zona',   p.zona);   }
+        });
+    });
+  }, []);
   const [webViewLoadCount, setWebViewLoadCount] = useState(0);
 
   // Recargar relevamientos al volver al tab (sincroniza eliminaciones desde Reportes)
@@ -1254,6 +1304,7 @@ export default function MapaScreen() {
       }
       // Confirmación del dibujo de tramo ripio desde Leaflet
       if (msg.type === 'ripioDrawn' && Array.isArray(msg.coordsLinea) && msg.coordsLinea.length >= 2) {
+        snapInfoRef.current = msg.snapProps ?? null;
         setDrawnCoordsLinea(msg.coordsLinea);
         setRelevModalVisible(true);
       }
@@ -1724,6 +1775,8 @@ export default function MapaScreen() {
         initialCoordsLinea={drawnCoordsLinea}
         initialCoord={pickedPointCoord}
         snapInfo={snapInfoRef.current}
+        tecnicoNombre={tecnicoNombre}
+        tecnicoZona={tecnicoZona}
         onRequestDraw={handleRequestDraw}
         onRequestPickPoint={handleRequestPickPoint}
         onSave={handleSaveRelevamiento}

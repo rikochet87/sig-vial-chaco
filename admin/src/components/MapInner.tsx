@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Relevamiento } from '@/types'
 import 'leaflet/dist/leaflet.css'
 
@@ -10,7 +10,11 @@ const ZONE_COLORS: Record<string, string> = {
 }
 
 const CC_COLORS: Record<string, string> = {
-  ZI: '#4a85a0', ZII: '#b05a3a', ZIII: '#9a8630', ZIV: '#4a845a', ZV: '#6a649a',
+  ZI: '#1565C0',   // azul fuerte
+  ZII: '#BF360C',  // naranja-rojo
+  ZIII: '#E65100', // naranja vivo — visible sobre verde
+  ZIV: '#6A1B9A',  // violeta — visible sobre cualquier fondo
+  ZV: '#00695C',   // verde oscuro teal
 }
 
 const TIPO_COLORS: Record<string, string> = {
@@ -18,7 +22,7 @@ const TIPO_COLORS: Record<string, string> = {
 }
 
 const CC_WEIGHT: Record<string, number> = {
-  PRIMARIA: 2.5, SECUNDARIA: 1.8, TERCIARIA: 1.2,
+  PRIMARIA: 3.0, SECUNDARIA: 2.0, TERCIARIA: 1.5,
 }
 
 // ── CSS de popups ────────────────────────────────────────────────────────────
@@ -135,19 +139,20 @@ function ccPopupHtml(p: Record<string, unknown>, zona: string): string {
 
 function relevPopupHtml(r: Relevamiento): string {
   const color = TIPO_COLORS[r.tipo] || '#607D8B'
+  const fecha = r.fecha ? new Date(r.fecha).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—'
   return `
 <div>
   <div class="ph" style="background:${color}20;border-bottom:1px solid ${color}40">
     <div class="pn" style="background:${color}">${r.tipo[0]}</div>
     <div>
       <div class="pl">${r.tipo}</div>
-      <div class="pz">${r.tecnico || '—'} · ${r.fecha || '—'}</div>
+      <div class="pz">${fecha} · ${r.zona || '—'}</div>
     </div>
   </div>
   <div class="pb">
     <div class="pr"><span class="plb">Estado calzada</span><span class="pv">${r.estado_calzada || '—'}</span></div>
     <div class="pr"><span class="plb">Tramo</span><span class="pv">${r.ruta_tramo || '—'}</span></div>
-    <div class="pr"><span class="plb">Zona</span><span class="pv">${r.auto_deteccion?.zona || '—'}</span></div>
+    <div class="pr"><span class="plb">CC asociado</span><span class="pv">${r.cc_asociado || '—'}</span></div>
     <div style="margin-top:8px;text-align:right">
       <a href="/dashboard/relevamientos/${r.id}" style="color:#F5C300;font-size:11px;font-weight:700;text-decoration:none">Ver detalle →</a>
     </div>
@@ -168,7 +173,7 @@ type LayerKey =
   | 'limite' | 'zonas' | 'departamentos'
   | 'rpPavimentada' | 'rpMejorada' | 'rpEnObra' | 'rpTierra'
   | 'ccZI' | 'ccZII' | 'ccZIII' | 'ccZIV' | 'ccZV'
-  | 'sedes' | 'campamentos' | 'relevamientos'
+  | 'sedes' | 'campamentos' | 'salud' | 'relevamientos'
 
 type LayerState = Record<LayerKey, boolean>
 
@@ -176,10 +181,85 @@ const DEFAULT_LAYERS: LayerState = {
   limite: true, zonas: true, departamentos: true,
   rpPavimentada: true, rpMejorada: true, rpEnObra: false, rpTierra: false,
   ccZI: false, ccZII: false, ccZIII: false, ccZIV: false, ccZV: false,
-  sedes: true, campamentos: false, relevamientos: true,
+  sedes: true, campamentos: false, salud: false, relevamientos: true,
 }
 
 interface Props { relevamientos: Relevamiento[] }
+
+// ── ZoneRow: fila de zona CC con checkbox padre indeterminado + sub-lista ────
+
+interface ZoneRowProps {
+  zona: string
+  consorcios: { numero: number; nombre: string }[]
+  isExpanded: boolean
+  isLayerOn: boolean          // whether the CC layer for this zone is currently on
+  activeSet: Set<number>
+  onToggleExpand: () => void
+  onToggleZone: () => void    // no nums arg needed — just toggle on/off
+  onToggleConsorcio: (num: number) => void
+}
+
+function ZoneRow({ zona, consorcios, isExpanded, isLayerOn, activeSet, onToggleExpand, onToggleZone, onToggleConsorcio }: ZoneRowProps) {
+  const checkboxRef = useRef<HTMLInputElement>(null)
+  // Layer on + empty filter set = all visible (fully checked)
+  // Layer on + non-empty filter set = some selected (indeterminate)
+  // Layer off = unchecked
+  const allChecked  = isLayerOn && activeSet.size === 0
+  const someChecked = isLayerOn && activeSet.size > 0
+  const color       = CC_COLORS[zona] || '#888'
+
+  useEffect(() => {
+    if (checkboxRef.current) {
+      checkboxRef.current.indeterminate = someChecked && !allChecked
+    }
+  }, [someChecked, allChecked])
+
+  const ITEM: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', whiteSpace: 'nowrap', fontSize: 12, color: '#e0e6f0', userSelect: 'none' }
+
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 2, marginBottom: 3 }}>
+        <label style={{ ...ITEM, flex: 1 }}>
+          <input
+            ref={checkboxRef}
+            type="checkbox"
+            checked={allChecked}
+            onChange={() => onToggleZone()}
+            style={{ accentColor: color, cursor: 'pointer', flexShrink: 0 }}
+          />
+          <span style={{ width: 8, height: 8, borderRadius: '50%', background: color, display: 'inline-block', flexShrink: 0 }} />
+          {zona}
+        </label>
+        {consorcios.length > 0 && (
+          <button
+            onClick={onToggleExpand}
+            title={isExpanded ? 'Colapsar consorcios' : 'Ver consorcios'}
+            style={{ background: 'none', border: 'none', color: '#7a8aaa', cursor: 'pointer', fontSize: 11, padding: '0 2px', lineHeight: 1, flexShrink: 0 }}
+          >
+            {isExpanded ? '▾' : '›'}
+          </button>
+        )}
+      </div>
+
+      {isExpanded && consorcios.length > 0 && (
+        <div style={{ paddingLeft: 14, marginBottom: 4, borderLeft: `2px solid ${color}40` }}>
+          {consorcios.map(s => (
+            <label key={s.numero} style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 2, cursor: 'pointer', whiteSpace: 'nowrap', fontSize: 11, color: '#b0b8cc', userSelect: 'none' }}>
+              <input
+                type="checkbox"
+                checked={activeSet.has(s.numero)}
+                onChange={() => onToggleConsorcio(s.numero)}
+                style={{ accentColor: color, cursor: 'pointer', flexShrink: 0 }}
+              />
+              <span style={{ color, fontWeight: 700, minWidth: 24 }}>{s.numero}</span>
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 90 }} title={s.nombre}>{s.nombre}</span>
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 // ── Componente principal ─────────────────────────────────────────────────────
 
@@ -189,12 +269,20 @@ export default function MapInner({ relevamientos }: Props) {
   // Leaflet layer groups keyed by LayerKey
   const groupsRef    = useRef<Partial<Record<LayerKey, import('leaflet').LayerGroup>>>({})
   const highlightRef = useRef<{ layer: import('leaflet').Path; style: import('leaflet').PathOptions } | null>(null)
+  // CC road layers per zona → Map<CC_number, Path[]> para filtrado por consorcio
+  const ccLayersRef  = useRef<Record<string, Map<number, import('leaflet').Path[]>>>({})
 
+  const [mapReady, setMapReady]   = useState(false)
   const [layers, setLayers]       = useState<LayerState>(DEFAULT_LAYERS)
   const [panelOpen, setPanelOpen] = useState(true)
   const [geo, setGeo] = useState<Record<string, unknown> | null>(null)
   const [rp,  setRp]  = useState<Record<string, unknown> | null>(null)
   const [cc,  setCc]  = useState<Record<string, unknown> | null>(null)
+  // Panel CC: zonas expandidas y consorcios seleccionados (vacío = todos visibles cuando la capa está ON)
+  const [expandedCC, setExpandedCC] = useState<Set<string>>(new Set())
+  const [ccSelected, setCcSelected] = useState<Record<string, Set<number>>>({
+    ZI: new Set(), ZII: new Set(), ZIII: new Set(), ZIV: new Set(), ZV: new Set(),
+  })
 
   // ── Inject popup CSS once ──
   useEffect(() => {
@@ -215,8 +303,12 @@ export default function MapInner({ relevamientos }: Props) {
   // ── Init Leaflet map ──
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return
+    // Flag para cancelar el .then si el cleanup corre antes de que resuelva
+    // (React StrictMode ejecuta mount→cleanup→mount en desarrollo)
+    let cancelled = false
     import('leaflet').then(L => {
-      const map = L.map(containerRef.current!, {
+      if (cancelled || !containerRef.current || mapRef.current) return
+      const map = L.map(containerRef.current, {
         center: [-26.5, -60.5],
         zoom: 7,
         zoomControl: true,
@@ -225,13 +317,14 @@ export default function MapInner({ relevamientos }: Props) {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
       }).addTo(map)
       mapRef.current = map
+      setMapReady(true)
 
       // Pre-create all layer groups
       const keys: LayerKey[] = [
         'limite', 'zonas', 'departamentos',
         'rpPavimentada', 'rpMejorada', 'rpEnObra', 'rpTierra',
         'ccZI', 'ccZII', 'ccZIII', 'ccZIV', 'ccZV',
-        'sedes', 'campamentos', 'relevamientos',
+        'sedes', 'campamentos', 'salud', 'relevamientos',
       ]
       keys.forEach(k => {
         groupsRef.current[k] = L.layerGroup()
@@ -239,8 +332,16 @@ export default function MapInner({ relevamientos }: Props) {
       })
     })
     return () => {
-      mapRef.current?.remove()
-      mapRef.current = null
+      cancelled = true
+      if (mapRef.current) {
+        mapRef.current.remove()
+        mapRef.current = null
+      }
+      if (containerRef.current) {
+        (containerRef.current as any)._leaflet_id = null
+      }
+      groupsRef.current = {}
+      setMapReady(false)
     }
   }, [])
 
@@ -373,6 +474,41 @@ export default function MapInner({ relevamientos }: Props) {
           },
         }).addTo(campGroup)
       }
+
+      // Salud — geometrías MultiPoint → convertir a Point para que pointToLayer funcione
+      const saludGroup = groupsRef.current.salud!
+      saludGroup.clearLayers()
+      if (geo.salud) {
+        const saludRaw = geo.salud as { features: any[] }
+        const saludPoints: GeoJSON.FeatureCollection = {
+          type: 'FeatureCollection',
+          features: saludRaw.features.flatMap((f: any) => {
+            const coords: number[][] =
+              f.geometry.type === 'MultiPoint' ? f.geometry.coordinates : [[...f.geometry.coordinates]]
+            return coords.map((coord: number[]) => ({
+              type: 'Feature' as const,
+              properties: f.properties,
+              geometry: { type: 'Point' as const, coordinates: coord },
+            }))
+          }),
+        }
+        L.geoJSON(saludPoints, {
+          pointToLayer(_, latlng) {
+            const icon = L.divIcon({
+              className: '',
+              html: `<div style="width:14px;height:14px;border-radius:50%;background:#e91e63;border:2px solid #fff;box-shadow:0 2px 4px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;color:#fff;font-size:9px;font-weight:800">✚</div>`,
+              iconSize: [14, 14], iconAnchor: [7, 7],
+            })
+            return L.marker(latlng, { icon })
+          },
+          onEachFeature(feature, layer) {
+            const p = feature.properties ?? {}
+            const nombre = p.fna || p.nam || 'Establecimiento de Salud'
+            const tipo   = p.gna || 'Salud'
+            layer.bindPopup(`<div class="poi-popup"><div class="poi-name">${nombre}</div><div class="poi-type">${tipo}</div></div>`)
+          },
+        }).addTo(saludGroup)
+      }
     })
   }, [geo])
 
@@ -398,7 +534,7 @@ export default function MapInner({ relevamientos }: Props) {
 
   // ── Populate CC layers ──
   useEffect(() => {
-    if (!cc || !mapRef.current) return
+    if (!cc || !mapReady || !mapRef.current) return
     import('leaflet').then(L => {
       Object.keys(ZONE_COLORS).forEach(zona => {
         const key = `cc${zona}` as LayerKey
@@ -409,18 +545,29 @@ export default function MapInner({ relevamientos }: Props) {
         const fc = cc[zona] as GeoJSON.FeatureCollection
         const baseStyle: import('leaflet').PathOptions = { color: c, weight: 1.8, opacity: 0.85 }
         const featureToVisLayer = new Map<GeoJSON.Feature, import('leaflet').Path>()
+        // Inicializar mapa de layers por CC número para esta zona
+        ccLayersRef.current[zona] = new Map()
 
-        // Capa visible CC
+        // Capa visible CC — también registra layers en ccLayersRef por CC número
         L.geoJSON(fc, {
           style(feature) {
-            const j = (feature?.properties?.JERARQUIA || feature?.properties?.jerarquia || '') as string
+            const j = (feature?.properties?.JERARQUIA || feature?.properties?.jerarquia || feature?.properties?.J || '') as string
             return { ...baseStyle, weight: CC_WEIGHT[j] ?? 1.8 }
           },
           onEachFeature(feature, layer) {
             const visLayer = layer as import('leaflet').Path
             featureToVisLayer.set(feature, visLayer)
+
+            // Registrar en ccLayersRef para filtrado por consorcio
             const p = (feature.properties ?? {}) as Record<string, unknown>
-            const j = (p.JERARQUIA || p.jerarquia || '') as string
+            const ccNum = Number(p.CC ?? p.cc ?? 0)
+            if (ccNum) {
+              const arr = ccLayersRef.current[zona].get(ccNum) ?? []
+              arr.push(visLayer)
+              ccLayersRef.current[zona].set(ccNum, arr)
+            }
+
+            const j = (p.JERARQUIA || p.jerarquia || p.J || '') as string
             const featureW = CC_WEIGHT[j] ?? 1.8
             const featureStyle: import('leaflet').PathOptions = { ...baseStyle, weight: featureW }
             const popup = L.popup({ maxWidth: 280 }).setContent(ccPopupHtml(p, zona))
@@ -454,35 +601,72 @@ export default function MapInner({ relevamientos }: Props) {
       })
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cc])
+  }, [cc, mapReady])
 
   // ── Populate relevamientos layer ──
   useEffect(() => {
-    if (!mapRef.current) return
+    if (!mapReady || !mapRef.current) return
     import('leaflet').then(L => {
-      const group = groupsRef.current.relevamientos!
+      const group = groupsRef.current.relevamientos
+      if (!group) return
       group.clearLayers()
+
+      const TIPO_LABEL: Record<string, string> = {
+        Puente: 'PTE', Alcantarilla: 'ALC', Tubos: 'TUB', Ripio: 'RIP', Otro: '?',
+      }
+
       relevamientos.forEach(r => {
         const color = TIPO_COLORS[r.tipo] || '#607D8B'
-        const popup = L.popup({ maxWidth: 280 }).setContent(relevPopupHtml(r))
+        const popup = L.popup({ maxWidth: 300, className: 'dark-popup' }).setContent(relevPopupHtml(r))
+
         if (r.tipo === 'Ripio' && r.coords_linea?.length) {
           const positions = r.coords_linea.map(p => [p.lat, p.lng] as [number, number])
-          L.polyline(positions, { color: '#4CAF50', weight: 3 })
+
+          // Línea visible
+          const visLine = L.polyline(positions, {
+            color, weight: 6, opacity: 0.9,
+            dashArray: undefined,
+            lineCap: 'round', lineJoin: 'round',
+          }).addTo(group)
+
+          // Hit area ancha invisible para facilitar el click
+          L.polyline(positions, { color: '#000', weight: 22, opacity: 0.001 })
+            .bindPopup(popup)
+            .on('click', () => {
+              visLine.setStyle({ color: '#F5C300', weight: 8 })
+              popup.on('remove', () => visLine.setStyle({ color, weight: 6 }))
+            })
+            .addTo(group)
+
+          // Marcador en el punto inicial
+          const [startLat, startLng] = positions[0]
+          const startIcon = L.divIcon({
+            className: '',
+            html: `<div style="width:28px;height:28px;border-radius:50%;background:${color};border:2.5px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;color:#fff;letter-spacing:.3px">RIP</div>`,
+            iconSize: [28, 28], iconAnchor: [14, 14],
+          })
+          L.marker([startLat, startLng], { icon: startIcon })
             .bindPopup(popup)
             .addTo(group)
-        } else if (r.coords) {
+
+        } else if (r.coords_lat != null && r.coords_lng != null) {
+          const label = TIPO_LABEL[r.tipo] || '?'
           const icon = L.divIcon({
             className: '',
-            html: `<div style="width:14px;height:14px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.5)"></div>`,
-            iconSize: [14, 14], iconAnchor: [7, 7],
+            html: `
+              <div style="position:relative;width:36px;height:42px">
+                <div style="width:36px;height:36px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:${color};border:2.5px solid #fff;box-shadow:0 3px 8px rgba(0,0,0,.55);position:absolute;top:0;left:0"></div>
+                <div style="position:absolute;top:4px;left:0;width:36px;height:28px;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;color:#fff;letter-spacing:.3px;line-height:1">${label}</div>
+              </div>`,
+            iconSize: [36, 42], iconAnchor: [18, 42],
           })
-          L.marker([r.coords.lat, r.coords.lng], { icon })
+          L.marker([r.coords_lat, r.coords_lng], { icon })
             .bindPopup(popup)
             .addTo(group)
         }
       })
     })
-  }, [relevamientos])
+  }, [relevamientos, mapReady])
 
   // ── Toggle layer visibility ──
   useEffect(() => {
@@ -492,56 +676,128 @@ export default function MapInner({ relevamientos }: Props) {
       Object.entries(layers).forEach(([key, visible]) => {
         const group = groupsRef.current[key as LayerKey]
         if (!group) return
-        if (visible && !map.hasLayer(group)) group.addTo(map)
+        if (visible && !map.hasLayer(group)) {
+          group.addTo(map)
+        }
         if (!visible && map.hasLayer(group)) map.removeLayer(group)
       })
     })
   }, [layers])
 
-  // ── Toggle helper ──
+  // ── Filtrado de CC por consorcio individual ──
+  useEffect(() => {
+    Object.entries(ccSelected).forEach(([zona, activeSet]) => {
+      const layerMap = ccLayersRef.current[zona]
+      if (!layerMap) return
+      layerMap.forEach((paths, ccNum) => {
+        // Empty set = no individual filter active → all visible; partial = filtered
+        const visible = activeSet.size === 0 || activeSet.has(ccNum)
+        paths.forEach(p => p.setStyle({ opacity: visible ? 0.85 : 0 }))
+      })
+    })
+  }, [ccSelected])
+
+  // ── Toggle helpers ──
   function toggle(key: LayerKey) {
     setLayers(prev => ({ ...prev, [key]: !prev[key] }))
   }
 
+  function toggleExpandCC(zona: string) {
+    setExpandedCC(prev => {
+      const next = new Set(prev)
+      if (next.has(zona)) next.delete(zona)
+      else next.add(zona)
+      return next
+    })
+  }
+
+  // Checkbox padre — 3 estados:
+  //   OFF  → click → ON (filtro vacío = todos visibles)
+  //   ON con filtro individual (indeterminado) → click → ON (limpiar filtro = todos visibles)
+  //   ON sin filtro (todos visibles) → click → OFF
+  function toggleZone(zona: string) {
+    const isOn    = layers[`cc${zona}` as LayerKey]
+    const hasFilter = (ccSelected[zona]?.size ?? 0) > 0
+    if (!isOn) {
+      setCcSelected(prev => ({ ...prev, [zona]: new Set() }))
+      setLayers(prev => ({ ...prev, [`cc${zona}` as LayerKey]: true }))
+    } else if (hasFilter) {
+      setCcSelected(prev => ({ ...prev, [zona]: new Set() }))
+    } else {
+      setLayers(prev => ({ ...prev, [`cc${zona}` as LayerKey]: false }))
+    }
+  }
+
+  // Checkbox hijo: toggle individual. Si la capa estaba apagada, la enciende.
+  function toggleConsorcio(zona: string, numero: number) {
+    const wasOff = !layers[`cc${zona}` as LayerKey]
+    setCcSelected(prev => {
+      const next = new Set(prev[zona])
+      if (next.has(numero)) next.delete(numero)
+      else next.add(numero)
+      return { ...prev, [zona]: next }
+    })
+    if (wasOff) {
+      setLayers(prev => ({ ...prev, [`cc${zona}` as LayerKey]: true }))
+    }
+  }
+
+  // ── Sedes agrupadas por zona (para sub-lista CC) ──
+  const sedesByZona = useMemo(() => {
+    const result: Record<string, { numero: number; nombre: string }[]> = {}
+    if (!geo?.sedes) return result
+    const sedes = geo.sedes as Sede[]
+    sedes.forEach(s => {
+      if (!result[s.zona]) result[s.zona] = []
+      result[s.zona].push({ numero: s.numero, nombre: s.nombre })
+    })
+    Object.values(result).forEach(arr => arr.sort((a, b) => a.numero - b.numero))
+    return result
+  }, [geo])
+
   // ── Panel de capas UI ─────────────────────────────────────────────────────
 
-  const panelStyle: React.CSSProperties = {
-    position: 'absolute', top: 10, left: 10, zIndex: 1000,
-    background: '#1e2436', border: '1px solid #2a3450',
-    borderRadius: 8, overflow: 'hidden',
-    boxShadow: '0 4px 12px rgba(0,0,0,.5)',
-    fontFamily: 'system-ui, sans-serif',
-    fontSize: 12, color: '#e0e6f0',
-    minWidth: panelOpen ? 170 : 36,
-    transition: 'min-width 0.2s',
+  // ── Estilos compartidos del panel ──
+  const ITEM_STYLE: React.CSSProperties = {
+    display: 'flex', alignItems: 'center', gap: 6,
+    marginBottom: 3, cursor: 'pointer', whiteSpace: 'nowrap',
+    fontSize: 12, color: '#e0e6f0', userSelect: 'none',
   }
-
-  function SectionTitle({ children }: { children: string }) {
-    return <div style={{ fontSize: 10, color: '#7a8aaa', textTransform: 'uppercase', letterSpacing: 0.5, margin: '8px 0 4px' }}>{children}</div>
+  const SECTION_TITLE_STYLE: React.CSSProperties = {
+    fontSize: 10, color: '#7a8aaa', textTransform: 'uppercase',
+    letterSpacing: 0.5, margin: '8px 0 4px', fontWeight: 600,
   }
-
-  function LayerCheck({ k, label, dot }: { k: LayerKey; label: string; dot?: string }) {
-    return (
-      <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-        <input type="checkbox" checked={layers[k]} onChange={() => toggle(k)} style={{ accentColor: '#F5C300', cursor: 'pointer' }} />
-        {dot && <span style={{ width: 8, height: 8, borderRadius: '50%', background: dot, display: 'inline-block', flexShrink: 0 }} />}
-        {label}
-      </label>
-    )
-  }
+  const DOT = (color: string) => (
+    <span style={{ width: 8, height: 8, borderRadius: '50%', background: color, display: 'inline-block', flexShrink: 0 }} />
+  )
+  const CHECKBOX_STYLE: React.CSSProperties = { accentColor: '#F5C300', cursor: 'pointer', flexShrink: 0 }
 
   return (
     <div style={{ position: 'relative', height: '100%', width: '100%' }}>
-      <div ref={containerRef} style={{ height: '100%', width: '100%', borderRadius: 8 }} />
+      <div ref={containerRef} style={{ height: '100%', width: '100%' }} />
 
       {/* Panel de capas flotante */}
-      <div style={panelStyle}>
-        {/* Header del panel */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', borderBottom: '1px solid #2a3450', background: '#252d40' }}>
+      <div style={{
+        position: 'absolute', top: 10, left: 10, zIndex: 1000,
+        background: '#1e2436', border: '1px solid #2a3450',
+        borderRadius: 8,
+        // overflowX:clip recorta solo el eje horizontal (para la animación de colapso)
+        // sin bloquear el scroll vertical del hijo
+        overflowX: 'clip' as React.CSSProperties['overflowX'],
+        boxShadow: '0 4px 12px rgba(0,0,0,.5)',
+        fontFamily: 'system-ui, sans-serif',
+        width: panelOpen ? 178 : 36,
+        transition: 'width 0.2s',
+        maxHeight: 'calc(100vh - 80px)',
+        display: 'flex', flexDirection: 'column',
+      }}>
+
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', borderBottom: '1px solid #2a3450', background: '#252d40', flexShrink: 0 }}>
           {panelOpen && <span style={{ fontWeight: 700, fontSize: 11, color: '#e0e6f0' }}>Capas</span>}
           <button
             onClick={() => setPanelOpen(v => !v)}
-            style={{ background: 'none', border: 'none', color: '#7a8aaa', cursor: 'pointer', fontSize: 14, padding: 0, lineHeight: 1, marginLeft: panelOpen ? 0 : 'auto' }}
+            style={{ background: 'none', border: 'none', color: '#7a8aaa', cursor: 'pointer', fontSize: 13, padding: 0, lineHeight: 1, marginLeft: panelOpen ? 0 : 'auto' }}
             title={panelOpen ? 'Colapsar' : 'Expandir'}
           >
             {panelOpen ? '⮜' : '⮞'}
@@ -549,29 +805,74 @@ export default function MapInner({ relevamientos }: Props) {
         </div>
 
         {panelOpen && (
-          <div style={{ padding: '4px 10px 10px' }}>
-            <SectionTitle>Base</SectionTitle>
-            <LayerCheck k="limite"        label="Límite provincial" />
-            <LayerCheck k="zonas"         label="Zonas" />
-            <LayerCheck k="departamentos" label="Departamentos" />
+          <div style={{ padding: '4px 10px 10px', overflowY: 'auto', flex: 1 }}>
 
-            <SectionTitle>Red Vial</SectionTitle>
-            <LayerCheck k="rpPavimentada" label="RP Pavimentada" dot="#e74c3c" />
-            <LayerCheck k="rpMejorada"    label="RP Mejorada"    dot="#27ae60" />
-            <LayerCheck k="rpEnObra"      label="RP En Obra"     dot="#e74c3c" />
-            <LayerCheck k="rpTierra"      label="RP Tierra"      dot="#e67e22" />
-
-            <SectionTitle>Red CC</SectionTitle>
-            {(['ZI', 'ZII', 'ZIII', 'ZIV', 'ZV'] as const).map(z => (
-              <LayerCheck key={z} k={`cc${z}` as LayerKey} label={z} dot={CC_COLORS[z]} />
+            {/* BASE */}
+            <div style={SECTION_TITLE_STYLE}>Base</div>
+            {(['limite', 'zonas', 'departamentos'] as const).map(k => (
+              <label key={k} style={ITEM_STYLE}>
+                <input type="checkbox" checked={!!layers[k]} onChange={() => toggle(k)} style={CHECKBOX_STYLE} />
+                {{ limite: 'Límite provincial', zonas: 'Zonas', departamentos: 'Departamentos' }[k]}
+              </label>
             ))}
 
-            <SectionTitle>Puntos</SectionTitle>
-            <LayerCheck k="sedes"       label="Sedes" />
-            <LayerCheck k="campamentos" label="Campamentos" />
+            {/* RED VIAL */}
+            <div style={SECTION_TITLE_STYLE}>Red Vial</div>
+            {([
+              ['rpPavimentada', 'RP Pavimentada', '#e74c3c'],
+              ['rpMejorada',    'RP Mejorada',    '#27ae60'],
+              ['rpEnObra',      'RP En Obra',      '#e74c3c'],
+              ['rpTierra',      'RP Tierra',       '#e67e22'],
+            ] as [LayerKey, string, string][]).map(([k, label, color]) => (
+              <label key={k} style={ITEM_STYLE}>
+                <input type="checkbox" checked={!!layers[k]} onChange={() => toggle(k)} style={CHECKBOX_STYLE} />
+                {DOT(color)}
+                {label}
+              </label>
+            ))}
 
-            <SectionTitle>Relevamientos</SectionTitle>
-            <LayerCheck k="relevamientos" label="Relevamientos" />
+            {/* RED CC */}
+            <div style={SECTION_TITLE_STYLE}>Red CC</div>
+            {(['ZI', 'ZII', 'ZIII', 'ZIV', 'ZV'] as const).map(z => (
+              <ZoneRow
+                key={z}
+                zona={z}
+                consorcios={sedesByZona[z] ?? []}
+                isExpanded={expandedCC.has(z)}
+                isLayerOn={!!layers[`cc${z}` as LayerKey]}
+                activeSet={ccSelected[z] ?? new Set()}
+                onToggleExpand={() => toggleExpandCC(z)}
+                onToggleZone={() => toggleZone(z)}
+                onToggleConsorcio={(num) => toggleConsorcio(z, num)}
+              />
+            ))}
+
+            {/* PUNTOS */}
+            <div style={SECTION_TITLE_STYLE}>Puntos</div>
+            <label style={ITEM_STYLE}>
+              <input type="checkbox" checked={!!layers.sedes} onChange={() => toggle('sedes')} style={CHECKBOX_STYLE} />
+              Sedes
+            </label>
+            <label style={ITEM_STYLE}>
+              <input type="checkbox" checked={!!layers.campamentos} onChange={() => toggle('campamentos')} style={CHECKBOX_STYLE} />
+              Campamentos
+            </label>
+
+            {/* PUNTOS DE SALUD */}
+            <div style={SECTION_TITLE_STYLE}>Puntos de Salud</div>
+            <label style={ITEM_STYLE}>
+              <input type="checkbox" checked={!!layers.salud} onChange={() => toggle('salud')} style={CHECKBOX_STYLE} />
+              <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: '50%', background: '#e91e63', flexShrink: 0 }} />
+              Establecimientos
+            </label>
+
+            {/* RELEVAMIENTOS */}
+            <div style={SECTION_TITLE_STYLE}>Relevamientos</div>
+            <label style={ITEM_STYLE}>
+              <input type="checkbox" checked={!!layers.relevamientos} onChange={() => toggle('relevamientos')} style={CHECKBOX_STYLE} />
+              Relevamientos
+            </label>
+
           </div>
         )}
       </div>

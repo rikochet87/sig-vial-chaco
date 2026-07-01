@@ -77,6 +77,8 @@ export interface Relevamiento {
   coords: { lat: number; lng: number };
   coordsLinea?: { lat: number; lng: number }[]; // para features lineales (Ripio)
   autoDeteccion?: AutoDeteccion;
+  /** Zona del técnico logueado — tiene prioridad sobre autoDeteccion.zona al sincronizar */
+  tecnicoZona?: string;
   rutaTramo: string;
   estadoCalzada: EstadoCalzada;
   tipo: TipoInfraestructura;

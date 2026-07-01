@@ -12,7 +12,7 @@ function toSupabaseRow(r: Relevamiento, userId: string) {
     coords_linea: r.coordsLinea ?? null,
     ruta_tramo: r.rutaTramo,
     cc_asociado: r.ccAsociado ?? r.autoDeteccion?.ccNombre ?? null,
-    zona: r.autoDeteccion?.zona ?? null,
+    zona: r.tecnicoZona || null,  // siempre zona del técnico; nunca la geo-detectada
     observaciones: r.observaciones,
     fotos: r.fotos ?? [],
     datos_especificos: {

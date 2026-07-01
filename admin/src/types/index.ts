@@ -2,21 +2,26 @@ export interface Relevamiento {
   id: string
   fecha: string
   tipo: string
-  tecnico: string
-  estado_calzada: string
-  coords: { lat: number; lng: number } | null
+  tecnico_id: string | null
+  estado_calzada: string | null
+  // Coords: se almacenan como columnas separadas en la tabla
+  coords_lat: number | null
+  coords_lng: number | null
   coords_linea: Array<{ lat: number; lng: number }> | null
-  auto_deteccion: { consorcio?: string; zona?: string } | null
-  ruta_tramo: string
-  sync_status: string
-  user_id: string
-  observaciones: string
-  datos_puente: Record<string, unknown> | null
-  datos_alcantarilla: Record<string, unknown> | null
-  datos_tubos: Record<string, unknown> | null
-  datos_ripio: Record<string, unknown> | null
-  datos_otro: Record<string, unknown> | null
+  cc_asociado: string | null
+  zona: string | null
+  ruta_tramo: string | null
+  observaciones: string | null
   fotos: string[] | null
+  // Todos los datos específicos en un solo JSON
+  datos_especificos: {
+    puente?:       Record<string, unknown> | null
+    alcantarilla?: Record<string, unknown> | null
+    tubos?:        Record<string, unknown> | null
+    ripio?:        Record<string, unknown> | null
+    otro?:         Record<string, unknown> | null
+  } | null
+  sincronizado_en: string | null
   created_at?: string
 }
 

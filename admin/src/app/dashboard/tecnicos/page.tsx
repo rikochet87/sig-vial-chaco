@@ -1,13 +1,26 @@
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import DeleteTecnicoButton from './DeleteTecnicoButton'
 import type { Profile } from '@/types'
 
 export default async function TecnicosPage() {
-  const supabase = await createClient()
-  const { data: profiles } = await supabase.from('profiles').select('*').order('nombre')
+  const supabase = createServiceClient()
 
-  const rows = (profiles as Profile[]) ?? []
+  // Traer perfiles y usuarios auth en paralelo
+  const [{ data: profiles }, { data: authData }] = await Promise.all([
+    supabase.from('profiles').select('*').order('nombre'),
+    supabase.auth.admin.listUsers(),
+  ])
+
+  // Mapear email desde auth.users por id
+  const emailById = Object.fromEntries(
+    (authData?.users ?? []).map(u => [u.id, u.email ?? ''])
+  )
+
+  const rows = ((profiles as Profile[]) ?? []).map(p => ({
+    ...p,
+    email: emailById[p.id] ?? '',
+  }))
 
   return (
     <div>

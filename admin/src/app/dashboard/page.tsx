@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 import type { Relevamiento } from '@/types'
 import DashboardMap from '@/components/DashboardMap'
 
@@ -7,20 +7,20 @@ function StatCard({ label, value, sub }: { label: string; value: number | string
     <div style={{
       background: '#2C2C2C',
       borderRadius: 10,
-      padding: '20px 24px',
+      padding: '14px 18px',
       borderLeft: '4px solid #F5C300',
       flex: 1,
-      minWidth: 160,
+      minWidth: 120,
     }}>
-      <div style={{ color: '#9E9E9E', fontSize: 13, marginBottom: 8 }}>{label}</div>
-      <div style={{ color: '#fff', fontSize: 32, fontWeight: 700 }}>{value}</div>
-      {sub && <div style={{ color: '#9E9E9E', fontSize: 12, marginTop: 4 }}>{sub}</div>}
+      <div style={{ color: '#9E9E9E', fontSize: 11, marginBottom: 6 }}>{label}</div>
+      <div style={{ color: '#fff', fontSize: 22, fontWeight: 700 }}>{value}</div>
+      {sub && <div style={{ color: '#9E9E9E', fontSize: 10, marginTop: 4 }}>{sub}</div>}
     </div>
   )
 }
 
 export default async function DashboardPage() {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   const [
     { count: totalRelev },
@@ -30,10 +30,10 @@ export default async function DashboardPage() {
     { data: relevamientos },
   ] = await Promise.all([
     supabase.from('relevamientos').select('*', { count: 'exact', head: true }),
-    supabase.from('relevamientos').select('*', { count: 'exact', head: true }).neq('sync_status', 'sincronizado'),
+    supabase.from('relevamientos').select('*', { count: 'exact', head: true }).is('sincronizado_en', null),
     supabase.from('profiles').select('*', { count: 'exact', head: true }),
     supabase.from('consorcios').select('*', { count: 'exact', head: true }),
-    supabase.from('relevamientos').select('id,fecha,tipo,tecnico,estado_calzada,coords,coords_linea,auto_deteccion,ruta_tramo,sync_status,user_id,observaciones,datos_puente,datos_alcantarilla,datos_tubos,datos_ripio,datos_otro,fotos').limit(500),
+    supabase.from('relevamientos').select('id,fecha,tipo,tecnico_id,estado_calzada,coords_lat,coords_lng,coords_linea,cc_asociado,zona,ruta_tramo,observaciones,fotos,datos_especificos,sincronizado_en').limit(500),
   ])
 
   return (
@@ -48,8 +48,8 @@ export default async function DashboardPage() {
         <StatCard label="Consorcios" value={totalConsorcios ?? 0} />
       </div>
 
-      {/* Map */}
-      <div style={{ background: '#2C2C2C', borderRadius: 10, overflow: 'hidden', height: 480 }}>
+      {/* Map — full-width, borde a borde del área de contenido */}
+      <div style={{ height: 560, margin: '0 -1.5rem', borderRadius: 0, position: 'relative' }}>
         <DashboardMap relevamientos={(relevamientos as Relevamiento[]) ?? []} />
       </div>
     </div>

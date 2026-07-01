@@ -11,6 +11,7 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
@@ -62,17 +63,26 @@ export default function LoginScreen() {
           />
 
           <Text style={s.label}>Contraseña</Text>
-          <TextInput
-            style={s.input}
-            value={password}
-            onChangeText={setPassword}
-            placeholder="••••••••"
-            placeholderTextColor="#666"
-            secureTextEntry
-            editable={!loading}
-            onSubmitEditing={handleLogin}
-            returnKeyType="done"
-          />
+          <View style={s.passwordWrapper}>
+            <TextInput
+              style={[s.input, s.passwordInput]}
+              value={password}
+              onChangeText={setPassword}
+              placeholder="••••••••"
+              placeholderTextColor="#666"
+              secureTextEntry={!showPassword}
+              editable={!loading}
+              onSubmitEditing={handleLogin}
+              returnKeyType="done"
+            />
+            <TouchableOpacity
+              style={s.eyeBtn}
+              onPress={() => setShowPassword(v => !v)}
+              activeOpacity={0.7}
+            >
+              <Text style={s.eyeIcon}>{showPassword ? '🙈' : '👁'}</Text>
+            </TouchableOpacity>
+          </View>
 
           <TouchableOpacity
             style={[s.btn, loading && s.btnDisabled]}
@@ -164,6 +174,23 @@ const s = StyleSheet.create({
     color: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#444',
+  },
+  passwordWrapper: {
+    position: 'relative',
+  },
+  passwordInput: {
+    paddingRight: 48,
+  },
+  eyeBtn: {
+    position: 'absolute',
+    right: 12,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  eyeIcon: {
+    fontSize: 20,
   },
   btn: {
     backgroundColor: '#F5C300',

@@ -15,6 +15,7 @@ export default function NuevoTecnicoPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -63,7 +64,24 @@ export default function NuevoTecnicoPage() {
           </div>
           <div style={{ marginBottom: 16 }}>
             <label style={labelStyle}>Contraseña (mín. 8 caracteres)</label>
-            <input type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={8} style={inputStyle} />
+            <div style={{ position: 'relative' }}>
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                required
+                minLength={8}
+                style={{ ...inputStyle, paddingRight: 44 }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(v => !v)}
+                style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#9E9E9E', fontSize: 18, padding: 4, lineHeight: 1 }}
+                title={showPassword ? 'Ocultar contraseña' : 'Ver contraseña'}
+              >
+                {showPassword ? '🙈' : '👁'}
+              </button>
+            </div>
           </div>
           <div style={{ marginBottom: 16 }}>
             <label style={labelStyle}>Zona</label>

@@ -30,6 +30,22 @@ const useC = () => useContext(CCtx)!;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+function haversineM(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371000;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2
+    + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function calcPolylineM(pts: LatLngPunto[]): number {
+  let total = 0;
+  for (let i = 1; i < pts.length; i++)
+    total += haversineM(pts[i - 1].lat, pts[i - 1].lng, pts[i].lat, pts[i].lng);
+  return Math.round(total);
+}
+
 function nearestCC(lat: number, lng: number) {
   let best = CONSORCIOS[0];
   let minD = Infinity;
@@ -666,8 +682,12 @@ interface Props {
   initialCoordsLinea?: LatLngPunto[];
   /** Coordenada puntual pre-colocada desde el mapa para obras puntuales */
   initialCoord?: { lat: number; lng: number } | null;
-  /** Propiedades del segmento CC al que snapeó el pin manual (null si no snapeó) */
+  /** Propiedades del segmento CC/RP al que snapeó el pin manual (null si no snapeó) */
   snapInfo?: Record<string, any> | null;
+  /** Nombre del técnico logueado para auto-completar el campo */
+  tecnicoNombre?: string;
+  /** Zona asignada al técnico logueado — sobreescribe la auto-detección geográfica */
+  tecnicoZona?: string;
   /** Llamado cuando el usuario elige "Dibujar en mapa" para Ripio */
   onRequestDraw?: () => void;
   /** Llamado cuando el usuario elige "Ir al mapa" para colocar un punto puntual */
@@ -682,7 +702,7 @@ const TIPO_ICONS: Record<TipoInfraestructura, string> = {
 };
 const ESTADOS: EstadoCalzada[] = ['Bueno', 'Regular', 'Malo'];
 
-export default function RelevamientoModal({ visible, coords, editando, onUpdate, initialCoordsLinea, initialCoord, snapInfo, onRequestDraw, onRequestPickPoint, onSave, onClose }: Props) {
+export default function RelevamientoModal({ visible, coords, editando, onUpdate, initialCoordsLinea, initialCoord, snapInfo, tecnicoNombre, tecnicoZona, onRequestDraw, onRequestPickPoint, onSave, onClose }: Props) {
   const Colors = useColors();
   const s = useMemo(() => makeStyles(Colors), [Colors]);
   const [estadoCalzada, setEstadoCalzada] = useState<EstadoCalzada>('Regular');
@@ -716,19 +736,24 @@ export default function RelevamientoModal({ visible, coords, editando, onUpdate,
       setOtroDesc(editando.datosOtro?.descripcion ?? DEFAULT_OTRO.descripcion);
       setRutaTramo(editando.rutaTramo ?? '');
       setObservaciones(editando.observaciones ?? '');
-      setTecnico(editando.tecnico ?? '');
+      setTecnico(editando.tecnico || tecnicoNombre || '');
       setFotos([...editando.fotos]);
       setPointCoord(editando.tipo !== 'Ripio' ? (editando.coords ?? null) : null);
     } else {
+      setTecnico(tecnicoNombre || '');
       if (initialCoordsLinea && initialCoordsLinea.length >= 2) {
         setCoordsLinea([...initialCoordsLinea]);
         setTipo('Ripio');
+        const longM = calcPolylineM(initialCoordsLinea);
+        if (longM > 0) setDatosRipio(prev => ({ ...prev, longitud: String(longM) }));
       }
       if (initialCoord) setPointCoord(initialCoord);
       if (snapInfo) {
         const p = snapInfo;
         let autoRuta = '';
-        if (p.Nc) {
+        if (p._rpLabel && p.Nombre) {
+          autoRuta = `${p._rpLabel} N° ${p.Nombre}`;
+        } else if (p.Nc) {
           autoRuta = p.Nc;
         } else if (p.CC && p.T) {
           autoRuta = `CC N°${p.CC} - Tramo N°${p.T}`;
@@ -805,6 +830,7 @@ export default function RelevamientoModal({ visible, coords, editando, onUpdate,
       fecha: editando ? editando.fecha : new Date().toISOString(),
       coords: baseCoords,
       coordsLinea: tipo === 'Ripio' ? [...coordsLinea] : undefined,
+      tecnicoZona: tecnicoZona || editando?.tecnicoZona,
       autoDeteccion: autoCC
         ? {
             zona: autoCC.zona,
