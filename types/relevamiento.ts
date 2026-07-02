@@ -26,6 +26,9 @@ export interface DatosPuente {
   estadoEstructural: EstadoCalzada;
 }
 
+export type MaterialTablero = 'Madera' | 'Hº Aº' | '';
+export type SituacionHidraulica = 'Estiaje' | 'Inundación' | '';
+
 export interface DatosAlcantarilla {
   longitudTotal: string;
   cantidadLuces: string;
@@ -35,8 +38,13 @@ export interface DatosAlcantarilla {
   h: string;
   materialesAlas: string;
   longitudAlas: string;
-  estadoEstructural: EstadoCalzada;
-  situacionHidraulica: string;
+  // Materiales - Tablero
+  tableroMaterial: MaterialTablero;
+  tableroEstado: EstadoCalzada;
+  // Estado
+  estadoEstructural: EstadoCalzada;     // Estado General Estructural
+  losaFondoEstado: EstadoCalzada;       // Losa de Fondo
+  situacionHidraulica: SituacionHidraulica;
 }
 
 export interface DatosTubos {
@@ -115,7 +123,9 @@ export const DEFAULT_PUENTE: DatosPuente = {
 export const DEFAULT_ALCANTARILLA: DatosAlcantarilla = {
   longitudTotal: '', cantidadLuces: '', longitudLuces: '', anchoTotal: '',
   anchoCalzada: '', h: '', materialesAlas: '', longitudAlas: '',
-  estadoEstructural: 'Regular', situacionHidraulica: '',
+  tableroMaterial: '', tableroEstado: 'Regular',
+  estadoEstructural: 'Regular', losaFondoEstado: 'Regular',
+  situacionHidraulica: '',
 };
 
 export const DEFAULT_TUBOS: DatosTubos = {

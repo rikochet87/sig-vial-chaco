@@ -291,11 +291,40 @@ function AlcantarillaForm({ data, onChange }: {
         <FInput value={data.longitudAlas} onChange={set('longitudAlas')} numeric unit="m" />
       </FGroup>
 
+      <FGroup label="Materiales — Tablero">
+        <FLabel text="Material del tablero" />
+        <View style={s.estadoRow}>
+          {(['Madera', 'Hº Aº'] as const).map(mat => (
+            <TouchableOpacity
+              key={mat}
+              style={[s.estadoBtn, data.tableroMaterial === mat && { backgroundColor: '#2C2C2C', borderColor: '#F5C300' }]}
+              onPress={() => set('tableroMaterial')(data.tableroMaterial === mat ? '' : mat)}
+            >
+              <Text style={[s.estadoBtnTxt, data.tableroMaterial === mat && s.estadoBtnTxtOn]}>{mat}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        <FLabel text="Estado del tablero" />
+        <EstadoEstructuralBtns value={data.tableroEstado} onChange={set('tableroEstado')} />
+      </FGroup>
+
       <FGroup label="Estado">
-        <FLabel text="Estado estructural" />
+        <FLabel text="Estado general estructural" />
         <EstadoEstructuralBtns value={data.estadoEstructural} onChange={set('estadoEstructural')} />
+        <FLabel text="Losa de fondo" />
+        <EstadoEstructuralBtns value={data.losaFondoEstado} onChange={set('losaFondoEstado')} />
         <FLabel text="Situación hidráulica" />
-        <FInput value={data.situacionHidraulica} onChange={set('situacionHidraulica')} placeholder="Descripción..." multiline />
+        <View style={s.estadoRow}>
+          {(['Estiaje', 'Inundación'] as const).map(sit => (
+            <TouchableOpacity
+              key={sit}
+              style={[s.estadoBtn, data.situacionHidraulica === sit && { backgroundColor: '#1565C0', borderColor: '#1565C0' }]}
+              onPress={() => set('situacionHidraulica')(data.situacionHidraulica === sit ? '' : sit)}
+            >
+              <Text style={[s.estadoBtnTxt, data.situacionHidraulica === sit && s.estadoBtnTxtOn]}>{sit}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
       </FGroup>
     </>
   );
