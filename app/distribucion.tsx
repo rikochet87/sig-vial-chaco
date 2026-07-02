@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -7,7 +7,6 @@ import { Colors } from '@/constants/Colors';
 import { GEO_BUNDLE } from '@/constants/geoBundle';
 
 const SEDES = GEO_BUNDLE.sedes as any[];
-const { width } = Dimensions.get('window');
 
 const ZONAS_DEF = [
   { id: 'ZI',   label: 'Zona I',   color: '#6baed6' },

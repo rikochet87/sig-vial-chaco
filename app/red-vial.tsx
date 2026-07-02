@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  FlatList, TextInput, ScrollView, Dimensions,
+  FlatList, TextInput, ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -9,7 +9,6 @@ import { Colors } from '@/constants/Colors';
 import { GEO_BUNDLE } from '@/constants/geoBundle';
 
 const SEDES = GEO_BUNDLE.sedes as any[];
-const { width } = Dimensions.get('window');
 
 const ZONAS = ['Todas', 'ZI', 'ZII', 'ZIII', 'ZIV', 'ZV'];
 const ZONA_LABELS: Record<string, string> = {
@@ -117,7 +116,7 @@ export default function RedVialScreen() {
         </TouchableOpacity>
         <View style={styles.headerText}>
           <Text style={styles.headerTitle}>Red Vial</Text>
-          <Text style={styles.headerSub}>SIG Vial Chaco — Red Vial Rural</Text>
+          <Text style={styles.headerSub}>SIG Vial Chaco — Red Vial bajo convenio</Text>
         </View>
       </View>
 

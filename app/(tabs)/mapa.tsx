@@ -4,7 +4,7 @@ import type { ColorPalette } from '@/constants/Colors';
 import { useFocusEffect } from 'expo-router';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  ScrollView, Animated, Dimensions, StatusBar, Platform, Alert,
+  ScrollView, Animated, useWindowDimensions, StatusBar, Platform, Alert,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { GEO_BUNDLE } from '@/constants/geoBundle';
@@ -20,8 +20,6 @@ import type { Relevamiento } from '@/types/relevamiento';
 let Location: any = null;
 try { Location = require('expo-location'); } catch (_) {}
 
-const { width, height } = Dimensions.get('window');
-const DRAWER_WIDTH = Math.min(width * 0.78, 300);
 
 const ZONA_COLORS: Record<string, string> = {
   ZI: '#6baed6', ZII: '#fb6a4a', ZIII: '#fdd44c', ZIV: '#74c476', ZV: '#9e9ac8',
@@ -1107,7 +1105,9 @@ function clearPickedPointMarker(){
 export default function MapaScreen() {
   const webviewRef = useRef<WebView>(null);
   const C = useColors();
-  const styles = useMemo(() => makeStyles(C), [C]);
+  const { width } = useWindowDimensions();
+  const DRAWER_WIDTH = useMemo(() => Math.min(width * 0.78, 300), [width]);
+  const styles = useMemo(() => makeStyles(C, DRAWER_WIDTH), [C, DRAWER_WIDTH]);
   const drawerAnim = useRef(new Animated.Value(-DRAWER_WIDTH)).current;
   const overlayAnim = useRef(new Animated.Value(0)).current;
 
@@ -1127,6 +1127,11 @@ export default function MapaScreen() {
   const snapInfoRef = useRef<Record<string,any>|null>(null);
   const [tecnicoNombre, setTecnicoNombre] = useState('');
   const [tecnicoZona, setTecnicoZona] = useState('');
+
+  // Resetear posición del drawer al rotar el dispositivo (cuando está cerrado)
+  useEffect(() => {
+    if (!drawerOpen) drawerAnim.setValue(-DRAWER_WIDTH);
+  }, [DRAWER_WIDTH]);
 
   // Auto-detectar técnico logueado — con caché offline en AsyncStorage
   useEffect(() => {
@@ -1794,7 +1799,7 @@ export default function MapaScreen() {
 }
 
 // ── STYLES ──────────────────────────────────────────────────────────────────
-function makeStyles(C: ColorPalette) { return StyleSheet.create({
+function makeStyles(C: ColorPalette, DRAWER_WIDTH: number) { return StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },
 
   overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.55)', zIndex: 10 },

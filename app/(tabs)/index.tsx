@@ -1,4 +1,4 @@
-import { ScrollView, View, Text, StyleSheet, TouchableOpacity, Dimensions, Alert } from 'react-native';
+import { ScrollView, View, Text, StyleSheet, TouchableOpacity, useWindowDimensions, Alert } from 'react-native';
 import { useMemo } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -7,8 +7,6 @@ import { useAuth } from '@/context/AuthContext';
 import type { ColorPalette } from '@/constants/Colors';
 import { ZONAS_CONFIG } from '@/constants/realData';
 import { useConsorcios } from '@/hooks/useConsorcios';
-
-const { width } = Dimensions.get('window');
 
 function StatCard({
   label, value, icon, color, onPress, styles, C,
@@ -35,7 +33,8 @@ function StatCard({
 
 export default function HomeScreen() {
   const C = useColors();
-  const styles = useMemo(() => makeStyles(C), [C]);
+  const { width } = useWindowDimensions();
+  const styles = useMemo(() => makeStyles(C, width), [C, width]);
   const { profile, signOut } = useAuth();
   const { consorcios: CONSORCIOS } = useConsorcios();
 
@@ -60,7 +59,7 @@ export default function HomeScreen() {
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.bannerTitle} numberOfLines={2}>SIG Vial Chaco</Text>
-            <Text style={styles.bannerSubtitle}>Sistema de Gestión de Infraestructura Vial Rural</Text>
+            <Text style={styles.bannerSubtitle}>SIG Vial Chaco</Text>
           </View>
           <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn} activeOpacity={0.7}>
             <Ionicons name="log-out-outline" size={20} color="#9E9E9E" />
@@ -116,7 +115,7 @@ export default function HomeScreen() {
   );
 }
 
-function makeStyles(C: ColorPalette) { return StyleSheet.create({
+function makeStyles(C: ColorPalette, width: number) { return StyleSheet.create({
   container: { flex: 1, backgroundColor: C.background },
   content: { padding: 16 },
 

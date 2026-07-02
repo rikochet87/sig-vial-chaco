@@ -3,7 +3,7 @@
     "name": "SIG Vial",
     "slug": "sig-vial-chaco",
     "version": "1.0.0",
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/icon.png",
     "scheme": "consorcio",
     "userInterfaceStyle": "automatic",
