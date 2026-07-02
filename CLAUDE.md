@@ -95,7 +95,7 @@ python scripts/build_geo_bundle_cc.py
 ## EAS Build — notas críticas
 
 - Package: `com.rosello.sigvialchaco`
-- `kotlinVersion` debe ser **2.1.0** (KSP requiere Kotlin 2.x con Expo SDK 54; la 1.9.x falla)
+- `kotlinVersion` debe ser **2.1.20** (react-native-async-storage usa Kotlin 2.1.20; KSP se incompatibiliza con 2.1.0)
 - `newArchEnabled: true` (New Architecture habilitada)
 - `compileSdkVersion: 35`
 
