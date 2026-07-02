@@ -115,7 +115,10 @@ export default function HomeScreen() {
   );
 }
 
-function makeStyles(C: ColorPalette, width: number) { return StyleSheet.create({
+function makeStyles(C: ColorPalette, width: number) {
+  const numCols  = width >= 600 ? 4 : 2;
+  const cardWidth = (width - 32 - 10 * (numCols - 1)) / numCols;
+  return StyleSheet.create({
   container: { flex: 1, backgroundColor: C.background },
   content: { padding: 16 },
 
@@ -139,7 +142,7 @@ function makeStyles(C: ColorPalette, width: number) { return StyleSheet.create({
   statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 },
   statCard: {
     backgroundColor: C.surface, borderRadius: 12, padding: 14,
-    width: (width - 42) / 2, alignItems: 'center', borderBottomWidth: 3,
+    width: cardWidth, alignItems: 'center', borderBottomWidth: 3,
     elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 3,
   },
   statIconWrap: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },

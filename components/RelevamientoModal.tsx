@@ -383,8 +383,9 @@ function RipioForm({ data, onChange, puntos, onCoordsChange, onRequestDraw }: {
   const set = (k: keyof DatosRipio) => (v: string) => onChange({ ...data, [k]: v });
 
   // ── GPS Track inline ───────────────────────────────────────────────────────
-  const [trackPhase, setTrackPhase] = useState<'idle'|'recording'>('idle');
-  const [trackPts,   setTrackPts]   = useState<LatLngPunto[]>([]);
+  const [trackPhase,    setTrackPhase]    = useState<'idle'|'recording'>('idle');
+  const [trackPts,      setTrackPts]      = useState<LatLngPunto[]>([]);
+  const [trackAccuracy, setTrackAccuracy] = useState<number | null>(null);
   const trackSubRef = useRef<any>(null);
   const trackPtsRef = useRef<LatLngPunto[]>([]);
 
@@ -394,13 +395,15 @@ function RipioForm({ data, onChange, puntos, onCoordsChange, onRequestDraw }: {
     if (status !== 'granted') { Alert.alert('Permiso denegado', 'Se necesita GPS para grabar el track.'); return; }
     trackPtsRef.current = [];
     setTrackPts([]);
+    setTrackAccuracy(null);
     setTrackPhase('recording');
     trackSubRef.current = await Location.watchPositionAsync(
-      { accuracy: Location.Accuracy.High, distanceInterval: 10, timeInterval: 4000 },
+      { accuracy: Location.Accuracy.BestForNavigation, distanceInterval: 3, timeInterval: 2000 },
       (loc: any) => {
         const next = [...trackPtsRef.current, { lat: loc.coords.latitude, lng: loc.coords.longitude }];
         trackPtsRef.current = next;
         setTrackPts(next);
+        setTrackAccuracy(loc.coords.accuracy ?? null);
       }
     );
   };
@@ -479,6 +482,16 @@ function RipioForm({ data, onChange, puntos, onCoordsChange, onRequestDraw }: {
               {trackPts.length} punto{trackPts.length !== 1 ? 's' : ''} registrado{trackPts.length !== 1 ? 's' : ''}
               {metros > 0 ? `  ·  ≈ ${metros >= 1000 ? (metros/1000).toFixed(2)+' km' : Math.round(metros)+' m'}` : ''}
             </Text>
+            {trackAccuracy !== null && (
+              <Text style={[
+                s.trackAccuracy,
+                trackAccuracy < 1  ? s.trackAccuracyExcellent :
+                trackAccuracy < 5  ? s.trackAccuracyGood :
+                                     s.trackAccuracyPoor,
+              ]}>
+                ⊕ Precisión GPS: ±{trackAccuracy < 1 ? trackAccuracy.toFixed(2) : Math.round(trackAccuracy)} m
+              </Text>
+            )}
             {trackPts.length > 0 && (
               <Text style={s.trackCoord}>
                 Última pos.: {trackPts[trackPts.length-1].lat.toFixed(5)}, {trackPts[trackPts.length-1].lng.toFixed(5)}
@@ -1267,6 +1280,10 @@ function makeStyles(Colors: ColorPalette) { return StyleSheet.create({
   trackDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#e74c3c', marginRight: 8 },
   trackPanelTitle: { fontSize: 14, fontWeight: '800', color: '#27ae60' },
   trackStat: { fontSize: 13, color: Colors.textSecondary, marginBottom: 4 },
+  trackAccuracy: { fontSize: 12, fontWeight: '700', marginBottom: 4 },
+  trackAccuracyExcellent: { color: '#4CAF50' },
+  trackAccuracyGood:      { color: '#FF9800' },
+  trackAccuracyPoor:      { color: '#F44336' },
   trackCoord: { fontSize: 10, color: Colors.textMuted, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', marginBottom: 12 },
   trackPanelBtns: { gap: 8 },
   trackPanelBtn: {

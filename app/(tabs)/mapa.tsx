@@ -20,6 +20,10 @@ import type { Relevamiento } from '@/types/relevamiento';
 let Location: any = null;
 try { Location = require('expo-location'); } catch (_) {}
 
+// expo-sensors: importación condicional para brújula (Magnetometer)
+let Magnetometer: any = null;
+try { Magnetometer = require('expo-sensors').Magnetometer; } catch (_) {}
+
 
 const ZONA_COLORS: Record<string, string> = {
   ZI: '#6baed6', ZII: '#fb6a4a', ZIII: '#fdd44c', ZIV: '#74c476', ZV: '#9e9ac8',
@@ -1119,6 +1123,10 @@ export default function MapaScreen() {
   const locationSub = useRef<any>(null);
   const gpsCoords = useRef<{ lat: number; lng: number } | null>(null);
 
+  // ── Brújula ───────────────────────────────────────────────────────────────
+  const [compassActive,  setCompassActive]  = useState(false);
+  const [compassHeading, setCompassHeading] = useState(0);
+
   // ── Relevamientos ─────────────────────────────────────────────────────────
   const { relevamientos, add: addRelevamiento, remove: removeRelevamiento, reload: reloadRelevamientos } = useRelevamientos();
   const [relevModalVisible, setRelevModalVisible] = useState(false);
@@ -1132,6 +1140,17 @@ export default function MapaScreen() {
   useEffect(() => {
     if (!drawerOpen) drawerAnim.setValue(-DRAWER_WIDTH);
   }, [DRAWER_WIDTH]);
+
+  // Brújula: suscripción al Magnetómetro (5 Hz, solo cuando está activa)
+  useEffect(() => {
+    if (!compassActive || !Magnetometer) return;
+    Magnetometer.setUpdateInterval(200);
+    const sub = Magnetometer.addListener(({ x, y }: { x: number; y: number }) => {
+      const angle = Math.atan2(y, x) * (180 / Math.PI);
+      setCompassHeading((angle + 360) % 360);
+    });
+    return () => sub.remove();
+  }, [compassActive]);
 
   // Auto-detectar técnico logueado — con caché offline en AsyncStorage
   useEffect(() => {
@@ -1745,6 +1764,24 @@ export default function MapaScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* ── BRÚJULA: widget indicador de heading ─────────────────────────── */}
+      {compassActive && (
+        <View style={styles.compassWidget} pointerEvents="none">
+          <View style={[styles.compassNeedle, { transform: [{ rotate: `${-compassHeading}deg` }] }]}>
+            <Text style={styles.compassN}>N</Text>
+          </View>
+          <Text style={styles.compassDeg}>{Math.round(compassHeading)}°</Text>
+        </View>
+      )}
+
+      {/* ── BOTÓN BRÚJULA ────────────────────────────────────────────────── */}
+      <TouchableOpacity
+        style={[styles.btnCompass, compassActive && styles.btnCompassActive]}
+        onPress={() => setCompassActive(v => !v)}
+      >
+        <Text style={styles.btnCompassIcon}>🔝</Text>
+      </TouchableOpacity>
+
       {/* ── BOTÓN RIPIO: acceso rápido a dibujar en mapa ────────────────── */}
       <TouchableOpacity
         style={styles.btnRipio}
@@ -1870,6 +1907,27 @@ function makeStyles(C: ColorPalette, DRAWER_WIDTH: number) { return StyleSheet.c
   zoomBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
   zoomText: { color: C.white, fontSize: 19, fontWeight: '300', lineHeight: 22 },
   zoomDivider: { height: 1, backgroundColor: C.border, marginHorizontal: 6 },
+
+  compassWidget: {
+    position: 'absolute', bottom: 32, left: 12, width: 64, height: 64,
+    backgroundColor: 'rgba(0,0,0,0.65)', borderRadius: 32,
+    alignItems: 'center', justifyContent: 'center',
+    zIndex: 5, elevation: 6,
+    borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.2)',
+  },
+  compassNeedle: { alignItems: 'center', justifyContent: 'center', marginBottom: 2 },
+  compassN: { color: '#F5C300', fontSize: 18, fontWeight: '900', lineHeight: 20 },
+  compassDeg: { color: 'rgba(255,255,255,0.7)', fontSize: 9, fontWeight: '600' },
+
+  btnCompass: {
+    position: 'absolute', bottom: 218, right: 12, width: 50, height: 50,
+    backgroundColor: C.primary, borderRadius: 25, alignItems: 'center', justifyContent: 'center',
+    zIndex: 5, elevation: 6,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.35, shadowRadius: 4,
+    borderWidth: 2, borderColor: C.primaryLight,
+  },
+  btnCompassActive: { backgroundColor: '#2196F3', borderColor: '#1565C0' },
+  btnCompassIcon: { fontSize: 20 },
 
   btnRipio: {
     position: 'absolute', bottom: 156, right: 12, width: 50, height: 50,
