@@ -55,14 +55,31 @@ export default async function RelevamientoDetailPage({ params }: { params: Promi
           <h3 style={{ color: '#F5C300', fontSize: 14, fontWeight: 700, marginBottom: 16, textTransform: 'uppercase', letterSpacing: 1 }}>Fotos ({rel.fotos.length})</h3>
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
             {rel.fotos.map((foto, i) => (
-              <div key={i} style={{ width: 160, height: 120, background: '#3C3C3C', borderRadius: 8, overflow: 'hidden' }}>
-                {foto.startsWith('http') ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={foto} alt={`Foto ${i + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                ) : (
-                  <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9E9E9E', fontSize: 12 }}>
-                    Foto {i + 1}
-                  </div>
+              <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ width: 160, height: 120, background: '#3C3C3C', borderRadius: 8, overflow: 'hidden' }}>
+                  {foto.startsWith('http') ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={foto} alt={`Foto ${i + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9E9E9E', fontSize: 12 }}>
+                      Foto {i + 1}
+                    </div>
+                  )}
+                </div>
+                {foto.startsWith('http') && (
+                  <a
+                    href={foto}
+                    download={`foto-${i + 1}.jpg`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: 'block', textAlign: 'center', fontSize: 11, fontWeight: 700,
+                      color: '#F5C300', textDecoration: 'none', padding: '4px 0',
+                      background: '#3C3C3C', borderRadius: 6,
+                    }}
+                  >
+                    ⬇ Descargar
+                  </a>
                 )}
               </div>
             ))}
