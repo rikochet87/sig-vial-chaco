@@ -27,9 +27,11 @@ async function uploadFotoIfLocal(uri: string, relevamientoId: string, index: num
 
     const { data } = supabase.storage.from(FOTO_BUCKET).getPublicUrl(path);
     return data.publicUrl;
-  } catch (e) {
-    console.warn('[sync] uploadFoto failed:', e);
-    return uri; // fallback: mantener URI local si falla
+  } catch (e: any) {
+    const msg = e?.message ?? String(e);
+    console.error('[sync] uploadFoto failed:', msg, '| uri:', uri.slice(0, 60));
+    // Re-lanzar para que syncOne lo capture y marque el relevamiento como error
+    throw new Error(`No se pudo subir la foto: ${msg}`);
   }
 }
 
