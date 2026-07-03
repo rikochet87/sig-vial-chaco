@@ -30,8 +30,7 @@ async function uploadFotoIfLocal(uri: string, relevamientoId: string, index: num
   } catch (e: any) {
     const msg = e?.message ?? String(e);
     console.error('[sync] uploadFoto failed:', msg, '| uri:', uri.slice(0, 60));
-    // Re-lanzar para que syncOne lo capture y marque el relevamiento como error
-    throw new Error(`No se pudo subir la foto: ${msg}`);
+    return uri; // fallback: el relevamiento se sincroniza igual, solo sin foto en la web
   }
 }
 
