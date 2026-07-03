@@ -1109,10 +1109,13 @@ function clearPickedPointMarker(){
 export default function MapaScreen() {
   const webviewRef = useRef<WebView>(null);
   const C = useColors();
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const DRAWER_WIDTH = useMemo(() => Math.min(width * 0.78, 300), [width]);
   const styles = useMemo(() => makeStyles(C, DRAWER_WIDTH), [C, DRAWER_WIDTH]);
   const drawerAnim = useRef(new Animated.Value(-DRAWER_WIDTH)).current;
+  // Ref para la orientación actual — leído dentro del listener del Magnetómetro
+  const isLandscapeRef = useRef(width > height);
+  useEffect(() => { isLandscapeRef.current = width > height; }, [width, height]);
   const overlayAnim = useRef(new Animated.Value(0)).current;
 
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -1146,8 +1149,12 @@ export default function MapaScreen() {
     if (!compassActive || !Magnetometer) return;
     Magnetometer.setUpdateInterval(200);
     const sub = Magnetometer.addListener(({ x, y }: { x: number; y: number }) => {
-      const angle = Math.atan2(y, x) * (180 / Math.PI);
-      setCompassHeading((angle + 360) % 360);
+      // Portrait: atan2(-x, y) → 0° cuando el tope del cel apunta al norte
+      // Landscape 90°CW: atan2(y, x) → los ejes físicos ya están alineados
+      const raw = isLandscapeRef.current
+        ? Math.atan2(y, x) * (180 / Math.PI)
+        : Math.atan2(-x, y) * (180 / Math.PI);
+      setCompassHeading((raw + 360) % 360);
     });
     return () => sub.remove();
   }, [compassActive]);
