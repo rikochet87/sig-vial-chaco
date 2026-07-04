@@ -11,7 +11,7 @@ export default function NuevoTecnicoPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [zona, setZona] = useState('ZI')
-  const [rol, setRol] = useState<'tecnico' | 'admin'>('tecnico')
+  const [rol, setRol] = useState<'tecnico' | 'admin' | 'usuario'>('tecnico')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
@@ -25,7 +25,7 @@ export default function NuevoTecnicoPage() {
     const res = await fetch('/api/tecnicos', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nombre, email, password, zona, rol }),
+      body: JSON.stringify({ nombre, email, password, zona: rol === 'tecnico' ? zona : null, rol }),
     })
     const body = await res.json()
     if (!res.ok) {
@@ -44,7 +44,7 @@ export default function NuevoTecnicoPage() {
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
         <Link href="/dashboard/tecnicos" style={{ color: '#F5C300', textDecoration: 'none', fontSize: 14 }}>← Volver</Link>
-        <h1 style={{ color: '#fff', fontSize: 22, fontWeight: 700 }}>Nuevo técnico</h1>
+        <h1 style={{ color: '#fff', fontSize: 22, fontWeight: 700 }}>Nuevo usuario</h1>
       </div>
 
       <div style={{ background: '#2C2C2C', borderRadius: 10, padding: 24, maxWidth: 480 }}>
@@ -83,19 +83,22 @@ export default function NuevoTecnicoPage() {
               </button>
             </div>
           </div>
-          <div style={{ marginBottom: 16 }}>
-            <label style={labelStyle}>Zona</label>
-            <select value={zona} onChange={e => setZona(e.target.value)} style={{ ...inputStyle }}>
-              {ZONAS.map(z => <option key={z} value={z}>{z}</option>)}
-            </select>
-          </div>
           <div style={{ marginBottom: 24 }}>
             <label style={labelStyle}>Rol</label>
-            <select value={rol} onChange={e => setRol(e.target.value as 'tecnico' | 'admin')} style={{ ...inputStyle }}>
-              <option value="tecnico">Técnico</option>
+            <select value={rol} onChange={e => setRol(e.target.value as 'tecnico' | 'admin' | 'usuario')} style={{ ...inputStyle }}>
+              <option value="tecnico">Técnico de campo</option>
+              <option value="usuario">Usuario (solo visualización)</option>
               <option value="admin">Administrador</option>
             </select>
           </div>
+          {rol === 'tecnico' && (
+            <div style={{ marginBottom: 16 }}>
+              <label style={labelStyle}>Zona asignada</label>
+              <select value={zona} onChange={e => setZona(e.target.value)} style={{ ...inputStyle }}>
+                {ZONAS.map(z => <option key={z} value={z}>{z}</option>)}
+              </select>
+            </div>
+          )}
           {error && <p style={{ color: '#ff5252', fontSize: 13, marginBottom: 16 }}>{error}</p>}
           <button
             type="submit"

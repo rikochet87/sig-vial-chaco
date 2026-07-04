@@ -29,8 +29,8 @@ export interface Profile {
   id: string
   email: string
   nombre: string
-  zona: string
-  rol: 'tecnico' | 'admin'
+  zona: string | null
+  rol: 'tecnico' | 'admin' | 'usuario'
 }
 
 export interface Consorcio {
