@@ -171,17 +171,21 @@ interface Sede {
 
 type LayerKey =
   | 'limite' | 'zonas' | 'departamentos'
+  | 'rnNacional'
   | 'rpPavimentada' | 'rpMejorada' | 'rpEnObra' | 'rpTierra'
   | 'ccZI' | 'ccZII' | 'ccZIII' | 'ccZIV' | 'ccZV'
-  | 'sedes' | 'campamentos' | 'salud' | 'relevamientos'
+  | 'sedes' | 'campamentos' | 'salud'
+  | 'relevPuente' | 'relevAlcantarilla' | 'relevTubos' | 'relevRipio' | 'relevOtro'
 
 type LayerState = Record<LayerKey, boolean>
 
 const DEFAULT_LAYERS: LayerState = {
   limite: true, zonas: true, departamentos: true,
+  rnNacional: false,
   rpPavimentada: true, rpMejorada: true, rpEnObra: false, rpTierra: false,
   ccZI: false, ccZII: false, ccZIII: false, ccZIV: false, ccZV: false,
-  sedes: true, campamentos: false, salud: false, relevamientos: true,
+  sedes: true, campamentos: false, salud: false,
+  relevPuente: true, relevAlcantarilla: true, relevTubos: true, relevRipio: true, relevOtro: true,
 }
 
 interface Props { relevamientos: Relevamiento[] }
@@ -278,6 +282,7 @@ export default function MapInner({ relevamientos }: Props) {
   const [geo, setGeo] = useState<Record<string, unknown> | null>(null)
   const [rp,  setRp]  = useState<Record<string, unknown> | null>(null)
   const [cc,  setCc]  = useState<Record<string, unknown> | null>(null)
+  const [rn,  setRn]  = useState<Record<string, unknown> | null>(null)
   // Panel CC: zonas expandidas y consorcios seleccionados (vacío = todos visibles cuando la capa está ON)
   const [expandedCC, setExpandedCC] = useState<Set<string>>(new Set())
   const [ccSelected, setCcSelected] = useState<Record<string, Set<number>>>({
@@ -298,6 +303,7 @@ export default function MapInner({ relevamientos }: Props) {
     fetch('/geo/geo_bundle.json').then(r => r.json()).then(setGeo).catch(() => {})
     fetch('/geo/geo_rp.json').then(r => r.json()).then(setRp).catch(() => {})
     fetch('/geo/geo_cc.json').then(r => r.json()).then(setCc).catch(() => {})
+    fetch('/geo/geo_rn.json').then(r => r.json()).then(setRn).catch(() => {})
   }, [])
 
   // ── Init Leaflet map ──
@@ -322,9 +328,11 @@ export default function MapInner({ relevamientos }: Props) {
       // Pre-create all layer groups
       const keys: LayerKey[] = [
         'limite', 'zonas', 'departamentos',
+        'rnNacional',
         'rpPavimentada', 'rpMejorada', 'rpEnObra', 'rpTierra',
         'ccZI', 'ccZII', 'ccZIII', 'ccZIV', 'ccZV',
-        'sedes', 'campamentos', 'salud', 'relevamientos',
+        'sedes', 'campamentos', 'salud',
+        'relevPuente', 'relevAlcantarilla', 'relevTubos', 'relevRipio', 'relevOtro',
       ]
       keys.forEach(k => {
         groupsRef.current[k] = L.layerGroup()
@@ -532,6 +540,36 @@ export default function MapInner({ relevamientos }: Props) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rp])
 
+  // ── Populate RN layer ──
+  useEffect(() => {
+    if (!rn || !mapRef.current) return
+    import('leaflet').then(L => {
+      const group = groupsRef.current.rnNacional
+      if (!group) return
+      group.clearLayers()
+      const style: import('leaflet').PathOptions = { color: '#c0392b', weight: 3.5, opacity: 0.95 }
+      addInteractiveLayer(L, rn as GeoJSON.FeatureCollection, style, (p) => {
+        const num  = p.Numero || p.numero || p.NUMERO || p.Nombre || p.nombre || ''
+        const nom  = p.Nombre || p.nombre || ''
+        const sup  = p.Superficie || p.superficie || p.Mat_Calzad || '—'
+        return `
+<div>
+  <div class="ph" style="background:#c0392b20;border-bottom:1px solid #c0392b40">
+    <div class="pn" style="background:#c0392b">RN</div>
+    <div>
+      <div class="pl">Ruta Nacional${num ? ' N° ' + num : ''}</div>
+      <div class="pz">${nom || 'Chaco'}</div>
+    </div>
+  </div>
+  <div class="pb">
+    <div class="pr"><span class="plb">Superficie</span><span class="pv">${sup}</span></div>
+  </div>
+</div>`
+      }, group)
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rn])
+
   // ── Populate CC layers ──
   useEffect(() => {
     if (!cc || !mapReady || !mapRef.current) return
@@ -603,33 +641,32 @@ export default function MapInner({ relevamientos }: Props) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cc, mapReady])
 
-  // ── Populate relevamientos layer ──
+  // ── Populate relevamientos layers (sub-capa por tipo) ──
   useEffect(() => {
     if (!mapReady || !mapRef.current) return
     import('leaflet').then(L => {
-      const group = groupsRef.current.relevamientos
-      if (!group) return
-      group.clearLayers()
-
+      const TIPO_TO_KEY: Record<string, LayerKey> = {
+        Puente: 'relevPuente', Alcantarilla: 'relevAlcantarilla',
+        Tubos: 'relevTubos', Ripio: 'relevRipio', Otro: 'relevOtro',
+      }
       const TIPO_LABEL: Record<string, string> = {
         Puente: 'PTE', Alcantarilla: 'ALC', Tubos: 'TUB', Ripio: 'RIP', Otro: '?',
       }
 
+      // Limpiar todos los grupos de relevamiento
+      ;(['relevPuente', 'relevAlcantarilla', 'relevTubos', 'relevRipio', 'relevOtro'] as LayerKey[])
+        .forEach(k => groupsRef.current[k]?.clearLayers())
+
       relevamientos.forEach(r => {
+        const groupKey = TIPO_TO_KEY[r.tipo] ?? 'relevOtro'
+        const group = groupsRef.current[groupKey]
+        if (!group) return
         const color = TIPO_COLORS[r.tipo] || '#607D8B'
         const popup = L.popup({ maxWidth: 300, className: 'dark-popup' }).setContent(relevPopupHtml(r))
 
         if (r.tipo === 'Ripio' && r.coords_linea?.length) {
           const positions = r.coords_linea.map(p => [p.lat, p.lng] as [number, number])
-
-          // Línea visible
-          const visLine = L.polyline(positions, {
-            color, weight: 6, opacity: 0.9,
-            dashArray: undefined,
-            lineCap: 'round', lineJoin: 'round',
-          }).addTo(group)
-
-          // Hit area ancha invisible para facilitar el click
+          const visLine = L.polyline(positions, { color, weight: 6, opacity: 0.9, lineCap: 'round', lineJoin: 'round' }).addTo(group)
           L.polyline(positions, { color: '#000', weight: 22, opacity: 0.001 })
             .bindPopup(popup)
             .on('click', () => {
@@ -637,32 +674,23 @@ export default function MapInner({ relevamientos }: Props) {
               popup.on('remove', () => visLine.setStyle({ color, weight: 6 }))
             })
             .addTo(group)
-
-          // Marcador en el punto inicial
           const [startLat, startLng] = positions[0]
-          const startIcon = L.divIcon({
+          L.marker([startLat, startLng], { icon: L.divIcon({
             className: '',
             html: `<div style="width:28px;height:28px;border-radius:50%;background:${color};border:2.5px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;color:#fff;letter-spacing:.3px">RIP</div>`,
             iconSize: [28, 28], iconAnchor: [14, 14],
-          })
-          L.marker([startLat, startLng], { icon: startIcon })
-            .bindPopup(popup)
-            .addTo(group)
+          }) }).bindPopup(popup).addTo(group)
 
         } else if (r.coords_lat != null && r.coords_lng != null) {
           const label = TIPO_LABEL[r.tipo] || '?'
-          const icon = L.divIcon({
+          L.marker([r.coords_lat, r.coords_lng], { icon: L.divIcon({
             className: '',
-            html: `
-              <div style="position:relative;width:36px;height:42px">
-                <div style="width:36px;height:36px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:${color};border:2.5px solid #fff;box-shadow:0 3px 8px rgba(0,0,0,.55);position:absolute;top:0;left:0"></div>
-                <div style="position:absolute;top:4px;left:0;width:36px;height:28px;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;color:#fff;letter-spacing:.3px;line-height:1">${label}</div>
-              </div>`,
+            html: `<div style="position:relative;width:36px;height:42px">
+              <div style="width:36px;height:36px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:${color};border:2.5px solid #fff;box-shadow:0 3px 8px rgba(0,0,0,.55);position:absolute;top:0;left:0"></div>
+              <div style="position:absolute;top:4px;left:0;width:36px;height:28px;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;color:#fff;letter-spacing:.3px;line-height:1">${label}</div>
+            </div>`,
             iconSize: [36, 42], iconAnchor: [18, 42],
-          })
-          L.marker([r.coords_lat, r.coords_lng], { icon })
-            .bindPopup(popup)
-            .addTo(group)
+          }) }).bindPopup(popup).addTo(group)
         }
       })
     })
@@ -819,8 +847,9 @@ export default function MapInner({ relevamientos }: Props) {
             {/* RED VIAL */}
             <div style={SECTION_TITLE_STYLE}>Red Vial</div>
             {([
-              ['rpPavimentada', 'RP Pavimentada', '#e74c3c'],
-              ['rpMejorada',    'RP Mejorada',    '#27ae60'],
+              ['rnNacional',    'RN Nacional',     '#c0392b'],
+              ['rpPavimentada', 'RP Pavimentada',  '#e74c3c'],
+              ['rpMejorada',    'RP Mejorada',     '#27ae60'],
               ['rpEnObra',      'RP En Obra',      '#e74c3c'],
               ['rpTierra',      'RP Tierra',       '#e67e22'],
             ] as [LayerKey, string, string][]).map(([k, label, color]) => (
@@ -868,10 +897,19 @@ export default function MapInner({ relevamientos }: Props) {
 
             {/* RELEVAMIENTOS */}
             <div style={SECTION_TITLE_STYLE}>Relevamientos</div>
-            <label style={ITEM_STYLE}>
-              <input type="checkbox" checked={!!layers.relevamientos} onChange={() => toggle('relevamientos')} style={CHECKBOX_STYLE} />
-              Relevamientos
-            </label>
+            {([
+              ['relevPuente',       'Puente',       TIPO_COLORS.Puente],
+              ['relevAlcantarilla', 'Alcantarilla', TIPO_COLORS.Alcantarilla],
+              ['relevTubos',        'Tubos',        TIPO_COLORS.Tubos],
+              ['relevRipio',        'Ripio',        TIPO_COLORS.Ripio],
+              ['relevOtro',         'Otro',         TIPO_COLORS.Otro],
+            ] as [LayerKey, string, string][]).map(([k, label, color]) => (
+              <label key={k} style={ITEM_STYLE}>
+                <input type="checkbox" checked={!!layers[k]} onChange={() => toggle(k)} style={CHECKBOX_STYLE} />
+                {DOT(color)}
+                {label}
+              </label>
+            ))}
 
           </div>
         )}

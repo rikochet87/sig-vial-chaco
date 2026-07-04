@@ -6,7 +6,12 @@ import type { Relevamiento } from '@/types'
 
 const TIPOS = ['', 'Puente', 'Alcantarilla', 'Tubos', 'Ripio', 'Otro']
 const ZONAS = ['', 'ZI', 'ZII', 'ZIII', 'ZIV', 'ZV']
-const ESTADOS = ['', 'bueno', 'regular', 'malo', 'muy malo']
+const ROLES = [
+  { value: '', label: 'Todos' },
+  { value: 'tecnico', label: 'Técnico' },
+  { value: 'usuario', label: 'Usuario' },
+  { value: 'admin', label: 'Admin' },
+]
 const PAGE_SIZE = 20
 
 function SyncBadge({ sincronizado_en }: { sincronizado_en: string | null }) {
@@ -25,15 +30,14 @@ export default function RelevamientosPage() {
   const [relevamientos, setRelevamientos] = useState<Relevamiento[]>([])
   const [filtered, setFiltered] = useState<Relevamiento[]>([])
   const [profileMap, setProfileMap] = useState<Record<string, string>>({})
+  const [roleById, setRoleById] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
   const [tipo, setTipo] = useState('')
+  const [rolFilter, setRolFilter] = useState('')
   const [zona, setZona] = useState('')
-  const [tecnico, setTecnico] = useState('')
-  const [estado, setEstado] = useState('')
   const [desde, setDesde] = useState('')
   const [hasta, setHasta] = useState('')
   const [page, setPage] = useState(0)
-  const [tecnicos, setTecnicos] = useState<string[]>([])
 
   useEffect(() => {
     const supabase = createClient()
@@ -41,17 +45,19 @@ export default function RelevamientosPage() {
       supabase.from('relevamientos')
         .select('id,fecha,tipo,tecnico_id,estado_calzada,coords_lat,coords_lng,coords_linea,cc_asociado,zona,ruta_tramo,observaciones,fotos,datos_especificos,sincronizado_en')
         .order('fecha', { ascending: false }),
-      supabase.from('profiles').select('id,nombre'),
+      supabase.from('profiles').select('id,nombre,rol'),
     ]).then(([{ data }, { data: profs }]) => {
       const rows = (data as Relevamiento[]) ?? []
       setRelevamientos(rows)
       setFiltered(rows)
-      const ts = Array.from(new Set(rows.map(r => r.tecnico_id).filter(Boolean))) as string[]
-      setTecnicos(ts)
-      const pm: Record<string, string> = Object.fromEntries(
-        (profs ?? []).map((p: { id: string; nombre: string }) => [p.id, p.nombre])
-      )
+      const pm: Record<string, string> = {}
+      const rm: Record<string, string> = {}
+      ;(profs ?? []).forEach((p: { id: string; nombre: string; rol: string }) => {
+        pm[p.id] = p.nombre
+        rm[p.id] = p.rol
+      })
       setProfileMap(pm)
+      setRoleById(rm)
       setLoading(false)
     })
   }, [])
@@ -59,14 +65,13 @@ export default function RelevamientosPage() {
   const applyFilters = useCallback(() => {
     let rows = relevamientos
     if (tipo) rows = rows.filter(r => r.tipo === tipo)
-    if (zona) rows = rows.filter(r => r.zona === zona)
-    if (tecnico) rows = rows.filter(r => r.tecnico_id === tecnico)
-    if (estado) rows = rows.filter(r => r.estado_calzada === estado)
+    if (rolFilter) rows = rows.filter(r => r.tecnico_id ? roleById[r.tecnico_id] === rolFilter : false)
+    if (rolFilter === 'tecnico' && zona) rows = rows.filter(r => r.zona === zona)
     if (desde) rows = rows.filter(r => r.fecha >= desde)
     if (hasta) rows = rows.filter(r => r.fecha <= hasta)
     setFiltered(rows)
     setPage(0)
-  }, [relevamientos, tipo, zona, tecnico, estado, desde, hasta])
+  }, [relevamientos, tipo, rolFilter, zona, desde, hasta, roleById])
 
   useEffect(() => { applyFilters() }, [applyFilters])
 
@@ -83,15 +88,9 @@ export default function RelevamientosPage() {
   const paged = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE)
 
-  const select = (label: string, value: string, onChange: (v: string) => void, options: string[]) => (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-      <label style={{ color: '#9E9E9E', fontSize: 12 }}>{label}</label>
-      <select value={value} onChange={e => onChange(e.target.value)}
-        style={{ background: '#3C3C3C', border: '1px solid #4C4C4C', borderRadius: 6, color: '#fff', padding: '6px 10px', fontSize: 13 }}>
-        {options.map(o => <option key={o} value={o}>{o || 'Todos'}</option>)}
-      </select>
-    </div>
-  )
+  const selectStyle = { background: '#3C3C3C', border: '1px solid #4C4C4C', borderRadius: 6, color: '#fff', padding: '6px 10px', fontSize: 13 }
+  const labelStyle = { color: '#9E9E9E', fontSize: 12 }
+  const wrapStyle: React.CSSProperties = { display: 'flex', flexDirection: 'column', gap: 4 }
 
   return (
     <div>
@@ -99,26 +98,37 @@ export default function RelevamientosPage() {
 
       {/* Filters */}
       <div style={{ background: '#2C2C2C', borderRadius: 10, padding: 20, marginBottom: 20, display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-        {select('Tipo', tipo, setTipo, TIPOS)}
-        {select('Zona', zona, setZona, ZONAS)}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <label style={{ color: '#9E9E9E', fontSize: 12 }}>Técnico (ID)</label>
-          <select value={tecnico} onChange={e => setTecnico(e.target.value)}
-            style={{ background: '#3C3C3C', border: '1px solid #4C4C4C', borderRadius: 6, color: '#fff', padding: '6px 10px', fontSize: 13 }}>
-            <option value="">Todos</option>
-            {tecnicos.map(t => <option key={t} value={t}>{profileMap[t] || t}</option>)}
+        {/* Tipo de relevamiento */}
+        <div style={wrapStyle}>
+          <label style={labelStyle}>Tipo</label>
+          <select value={tipo} onChange={e => setTipo(e.target.value)} style={selectStyle}>
+            {TIPOS.map(o => <option key={o} value={o}>{o || 'Todos'}</option>)}
           </select>
         </div>
-        {select('Estado calzada', estado, setEstado, ESTADOS)}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <label style={{ color: '#9E9E9E', fontSize: 12 }}>Desde</label>
-          <input type="date" value={desde} onChange={e => setDesde(e.target.value)}
-            style={{ background: '#3C3C3C', border: '1px solid #4C4C4C', borderRadius: 6, color: '#fff', padding: '6px 10px', fontSize: 13 }} />
+        {/* Tipo de usuario */}
+        <div style={wrapStyle}>
+          <label style={labelStyle}>Tipo de usuario</label>
+          <select value={rolFilter} onChange={e => { setRolFilter(e.target.value); setZona('') }} style={selectStyle}>
+            {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+          </select>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <label style={{ color: '#9E9E9E', fontSize: 12 }}>Hasta</label>
-          <input type="date" value={hasta} onChange={e => setHasta(e.target.value)}
-            style={{ background: '#3C3C3C', border: '1px solid #4C4C4C', borderRadius: 6, color: '#fff', padding: '6px 10px', fontSize: 13 }} />
+        {/* Zona — solo visible cuando tipo usuario = técnico */}
+        {rolFilter === 'tecnico' && (
+          <div style={wrapStyle}>
+            <label style={labelStyle}>Zona</label>
+            <select value={zona} onChange={e => setZona(e.target.value)} style={selectStyle}>
+              {ZONAS.map(o => <option key={o} value={o}>{o || 'Todas'}</option>)}
+            </select>
+          </div>
+        )}
+        {/* Fechas */}
+        <div style={wrapStyle}>
+          <label style={labelStyle}>Desde</label>
+          <input type="date" value={desde} onChange={e => setDesde(e.target.value)} style={selectStyle} />
+        </div>
+        <div style={wrapStyle}>
+          <label style={labelStyle}>Hasta</label>
+          <input type="date" value={hasta} onChange={e => setHasta(e.target.value)} style={selectStyle} />
         </div>
       </div>
 

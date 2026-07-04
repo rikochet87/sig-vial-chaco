@@ -86,8 +86,8 @@ export default function NuevoTecnicoPage() {
           <div style={{ marginBottom: 24 }}>
             <label style={labelStyle}>Rol</label>
             <select value={rol} onChange={e => setRol(e.target.value as 'tecnico' | 'admin' | 'usuario')} style={{ ...inputStyle }}>
-              <option value="tecnico">Técnico de campo</option>
-              <option value="usuario">Usuario (solo visualización)</option>
+              <option value="tecnico">Técnico</option>
+              <option value="usuario">Usuario</option>
               <option value="admin">Administrador</option>
             </select>
           </div>
