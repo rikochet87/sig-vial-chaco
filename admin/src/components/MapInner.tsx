@@ -188,7 +188,7 @@ const DEFAULT_LAYERS: LayerState = {
   relevPuente: true, relevAlcantarilla: true, relevTubos: true, relevRipio: true, relevOtro: true,
 }
 
-interface Props { relevamientos: Relevamiento[] }
+interface Props { relevamientos: Relevamiento[]; measureActive?: boolean; onMeasureChange?: (v: boolean) => void }
 
 // ── RightPanel: panel flotante derecho para tipos de relevamiento ────────────
 
@@ -263,55 +263,6 @@ function totalDist(pts: {lat:number;lng:number}[]): number {
   let t = 0; for (let i = 1; i < pts.length; i++) t += haversine(pts[i-1], pts[i]); return t
 }
 
-// ── ToolsPanel: panel de herramientas del mapa ──────────────────────────────
-function ToolsPanel({ measureMode, onToggleMeasure }: { measureMode: boolean; onToggleMeasure: () => void }) {
-  const [open, setOpen] = useState(true)
-  const PANEL: React.CSSProperties = {
-    background: '#1e2436', border: '1px solid #2a3450',
-    borderRadius: 8,
-    overflowX: 'clip' as React.CSSProperties['overflowX'],
-    boxShadow: '0 4px 12px rgba(0,0,0,.5)',
-    fontFamily: 'system-ui, sans-serif',
-    width: open ? 148 : 36,
-    transition: 'width 0.2s',
-    display: 'flex', flexDirection: 'column',
-  }
-  return (
-    <div style={PANEL}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', borderBottom: '1px solid #2a3450', background: '#252d40', flexShrink: 0 }}>
-        {open && <span style={{ fontWeight: 700, fontSize: 11, color: '#e0e6f0' }}>Herramientas</span>}
-        <button
-          onClick={() => setOpen(v => !v)}
-          style={{ background: 'none', border: 'none', color: '#7a8aaa', cursor: 'pointer', fontSize: 13, padding: 0, lineHeight: 1, marginLeft: open ? 0 : 'auto' }}
-          title={open ? 'Colapsar' : 'Expandir'}
-        >
-          {open ? '⮞' : '⮜'}
-        </button>
-      </div>
-      {open && (
-        <div style={{ padding: '8px 10px 10px' }}>
-          <button
-            onClick={onToggleMeasure}
-            title={measureMode ? 'Desactivar medición' : 'Medir distancias'}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 6, width: '100%',
-              background: measureMode ? 'rgba(245,195,0,0.12)' : 'none',
-              border: `1px solid ${measureMode ? '#F5C300' : 'transparent'}`,
-              borderRadius: 6, padding: '5px 6px', cursor: 'pointer',
-              color: measureMode ? '#F5C300' : '#e0e6f0',
-              fontSize: 12, fontWeight: measureMode ? 700 : 400,
-              whiteSpace: 'nowrap', textAlign: 'left',
-              transition: 'background .15s, color .15s, border-color .15s',
-            }}
-          >
-            <span style={{ fontSize: 13 }}>📏</span>
-            Medir distancias
-          </button>
-        </div>
-      )}
-    </div>
-  )
-}
 
 // ── ZoneRow: fila de zona CC con checkbox padre indeterminado + sub-lista ────
 
@@ -390,7 +341,7 @@ function ZoneRow({ zona, consorcios, isExpanded, isLayerOn, activeSet, onToggleE
 
 // ── Componente principal ─────────────────────────────────────────────────────
 
-export default function MapInner({ relevamientos }: Props) {
+export default function MapInner({ relevamientos, measureActive = false, onMeasureChange }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef       = useRef<import('leaflet').Map | null>(null)
   // Leaflet layer groups keyed by LayerKey
@@ -413,7 +364,6 @@ export default function MapInner({ relevamientos }: Props) {
   })
 
   // ── Medición de distancias ──
-  const [measureMode, setMeasureMode] = useState(false)
   const [measurePts, setMeasurePts]   = useState<{lat:number;lng:number}[]>([])
   const mLayersRef  = useRef<import('leaflet').Layer[]>([])
   const mClickRef   = useRef<((e: import('leaflet').LeafletMouseEvent) => void) | null>(null)
@@ -431,7 +381,7 @@ export default function MapInner({ relevamientos }: Props) {
   useEffect(() => {
     const map = mapRef.current
     if (!map || !mapReady) return
-    if (measureMode) {
+    if (measureActive) {
       map.getContainer().style.cursor = 'crosshair'
       const onClick = (e: import('leaflet').LeafletMouseEvent) => {
         setMeasurePts(prev => [...prev, { lat: e.latlng.lat, lng: e.latlng.lng }])
@@ -445,7 +395,7 @@ export default function MapInner({ relevamientos }: Props) {
       setMeasurePts([])
     }
     return () => { if (mClickRef.current) map.off('click', mClickRef.current) }
-  }, [measureMode, mapReady])
+  }, [measureActive, mapReady])
 
   // ── Medición: redibujar puntos/líneas/etiquetas cuando cambian measurePts ──
   useEffect(() => {
@@ -1077,14 +1027,11 @@ export default function MapInner({ relevamientos }: Props) {
         )}
       </div>
 
-      {/* ── Paneles lado derecho (Relevamientos + Herramientas) ── */}
-      <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 1000, display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <RightPanel layers={layers} toggle={toggle} />
-        <ToolsPanel measureMode={measureMode} onToggleMeasure={() => setMeasureMode(v => !v)} />
-      </div>
+      {/* ── Panel derecho — tipos de relevamiento ── */}
+      <RightPanel layers={layers} toggle={toggle} />
 
       {/* ── Panel de medición flotante ── */}
-      {measureMode && (
+      {measureActive && (
         <div style={{
           position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)',
           zIndex: 1000, background: '#1e2436', border: '1.5px solid #F5C300',
@@ -1114,7 +1061,7 @@ export default function MapInner({ relevamientos }: Props) {
               style={{ flex: 1, background: '#252d40', border: '1px solid #3a4060', color: '#aaa', borderRadius: 8, padding: '8px 4px', fontSize: 12, fontWeight: 600, cursor: 'pointer', opacity: measurePts.length === 0 ? 0.4 : 1 }}
             >🗑 Limpiar</button>
             <button
-              onClick={() => setMeasureMode(false)}
+              onClick={() => onMeasureChange?.(false)}
               style={{ flex: 1, background: 'rgba(231,76,60,.15)', border: '1px solid rgba(231,76,60,.4)', color: '#e74c3c', borderRadius: 8, padding: '8px 4px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
             >✗ Cerrar</button>
           </div>

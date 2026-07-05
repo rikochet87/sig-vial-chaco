@@ -10,8 +10,10 @@ const MapInner = dynamic(() => import('./MapInner'), { ssr: false, loading: () =
 
 interface Props {
   relevamientos: Relevamiento[]
+  measureActive?: boolean
+  onMeasureChange?: (v: boolean) => void
 }
 
-export default function RelevamientosMap({ relevamientos }: Props) {
-  return <MapInner relevamientos={relevamientos} />
+export default function RelevamientosMap({ relevamientos, measureActive, onMeasureChange }: Props) {
+  return <MapInner relevamientos={relevamientos} measureActive={measureActive} onMeasureChange={onMeasureChange} />
 }

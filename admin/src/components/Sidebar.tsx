@@ -149,19 +149,21 @@ export default function Sidebar() {
         {/* Separador */}
         <div style={{ margin: '8px 16px', borderTop: '1px solid #1e1e1e' }} />
 
-        {/* Herramientas — próximamente */}
-        <div
-          title="Próximamente"
+        <Link
+          href="/dashboard/herramientas"
+          onMouseEnter={() => setHoveredHref('/dashboard/herramientas')}
+          onMouseLeave={() => setHoveredHref(null)}
           style={{
             ...linkBase,
-            color: '#333',
-            cursor: 'default',
-            opacity: 0.6,
+            color: pathname === '/dashboard/herramientas' ? '#F5C300' : hoveredHref === '/dashboard/herramientas' ? '#bbb' : '#555',
+            borderLeftColor: pathname === '/dashboard/herramientas' ? '#F5C300' : hoveredHref === '/dashboard/herramientas' ? '#3a3a3a' : 'transparent',
+            background: pathname === '/dashboard/herramientas' ? 'rgba(245,195,0,0.06)' : hoveredHref === '/dashboard/herramientas' ? 'rgba(255,255,255,0.025)' : 'transparent',
+            textShadow: hoveredHref === '/dashboard/herramientas' && pathname !== '/dashboard/herramientas' ? '0 0 10px rgba(255,255,255,0.18)' : 'none',
           }}
         >
-          <span style={{ flexShrink: 0 }}>{ICONS.herramientas}</span>
+          <span style={{ flexShrink: 0, opacity: pathname === '/dashboard/herramientas' || hoveredHref === '/dashboard/herramientas' ? 0.9 : 0.6, color: pathname === '/dashboard/herramientas' ? '#F5C300' : 'currentColor' }}>{ICONS.herramientas}</span>
           {!collapsed && <span>Herramientas</span>}
-        </div>
+        </Link>
       </nav>
 
       {/* Collapse toggle */}
