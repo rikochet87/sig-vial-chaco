@@ -190,6 +190,64 @@ const DEFAULT_LAYERS: LayerState = {
 
 interface Props { relevamientos: Relevamiento[] }
 
+// ── RightPanel: panel flotante derecho para tipos de relevamiento ────────────
+
+const RELEV_ITEMS: [LayerKey, string, string][] = [
+  ['relevPuente',       'Puente',       '#2196F3'],
+  ['relevAlcantarilla', 'Alcantarilla', '#FF9800'],
+  ['relevTubos',        'Tubos',        '#9C27B0'],
+  ['relevRipio',        'Ripio',        '#4CAF50'],
+  ['relevOtro',         'Otro',         '#607D8B'],
+]
+
+function RightPanel({ layers, toggle }: { layers: LayerState; toggle: (k: LayerKey) => void }) {
+  const [open, setOpen] = useState(true)
+  const PANEL: React.CSSProperties = {
+    position: 'absolute', top: 10, right: 10, zIndex: 1000,
+    background: '#1e2436', border: '1px solid #2a3450',
+    borderRadius: 8,
+    overflowX: 'clip' as React.CSSProperties['overflowX'],
+    boxShadow: '0 4px 12px rgba(0,0,0,.5)',
+    fontFamily: 'system-ui, sans-serif',
+    width: open ? 148 : 36,
+    transition: 'width 0.2s',
+    display: 'flex', flexDirection: 'column',
+  }
+  const ITEM: React.CSSProperties = {
+    display: 'flex', alignItems: 'center', gap: 6,
+    marginBottom: 3, cursor: 'pointer', whiteSpace: 'nowrap',
+    fontSize: 12, color: '#e0e6f0', userSelect: 'none',
+  }
+  const CB: React.CSSProperties = { accentColor: '#F5C300', cursor: 'pointer', flexShrink: 0 }
+
+  return (
+    <div style={PANEL}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', borderBottom: '1px solid #2a3450', background: '#252d40', flexShrink: 0 }}>
+        {open && <span style={{ fontWeight: 700, fontSize: 11, color: '#e0e6f0' }}>Relevamientos</span>}
+        <button
+          onClick={() => setOpen(v => !v)}
+          style={{ background: 'none', border: 'none', color: '#7a8aaa', cursor: 'pointer', fontSize: 13, padding: 0, lineHeight: 1, marginLeft: open ? 0 : 'auto' }}
+          title={open ? 'Colapsar' : 'Expandir'}
+        >
+          {open ? '⮞' : '⮜'}
+        </button>
+      </div>
+      {open && (
+        <div style={{ padding: '8px 10px 10px' }}>
+          {RELEV_ITEMS.map(([k, label, color]) => (
+            <label key={k} style={ITEM}>
+              <input type="checkbox" checked={!!layers[k]} onChange={() => toggle(k)} style={CB} />
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: color, display: 'inline-block', flexShrink: 0 }} />
+              {label}
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── ZoneRow: fila de zona CC con checkbox padre indeterminado + sub-lista ────
 
 interface ZoneRowProps {
@@ -816,7 +874,7 @@ export default function MapInner({ relevamientos }: Props) {
         fontFamily: 'system-ui, sans-serif',
         width: panelOpen ? 178 : 36,
         transition: 'width 0.2s',
-        maxHeight: 'calc(100vh - 80px)',
+        maxHeight: 'calc(100% - 20px)',
         display: 'flex', flexDirection: 'column',
       }}>
 
@@ -895,25 +953,13 @@ export default function MapInner({ relevamientos }: Props) {
               Establecimientos
             </label>
 
-            {/* RELEVAMIENTOS */}
-            <div style={SECTION_TITLE_STYLE}>Relevamientos</div>
-            {([
-              ['relevPuente',       'Puente',       TIPO_COLORS.Puente],
-              ['relevAlcantarilla', 'Alcantarilla', TIPO_COLORS.Alcantarilla],
-              ['relevTubos',        'Tubos',        TIPO_COLORS.Tubos],
-              ['relevRipio',        'Ripio',        TIPO_COLORS.Ripio],
-              ['relevOtro',         'Otro',         TIPO_COLORS.Otro],
-            ] as [LayerKey, string, string][]).map(([k, label, color]) => (
-              <label key={k} style={ITEM_STYLE}>
-                <input type="checkbox" checked={!!layers[k]} onChange={() => toggle(k)} style={CHECKBOX_STYLE} />
-                {DOT(color)}
-                {label}
-              </label>
-            ))}
 
           </div>
         )}
       </div>
+
+      {/* ── Panel derecho — tipos de relevamiento ── */}
+      <RightPanel layers={layers} toggle={toggle} />
     </div>
   )
 }

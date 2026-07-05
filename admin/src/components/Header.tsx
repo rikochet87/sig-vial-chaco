@@ -1,4 +1,5 @@
 'use client'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
@@ -8,7 +9,17 @@ interface HeaderProps {
 }
 
 export default function Header({ userEmail, title }: HeaderProps) {
-  const router = useRouter()
+  const router  = useRouter()
+  const [nombre, setNombre] = useState<string | null>(null)
+
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return
+      supabase.from('profiles').select('nombre').eq('id', user.id).single()
+        .then(({ data }) => { if (data?.nombre) setNombre(data.nombre) })
+    })
+  }, [])
 
   async function handleLogout() {
     const supabase = createClient()
@@ -16,35 +27,47 @@ export default function Header({ userEmail, title }: HeaderProps) {
     router.push('/login')
   }
 
+  const displayName = nombre ?? userEmail
+
   return (
     <div style={{
-      background: '#2C2C2C',
-      height: 64,
+      background: '#1A1A1A',
+      height: 52,
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
       padding: '0 24px',
-      borderBottom: '1px solid #3C3C3C',
+      borderBottom: '1px solid #222',
       flexShrink: 0,
     }}>
-      <span style={{ fontWeight: 600, fontSize: 18, color: '#fff' }}>
-        {title || 'Panel Admin'}
+      <span style={{ fontWeight: 600, fontSize: 15, color: '#e0e0e0', letterSpacing: 0.3 }}>
+        {title || 'SIG Vial Chaco — Panel Admin'}
       </span>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-        <span style={{ color: '#9E9E9E', fontSize: 14 }}>{userEmail}</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#2a2a2a', border: '1px solid #333', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <span style={{ fontSize: 12, color: '#9E9E9E' }}>▲</span>
+          </div>
+          <span style={{ color: '#9E9E9E', fontSize: 13, fontFamily: 'monospace' }}>{displayName}</span>
+        </div>
         <button
           onClick={handleLogout}
           style={{
-            background: '#3C3C3C',
-            border: '1px solid #4C4C4C',
-            borderRadius: 8,
-            color: '#9E9E9E',
-            padding: '6px 14px',
+            background: 'transparent',
+            border: '1px solid #333',
+            borderRadius: 4,
+            color: '#666',
+            padding: '5px 12px',
             cursor: 'pointer',
-            fontSize: 13,
+            fontSize: 12,
+            fontFamily: 'monospace',
+            letterSpacing: 0.5,
+            transition: 'border-color 0.15s, color 0.15s',
           }}
+          onMouseEnter={e => { (e.target as HTMLButtonElement).style.borderColor = '#F5C300'; (e.target as HTMLButtonElement).style.color = '#F5C300' }}
+          onMouseLeave={e => { (e.target as HTMLButtonElement).style.borderColor = '#333'; (e.target as HTMLButtonElement).style.color = '#666' }}
         >
-          Salir
+          SALIR
         </button>
       </div>
     </div>
