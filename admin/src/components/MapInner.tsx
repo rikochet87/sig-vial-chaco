@@ -248,6 +248,22 @@ function RightPanel({ layers, toggle }: { layers: LayerState; toggle: (k: LayerK
   )
 }
 
+// ── Medición de distancias — helpers ─────────────────────────────────────────
+function haversine(p1: {lat:number;lng:number}, p2: {lat:number;lng:number}): number {
+  const R = 6371000
+  const φ1 = p1.lat * Math.PI / 180, φ2 = p2.lat * Math.PI / 180
+  const dφ = (p2.lat - p1.lat) * Math.PI / 180
+  const dλ = (p2.lng - p1.lng) * Math.PI / 180
+  const a = Math.sin(dφ/2)**2 + Math.cos(φ1)*Math.cos(φ2)*Math.sin(dλ/2)**2
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))
+}
+function fmtDist(m: number): string {
+  return m < 1000 ? `${Math.round(m)} m` : `${(m/1000).toFixed(2)} km`
+}
+function totalDist(pts: {lat:number;lng:number}[]): number {
+  let t = 0; for (let i = 1; i < pts.length; i++) t += haversine(pts[i-1], pts[i]); return t
+}
+
 // ── ZoneRow: fila de zona CC con checkbox padre indeterminado + sub-lista ────
 
 interface ZoneRowProps {
@@ -347,6 +363,12 @@ export default function MapInner({ relevamientos }: Props) {
     ZI: new Set(), ZII: new Set(), ZIII: new Set(), ZIV: new Set(), ZV: new Set(),
   })
 
+  // ── Medición de distancias ──
+  const [measureMode, setMeasureMode] = useState(false)
+  const [measurePts, setMeasurePts]   = useState<{lat:number;lng:number}[]>([])
+  const mLayersRef  = useRef<import('leaflet').Layer[]>([])
+  const mClickRef   = useRef<((e: import('leaflet').LeafletMouseEvent) => void) | null>(null)
+
   // ── Inject popup CSS once ──
   useEffect(() => {
     if (document.getElementById('map-popup-css')) return
@@ -355,6 +377,54 @@ export default function MapInner({ relevamientos }: Props) {
     style.textContent = POPUP_CSS
     document.head.appendChild(style)
   }, [])
+
+  // ── Medición: activar/desactivar handler de click ──────────────────────────
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !mapReady) return
+    if (measureMode) {
+      map.getContainer().style.cursor = 'crosshair'
+      const onClick = (e: import('leaflet').LeafletMouseEvent) => {
+        setMeasurePts(prev => [...prev, { lat: e.latlng.lat, lng: e.latlng.lng }])
+      }
+      mClickRef.current = onClick
+      map.on('click', onClick)
+    } else {
+      map.getContainer().style.cursor = ''
+      if (mClickRef.current) { map.off('click', mClickRef.current); mClickRef.current = null }
+      mLayersRef.current.forEach(l => map.removeLayer(l)); mLayersRef.current = []
+      setMeasurePts([])
+    }
+    return () => { if (mClickRef.current) map.off('click', mClickRef.current) }
+  }, [measureMode, mapReady])
+
+  // ── Medición: redibujar puntos/líneas/etiquetas cuando cambian measurePts ──
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !mapReady) return
+    mLayersRef.current.forEach(l => map.removeLayer(l)); mLayersRef.current = []
+    if (measurePts.length === 0) return
+    import('leaflet').then(L => {
+      const newLayers: import('leaflet').Layer[] = []
+      const n = measurePts.length
+      measurePts.forEach((p, i) => {
+        const fc = i === 0 ? '#27ae60' : (i === n-1 && n > 1) ? '#F5C300' : '#fff'
+        newLayers.push(L.circleMarker([p.lat, p.lng],
+          { radius: 6, color: '#111', weight: 2, fillColor: fc, fillOpacity: 1 }
+        ).addTo(map))
+      })
+      for (let i = 1; i < n; i++) {
+        const p1 = measurePts[i-1], p2 = measurePts[i], d = haversine(p1, p2)
+        newLayers.push(L.polyline([[p1.lat, p1.lng],[p2.lat, p2.lng]],
+          { color: '#F5C300', weight: 2.5, opacity: 0.9, dashArray: '8 5' }
+        ).addTo(map))
+        const icon = L.divIcon({ className: '', iconAnchor: [0, 8],
+          html: `<div style="background:#1e2436;color:#F5C300;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;border:1px solid rgba(245,195,0,.4);white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,.5)">${fmtDist(d)}</div>` })
+        newLayers.push(L.marker([(p1.lat+p2.lat)/2,(p1.lng+p2.lng)/2], { icon, interactive: false, zIndexOffset: 1000 }).addTo(map))
+      }
+      mLayersRef.current = newLayers
+    })
+  }, [measurePts, mapReady])
 
   // ── Load GeoJSON data ──
   useEffect(() => {
@@ -960,6 +1030,62 @@ export default function MapInner({ relevamientos }: Props) {
 
       {/* ── Panel derecho — tipos de relevamiento ── */}
       <RightPanel layers={layers} toggle={toggle} />
+
+      {/* ── Botón herramienta de medición ── */}
+      <button
+        onClick={() => setMeasureMode(v => !v)}
+        title={measureMode ? 'Cerrar medición' : 'Medir distancias'}
+        style={{
+          position: 'absolute', top: 10, right: 10, zIndex: 1000,
+          background: measureMode ? '#F5C300' : '#1e2436',
+          border: `1px solid ${measureMode ? '#d4a800' : '#2a3450'}`,
+          borderRadius: 8, padding: '6px 10px', cursor: 'pointer',
+          color: measureMode ? '#111' : '#e0e6f0',
+          fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6,
+          boxShadow: '0 4px 12px rgba(0,0,0,.5)',
+          transition: 'background .15s, color .15s',
+        }}
+      >
+        📏 {measureMode ? 'Midiendo' : 'Medir'}
+      </button>
+
+      {/* ── Panel de medición flotante ── */}
+      {measureMode && (
+        <div style={{
+          position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)',
+          zIndex: 1000, background: '#1e2436', border: '1.5px solid #F5C300',
+          borderRadius: 12, padding: '12px 16px',
+          boxShadow: '0 6px 24px rgba(0,0,0,.65)', minWidth: 280, maxWidth: '90%',
+        }}>
+          <div style={{ color: '#F5C300', fontSize: 10, fontWeight: 700, textAlign: 'center', letterSpacing: 0.8, marginBottom: 6, textTransform: 'uppercase' }}>
+            📏 Medición — clic en el mapa para agregar puntos
+          </div>
+          <div style={{ color: '#e0e6f0', fontSize: 22, fontWeight: 900, textAlign: 'center', marginBottom: 12, minHeight: 30 }}>
+            {measurePts.length === 0
+              ? <span style={{ fontSize: 13, color: '#7a8aaa' }}>Hacé clic en el mapa para comenzar</span>
+              : measurePts.length === 1
+              ? <span style={{ fontSize: 13, color: '#aaa' }}>1 punto — seguí haciendo clic</span>
+              : <span style={{ color: '#F5C300' }}>{fmtDist(totalDist(measurePts))}</span>
+            }
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              onClick={() => setMeasurePts(prev => prev.slice(0, -1))}
+              disabled={measurePts.length === 0}
+              style={{ flex: 1, background: '#252d40', border: '1px solid #3a4060', color: '#e0e6f0', borderRadius: 8, padding: '8px 4px', fontSize: 12, fontWeight: 600, cursor: 'pointer', opacity: measurePts.length === 0 ? 0.4 : 1 }}
+            >↩ Deshacer</button>
+            <button
+              onClick={() => setMeasurePts([])}
+              disabled={measurePts.length === 0}
+              style={{ flex: 1, background: '#252d40', border: '1px solid #3a4060', color: '#aaa', borderRadius: 8, padding: '8px 4px', fontSize: 12, fontWeight: 600, cursor: 'pointer', opacity: measurePts.length === 0 ? 0.4 : 1 }}
+            >🗑 Limpiar</button>
+            <button
+              onClick={() => setMeasureMode(false)}
+              style={{ flex: 1, background: 'rgba(231,76,60,.15)', border: '1px solid rgba(231,76,60,.4)', color: '#e74c3c', borderRadius: 8, padding: '8px 4px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+            >✗ Cerrar</button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
