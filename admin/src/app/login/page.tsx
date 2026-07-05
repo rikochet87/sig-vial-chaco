@@ -32,42 +32,43 @@ export default function LoginPage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#1A1A1A' }}>
-      <div style={{ background: '#2C2C2C', borderRadius: 12, padding: '2.5rem 2rem', width: 360, boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}>
-        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-          <div style={{ display: 'inline-block', background: '#F5C300', color: '#1A1A1A', fontWeight: 800, fontSize: 22, padding: '6px 18px', borderRadius: 8, letterSpacing: 2 }}>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#111' }}>
+      <div style={{ background: '#161616', border: '1px solid #1e1e1e', padding: '2.5rem 2rem', width: 360, boxShadow: '0 8px 32px rgba(0,0,0,0.6)' }}>
+        <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
+          <div style={{ display: 'inline-block', background: '#F5C300', color: '#111', fontWeight: 800, fontSize: 18, padding: '5px 16px', letterSpacing: 3, fontFamily: 'monospace' }}>
             SIG / VIAL
           </div>
-          <p style={{ color: '#9E9E9E', marginTop: 12, fontSize: 14 }}>Panel de Administración — Chaco</p>
+          <p style={{ color: '#444', marginTop: 12, fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase' }}>Panel de Administración — Chaco</p>
         </div>
         <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: 16 }}>
-            <label style={{ display: 'block', color: '#9E9E9E', fontSize: 13, marginBottom: 6 }}>Email</label>
+            <label style={{ display: 'block', color: '#555', fontSize: 10, marginBottom: 6, letterSpacing: 1, textTransform: 'uppercase' }}>Email</label>
             <input
               type="email"
               value={email}
               onChange={e => setEmail(e.target.value)}
               required
-              style={{ width: '100%', padding: '10px 12px', background: '#3C3C3C', border: '1px solid #4C4C4C', borderRadius: 8, color: '#fff', fontSize: 15, boxSizing: 'border-box' }}
+              style={{ width: '100%', padding: '9px 12px', background: '#1a1a1a', border: '1px solid #252525', color: '#e0e0e0', fontSize: 13, boxSizing: 'border-box' }}
             />
           </div>
           <div style={{ marginBottom: 24 }}>
-            <label style={{ display: 'block', color: '#9E9E9E', fontSize: 13, marginBottom: 6 }}>Contraseña</label>
+            <label style={{ display: 'block', color: '#555', fontSize: 10, marginBottom: 6, letterSpacing: 1, textTransform: 'uppercase' }}>Contraseña</label>
             <input
               type="password"
               value={password}
               onChange={e => setPassword(e.target.value)}
               required
-              style={{ width: '100%', padding: '10px 12px', background: '#3C3C3C', border: '1px solid #4C4C4C', borderRadius: 8, color: '#fff', fontSize: 15, boxSizing: 'border-box' }}
+              style={{ width: '100%', padding: '9px 12px', background: '#1a1a1a', border: '1px solid #252525', color: '#e0e0e0', fontSize: 13, boxSizing: 'border-box' }}
             />
           </div>
-          {error && <p style={{ color: '#ff5252', fontSize: 13, marginBottom: 16 }}>{error}</p>}
+          {error && <p style={{ color: '#f44336', fontSize: 12, marginBottom: 16, letterSpacing: 0.3 }}>{error}</p>}
           <button
             type="submit"
             disabled={loading}
-            style={{ width: '100%', padding: '12px', background: '#F5C300', color: '#1A1A1A', fontWeight: 700, fontSize: 16, borderRadius: 8, border: 'none', cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1 }}
+            className="glow-y"
+            style={{ width: '100%', padding: '11px', background: '#F5C300', color: '#111', fontWeight: 700, fontSize: 13, border: 'none', cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.6 : 1, letterSpacing: 1.5 }}
           >
-            {loading ? 'Ingresando...' : 'Ingresar'}
+            {loading ? 'INGRESANDO...' : 'INGRESAR'}
           </button>
         </form>
       </div>

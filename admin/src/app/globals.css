@@ -1,16 +1,55 @@
 @import "tailwindcss";
 
+/* ─── Design tokens ─────────────────────────────────────── */
 :root {
-  --color-primary: #2C2C2C;
-  --color-accent: #F5C300;
-  --color-surface: #3C3C3C;
-  --color-bg: #1A1A1A;
-  --color-text: #FFFFFF;
-  --color-muted: #9E9E9E;
+  --accent:      #F5C300;
+  --accent-glow: rgba(245,195,0,.28);
+  --danger:      #f44336;
+  --danger-glow: rgba(244,67,54,.2);
+  --bg-main:     #1a1a1a;
+  --border-hi:   #3a3a3a;
+  --mono:        "DM Mono","Roboto Mono",ui-monospace,monospace;
 }
 
+/* ─── Base ──────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
 body {
-  background-color: var(--color-bg);
-  color: var(--color-text);
-  font-family: system-ui, -apple-system, sans-serif;
+  background: var(--bg-main);
+  color: #e0e0e0;
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.5;
 }
+
+h1, h2, h3, h4 { font-family: var(--mono); letter-spacing: .3px; }
+
+/* ─── Buttons: monospace + transición global ────────────── */
+button {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .6px;
+  cursor: pointer;
+  transition: box-shadow .15s, border-color .15s, color .15s, opacity .15s;
+}
+
+/* ─── Inputs / Selects ──────────────────────────────────── */
+input, select, textarea {
+  font-family: var(--mono);
+  font-size: 12px;
+  outline: none;
+  transition: border-color .15s, box-shadow .15s;
+}
+input:focus, select:focus, textarea:focus {
+  border-color: #3a3a3a !important;
+  box-shadow: 0 0 8px rgba(245,195,0,.08) !important;
+}
+select option { background: #1a1a1a; }
+
+/* ─── Hover glow utilities ──────────────────────────────── */
+/* Botones primarios (amarillo):  className="glow-y"         */
+.glow-y:hover:not(:disabled) { box-shadow: 0 0 18px var(--accent-glow) !important; }
+/* Botones secundarios/ghost:     className="glow-g"         */
+.glow-g:hover:not(:disabled) { box-shadow: 0 0 12px rgba(245,195,0,.12) !important; }
+/* Botones peligro/eliminar:      className="glow-r"         */
+.glow-r:hover { box-shadow: 0 0 12px var(--danger-glow) !important; }

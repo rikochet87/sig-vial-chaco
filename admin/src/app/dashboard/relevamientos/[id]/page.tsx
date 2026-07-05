@@ -41,27 +41,27 @@ export default async function RelevamientoDetailPage({ params }: { params: Promi
       {/* Acciones: export + delete */}
       <RelevamientoActions rel={rel} />
 
-      {/* Editable form — shows info in read mode + "Editar relevamiento" button */}
+      {/* Editable form */}
       <RelevamientoEditForm rel={rel} tecnicoNombre={tecnicoNombre} />
 
       {/* Map */}
-      <div style={{ background: '#2C2C2C', borderRadius: 10, overflow: 'hidden', height: 400, marginBottom: 16 }}>
+      <div style={{ background: '#191919', border: '1px solid #1e1e1e', overflow: 'hidden', height: 400, marginBottom: 12 }}>
         <RelevamientoDetailMap relevamientos={[rel]} />
       </div>
 
       {/* Fotos */}
       {rel.fotos && rel.fotos.length > 0 && (
-        <div style={{ background: '#2C2C2C', borderRadius: 10, padding: 20 }}>
-          <h3 style={{ color: '#F5C300', fontSize: 14, fontWeight: 700, marginBottom: 16, textTransform: 'uppercase', letterSpacing: 1 }}>Fotos ({rel.fotos.length})</h3>
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+        <div style={{ background: '#191919', border: '1px solid #1e1e1e', padding: 20 }}>
+          <h3 style={{ color: '#F5C300', fontSize: 11, fontWeight: 700, marginBottom: 16, textTransform: 'uppercase', letterSpacing: 1.5 }}>Fotos ({rel.fotos.length})</h3>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             {rel.fotos.map((foto, i) => (
-              <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <div style={{ width: 160, height: 120, background: '#3C3C3C', borderRadius: 8, overflow: 'hidden' }}>
+              <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                <div style={{ width: 160, height: 120, background: '#1e1e1e', border: '1px solid #252525', overflow: 'hidden' }}>
                   {foto.startsWith('http') ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={foto} alt={`Foto ${i + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   ) : (
-                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9E9E9E', fontSize: 12 }}>
+                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#444', fontSize: 11 }}>
                       Foto {i + 1}
                     </div>
                   )}
@@ -73,9 +73,9 @@ export default async function RelevamientoDetailPage({ params }: { params: Promi
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{
-                      display: 'block', textAlign: 'center', fontSize: 11, fontWeight: 700,
+                      display: 'block', textAlign: 'center', fontSize: 10, fontWeight: 700,
                       color: '#F5C300', textDecoration: 'none', padding: '4px 0',
-                      background: '#3C3C3C', borderRadius: 6,
+                      background: '#1e1e1e', border: '1px solid #252525', letterSpacing: 0.5,
                     }}
                   >
                     ⬇ Descargar

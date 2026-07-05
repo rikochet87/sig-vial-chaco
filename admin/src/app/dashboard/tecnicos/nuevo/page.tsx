@@ -37,8 +37,8 @@ export default function NuevoTecnicoPage() {
     setLoading(false)
   }
 
-  const inputStyle = { width: '100%', padding: '10px 12px', background: '#3C3C3C', border: '1px solid #4C4C4C', borderRadius: 8, color: '#fff', fontSize: 15, boxSizing: 'border-box' as const }
-  const labelStyle = { display: 'block' as const, color: '#9E9E9E', fontSize: 13, marginBottom: 6 }
+  const inputStyle = { width: '100%', padding: '9px 12px', background: '#1a1a1a', border: '1px solid #252525', color: '#e0e0e0', fontSize: 12, boxSizing: 'border-box' as const }
+  const labelStyle = { display: 'block' as const, color: '#555', fontSize: 10, marginBottom: 6, letterSpacing: 1, textTransform: 'uppercase' as const }
 
   return (
     <div>
@@ -47,7 +47,7 @@ export default function NuevoTecnicoPage() {
         <h1 style={{ color: '#fff', fontSize: 22, fontWeight: 700 }}>Nuevo usuario</h1>
       </div>
 
-      <div style={{ background: '#2C2C2C', borderRadius: 10, padding: 24, maxWidth: 480 }}>
+      <div style={{ background: '#191919', border: '1px solid #1e1e1e', padding: 24, maxWidth: 480 }}>
         {success && (
           <div style={{ background: '#4CAF5022', border: '1px solid #4CAF50', borderRadius: 8, padding: '12px 16px', marginBottom: 20, color: '#4CAF50', fontSize: 14 }}>
             Usuario creado exitosamente. Redirigiendo...
@@ -103,9 +103,10 @@ export default function NuevoTecnicoPage() {
           <button
             type="submit"
             disabled={loading}
-            style={{ width: '100%', padding: '12px', background: '#F5C300', color: '#1A1A1A', fontWeight: 700, fontSize: 16, borderRadius: 8, border: 'none', cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1 }}
+            className="glow-y"
+            style={{ width: '100%', padding: '11px', background: '#F5C300', color: '#111', fontWeight: 700, fontSize: 12, border: 'none', cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.6 : 1, letterSpacing: 1.5 }}
           >
-            {loading ? 'Creando...' : 'Crear usuario'}
+            {loading ? 'CREANDO...' : 'CREAR USUARIO'}
           </button>
         </form>
       </div>

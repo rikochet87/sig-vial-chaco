@@ -23,8 +23,8 @@ const label: React.CSSProperties = {
   color: '#9E9E9E', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5,
 }
 const input: React.CSSProperties = {
-  background: '#3C3C3C', border: '1px solid #555', borderRadius: 6,
-  color: '#fff', fontSize: 14, padding: '8px 10px', outline: 'none',
+  background: '#1a1a1a', border: '1px solid #252525',
+  color: '#e0e0e0', fontSize: 12, padding: '8px 10px', outline: 'none', width: '100%',
 }
 const select: React.CSSProperties = { ...input, cursor: 'pointer' }
 const textarea: React.CSSProperties = {
@@ -34,11 +34,11 @@ const grid2: React.CSSProperties = {
   display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12,
 }
 const sectionCard: React.CSSProperties = {
-  background: '#2C2C2C', borderRadius: 10, padding: 20, marginBottom: 16,
+  background: '#191919', border: '1px solid #1e1e1e', padding: '16px 20px', marginBottom: 12,
 }
 const sectionTitle: React.CSSProperties = {
-  color: '#F5C300', fontSize: 14, fontWeight: 700, marginBottom: 16,
-  textTransform: 'uppercase', letterSpacing: 1,
+  color: '#F5C300', fontSize: 11, fontWeight: 700, marginBottom: 14,
+  textTransform: 'uppercase', letterSpacing: 1.5,
 }
 
 // ── read-only cell ────────────────────────────────────────────────────────────
@@ -72,7 +72,7 @@ function RipioCard({ data }: { data: Record<string, unknown> | null | undefined 
         {ancho > 0 && <div style={cellStyle}><div style={labelSt}>Ancho</div><div style={valueSt}>{ancho}<span style={unitSt}>m</span></div></div>}
         {espesor > 0 && <div style={cellStyle}><div style={labelSt}>Espesor</div><div style={valueSt}>{espesor}<span style={unitSt}>m</span></div></div>}
         {longitud > 0 && <div style={cellStyle}><div style={labelSt}>Longitud</div><div style={valueSt}>{longitud.toLocaleString('es-AR')}<span style={unitSt}>m</span></div></div>}
-        {data.empresa && <div style={cellStyle}><div style={labelSt}>Empresa</div><div style={{ color: '#fff', fontSize: 14 }}>{String(data.empresa)}</div></div>}
+        {!!data.empresa && <div style={cellStyle}><div style={labelSt}>Empresa</div><div style={{ color: '#fff', fontSize: 14 }}>{String(data.empresa)}</div></div>}
         {toneladas && (
           <div style={{ ...cellStyle, borderLeft: '3px solid #F5C300', gridColumn: 'span 2' }}>
             <div style={labelSt}>Toneladas estimadas</div>
@@ -175,7 +175,7 @@ function EditPuente({
             <option value="false">No</option><option value="true">Sí</option>
           </select>
         </div>
-        {data.guiaRuedas && (
+        {!!data.guiaRuedas && (
           <div style={field}>
             <span style={label}>Estado guía ruedas</span>
             <select style={select} value={String(data.estadoGuiaRuedas ?? 'Regular')} onChange={set('estadoGuiaRuedas')}>
@@ -188,7 +188,7 @@ function EditPuente({
             <option value="false">No</option><option value="true">Sí</option>
           </select>
         </div>
-        {data.barandas && (
+        {!!data.barandas && (
           <div style={field}><span style={label}>H barandas (m)</span><input style={input} value={String(data.hBarandas ?? '')} onChange={set('hBarandas')} /></div>
         )}
       </div>
@@ -282,7 +282,6 @@ export default function RelevamientoEditForm({ rel, tecnicoNombre }: Props) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // editable fields
   const [fecha, setFecha]               = useState(fmtFecha(rel.fecha))
   const [estadoCalzada, setEstadoCalzada] = useState(rel.estado_calzada ?? '')
   const [rutaTramo, setRutaTramo]       = useState(rel.ruta_tramo ?? '')
@@ -322,7 +321,6 @@ export default function RelevamientoEditForm({ rel, tecnicoNombre }: Props) {
   }
 
   function handleCancel() {
-    // reset to original values
     setFecha(fmtFecha(rel.fecha))
     setEstadoCalzada(rel.estado_calzada ?? '')
     setRutaTramo(rel.ruta_tramo ?? '')
@@ -339,21 +337,20 @@ export default function RelevamientoEditForm({ rel, tecnicoNombre }: Props) {
   if (!editing) {
     return (
       <>
-        {/* Edit button row */}
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
           <button
             onClick={() => setEditing(true)}
+            className="glow-y"
             style={{
-              background: '#F5C300', color: '#1A1A1A', border: 'none',
-              borderRadius: 8, padding: '10px 20px', fontWeight: 700,
-              fontSize: 13, cursor: 'pointer',
+              background: '#F5C300', color: '#111', border: 'none',
+              padding: '9px 18px', fontWeight: 700,
+              fontSize: 11, cursor: 'pointer', letterSpacing: 1,
             }}
           >
-            ✏️ Editar relevamiento
+            EDITAR
           </button>
         </div>
 
-        {/* Main info */}
         <div style={sectionCard}>
           <div style={grid2}>
             <ROCell label="Fecha"         value={fmtFecha(rel.fecha)} />
@@ -366,7 +363,6 @@ export default function RelevamientoEditForm({ rel, tecnicoNombre }: Props) {
           </div>
         </div>
 
-        {/* Observaciones */}
         {rel.observaciones && (
           <div style={sectionCard}>
             <div style={label}>Observaciones</div>
@@ -374,7 +370,6 @@ export default function RelevamientoEditForm({ rel, tecnicoNombre }: Props) {
           </div>
         )}
 
-        {/* Tipo-specific read-only */}
         <DataCard title="Datos Puente"       data={rel.datos_especificos?.puente as Record<string, unknown>} />
         <DataCard title="Datos Alcantarilla" data={rel.datos_especificos?.alcantarilla as Record<string, unknown>} />
         <DataCard title="Datos Tubos"        data={rel.datos_especificos?.tubos as Record<string, unknown>} />
@@ -388,35 +383,37 @@ export default function RelevamientoEditForm({ rel, tecnicoNombre }: Props) {
 
   return (
     <>
-      {/* Toolbar */}
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
         <button
           onClick={handleSave}
           disabled={saving}
+          className="glow-y"
           style={{
-            background: '#F5C300', color: '#1A1A1A', border: 'none',
-            borderRadius: 8, padding: '10px 22px', fontWeight: 700,
-            fontSize: 14, cursor: saving ? 'not-allowed' : 'pointer',
-            opacity: saving ? 0.7 : 1,
+            background: '#F5C300', color: '#111', border: 'none',
+            padding: '9px 20px', fontWeight: 700,
+            fontSize: 11, cursor: saving ? 'not-allowed' : 'pointer',
+            opacity: saving ? 0.6 : 1, letterSpacing: 1,
           }}
         >
-          {saving ? 'Guardando…' : '💾 Guardar cambios'}
+          {saving ? 'GUARDANDO...' : 'GUARDAR'}
         </button>
         <button
           onClick={handleCancel}
           disabled={saving}
+          className="glow-g"
           style={{
-            background: 'transparent', color: '#9E9E9E', border: '1px solid #555',
-            borderRadius: 8, padding: '10px 22px', fontWeight: 600,
-            fontSize: 14, cursor: 'pointer',
+            background: 'transparent', color: '#555', border: '1px solid #252525',
+            padding: '9px 20px', fontWeight: 500,
+            fontSize: 11, cursor: 'pointer', letterSpacing: 0.5,
           }}
+          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#3a3a3a'; (e.currentTarget as HTMLButtonElement).style.color = '#888' }}
+          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#252525'; (e.currentTarget as HTMLButtonElement).style.color = '#555' }}
         >
           Cancelar
         </button>
         {error && <span style={{ color: '#e74c3c', fontSize: 13 }}>⚠️ {error}</span>}
       </div>
 
-      {/* Main fields */}
       <div style={sectionCard}>
         <h3 style={sectionTitle}>Información general</h3>
         <div style={grid2}>
@@ -446,7 +443,6 @@ export default function RelevamientoEditForm({ rel, tecnicoNombre }: Props) {
             <span style={label}>Consorcio</span>
             <input style={input} value={ccAsociado} onChange={e => setCcAsociado(e.target.value)} placeholder="Nombre del consorcio" />
           </div>
-          {/* read-only: tipo & técnico */}
           <div style={field}>
             <span style={label}>Tipo</span>
             <div style={{ color: '#F5C300', fontSize: 14, fontWeight: 700, paddingTop: 8 }}>{rel.tipo}</div>
@@ -458,7 +454,6 @@ export default function RelevamientoEditForm({ rel, tecnicoNombre }: Props) {
         </div>
       </div>
 
-      {/* Observaciones */}
       <div style={sectionCard}>
         <h3 style={sectionTitle}>Observaciones</h3>
         <textarea
@@ -469,7 +464,6 @@ export default function RelevamientoEditForm({ rel, tecnicoNombre }: Props) {
         />
       </div>
 
-      {/* Tipo-specific edit sections */}
       {rel.tipo === 'Ripio' && (
         <EditRipio
           data={(datosEsp?.ripio ?? {}) as Record<string, unknown>}

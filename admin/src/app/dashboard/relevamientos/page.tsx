@@ -88,31 +88,28 @@ export default function RelevamientosPage() {
   const paged = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE)
 
-  const selectStyle = { background: '#3C3C3C', border: '1px solid #4C4C4C', borderRadius: 6, color: '#fff', padding: '6px 10px', fontSize: 13 }
-  const labelStyle = { color: '#9E9E9E', fontSize: 12 }
+  const selectStyle = { background: '#1a1a1a', border: '1px solid #252525', color: '#e0e0e0', padding: '6px 10px', fontSize: 12 }
+  const labelStyle = { color: '#555', fontSize: 10, letterSpacing: 1, textTransform: 'uppercase' as const }
   const wrapStyle: React.CSSProperties = { display: 'flex', flexDirection: 'column', gap: 4 }
 
   return (
     <div>
-      <h1 style={{ color: '#fff', fontSize: 22, fontWeight: 700, marginBottom: 20 }}>Relevamientos</h1>
+      <h1 style={{ color: '#e0e0e0', fontSize: 20, fontWeight: 700, marginBottom: 20, letterSpacing: 0.5 }}>Relevamientos</h1>
 
       {/* Filters */}
-      <div style={{ background: '#2C2C2C', borderRadius: 10, padding: 20, marginBottom: 20, display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-        {/* Tipo de relevamiento */}
+      <div style={{ background: '#191919', border: '1px solid #1e1e1e', padding: '14px 18px', marginBottom: 16, display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'flex-end' }}>
         <div style={wrapStyle}>
           <label style={labelStyle}>Tipo</label>
           <select value={tipo} onChange={e => setTipo(e.target.value)} style={selectStyle}>
             {TIPOS.map(o => <option key={o} value={o}>{o || 'Todos'}</option>)}
           </select>
         </div>
-        {/* Tipo de usuario */}
         <div style={wrapStyle}>
           <label style={labelStyle}>Tipo de usuario</label>
           <select value={rolFilter} onChange={e => { setRolFilter(e.target.value); setZona('') }} style={selectStyle}>
             {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
           </select>
         </div>
-        {/* Zona — solo visible cuando tipo usuario = técnico */}
         {rolFilter === 'tecnico' && (
           <div style={wrapStyle}>
             <label style={labelStyle}>Zona</label>
@@ -121,7 +118,6 @@ export default function RelevamientosPage() {
             </select>
           </div>
         )}
-        {/* Fechas */}
         <div style={wrapStyle}>
           <label style={labelStyle}>Desde</label>
           <input type="date" value={desde} onChange={e => setDesde(e.target.value)} style={selectStyle} />
@@ -133,15 +129,15 @@ export default function RelevamientosPage() {
       </div>
 
       {/* Table */}
-      <div style={{ background: '#2C2C2C', borderRadius: 10, overflow: 'hidden' }}>
+      <div style={{ background: '#191919', border: '1px solid #1e1e1e', overflow: 'hidden' }}>
         {loading ? (
-          <div style={{ padding: 40, textAlign: 'center', color: '#9E9E9E' }}>Cargando...</div>
+          <div style={{ padding: 40, textAlign: 'center', color: '#444' }}>Cargando...</div>
         ) : (
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
-              <tr style={{ background: '#3C3C3C' }}>
+              <tr style={{ background: '#141414' }}>
                 {['Fecha', 'Tipo', 'Técnico', 'Zona', 'Consorcio', 'Tramo', 'Estado', 'Sync', ''].map(h => (
-                  <th key={h} style={{ padding: '12px 16px', color: '#9E9E9E', fontSize: 12, fontWeight: 600, textAlign: 'left', textTransform: 'uppercase', letterSpacing: 0.5 }}>{h}</th>
+                  <th key={h} style={{ padding: '10px 16px', color: '#444', fontSize: 10, fontWeight: 600, textAlign: 'left', textTransform: 'uppercase', letterSpacing: 1, borderBottom: '1px solid #1e1e1e' }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -151,32 +147,35 @@ export default function RelevamientosPage() {
                   key={r.id}
                   onClick={() => router.push(`/dashboard/relevamientos/${r.id}`)}
                   style={{
-                    borderTop: '1px solid #3C3C3C',
+                    borderBottom: '1px solid #1e1e1e',
                     cursor: 'pointer',
-                    background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.02)',
+                    background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.01)',
                   }}
-                  onMouseEnter={e => (e.currentTarget.style.background = 'rgba(245,195,0,0.06)')}
-                  onMouseLeave={e => (e.currentTarget.style.background = i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.02)')}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'rgba(245,195,0,0.05)')}
+                  onMouseLeave={e => (e.currentTarget.style.background = i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.01)')}
                 >
-                  <td style={{ padding: '12px 16px', color: '#fff', fontSize: 13 }}>{r.fecha?.split('T')[0] ?? '-'}</td>
-                  <td style={{ padding: '12px 16px', color: '#F5C300', fontSize: 13, fontWeight: 600 }}>{r.tipo}</td>
-                  <td style={{ padding: '12px 16px', color: '#fff', fontSize: 13, maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.tecnico_id ? (profileMap[r.tecnico_id] ?? r.tecnico_id) : '-'}</td>
-                  <td style={{ padding: '12px 16px', color: '#9E9E9E', fontSize: 13 }}>{r.zona || '-'}</td>
-                  <td style={{ padding: '12px 16px', color: '#9E9E9E', fontSize: 13 }}>{r.cc_asociado || '-'}</td>
-                  <td style={{ padding: '12px 16px', color: '#9E9E9E', fontSize: 13, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.ruta_tramo || '-'}</td>
-                  <td style={{ padding: '12px 16px', color: '#9E9E9E', fontSize: 13 }}>{r.estado_calzada || '-'}</td>
-                  <td style={{ padding: '12px 16px' }}><SyncBadge sincronizado_en={r.sincronizado_en} /></td>
+                  <td style={{ padding: '10px 16px', color: '#888', fontSize: 12 }}>{r.fecha?.split('T')[0] ?? '-'}</td>
+                  <td style={{ padding: '10px 16px', color: '#F5C300', fontSize: 12, fontWeight: 600 }}>{r.tipo}</td>
+                  <td style={{ padding: '10px 16px', color: '#e0e0e0', fontSize: 12, maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.tecnico_id ? (profileMap[r.tecnico_id] ?? r.tecnico_id) : '-'}</td>
+                  <td style={{ padding: '10px 16px', color: '#666', fontSize: 12 }}>{r.zona || '-'}</td>
+                  <td style={{ padding: '10px 16px', color: '#666', fontSize: 12 }}>{r.cc_asociado || '-'}</td>
+                  <td style={{ padding: '10px 16px', color: '#666', fontSize: 12, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.ruta_tramo || '-'}</td>
+                  <td style={{ padding: '10px 16px', color: '#666', fontSize: 12 }}>{r.estado_calzada || '-'}</td>
+                  <td style={{ padding: '10px 16px' }}><SyncBadge sincronizado_en={r.sincronizado_en} /></td>
                   <td style={{ padding: '8px 12px' }} onClick={e => e.stopPropagation()}>
                     <button
                       onClick={e => handleDelete(r.id, e)}
                       title="Eliminar"
-                      style={{ background: 'transparent', border: '1px solid #f44336', color: '#f44336', borderRadius: 4, padding: '4px 10px', cursor: 'pointer', fontSize: 13, lineHeight: 1 }}
+                      className="glow-r"
+                      style={{ background: 'transparent', border: '1px solid #252525', color: '#444', padding: '4px 10px', fontSize: 11, lineHeight: 1 }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#f44336'; (e.currentTarget as HTMLButtonElement).style.color = '#f44336' }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#252525'; (e.currentTarget as HTMLButtonElement).style.color = '#444' }}
                     >✕</button>
                   </td>
                 </tr>
               ))}
               {paged.length === 0 && (
-                <tr><td colSpan={9} style={{ padding: 32, textAlign: 'center', color: '#9E9E9E' }}>Sin resultados</td></tr>
+                <tr><td colSpan={9} style={{ padding: 32, textAlign: 'center', color: '#444' }}>Sin resultados</td></tr>
               )}
             </tbody>
           </table>
@@ -184,16 +183,16 @@ export default function RelevamientosPage() {
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div style={{ padding: '12px 16px', display: 'flex', gap: 8, alignItems: 'center', borderTop: '1px solid #3C3C3C' }}>
-            <span style={{ color: '#9E9E9E', fontSize: 13 }}>{filtered.length} resultados</span>
+          <div style={{ padding: '10px 16px', display: 'flex', gap: 8, alignItems: 'center', borderTop: '1px solid #1e1e1e' }}>
+            <span style={{ color: '#444', fontSize: 12 }}>{filtered.length} resultados</span>
             <div style={{ flex: 1 }} />
-            <button disabled={page === 0} onClick={() => setPage(p => p - 1)}
-              style={{ background: '#3C3C3C', border: 'none', color: '#fff', borderRadius: 6, padding: '6px 14px', cursor: page === 0 ? 'not-allowed' : 'pointer', opacity: page === 0 ? 0.5 : 1 }}>
+            <button disabled={page === 0} onClick={() => setPage(p => p - 1)} className="glow-g"
+              style={{ background: '#1e1e1e', border: '1px solid #252525', color: page === 0 ? '#333' : '#888', padding: '6px 14px', cursor: page === 0 ? 'not-allowed' : 'pointer', opacity: page === 0 ? 0.4 : 1 }}>
               ← Anterior
             </button>
-            <span style={{ color: '#9E9E9E', fontSize: 13 }}>Pág {page + 1} / {totalPages}</span>
-            <button disabled={page >= totalPages - 1} onClick={() => setPage(p => p + 1)}
-              style={{ background: '#3C3C3C', border: 'none', color: '#fff', borderRadius: 6, padding: '6px 14px', cursor: page >= totalPages - 1 ? 'not-allowed' : 'pointer', opacity: page >= totalPages - 1 ? 0.5 : 1 }}>
+            <span style={{ color: '#444', fontSize: 12 }}>Pág {page + 1} / {totalPages}</span>
+            <button disabled={page >= totalPages - 1} onClick={() => setPage(p => p + 1)} className="glow-g"
+              style={{ background: '#1e1e1e', border: '1px solid #252525', color: page >= totalPages - 1 ? '#333' : '#888', padding: '6px 14px', cursor: page >= totalPages - 1 ? 'not-allowed' : 'pointer', opacity: page >= totalPages - 1 ? 0.4 : 1 }}>
               Siguiente →
             </button>
           </div>

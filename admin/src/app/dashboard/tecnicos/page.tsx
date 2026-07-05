@@ -28,27 +28,28 @@ export default async function TecnicosPage() {
         <h1 style={{ color: '#fff', fontSize: 22, fontWeight: 700 }}>Usuarios</h1>
         <Link
           href="/dashboard/tecnicos/nuevo"
-          style={{ background: '#F5C300', color: '#1A1A1A', fontWeight: 700, padding: '10px 20px', borderRadius: 8, textDecoration: 'none', fontSize: 14 }}
+          className="glow-y"
+          style={{ background: '#F5C300', color: '#111', fontWeight: 700, padding: '9px 18px', textDecoration: 'none', fontSize: 12, letterSpacing: 1 }}
         >
-          + Nuevo usuario
+          + NUEVO USUARIO
         </Link>
       </div>
 
-      <div style={{ background: '#2C2C2C', borderRadius: 10, overflow: 'hidden' }}>
+      <div style={{ background: '#191919', border: '1px solid #1e1e1e', overflow: 'hidden' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
-            <tr style={{ background: '#3C3C3C' }}>
+            <tr style={{ background: '#141414' }}>
               {['Nombre', 'Email', 'Zona', 'Rol', 'Acciones'].map(h => (
-                <th key={h} style={{ padding: '12px 16px', color: '#9E9E9E', fontSize: 12, fontWeight: 600, textAlign: 'left', textTransform: 'uppercase', letterSpacing: 0.5 }}>{h}</th>
+                <th key={h} style={{ padding: '10px 16px', color: '#444', fontSize: 10, fontWeight: 600, textAlign: 'left', textTransform: 'uppercase', letterSpacing: 1, borderBottom: '1px solid #1e1e1e' }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {rows.map((p, i) => (
-              <tr key={p.id} style={{ borderTop: '1px solid #3C3C3C', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.02)' }}>
-                <td style={{ padding: '12px 16px', color: '#fff', fontSize: 13 }}>{p.nombre}</td>
-                <td style={{ padding: '12px 16px', color: '#9E9E9E', fontSize: 13 }}>{p.email}</td>
-                <td style={{ padding: '12px 16px', color: '#9E9E9E', fontSize: 13 }}>{p.zona}</td>
+              <tr key={p.id} style={{ borderBottom: '1px solid #1e1e1e', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.01)' }}>
+                <td style={{ padding: '10px 16px', color: '#e0e0e0', fontSize: 12 }}>{p.nombre}</td>
+                <td style={{ padding: '10px 16px', color: '#555', fontSize: 12 }}>{p.email}</td>
+                <td style={{ padding: '10px 16px', color: '#555', fontSize: 12 }}>{p.zona}</td>
                 <td style={{ padding: '12px 16px' }}>
                   <span style={{
                     background: p.rol === 'admin' ? '#F5C30022' : p.rol === 'usuario' ? '#4CAF5022' : '#2196F322',

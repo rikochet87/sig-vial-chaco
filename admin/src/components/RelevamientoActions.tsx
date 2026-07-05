@@ -78,9 +78,10 @@ function baseName(rel: Relevamiento) {
 
 // ── componente ────────────────────────────────────────────────────────────────
 
-const BTN: React.CSSProperties = {
-  border: 'none', borderRadius: 6, padding: '8px 14px', fontSize: 13,
-  fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
+const GHOST: React.CSSProperties = {
+  background: 'transparent', border: '1px solid #252525', color: '#555',
+  padding: '7px 14px', fontSize: 11, fontWeight: 600,
+  cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, letterSpacing: 0.5,
 }
 
 export default function RelevamientoActions({ rel }: { rel: Relevamiento }) {
@@ -111,7 +112,6 @@ export default function RelevamientoActions({ rel }: { rel: Relevamiento }) {
       const shpwrite = await import('@mapbox/shp-write') as any
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const b64 = await shpwrite.zip(geo) as string
-      // b64 es un ZIP en base64
       const binary = atob(b64)
       const bytes = new Uint8Array(binary.length)
       for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
@@ -123,16 +123,19 @@ export default function RelevamientoActions({ rel }: { rel: Relevamiento }) {
 
   return (
     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 20 }}>
-      <button onClick={handleKML} style={{ ...BTN, background: '#2196F3', color: '#fff' }}>
-        ⬇ Exportar KML
-      </button>
-      <button onClick={handleSHP} style={{ ...BTN, background: '#4CAF50', color: '#fff' }}>
-        ⬇ Exportar SHP (.zip)
-      </button>
+      <button onClick={handleKML} className="glow-g" style={GHOST}
+        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#3a3a3a'; (e.currentTarget as HTMLButtonElement).style.color = '#aaa' }}
+        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#252525'; (e.currentTarget as HTMLButtonElement).style.color = '#555' }}
+      >⬇ KML</button>
+      <button onClick={handleSHP} className="glow-g" style={GHOST}
+        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#3a3a3a'; (e.currentTarget as HTMLButtonElement).style.color = '#aaa' }}
+        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#252525'; (e.currentTarget as HTMLButtonElement).style.color = '#555' }}
+      >⬇ SHP</button>
       <div style={{ flex: 1 }} />
-      <button onClick={handleDelete} style={{ ...BTN, background: 'transparent', border: '1px solid #f44336', color: '#f44336' }}>
-        🗑 Eliminar relevamiento
-      </button>
+      <button onClick={handleDelete} className="glow-r" style={{ ...GHOST, border: '1px solid #252525', color: '#444' }}
+        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#f44336'; (e.currentTarget as HTMLButtonElement).style.color = '#f44336' }}
+        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#252525'; (e.currentTarget as HTMLButtonElement).style.color = '#444' }}
+      >✕ Eliminar</button>
     </div>
   )
 }

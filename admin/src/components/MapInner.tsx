@@ -606,7 +606,7 @@ export default function MapInner({ relevamientos }: Props) {
       if (!group) return
       group.clearLayers()
       const style: import('leaflet').PathOptions = { color: '#c0392b', weight: 3.5, opacity: 0.95 }
-      addInteractiveLayer(L, rn as GeoJSON.FeatureCollection, style, (p) => {
+      addInteractiveLayer(L, rn as unknown as GeoJSON.FeatureCollection, style, (p) => {
         const num  = p.Numero || p.numero || p.NUMERO || p.Nombre || p.nombre || ''
         const nom  = p.Nombre || p.nombre || ''
         const sup  = p.Superficie || p.superficie || p.Mat_Calzad || '—'

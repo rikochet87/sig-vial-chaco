@@ -42,11 +42,11 @@ export default function EditConsorcioForm({ consorcio }: Props) {
     setLoading(false)
   }
 
-  const inputStyle = { width: '100%', padding: '10px 12px', background: '#3C3C3C', border: '1px solid #4C4C4C', borderRadius: 8, color: '#fff', fontSize: 14, boxSizing: 'border-box' as const }
-  const labelStyle = { display: 'block' as const, color: '#9E9E9E', fontSize: 12, textTransform: 'uppercase' as const, letterSpacing: 0.5, marginBottom: 6 }
+  const inputStyle = { width: '100%', padding: '8px 10px', background: '#1a1a1a', border: '1px solid #252525', color: '#e0e0e0', fontSize: 12, boxSizing: 'border-box' as const }
+  const labelStyle = { display: 'block' as const, color: '#555', fontSize: 10, textTransform: 'uppercase' as const, letterSpacing: 0.8, marginBottom: 5 }
 
   return (
-    <div style={{ background: '#2C2C2C', borderRadius: 10, padding: 24, position: 'relative' }}>
+    <div style={{ background: '#191919', border: '1px solid #1e1e1e', padding: 24, position: 'relative' }}>
       <h3 style={{ color: '#F5C300', fontSize: 13, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 20 }}>Datos editables</h3>
 
       {toast && (
@@ -105,9 +105,10 @@ export default function EditConsorcioForm({ consorcio }: Props) {
         <button
           type="submit"
           disabled={loading}
-          style={{ background: '#F5C300', color: '#1A1A1A', fontWeight: 700, padding: '10px 24px', borderRadius: 8, border: 'none', cursor: loading ? 'not-allowed' : 'pointer', fontSize: 15, opacity: loading ? 0.7 : 1 }}
+          className="glow-y"
+          style={{ background: '#F5C300', color: '#111', fontWeight: 700, padding: '9px 20px', border: 'none', cursor: loading ? 'not-allowed' : 'pointer', fontSize: 11, letterSpacing: 1, opacity: loading ? 0.6 : 1 }}
         >
-          {loading ? 'Guardando...' : 'Guardar cambios'}
+          {loading ? 'GUARDANDO...' : 'GUARDAR CAMBIOS'}
         </button>
       </form>
     </div>
