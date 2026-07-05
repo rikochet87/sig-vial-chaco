@@ -174,7 +174,8 @@ type LayerKey =
   | 'rnNacional'
   | 'rpPavimentada' | 'rpMejorada' | 'rpEnObra' | 'rpTierra'
   | 'ccZI' | 'ccZII' | 'ccZIII' | 'ccZIV' | 'ccZV'
-  | 'sedes' | 'campamentos' | 'salud'
+  | 'sedes' | 'campamentos' | 'salud' | 'educacion'
+  | 'dvpZIV' | 'dvpZV'
   | 'relevPuente' | 'relevAlcantarilla' | 'relevTubos' | 'relevRipio' | 'relevOtro'
 
 type LayerState = Record<LayerKey, boolean>
@@ -184,7 +185,8 @@ const DEFAULT_LAYERS: LayerState = {
   rnNacional: false,
   rpPavimentada: true, rpMejorada: true, rpEnObra: false, rpTierra: false,
   ccZI: false, ccZII: false, ccZIII: false, ccZIV: false, ccZV: false,
-  sedes: true, campamentos: false, salud: false,
+  sedes: true, campamentos: false, salud: false, educacion: false,
+  dvpZIV: false, dvpZV: false,
   relevPuente: true, relevAlcantarilla: true, relevTubos: true, relevRipio: true, relevOtro: true,
 }
 
@@ -377,6 +379,28 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
     document.head.appendChild(style)
   }, [])
 
+  // ── Populate DVP layers (tramos mantenidos ZIV y ZV) ────────────────────────
+  useEffect(() => {
+    if (!cc || !mapRef.current) return
+    import('leaflet').then(L => {
+      (['dvpZIV', 'dvpZV'] as const).forEach(key => {
+        const ccKey = key === 'dvpZIV' ? 'ZIV_DVP' : 'ZV_DVP'
+        const group = groupsRef.current[key]
+        if (!group || !cc[ccKey]) return
+        group.clearLayers()
+        L.geoJSON(cc[ccKey] as unknown as GeoJSON.FeatureCollection, {
+          style: { color: '#7B1FA2', weight: 3, opacity: 0.85, dashArray: '10 4' },
+          onEachFeature(feature, layer) {
+            const p = feature.properties ?? {}
+            const zona = key === 'dvpZIV' ? 'Zona IV' : 'Zona V'
+            const nm = p.Nm || p.nm || p.T || ''
+            layer.bindPopup(`<div class="poi-popup"><div class="poi-name">Tramo${nm ? ' N° '+nm : ''}</div><div class="poi-type">Mantenimiento Provincial · ${zona}</div></div>`)
+          },
+        }).addTo(group)
+      })
+    })
+  }, [cc, mapReady])
+
   // ── Medición: activar/desactivar handler de click ──────────────────────────
   useEffect(() => {
     const map = mapRef.current
@@ -458,7 +482,7 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
         'rnNacional',
         'rpPavimentada', 'rpMejorada', 'rpEnObra', 'rpTierra',
         'ccZI', 'ccZII', 'ccZIII', 'ccZIV', 'ccZV',
-        'sedes', 'campamentos', 'salud',
+        'sedes', 'campamentos', 'salud', 'educacion',
         'relevPuente', 'relevAlcantarilla', 'relevTubos', 'relevRipio', 'relevOtro',
       ]
       keys.forEach(k => {
@@ -646,6 +670,34 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
       }
     })
   }, [geo])
+
+  // ── Populate Educación layer ──────────────────────────────────────────────
+  const [edu, setEdu] = useState<any>(null)
+  useEffect(() => { fetch('/geo/geo_edu.json').then(r => r.json()).then(setEdu).catch(() => {}) }, [])
+  useEffect(() => {
+    if (!edu || !mapRef.current) return
+    import('leaflet').then(L => {
+      const eduGroup = groupsRef.current.educacion!
+      if (!eduGroup) return
+      eduGroup.clearLayers()
+      L.geoJSON(edu as GeoJSON.FeatureCollection, {
+        pointToLayer(_, latlng) {
+          const icon = L.divIcon({
+            className: '',
+            html: `<div style="width:14px;height:14px;border-radius:50%;background:#1565C0;border:2px solid #fff;box-shadow:0 2px 4px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;color:#fff;font-size:8px;font-weight:800">📚</div>`,
+            iconSize: [14, 14], iconAnchor: [7, 7],
+          })
+          return L.marker(latlng, { icon })
+        },
+        onEachFeature(feature, layer) {
+          const p = feature.properties ?? {}
+          const nombre = p.fna || p.nam || 'Establecimiento educativo'
+          const tipo   = p.gna || 'Educación'
+          layer.bindPopup(`<div class="poi-popup"><div class="poi-name">${nombre}</div><div class="poi-type">${tipo}</div></div>`)
+        },
+      }).addTo(eduGroup)
+    })
+  }, [edu, mapReady])
 
   // ── Populate RP layers ──
   useEffect(() => {
@@ -1014,12 +1066,30 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
               Campamentos
             </label>
 
-            {/* PUNTOS DE SALUD */}
-            <div style={SECTION_TITLE_STYLE}>Puntos de Salud</div>
+            {/* ESTABLECIMIENTOS */}
+            <div style={SECTION_TITLE_STYLE}>Establecimientos</div>
             <label style={ITEM_STYLE}>
               <input type="checkbox" checked={!!layers.salud} onChange={() => toggle('salud')} style={CHECKBOX_STYLE} />
               <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: '50%', background: '#e91e63', flexShrink: 0 }} />
-              Establecimientos
+              Centros de salud
+            </label>
+            <label style={ITEM_STYLE}>
+              <input type="checkbox" checked={!!layers.educacion} onChange={() => toggle('educacion')} style={CHECKBOX_STYLE} />
+              <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: '50%', background: '#1565C0', flexShrink: 0 }} />
+              Centros educativos
+            </label>
+
+            {/* TRAMOS MANTENIDOS */}
+            <div style={SECTION_TITLE_STYLE}>Tramos Mantenidos</div>
+            <label style={ITEM_STYLE}>
+              <input type="checkbox" checked={!!layers.dvpZIV} onChange={() => toggle('dvpZIV')} style={CHECKBOX_STYLE} />
+              <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: '#7B1FA2', flexShrink: 0 }} />
+              Zona IV
+            </label>
+            <label style={ITEM_STYLE}>
+              <input type="checkbox" checked={!!layers.dvpZV} onChange={() => toggle('dvpZV')} style={CHECKBOX_STYLE} />
+              <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: '#7B1FA2', flexShrink: 0 }} />
+              Zona V
             </label>
 
 
