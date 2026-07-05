@@ -203,7 +203,6 @@ const RELEV_ITEMS: [LayerKey, string, string][] = [
 function RightPanel({ layers, toggle }: { layers: LayerState; toggle: (k: LayerKey) => void }) {
   const [open, setOpen] = useState(true)
   const PANEL: React.CSSProperties = {
-    position: 'absolute', top: 10, right: 10, zIndex: 1000,
     background: '#1e2436', border: '1px solid #2a3450',
     borderRadius: 8,
     overflowX: 'clip' as React.CSSProperties['overflowX'],
@@ -262,6 +261,56 @@ function fmtDist(m: number): string {
 }
 function totalDist(pts: {lat:number;lng:number}[]): number {
   let t = 0; for (let i = 1; i < pts.length; i++) t += haversine(pts[i-1], pts[i]); return t
+}
+
+// ── ToolsPanel: panel de herramientas del mapa ──────────────────────────────
+function ToolsPanel({ measureMode, onToggleMeasure }: { measureMode: boolean; onToggleMeasure: () => void }) {
+  const [open, setOpen] = useState(true)
+  const PANEL: React.CSSProperties = {
+    background: '#1e2436', border: '1px solid #2a3450',
+    borderRadius: 8,
+    overflowX: 'clip' as React.CSSProperties['overflowX'],
+    boxShadow: '0 4px 12px rgba(0,0,0,.5)',
+    fontFamily: 'system-ui, sans-serif',
+    width: open ? 148 : 36,
+    transition: 'width 0.2s',
+    display: 'flex', flexDirection: 'column',
+  }
+  return (
+    <div style={PANEL}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', borderBottom: '1px solid #2a3450', background: '#252d40', flexShrink: 0 }}>
+        {open && <span style={{ fontWeight: 700, fontSize: 11, color: '#e0e6f0' }}>Herramientas</span>}
+        <button
+          onClick={() => setOpen(v => !v)}
+          style={{ background: 'none', border: 'none', color: '#7a8aaa', cursor: 'pointer', fontSize: 13, padding: 0, lineHeight: 1, marginLeft: open ? 0 : 'auto' }}
+          title={open ? 'Colapsar' : 'Expandir'}
+        >
+          {open ? '⮞' : '⮜'}
+        </button>
+      </div>
+      {open && (
+        <div style={{ padding: '8px 10px 10px' }}>
+          <button
+            onClick={onToggleMeasure}
+            title={measureMode ? 'Desactivar medición' : 'Medir distancias'}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6, width: '100%',
+              background: measureMode ? 'rgba(245,195,0,0.12)' : 'none',
+              border: `1px solid ${measureMode ? '#F5C300' : 'transparent'}`,
+              borderRadius: 6, padding: '5px 6px', cursor: 'pointer',
+              color: measureMode ? '#F5C300' : '#e0e6f0',
+              fontSize: 12, fontWeight: measureMode ? 700 : 400,
+              whiteSpace: 'nowrap', textAlign: 'left',
+              transition: 'background .15s, color .15s, border-color .15s',
+            }}
+          >
+            <span style={{ fontSize: 13 }}>📏</span>
+            Medir distancias
+          </button>
+        </div>
+      )}
+    </div>
+  )
 }
 
 // ── ZoneRow: fila de zona CC con checkbox padre indeterminado + sub-lista ────
@@ -1028,26 +1077,11 @@ export default function MapInner({ relevamientos }: Props) {
         )}
       </div>
 
-      {/* ── Panel derecho — tipos de relevamiento ── */}
-      <RightPanel layers={layers} toggle={toggle} />
-
-      {/* ── Botón herramienta de medición ── */}
-      <button
-        onClick={() => setMeasureMode(v => !v)}
-        title={measureMode ? 'Cerrar medición' : 'Medir distancias'}
-        style={{
-          position: 'absolute', top: 10, right: 10, zIndex: 1000,
-          background: measureMode ? '#F5C300' : '#1e2436',
-          border: `1px solid ${measureMode ? '#d4a800' : '#2a3450'}`,
-          borderRadius: 8, padding: '6px 10px', cursor: 'pointer',
-          color: measureMode ? '#111' : '#e0e6f0',
-          fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6,
-          boxShadow: '0 4px 12px rgba(0,0,0,.5)',
-          transition: 'background .15s, color .15s',
-        }}
-      >
-        📏 {measureMode ? 'Midiendo' : 'Medir'}
-      </button>
+      {/* ── Paneles lado derecho (Relevamientos + Herramientas) ── */}
+      <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 1000, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <RightPanel layers={layers} toggle={toggle} />
+        <ToolsPanel measureMode={measureMode} onToggleMeasure={() => setMeasureMode(v => !v)} />
+      </div>
 
       {/* ── Panel de medición flotante ── */}
       {measureMode && (
