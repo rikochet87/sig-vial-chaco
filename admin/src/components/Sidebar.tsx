@@ -51,6 +51,7 @@ const NAV_ITEMS = [
 
 export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false)
+  const [hoveredHref, setHoveredHref] = useState<string | null>(null)
   const pathname = usePathname()
   const w = collapsed ? 48 : 220
 
@@ -61,7 +62,7 @@ export default function Sidebar() {
     padding: collapsed ? '10px 0' : '9px 16px',
     justifyContent: collapsed ? 'center' : 'flex-start',
     textDecoration: 'none',
-    transition: 'background 0.1s, color 0.1s',
+    transition: 'background 0.15s, color 0.15s, border-color 0.15s, text-shadow 0.15s',
     whiteSpace: 'nowrap',
     borderLeft: '2px solid transparent',
     fontSize: 12,
@@ -117,18 +118,27 @@ export default function Sidebar() {
       <nav style={{ flex: 1, padding: '4px 0' }}>
         {NAV_ITEMS.map(item => {
           const isActive = item.exact ? pathname === item.href : pathname.startsWith(item.href)
+          const isHovered = hoveredHref === item.href && !isActive
           return (
             <Link
               key={item.href}
               href={item.href}
+              onMouseEnter={() => setHoveredHref(item.href)}
+              onMouseLeave={() => setHoveredHref(null)}
               style={{
                 ...linkBase,
-                color: isActive ? '#F5C300' : '#555',
-                borderLeftColor: isActive ? '#F5C300' : 'transparent',
-                background: isActive ? 'rgba(245,195,0,0.06)' : 'transparent',
+                color: isActive ? '#F5C300' : isHovered ? '#bbb' : '#555',
+                borderLeftColor: isActive ? '#F5C300' : isHovered ? '#3a3a3a' : 'transparent',
+                background: isActive ? 'rgba(245,195,0,0.06)' : isHovered ? 'rgba(255,255,255,0.025)' : 'transparent',
+                textShadow: isHovered ? '0 0 10px rgba(255,255,255,0.18)' : 'none',
               }}
             >
-              <span style={{ flexShrink: 0, opacity: isActive ? 1 : 0.6, color: isActive ? '#F5C300' : 'currentColor' }}>
+              <span style={{
+                flexShrink: 0,
+                opacity: isActive ? 1 : isHovered ? 0.9 : 0.6,
+                color: isActive ? '#F5C300' : 'currentColor',
+                transition: 'opacity 0.15s',
+              }}>
                 {item.icon}
               </span>
               {!collapsed && <span>{item.label}</span>}
