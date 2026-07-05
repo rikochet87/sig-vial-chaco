@@ -160,6 +160,21 @@ html,body,#map{width:100%;height:100vh;background:#f0ebe3}
   <button onclick="cancelPointPick()" style="width:100%;background:rgba(231,76,60,0.15);border:1px solid rgba(231,76,60,0.4);color:#e74c3c;border-radius:9px;padding:10px;font-size:12px;font-weight:600;cursor:pointer">✗ Cancelar</button>
 </div>
 
+<!-- ── Panel de medición de distancias ──────────────────────────────── -->
+<div id="measure-ctrl" style="display:none;position:fixed;bottom:110px;left:50%;transform:translateX(-50%);background:#1e2436;border-radius:14px;padding:14px 16px;z-index:2000;border:1.5px solid #F5C300;box-shadow:0 6px 24px rgba(0,0,0,0.65);min-width:290px;max-width:90vw">
+  <div style="color:#F5C300;font-size:11px;font-weight:700;text-align:center;letter-spacing:0.6px;margin-bottom:5px">
+    📏 MEDICIÓN — Tocá el mapa para agregar puntos
+  </div>
+  <div id="measure-dist" style="color:#e0e6f0;font-size:20px;font-weight:900;text-align:center;margin-bottom:12px;min-height:28px">
+    Tocá el mapa para medir
+  </div>
+  <div style="display:flex;gap:8px">
+    <button onclick="undoMeasurePoint()" style="flex:1;background:#252d40;border:1px solid #3a4060;color:#e0e6f0;border-radius:9px;padding:10px 4px;font-size:12px;font-weight:600;cursor:pointer">↩ Deshacer</button>
+    <button onclick="clearMeasure()" style="flex:1;background:#252d40;border:1px solid #3a4060;color:#aaa;border-radius:9px;padding:10px 4px;font-size:12px;font-weight:600;cursor:pointer">🗑 Limpiar</button>
+    <button onclick="exitMeasureMode()" style="flex:1;background:rgba(231,76,60,0.15);border:1px solid rgba(231,76,60,0.4);color:#e74c3c;border-radius:9px;padding:10px 4px;font-size:12px;font-weight:600;cursor:pointer">✗ Cerrar</button>
+  </div>
+</div>
+
 <script>
 var SEDES=${SEDES_JSON},LIMITES_ZONAS=${LIMITES_ZONAS_JSON},
     LIMITE_PROV=${LIMITE_PROV_JSON},DEPTOS=${DEPTOS_JSON},
@@ -1070,6 +1085,60 @@ function _exitDrawMode(){
   document.getElementById('draw-ctrl').style.display='none';
 }
 
+// ── Herramienta de medición de distancias ────────────────────────────────────
+var _mMode=false,_mPts=[],_mLines=[],_mCircles=[],_mLabels=[];
+function _fmtDist(m){if(m<1000)return Math.round(m)+' m';return (m/1000).toFixed(2)+' km';}
+function _segDist(p1,p2){return L.latLng(p1.lat,p1.lng).distanceTo(L.latLng(p2.lat,p2.lng));}
+function enterMeasureMode(){
+  _mMode=true;_mPts=[];_mLines=[];_mCircles=[];_mLabels=[];
+  map.getContainer().style.cursor='crosshair';
+  map.closePopup();
+  document.getElementById('measure-ctrl').style.display='block';
+  document.getElementById('measure-dist').textContent='Tocá el mapa para medir';
+  map.on('click',_onMeasureClick);
+}
+function _onMeasureClick(e){if(!_mMode)return;_mPts.push({lat:e.latlng.lat,lng:e.latlng.lng});_updateMeasure();}
+function _updateMeasure(){
+  _mLines.forEach(function(l){map.removeLayer(l);});_mLines=[];
+  _mCircles.forEach(function(c){map.removeLayer(c);});_mCircles=[];
+  _mLabels.forEach(function(lb){map.removeLayer(lb);});_mLabels=[];
+  var n=_mPts.length;
+  if(n===0)return;
+  // Puntos
+  _mPts.forEach(function(p,i){
+    var fc=i===0?'#27ae60':(i===n-1&&n>1)?'#F5C300':'#fff';
+    _mCircles.push(L.circleMarker([p.lat,p.lng],{radius:6,color:'#111',weight:2,fillColor:fc,fillOpacity:1,zIndexOffset:500}).addTo(map));
+  });
+  // Líneas + etiquetas
+  var total=0;
+  for(var i=1;i<n;i++){
+    var p1=_mPts[i-1],p2=_mPts[i],d=_segDist(p1,p2);total+=d;
+    _mLines.push(L.polyline([[p1.lat,p1.lng],[p2.lat,p2.lng]],{color:'#F5C300',weight:2.5,opacity:0.9,dashArray:'8 5'}).addTo(map));
+    var icon=L.divIcon({className:'',
+      html:'<div style="background:#1e2436;color:#F5C300;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;border:1px solid rgba(245,195,0,0.4);white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,.5)">'+_fmtDist(d)+'</div>',
+      iconAnchor:[0,8]});
+    _mLabels.push(L.marker([(p1.lat+p2.lat)/2,(p1.lng+p2.lng)/2],{icon:icon,interactive:false,zIndexOffset:1000}).addTo(map));
+  }
+  // Panel
+  var el=document.getElementById('measure-dist');
+  if(n===1){el.textContent='1 punto — seguí tocando';}
+  else{el.innerHTML='<span style="color:#F5C300">'+_fmtDist(total)+'</span>';}
+  _rn({type:'measureUpdate',total:total,pts:n});
+}
+function undoMeasurePoint(){if(_mPts.length>0){_mPts.pop();_updateMeasure();}if(_mPts.length===0){document.getElementById('measure-dist').textContent='Tocá el mapa para medir';}}
+function clearMeasure(){_mPts=[];_updateMeasure();document.getElementById('measure-dist').textContent='Tocá el mapa para medir';}
+function exitMeasureMode(){
+  _mMode=false;
+  map.getContainer().style.cursor='';
+  map.off('click',_onMeasureClick);
+  _mLines.forEach(function(l){map.removeLayer(l);});_mLines=[];
+  _mCircles.forEach(function(c){map.removeLayer(c);});_mCircles=[];
+  _mLabels.forEach(function(lb){map.removeLayer(lb);});_mLabels=[];
+  _mPts=[];
+  document.getElementById('measure-ctrl').style.display='none';
+  _rn({type:'measureClosed'});
+}
+
 // ── Modo colocación de punto puntual ─────────────────────────────────────────
 var _ppMode=false,_ppMarker=null,_ppClickFn=null;
 function enterPointPickMode(){
@@ -1129,6 +1198,7 @@ export default function MapaScreen() {
   // ── Brújula ───────────────────────────────────────────────────────────────
   const [compassActive,  setCompassActive]  = useState(false);
   const [compassHeading, setCompassHeading] = useState(0);
+  const [measureMode, setMeasureMode] = useState(false);
 
   // ── Relevamientos ─────────────────────────────────────────────────────────
   const { relevamientos, add: addRelevamiento, remove: removeRelevamiento, reload: reloadRelevamientos } = useRelevamientos();
@@ -1347,6 +1417,9 @@ export default function MapaScreen() {
       if (msg.type === 'pointPicked' && msg.lat !== undefined) {
         setPickedPointCoord({ lat: msg.lat, lng: msg.lng });
         setRelevModalVisible(true);
+      }
+      if (msg.type === 'measureClosed') {
+        setMeasureMode(false);
       }
       if (msg.type === 'pointPickCancelled') {
         setPickedPointCoord(null);
@@ -1781,6 +1854,22 @@ export default function MapaScreen() {
         </View>
       )}
 
+      {/* ── BOTÓN MEDICIÓN ──────────────────────────────────────────────── */}
+      <TouchableOpacity
+        style={[styles.btnMeasure, measureMode && styles.btnMeasureActive]}
+        onPress={() => {
+          if (measureMode) {
+            webviewRef.current?.injectJavaScript('exitMeasureMode(); true;');
+            setMeasureMode(false);
+          } else {
+            setMeasureMode(true);
+            webviewRef.current?.injectJavaScript('enterMeasureMode(); true;');
+          }
+        }}
+      >
+        <Text style={styles.btnMeasureIcon}>📏</Text>
+      </TouchableOpacity>
+
       {/* ── BOTÓN BRÚJULA ────────────────────────────────────────────────── */}
       <TouchableOpacity
         style={[styles.btnCompass, compassActive && styles.btnCompassActive]}
@@ -1935,6 +2024,16 @@ function makeStyles(C: ColorPalette, DRAWER_WIDTH: number) { return StyleSheet.c
   },
   btnCompassActive: { backgroundColor: '#2196F3', borderColor: '#1565C0' },
   btnCompassIcon: { fontSize: 20 },
+
+  btnMeasure: {
+    position: 'absolute', bottom: 280, right: 12, width: 50, height: 50,
+    backgroundColor: C.primary, borderRadius: 25, alignItems: 'center', justifyContent: 'center',
+    zIndex: 5, elevation: 6,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.35, shadowRadius: 4,
+    borderWidth: 2, borderColor: C.primaryLight,
+  },
+  btnMeasureActive: { backgroundColor: '#F5C300', borderColor: '#d4a800' },
+  btnMeasureIcon: { fontSize: 22 },
 
   btnRipio: {
     position: 'absolute', bottom: 156, right: 12, width: 50, height: 50,
