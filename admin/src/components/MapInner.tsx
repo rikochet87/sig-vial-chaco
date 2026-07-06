@@ -205,6 +205,7 @@ const RELEV_ITEMS: [LayerKey, string, string][] = [
 function RightPanel({ layers, toggle }: { layers: LayerState; toggle: (k: LayerKey) => void }) {
   const [open, setOpen] = useState(true)
   const PANEL: React.CSSProperties = {
+    position: 'absolute', top: 10, right: 10, zIndex: 1000,
     background: '#1e2436', border: '1px solid #2a3450',
     borderRadius: 8,
     overflowX: 'clip' as React.CSSProperties['overflowX'],

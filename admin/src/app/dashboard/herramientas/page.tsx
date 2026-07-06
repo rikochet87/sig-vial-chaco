@@ -18,7 +18,7 @@ const TOOLS = [
   {
     id: 'measure',
     icon: '📏',
-    label: 'Medir distancias',
+    label: 'Medir',
     desc: 'Hacé clic en el mapa para medir tramos. Acumula la distancia total del recorrido.',
   },
   // Aquí se agregarán nuevas herramientas
@@ -86,21 +86,7 @@ export default function HerramientasPage() {
             )
           })}
 
-          {/* Descripción de la herramienta activa */}
-          {activeTool && (
-            <div style={{ marginTop: 8, padding: '10px 12px', background: '#111', border: '1px solid #1e1e1e', borderRadius: 6 }}>
-              <div style={{ color: '#555', fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 }}>Instrucciones</div>
-              <div style={{ color: '#888', fontSize: 12, lineHeight: 1.5 }}>
-                {TOOLS.find(t => t.id === activeTool)?.desc}
-              </div>
-              <button
-                onClick={() => setActiveTool(null)}
-                style={{ marginTop: 10, background: 'transparent', border: '1px solid #333', color: '#555', fontSize: 11, padding: '5px 10px', borderRadius: 5, cursor: 'pointer', width: '100%' }}
-              >
-                Desactivar
-              </button>
-            </div>
-          )}
+
         </div>
 
         {/* ── Mapa ── */}
