@@ -1,7 +1,7 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 
 // Íconos SVG geométricos/técnicos inline
 const ICONS = {
@@ -43,61 +43,58 @@ const ICONS = {
 }
 
 const NAV_ITEMS = [
-  { href: '/dashboard',              label: 'Dashboard',      icon: ICONS.dashboard,      exact: true },
-  { href: '/dashboard/relevamientos', label: 'Relevamientos', icon: ICONS.relevamientos,  exact: false },
-  { href: '/dashboard/tecnicos',      label: 'Usuarios',      icon: ICONS.tecnicos,       exact: false },
-  { href: '/dashboard/consorcios',    label: 'Consorcios',    icon: ICONS.consorcios,     exact: false },
+  { href: '/dashboard',               label: 'Dashboard',      icon: ICONS.dashboard,     exact: true },
+  { href: '/dashboard/relevamientos', label: 'Relevamientos',  icon: ICONS.relevamientos, exact: false },
+  { href: '/dashboard/tecnicos',      label: 'Usuarios',       icon: ICONS.tecnicos,      exact: false },
+  { href: '/dashboard/consorcios',    label: 'Consorcios',     icon: ICONS.consorcios,    exact: false },
+]
+
+// Sub-herramientas — agregar nuevas acá
+const TOOL_ITEMS = [
+  { id: 'measure', label: 'Medir', icon: '📏', href: '/dashboard/herramientas?tool=measure' },
 ]
 
 export default function Sidebar() {
-  const [collapsed, setCollapsed] = useState(false)
+  const [collapsed, setCollapsed]     = useState(false)
   const [hoveredHref, setHoveredHref] = useState<string | null>(null)
+  const [toolsOpen, setToolsOpen]     = useState(false)
   const pathname = usePathname()
+
+  // Auto-expandir acordeón si estamos en /dashboard/herramientas
+  useEffect(() => {
+    if (pathname.startsWith('/dashboard/herramientas')) setToolsOpen(true)
+  }, [pathname])
+
   const w = collapsed ? 48 : 220
 
   const linkBase: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 10,
+    display: 'flex', alignItems: 'center', gap: 10,
     padding: collapsed ? '10px 0' : '9px 16px',
     justifyContent: collapsed ? 'center' : 'flex-start',
     textDecoration: 'none',
     transition: 'background 0.15s, color 0.15s, border-color 0.15s, text-shadow 0.15s',
-    whiteSpace: 'nowrap',
-    borderLeft: '2px solid transparent',
-    fontSize: 12,
-    fontFamily: '"DM Mono", "Roboto Mono", ui-monospace, monospace',
-    letterSpacing: 0.4,
-    fontWeight: 400,
+    whiteSpace: 'nowrap', borderLeft: '2px solid transparent',
+    fontSize: 12, fontFamily: '"DM Mono", "Roboto Mono", ui-monospace, monospace',
+    letterSpacing: 0.4, fontWeight: 400,
   }
+
+  const isToolsActive = pathname.startsWith('/dashboard/herramientas')
 
   return (
     <div style={{
-      width: w,
-      minHeight: '100vh',
-      background: '#111',
-      display: 'flex',
-      flexDirection: 'column',
-      transition: 'width 0.18s',
-      overflow: 'hidden',
-      flexShrink: 0,
-      borderRight: '1px solid #1e1e1e',
+      width: w, minHeight: '100vh', background: '#111',
+      display: 'flex', flexDirection: 'column',
+      transition: 'width 0.18s', overflow: 'hidden',
+      flexShrink: 0, borderRight: '1px solid #1e1e1e',
     }}>
 
-      {/* Logo / marca */}
+      {/* Logo */}
       <div style={{
-        padding: collapsed ? '16px 0' : '16px',
-        borderBottom: '1px solid #1e1e1e',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: collapsed ? 'center' : 'flex-start',
-        gap: 10,
+        padding: collapsed ? '16px 0' : '16px', borderBottom: '1px solid #1e1e1e',
+        display: 'flex', alignItems: 'center',
+        justifyContent: collapsed ? 'center' : 'flex-start', gap: 10,
       }}>
-        <div style={{
-          width: 28, height: 28, background: '#F5C300',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          flexShrink: 0,
-        }}>
+        <div style={{ width: 28, height: 28, background: '#F5C300', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
           <span style={{ fontSize: 11, fontWeight: 800, color: '#111', fontFamily: 'monospace', letterSpacing: -0.5 }}>SV</span>
         </div>
         {!collapsed && (
@@ -117,12 +114,11 @@ export default function Sidebar() {
 
       <nav style={{ flex: 1, padding: '4px 0' }}>
         {NAV_ITEMS.map(item => {
-          const isActive = item.exact ? pathname === item.href : pathname.startsWith(item.href)
+          const isActive  = item.exact ? pathname === item.href : pathname.startsWith(item.href)
           const isHovered = hoveredHref === item.href && !isActive
           return (
             <Link
-              key={item.href}
-              href={item.href}
+              key={item.href} href={item.href}
               onMouseEnter={() => setHoveredHref(item.href)}
               onMouseLeave={() => setHoveredHref(null)}
               style={{
@@ -133,12 +129,7 @@ export default function Sidebar() {
                 textShadow: isHovered ? '0 0 10px rgba(255,255,255,0.18)' : 'none',
               }}
             >
-              <span style={{
-                flexShrink: 0,
-                opacity: isActive ? 1 : isHovered ? 0.9 : 0.6,
-                color: isActive ? '#F5C300' : 'currentColor',
-                transition: 'opacity 0.15s',
-              }}>
+              <span style={{ flexShrink: 0, opacity: isActive ? 1 : isHovered ? 0.9 : 0.6, color: isActive ? '#F5C300' : 'currentColor', transition: 'opacity 0.15s' }}>
                 {item.icon}
               </span>
               {!collapsed && <span>{item.label}</span>}
@@ -149,39 +140,66 @@ export default function Sidebar() {
         {/* Separador */}
         <div style={{ margin: '8px 16px', borderTop: '1px solid #1e1e1e' }} />
 
-        <Link
-          href="/dashboard/herramientas"
-          onMouseEnter={() => setHoveredHref('/dashboard/herramientas')}
+        {/* ── Herramientas — acordeón ── */}
+        <button
+          onClick={() => setToolsOpen(v => !v)}
+          onMouseEnter={() => setHoveredHref('herramientas')}
           onMouseLeave={() => setHoveredHref(null)}
           style={{
             ...linkBase,
-            color: pathname === '/dashboard/herramientas' ? '#F5C300' : hoveredHref === '/dashboard/herramientas' ? '#bbb' : '#555',
-            borderLeftColor: pathname === '/dashboard/herramientas' ? '#F5C300' : hoveredHref === '/dashboard/herramientas' ? '#3a3a3a' : 'transparent',
-            background: pathname === '/dashboard/herramientas' ? 'rgba(245,195,0,0.06)' : hoveredHref === '/dashboard/herramientas' ? 'rgba(255,255,255,0.025)' : 'transparent',
-            textShadow: hoveredHref === '/dashboard/herramientas' && pathname !== '/dashboard/herramientas' ? '0 0 10px rgba(255,255,255,0.18)' : 'none',
-          }}
+            width: '100%', border: 'none', cursor: 'pointer',
+            color: isToolsActive ? '#F5C300' : hoveredHref === 'herramientas' ? '#bbb' : '#555',
+            borderLeftColor: isToolsActive ? '#F5C300' : hoveredHref === 'herramientas' ? '#3a3a3a' : 'transparent',
+            background: isToolsActive ? 'rgba(245,195,0,0.06)' : hoveredHref === 'herramientas' ? 'rgba(255,255,255,0.025)' : 'transparent',
+            textShadow: hoveredHref === 'herramientas' && !isToolsActive ? '0 0 10px rgba(255,255,255,0.18)' : 'none',
+          } as React.CSSProperties}
         >
-          <span style={{ flexShrink: 0, opacity: pathname === '/dashboard/herramientas' || hoveredHref === '/dashboard/herramientas' ? 0.9 : 0.6, color: pathname === '/dashboard/herramientas' ? '#F5C300' : 'currentColor' }}>{ICONS.herramientas}</span>
-          {!collapsed && <span>Herramientas</span>}
-        </Link>
+          <span style={{ flexShrink: 0, opacity: isToolsActive || hoveredHref === 'herramientas' ? 0.9 : 0.6, color: isToolsActive ? '#F5C300' : 'currentColor' }}>
+            {ICONS.herramientas}
+          </span>
+          {!collapsed && (
+            <>
+              <span>Herramientas</span>
+              <span style={{ marginLeft: 'auto', fontSize: 9, opacity: 0.5, transition: 'transform 0.15s', display: 'inline-block', transform: toolsOpen ? 'rotate(90deg)' : 'none' }}>▶</span>
+            </>
+          )}
+        </button>
+
+        {/* Sub-ítems de herramientas */}
+        {toolsOpen && !collapsed && (
+          <div style={{ borderLeft: '1px solid #1e1e1e', marginLeft: 24, marginTop: 2, marginBottom: 2 }}>
+            {TOOL_ITEMS.map(tool => {
+              const isActive  = pathname.startsWith('/dashboard/herramientas')
+              const isHovered = hoveredHref === tool.id
+              return (
+                <Link
+                  key={tool.id} href={tool.href}
+                  onMouseEnter={() => setHoveredHref(tool.id)}
+                  onMouseLeave={() => setHoveredHref(null)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    padding: '7px 12px', textDecoration: 'none',
+                    fontSize: 11, fontFamily: '"DM Mono", ui-monospace, monospace',
+                    letterSpacing: 0.3, whiteSpace: 'nowrap',
+                    color: isActive ? '#F5C300' : isHovered ? '#bbb' : '#555',
+                    background: isHovered ? 'rgba(255,255,255,0.025)' : 'transparent',
+                    transition: 'color 0.15s, background 0.15s',
+                  }}
+                >
+                  <span style={{ fontSize: 13 }}>{tool.icon}</span>
+                  <span>{tool.label}</span>
+                </Link>
+              )
+            })}
+          </div>
+        )}
       </nav>
 
       {/* Collapse toggle */}
       <div style={{ borderTop: '1px solid #1e1e1e', padding: '8px' }}>
         <button
           onClick={() => setCollapsed(c => !c)}
-          style={{
-            width: '100%',
-            background: 'transparent',
-            border: '1px solid #1e1e1e',
-            color: '#333',
-            cursor: 'pointer',
-            padding: '7px',
-            fontSize: 10,
-            fontFamily: 'monospace',
-            letterSpacing: 1,
-            transition: 'border-color 0.15s, color 0.15s',
-          }}
+          style={{ width: '100%', background: 'transparent', border: '1px solid #1e1e1e', color: '#333', cursor: 'pointer', padding: '7px', fontSize: 10, fontFamily: 'monospace', letterSpacing: 1, transition: 'border-color 0.15s, color 0.15s' }}
           onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#333'; (e.currentTarget as HTMLButtonElement).style.color = '#666' }}
           onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#1e1e1e'; (e.currentTarget as HTMLButtonElement).style.color = '#333' }}
           title={collapsed ? 'Expandir' : 'Colapsar'}
