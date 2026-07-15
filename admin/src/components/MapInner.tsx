@@ -202,7 +202,21 @@ const RELEV_ITEMS: [LayerKey, string, string][] = [
   ['relevOtro',         'Otro',         '#607D8B'],
 ]
 
-function RightPanel({ layers, toggle }: { layers: LayerState; toggle: (k: LayerKey) => void }) {
+const ZONAS_LIST = ['ZI', 'ZII', 'ZIII', 'ZIV', 'ZV'] as const
+const ZONA_LABEL: Record<string, string> = { ZI: 'Zona I', ZII: 'Zona II', ZIII: 'Zona III', ZIV: 'Zona IV', ZV: 'Zona V' }
+const TIPOS_LIST = ['Puente', 'Alcantarilla', 'Tubos', 'Ripio', 'Otro']
+const TIPO_SHORT: Record<string, string> = { Puente: 'PTE', Alcantarilla: 'ALC', Tubos: 'TUB', Ripio: 'RIP', Otro: 'OTR' }
+const TIPO_COLOR: Record<string, string> = { Puente: '#2196F3', Alcantarilla: '#FF9800', Tubos: '#9C27B0', Ripio: '#4CAF50', Otro: '#607D8B' }
+
+function RightPanel({
+  layers, toggle, relevamientos, activeZones, onToggleZone,
+}: {
+  layers: LayerState
+  toggle: (k: LayerKey) => void
+  relevamientos: Relevamiento[]
+  activeZones: Set<string>
+  onToggleZone: (z: string) => void
+}) {
   const [open, setOpen] = useState(true)
   const PANEL: React.CSSProperties = {
     position: 'absolute', top: 10, right: 10, zIndex: 1000,
@@ -211,9 +225,10 @@ function RightPanel({ layers, toggle }: { layers: LayerState; toggle: (k: LayerK
     overflowX: 'clip' as React.CSSProperties['overflowX'],
     boxShadow: '0 4px 12px rgba(0,0,0,.5)',
     fontFamily: 'system-ui, sans-serif',
-    width: open ? 148 : 36,
+    width: open ? 210 : 36,
     transition: 'width 0.2s',
     display: 'flex', flexDirection: 'column',
+    maxHeight: 'calc(100vh - 40px)',
   }
   const ITEM: React.CSSProperties = {
     display: 'flex', alignItems: 'center', gap: 6,
@@ -221,22 +236,34 @@ function RightPanel({ layers, toggle }: { layers: LayerState; toggle: (k: LayerK
     fontSize: 12, color: '#e0e6f0', userSelect: 'none',
   }
   const CB: React.CSSProperties = { accentColor: '#F5C300', cursor: 'pointer', flexShrink: 0 }
+  const SEC: React.CSSProperties = { fontSize: 9, color: '#7a8aaa', textTransform: 'uppercase', letterSpacing: 0.8, margin: '8px 0 4px', fontWeight: 600 }
+
+  // Stats: contar por zona y tipo
+  const stats: Record<string, Record<string, number>> = {}
+  ZONAS_LIST.forEach(z => { stats[z] = {}; TIPOS_LIST.forEach(t => { stats[z][t] = 0 }) })
+  relevamientos.forEach(r => {
+    const z = r.zona ?? ''
+    if (z in stats && r.tipo in stats[z]) stats[z][r.tipo]++
+  })
+  const zTotal = (z: string) => TIPOS_LIST.reduce((a, t) => a + (stats[z]?.[t] ?? 0), 0)
+  const tTotal = (t: string) => ZONAS_LIST.reduce((a, z) => a + (stats[z]?.[t] ?? 0), 0)
+  const grand  = TIPOS_LIST.reduce((a, t) => a + tTotal(t), 0)
+
+  const allZonesActive = activeZones.size === 0
 
   return (
     <div style={PANEL}>
-      {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', borderBottom: '1px solid #2a3450', background: '#252d40', flexShrink: 0 }}>
         {open && <span style={{ fontWeight: 700, fontSize: 11, color: '#e0e6f0' }}>Relevamientos</span>}
-        <button
-          onClick={() => setOpen(v => !v)}
-          style={{ background: 'none', border: 'none', color: '#7a8aaa', cursor: 'pointer', fontSize: 13, padding: 0, lineHeight: 1, marginLeft: open ? 0 : 'auto' }}
-          title={open ? 'Colapsar' : 'Expandir'}
-        >
+        <button onClick={() => setOpen(v => !v)} style={{ background: 'none', border: 'none', color: '#7a8aaa', cursor: 'pointer', fontSize: 13, padding: 0, lineHeight: 1, marginLeft: open ? 0 : 'auto' }} title={open ? 'Colapsar' : 'Expandir'}>
           {open ? '⮞' : '⮜'}
         </button>
       </div>
       {open && (
-        <div style={{ padding: '8px 10px 10px' }}>
+        <div style={{ padding: '8px 10px 10px', overflowY: 'auto', flex: 1 }}>
+
+          {/* Tipos */}
+          <div style={SEC}>Tipo</div>
           {RELEV_ITEMS.map(([k, label, color]) => (
             <label key={k} style={ITEM}>
               <input type="checkbox" checked={!!layers[k]} onChange={() => toggle(k)} style={CB} />
@@ -244,6 +271,67 @@ function RightPanel({ layers, toggle }: { layers: LayerState; toggle: (k: LayerK
               {label}
             </label>
           ))}
+
+          {/* Zonas */}
+          <div style={SEC}>Zona</div>
+          <label style={{ ...ITEM, color: allZonesActive ? '#F5C300' : '#e0e6f0' }}>
+            <input type="checkbox" checked={allZonesActive} onChange={() => onToggleZone('__all__')} style={CB} />
+            Todas
+            <span style={{ marginLeft: 'auto', fontSize: 10, color: '#7a8aaa' }}>{grand}</span>
+          </label>
+          {ZONAS_LIST.map(z => {
+            const isActive = allZonesActive || activeZones.has(z)
+            const n = zTotal(z)
+            return (
+              <label key={z} style={{ ...ITEM, color: isActive ? '#e0e6f0' : '#4a5a7a' }}>
+                <input type="checkbox" checked={isActive} onChange={() => onToggleZone(z)} style={CB} />
+                {ZONA_LABEL[z]}
+                <span style={{ marginLeft: 'auto', fontSize: 10, color: isActive ? '#7a8aaa' : '#333' }}>{n}</span>
+              </label>
+            )
+          })}
+
+          {/* Tabla de subtotales */}
+          <div style={SEC}>Subtotales</div>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10 }}>
+              <thead>
+                <tr>
+                  <th style={{ color: '#7a8aaa', textAlign: 'left', padding: '2px 4px', fontWeight: 600 }}></th>
+                  {TIPOS_LIST.map(t => (
+                    <th key={t} style={{ color: TIPO_COLOR[t], textAlign: 'center', padding: '2px 3px', fontWeight: 700, fontSize: 9 }}>{TIPO_SHORT[t]}</th>
+                  ))}
+                  <th style={{ color: '#e0e6f0', textAlign: 'center', padding: '2px 3px', fontWeight: 700 }}>∑</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ZONAS_LIST.map(z => {
+                  const n = zTotal(z)
+                  if (n === 0) return null
+                  return (
+                    <tr key={z} style={{ opacity: allZonesActive || activeZones.has(z) ? 1 : 0.35 }}>
+                      <td style={{ color: '#7a8aaa', padding: '2px 4px', fontWeight: 600 }}>{z}</td>
+                      {TIPOS_LIST.map(t => (
+                        <td key={t} style={{ color: stats[z][t] > 0 ? TIPO_COLOR[t] : '#333', textAlign: 'center', padding: '2px 3px', fontWeight: stats[z][t] > 0 ? 700 : 400 }}>
+                          {stats[z][t] > 0 ? stats[z][t] : '·'}
+                        </td>
+                      ))}
+                      <td style={{ color: '#e0e6f0', textAlign: 'center', padding: '2px 3px', fontWeight: 700 }}>{n}</td>
+                    </tr>
+                  )
+                })}
+                <tr style={{ borderTop: '1px solid #2a3450' }}>
+                  <td style={{ color: '#e0e6f0', padding: '3px 4px', fontWeight: 700 }}>∑</td>
+                  {TIPOS_LIST.map(t => (
+                    <td key={t} style={{ color: tTotal(t) > 0 ? TIPO_COLOR[t] : '#333', textAlign: 'center', padding: '3px 3px', fontWeight: 700 }}>
+                      {tTotal(t) > 0 ? tTotal(t) : '·'}
+                    </td>
+                  ))}
+                  <td style={{ color: '#F5C300', textAlign: 'center', padding: '3px 3px', fontWeight: 800 }}>{grand}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>
@@ -369,6 +457,7 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
   // ── Medición de distancias ──
   const [measurePts, setMeasurePts]   = useState<{lat:number;lng:number}[]>([])
   const [satellite, setSatellite]     = useState(false)
+  const [activeZones, setActiveZones]  = useState<Set<string>>(new Set())
   const tileRef = useRef<import('leaflet').TileLayer | null>(null)
   const mLayersRef  = useRef<import('leaflet').Layer[]>([])
   const mClickRef   = useRef<((e: import('leaflet').LeafletMouseEvent) => void) | null>(null)
@@ -850,6 +939,8 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
         .forEach(k => groupsRef.current[k]?.clearLayers())
 
       relevamientos.forEach(r => {
+        // Filtrar por zona activa
+        if (activeZones.size > 0 && !activeZones.has(r.zona ?? '')) return
         const groupKey = TIPO_TO_KEY[r.tipo] ?? 'relevOtro'
         const group = groupsRef.current[groupKey]
         if (!group) return
@@ -886,7 +977,7 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
         }
       })
     })
-  }, [relevamientos, mapReady])
+  }, [relevamientos, mapReady, activeZones])
 
   // ── Toggle layer visibility ──
   useEffect(() => {
@@ -918,6 +1009,17 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
   }, [ccSelected])
 
   // ── Toggle helpers ──
+  function onToggleZone(z: string) {
+    if (z === '__all__') { setActiveZones(new Set()); return }
+    setActiveZones(prev => {
+      const next = new Set(prev)
+      if (next.has(z)) next.delete(z); else next.add(z)
+      // Si todas están activas, volver a "todas" (Set vacío)
+      if (next.size === 5) return new Set()
+      return next
+    })
+  }
+
   function toggle(key: LayerKey) {
     setLayers(prev => ({ ...prev, [key]: !prev[key] }))
   }
@@ -1030,7 +1132,11 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
             {/* BASE */}
             <div style={SECTION_TITLE_STYLE}>Base</div>
             <label style={ITEM_STYLE}>
-              <input type="checkbox" checked={satellite} onChange={() => setSatellite(v => !v)} style={CHECKBOX_STYLE} />
+              <input type="radio" name="basemap" checked={!satellite} onChange={() => setSatellite(false)} style={CHECKBOX_STYLE} />
+              🗺 OpenStreetMap
+            </label>
+            <label style={ITEM_STYLE}>
+              <input type="radio" name="basemap" checked={satellite} onChange={() => setSatellite(true)} style={CHECKBOX_STYLE} />
               🛰 Satélite
             </label>
             {(['limite', 'zonas', 'departamentos'] as const).map(k => (
@@ -1115,7 +1221,7 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
       </div>
 
       {/* ── Panel derecho — tipos de relevamiento ── */}
-      <RightPanel layers={layers} toggle={toggle} />
+      <RightPanel layers={layers} toggle={toggle} relevamientos={relevamientos} activeZones={activeZones} onToggleZone={onToggleZone} />
 
       {/* ── Panel de medición flotante ── */}
       {measureActive && (
