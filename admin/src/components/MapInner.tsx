@@ -619,8 +619,8 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
         const c = s.color || '#F5C300'
         const icon = L.divIcon({
           className: '',
-          html: `<div style="width:26px;height:26px;border-radius:50%;background:${c};border:2px solid #fff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#fff;box-shadow:0 2px 6px rgba(0,0,0,.5)">${s.numero}</div>`,
-          iconSize: [26, 26], iconAnchor: [13, 13],
+          html: `<div style="width:18px;height:18px;border-radius:50%;background:${c};border:2px solid #fff;display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:800;color:#fff;box-shadow:0 2px 6px rgba(0,0,0,.5)">${s.numero}</div>`,
+          iconSize: [18, 18], iconAnchor: [9, 9],
         })
         L.marker([s.lat, s.lng], { icon })
           .bindPopup(sedePopupHtml(s), { maxWidth: 280 })
@@ -869,19 +869,19 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
           const [startLat, startLng] = positions[0]
           L.marker([startLat, startLng], { icon: L.divIcon({
             className: '',
-            html: `<div style="width:28px;height:28px;border-radius:50%;background:${color};border:2.5px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;color:#fff;letter-spacing:.3px">RIP</div>`,
-            iconSize: [28, 28], iconAnchor: [14, 14],
+            html: `<div style="width:14px;height:14px;border-radius:50%;background:${color};border:1.5px solid #fff;box-shadow:0 2px 5px rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;font-size:6px;font-weight:800;color:#fff;letter-spacing:.2px">RIP</div>`,
+            iconSize: [14, 14], iconAnchor: [7, 7],
           }) }).bindPopup(popup).addTo(group)
 
         } else if (r.coords_lat != null && r.coords_lng != null) {
           const label = TIPO_LABEL[r.tipo] || '?'
           L.marker([r.coords_lat, r.coords_lng], { icon: L.divIcon({
             className: '',
-            html: `<div style="position:relative;width:36px;height:42px">
-              <div style="width:36px;height:36px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:${color};border:2.5px solid #fff;box-shadow:0 3px 8px rgba(0,0,0,.55);position:absolute;top:0;left:0"></div>
-              <div style="position:absolute;top:4px;left:0;width:36px;height:28px;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;color:#fff;letter-spacing:.3px;line-height:1">${label}</div>
+            html: `<div style="position:relative;width:18px;height:21px">
+              <div style="width:18px;height:18px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:${color};border:1.5px solid #fff;box-shadow:0 2px 5px rgba(0,0,0,.55);position:absolute;top:0;left:0"></div>
+              <div style="position:absolute;top:2px;left:0;width:18px;height:14px;display:flex;align-items:center;justify-content:center;font-size:6px;font-weight:800;color:#fff;letter-spacing:.2px;line-height:1">${label}</div>
             </div>`,
-            iconSize: [36, 42], iconAnchor: [18, 42],
+            iconSize: [18, 21], iconAnchor: [9, 21],
           }) }).bindPopup(popup).addTo(group)
         }
       })
