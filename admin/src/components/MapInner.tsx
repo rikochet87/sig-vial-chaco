@@ -368,6 +368,8 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
 
   // ── Medición de distancias ──
   const [measurePts, setMeasurePts]   = useState<{lat:number;lng:number}[]>([])
+  const [satellite, setSatellite]     = useState(false)
+  const tileRef = useRef<import('leaflet').TileLayer | null>(null)
   const mLayersRef  = useRef<import('leaflet').Layer[]>([])
   const mClickRef   = useRef<((e: import('leaflet').LeafletMouseEvent) => void) | null>(null)
 
@@ -401,6 +403,16 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
       })
     })
   }, [cc, mapReady])
+
+  // ── Basemap: cambiar entre OSM y Satélite ─────────────────────────────────
+  useEffect(() => {
+    if (!tileRef.current) return
+    tileRef.current.setUrl(
+      satellite
+        ? 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+        : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
+    )
+  }, [satellite])
 
   // ── Medición: activar/desactivar handler de click ──────────────────────────
   useEffect(() => {
@@ -471,7 +483,7 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
         zoom: 7,
         zoomControl: true,
       })
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      tileRef.current = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
       }).addTo(map)
       mapRef.current = map
@@ -1017,6 +1029,10 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
 
             {/* BASE */}
             <div style={SECTION_TITLE_STYLE}>Base</div>
+            <label style={ITEM_STYLE}>
+              <input type="checkbox" checked={satellite} onChange={() => setSatellite(v => !v)} style={CHECKBOX_STYLE} />
+              🛰 Satélite
+            </label>
             {(['limite', 'zonas', 'departamentos'] as const).map(k => (
               <label key={k} style={ITEM_STYLE}>
                 <input type="checkbox" checked={!!layers[k]} onChange={() => toggle(k)} style={CHECKBOX_STYLE} />
