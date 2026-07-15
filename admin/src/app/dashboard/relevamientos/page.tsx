@@ -45,15 +45,15 @@ export default function RelevamientosPage() {
       supabase.from('relevamientos')
         .select('id,fecha,tipo,tecnico_id,estado_calzada,coords_lat,coords_lng,coords_linea,cc_asociado,zona,ruta_tramo,observaciones,fotos,datos_especificos,sincronizado_en')
         .order('fecha', { ascending: false }),
-      supabase.from('profiles').select('id,nombre,email,rol'),
-    ]).then(([{ data }, { data: profs }]) => {
+      fetch('/api/tecnicos').then(r => r.json()),
+    ]).then(([{ data }, tecnicos]) => {
       const rows = (data as Relevamiento[]) ?? []
       setRelevamientos(rows)
       setFiltered(rows)
       const pm: Record<string, string> = {}
       const rm: Record<string, string> = {}
-      ;(profs ?? []).forEach((p: { id: string; nombre: string | null; email: string; rol: string }) => {
-        pm[p.id] = p.nombre || p.email || p.id
+      ;(tecnicos as { id: string; nombre: string; rol: string }[]).forEach(p => {
+        pm[p.id] = p.nombre
         rm[p.id] = p.rol
       })
       setProfileMap(pm)
