@@ -34,7 +34,7 @@ export default function RelevamientosPage() {
   const [loading, setLoading] = useState(true)
   const [tipo, setTipo] = useState('')
   const [rolFilter, setRolFilter] = useState('')
-  const [zona, setZona] = useState('')
+  const [zona, setZona]     = useState('')
   const [desde, setDesde] = useState('')
   const [hasta, setHasta] = useState('')
   const [page, setPage] = useState(0)
@@ -45,15 +45,15 @@ export default function RelevamientosPage() {
       supabase.from('relevamientos')
         .select('id,fecha,tipo,tecnico_id,estado_calzada,coords_lat,coords_lng,coords_linea,cc_asociado,zona,ruta_tramo,observaciones,fotos,datos_especificos,sincronizado_en')
         .order('fecha', { ascending: false }),
-      supabase.from('profiles').select('id,nombre,rol'),
+      supabase.from('profiles').select('id,nombre,email,rol'),
     ]).then(([{ data }, { data: profs }]) => {
       const rows = (data as Relevamiento[]) ?? []
       setRelevamientos(rows)
       setFiltered(rows)
       const pm: Record<string, string> = {}
       const rm: Record<string, string> = {}
-      ;(profs ?? []).forEach((p: { id: string; nombre: string; rol: string }) => {
-        pm[p.id] = p.nombre
+      ;(profs ?? []).forEach((p: { id: string; nombre: string | null; email: string; rol: string }) => {
+        pm[p.id] = p.nombre || p.email || p.id
         rm[p.id] = p.rol
       })
       setProfileMap(pm)
@@ -66,7 +66,7 @@ export default function RelevamientosPage() {
     let rows = relevamientos
     if (tipo) rows = rows.filter(r => r.tipo === tipo)
     if (rolFilter) rows = rows.filter(r => r.tecnico_id ? roleById[r.tecnico_id] === rolFilter : false)
-    if (rolFilter === 'tecnico' && zona) rows = rows.filter(r => r.zona === zona)
+    if (zona) rows = rows.filter(r => r.zona === zona)
     if (desde) rows = rows.filter(r => r.fecha >= desde)
     if (hasta) rows = rows.filter(r => r.fecha <= hasta)
     setFiltered(rows)
@@ -106,18 +106,16 @@ export default function RelevamientosPage() {
         </div>
         <div style={wrapStyle}>
           <label style={labelStyle}>Tipo de usuario</label>
-          <select value={rolFilter} onChange={e => { setRolFilter(e.target.value); setZona('') }} style={selectStyle}>
+          <select value={rolFilter} onChange={e => setRolFilter(e.target.value)} style={selectStyle}>
             {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
           </select>
         </div>
-        {rolFilter === 'tecnico' && (
-          <div style={wrapStyle}>
-            <label style={labelStyle}>Zona</label>
-            <select value={zona} onChange={e => setZona(e.target.value)} style={selectStyle}>
-              {ZONAS.map(o => <option key={o} value={o}>{o || 'Todas'}</option>)}
-            </select>
-          </div>
-        )}
+        <div style={wrapStyle}>
+          <label style={labelStyle}>Zona</label>
+          <select value={zona} onChange={e => setZona(e.target.value)} style={selectStyle}>
+            {ZONAS.map(o => <option key={o} value={o}>{o || 'Todas'}</option>)}
+          </select>
+        </div>
         <div style={wrapStyle}>
           <label style={labelStyle}>Desde</label>
           <input type="date" value={desde} onChange={e => setDesde(e.target.value)} style={selectStyle} />
