@@ -1193,7 +1193,7 @@ export default function MapaScreen() {
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [sedesZonas, setSedesZonas] = useState<SedesZonas>(
-    Object.fromEntries(ZONAS_LIST.map(z => [z, true]))
+    Object.fromEntries(ZONAS_LIST.map(z => [z, false]))
   );
   const [tracking, setTracking] = useState(false);
   const locationSub = useRef<any>(null);
@@ -1873,26 +1873,6 @@ export default function MapaScreen() {
         }}
       >
         <Text style={styles.btnMeasureIcon}>📏</Text>
-      </TouchableOpacity>
-
-      {/* ── BOTÓN BRÚJULA ────────────────────────────────────────────────── */}
-      <TouchableOpacity
-        style={[styles.btnCompass, compassActive && styles.btnCompassActive]}
-        onPress={() => setCompassActive(v => !v)}
-      >
-        <Text style={styles.btnCompassIcon}>🔝</Text>
-      </TouchableOpacity>
-
-      {/* ── BOTÓN RIPIO: acceso rápido a dibujar en mapa ────────────────── */}
-      <TouchableOpacity
-        style={styles.btnLineal}
-        onPress={() => {
-          setRelevModalVisible(false);
-          setDrawnCoordsLinea([]);
-          setTimeout(() => webviewRef.current?.injectJavaScript('enterDrawMode(); true;'), 50);
-        }}
-      >
-        <Text style={styles.btnLinealIcon}>🛣️</Text>
       </TouchableOpacity>
 
       {/* ── BOTÓN RELEVAR (bottom-right, encima del GPS) ─────────────────── */}
