@@ -1076,6 +1076,7 @@ function cancelDraw(){
 }
 function _exitDrawMode(){
   _drawMode=false;_drawSnapInfo=null;
+  setNonRelevLayersInteractive(true);
   map.getContainer().style.cursor='';
   map.getContainer().classList.remove('draw-mode');
   map.off('click',_onDrawClick);
@@ -1148,11 +1149,14 @@ function enterPointPickMode(){
   if(_ppMarker){map.removeLayer(_ppMarker);_ppMarker=null;}
   _ppClickFn=function(e){
     if(!_ppMode)return;
-    var lat=e.latlng.lat,lng=e.latlng.lng;
+    var raw=e.latlng;
+    var snap=snapToRoad(raw.lat,raw.lng);
+    var lat=snap.lat,lng=snap.lng;
     if(_ppMarker){map.removeLayer(_ppMarker);}
-    _ppMarker=L.circleMarker([lat,lng],{radius:10,fillColor:'#27ae60',color:'#fff',fillOpacity:1,weight:2.5}).addTo(map);
+    var fillColor=snap.snapped?'#F5C300':'#27ae60';
+    _ppMarker=L.circleMarker([lat,lng],{radius:10,fillColor:fillColor,color:'#fff',fillOpacity:1,weight:snap.snapped?3:2.5}).addTo(map);
     _exitPointPickMode();
-    _rn({type:'pointPicked',lat:lat,lng:lng});
+    _rn({type:'pointPicked',lat:lat,lng:lng,snapped:snap.snapped,snapProps:snap.snapProps});
   };
   map.on('click',_ppClickFn);
 }
@@ -1416,6 +1420,7 @@ export default function MapaScreen() {
       // Punto puntual colocado desde el mapa
       if (msg.type === 'pointPicked' && msg.lat !== undefined) {
         setPickedPointCoord({ lat: msg.lat, lng: msg.lng });
+        snapInfoRef.current = msg.snapped ? (msg.snapProps ?? null) : null;
         setRelevModalVisible(true);
       }
       if (msg.type === 'measureClosed') {

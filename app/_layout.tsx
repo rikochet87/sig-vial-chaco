@@ -44,18 +44,19 @@ SplashScreen.preventAutoHideAsync();
 
 // Maneja redirección según estado de sesión
 function RouteGuard() {
-  const { session, loading } = useAuth();
+  const { session, profile, loading } = useAuth();
   const segments = useSegments();
 
   useEffect(() => {
     if (loading) return;
     const inLogin = segments[0] === 'login';
-    if (!session && !inLogin) {
+    const isAuthenticated = !!session || !!profile; // sesión activa O perfil cacheado offline
+    if (!isAuthenticated && !inLogin) {
       router.replace('/login');
-    } else if (session && inLogin) {
+    } else if (isAuthenticated && inLogin) {
       router.replace('/(tabs)/');
     }
-  }, [session, loading, segments]);
+  }, [session, profile, loading, segments]);
 
   useEffect(() => {
     if (!loading) SplashScreen.hideAsync();

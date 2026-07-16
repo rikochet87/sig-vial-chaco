@@ -762,6 +762,7 @@ export default function RelevamientoModal({ visible, coords, editando, onUpdate,
   const [tecnico, setTecnico] = useState('');
   const [fotos, setFotos] = useState<string[]>([]);
   const [fechaModal] = useState(() => new Date().toISOString());
+  const [manualCCNumero, setManualCCNumero] = useState('');
 
   // Pre-carga campos al abrir el modal (modo edición o nuevo con tramo/punto pre-dibujado)
   useEffect(() => {
@@ -814,9 +815,18 @@ export default function RelevamientoModal({ visible, coords, editando, onUpdate,
   }, [tipo, coords, coordsLinea, pointCoord]);
 
   const autoCC = useMemo(() => {
-    if (!effectiveCoords) return null;
-    return nearestCC(effectiveCoords.lat, effectiveCoords.lng);
-  }, [effectiveCoords]);
+    if (!snapInfo?.CC) return null;
+    const snapCCNum = parseInt(String(snapInfo.CC), 10);
+    return CONSORCIOS.find(c => c.numero === snapCCNum) ?? null;
+  }, [snapInfo]);
+
+  // CC resuelto: snap tiene prioridad; si no, manual
+  const resolvedCC = useMemo(() => {
+    if (autoCC) return autoCC;
+    const n = parseInt(manualCCNumero, 10);
+    if (!n) return null;
+    return CONSORCIOS.find(c => c.numero === n) ?? null;
+  }, [autoCC, manualCCNumero]);
 
   const reset = () => {
     setEstadoCalzada('Regular');
@@ -831,6 +841,7 @@ export default function RelevamientoModal({ visible, coords, editando, onUpdate,
     setRutaTramo('');
     setObservaciones('');
     setFotos([]);
+    setManualCCNumero('');
   };
 
   const takeFoto = async () => {
@@ -873,12 +884,12 @@ export default function RelevamientoModal({ visible, coords, editando, onUpdate,
       coords: baseCoords,
       coordsLinea: tipo === 'Ripio' ? [...coordsLinea] : undefined,
       tecnicoZona: tecnicoZona || editando?.tecnicoZona,
-      autoDeteccion: autoCC
+      autoDeteccion: resolvedCC
         ? {
-            zona: autoCC.zona,
-            ccNumero: autoCC.numero,
-            ccNombre: autoCC.nombre,
-            redKm: autoCC.redKm,
+            zona: resolvedCC.zona,
+            ccNumero: resolvedCC.numero,
+            ccNombre: resolvedCC.nombre,
+            redKm: resolvedCC.redKm,
           }
         : undefined,
       rutaTramo: rutaTramo.trim(),
@@ -961,24 +972,64 @@ export default function RelevamientoModal({ visible, coords, editando, onUpdate,
                 )}
               </View>
 
-              {autoCC && effectiveCoords && (
-                <View style={s.autoRow}>
-                  <View style={s.autoChip}>
-                    <Text style={s.autoChipLabel}>ZONA</Text>
-                    <Text style={s.autoChipValue}>{autoCC.zona}</Text>
-                  </View>
-                  <View style={s.autoChip}>
-                    <Text style={s.autoChipLabel}>CC N°</Text>
-                    <Text style={s.autoChipValue}>{autoCC.numero}</Text>
-                  </View>
-                  <View style={[s.autoChip, { flex: 2 }]}>
-                    <Text style={s.autoChipLabel}>RED</Text>
-                    <Text style={s.autoChipValue} numberOfLines={1}>{autoCC.redKm} km</Text>
-                  </View>
-                </View>
-              )}
-              {autoCC && effectiveCoords && (
-                <Text style={s.autoNombre} numberOfLines={2}>{autoCC.nombre}</Text>
+              {effectiveCoords && (
+                autoCC ? (
+                  <>
+                    <View style={s.autoRow}>
+                      <View style={s.autoChip}>
+                        <Text style={s.autoChipLabel}>ZONA</Text>
+                        <Text style={s.autoChipValue}>{autoCC.zona}</Text>
+                      </View>
+                      <View style={s.autoChip}>
+                        <Text style={s.autoChipLabel}>CC N°</Text>
+                        <Text style={s.autoChipValue}>{autoCC.numero}</Text>
+                      </View>
+                      <View style={[s.autoChip, { flex: 2 }]}>
+                        <Text style={s.autoChipLabel}>RED</Text>
+                        <Text style={s.autoChipValue} numberOfLines={1}>{autoCC.redKm} km</Text>
+                      </View>
+                    </View>
+                    <Text style={s.autoNombre} numberOfLines={2}>{autoCC.nombre}</Text>
+                  </>
+                ) : (
+                  <>
+                    <View style={s.autoRow}>
+                      <View style={[s.autoChip, !resolvedCC && { borderColor: '#e53935', borderWidth: 1 }]}>
+                        <Text style={[s.autoChipLabel, !resolvedCC && { color: '#e53935' }]}>ZONA</Text>
+                        <Text style={[s.autoChipValue, !resolvedCC && { color: '#e53935' }]}>
+                          {resolvedCC?.zona ?? '—'}
+                        </Text>
+                      </View>
+                      <View style={[s.autoChip, !resolvedCC && { borderColor: '#e53935', borderWidth: 1 }]}>
+                        <Text style={[s.autoChipLabel, !resolvedCC && { color: '#e53935' }]}>CC N°</Text>
+                        <TextInput
+                          style={[s.autoChipValue, { padding: 0, minWidth: 36 }, !resolvedCC && { color: '#e53935' }]}
+                          value={manualCCNumero}
+                          onChangeText={setManualCCNumero}
+                          placeholder="—"
+                          placeholderTextColor="#e53935"
+                          keyboardType="number-pad"
+                          maxLength={3}
+                        />
+                      </View>
+                      <View style={[s.autoChip, { flex: 2 }, !resolvedCC && { borderColor: '#e53935', borderWidth: 1 }]}>
+                        <Text style={[s.autoChipLabel, !resolvedCC && { color: '#e53935' }]}>RED</Text>
+                        <Text style={[s.autoChipValue, !resolvedCC && { color: '#e53935' }]}>
+                          {resolvedCC ? `${resolvedCC.redKm} km` : '—'}
+                        </Text>
+                      </View>
+                    </View>
+                    {resolvedCC ? (
+                      <Text style={s.autoNombre} numberOfLines={2}>{resolvedCC.nombre}</Text>
+                    ) : (
+                      <Text style={[s.autoNombre, { color: '#e53935' }]}>
+                        {manualCCNumero.trim()
+                          ? `CC N° ${manualCCNumero} no encontrado`
+                          : '⚠ Tipeá el N° de consorcio o activá la capa CC y reubicá el punto'}
+                      </Text>
+                    )}
+                  </>
+                )
               )}
             </View>
 

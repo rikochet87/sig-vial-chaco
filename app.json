@@ -1,4 +1,4 @@
-﻿{
+{
   "expo": {
     "name": "SIG Vial",
     "slug": "sig-vial-chaco",
@@ -43,9 +43,9 @@
         {
           "android": {
             "kotlinVersion": "2.1.20",
-            "compileSdkVersion": 35,
-            "targetSdkVersion": 35,
-            "buildToolsVersion": "35.0.0",
+            "compileSdkVersion": 36,
+            "targetSdkVersion": 36,
+            "buildToolsVersion": "36.0.0",
             "packagingOptions": {
               "pickFirst": [
                 "**/libc++_shared.so",
@@ -84,7 +84,9 @@
           "photosPermission": "La app necesita acceso a las fotos para adjuntarlas a los relevamientos.",
           "microphonePermission": false
         }
-      ]
+      ],
+      "expo-sharing",
+      "expo-status-bar"
     ],
     "newArchEnabled": true,
     "experiments": {
