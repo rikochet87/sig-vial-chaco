@@ -75,9 +75,9 @@ type SedesZonas = Record<string, boolean>;
 // ── Tipos para control de visibilidad de relevamientos ───────────────────────
 type RelevLayers = {
   all: boolean; Puente: boolean; Alcantarilla: boolean;
-  Tubos: boolean; Ripio: boolean; Otro: boolean;
+  Tubos: boolean; Lineal: boolean; Otro: boolean;
 };
-const RELEV_TIPOS = ['Puente', 'Alcantarilla', 'Tubos', 'Ripio', 'Otro'] as const;
+const RELEV_TIPOS = ['Puente', 'Alcantarilla', 'Tubos', 'Lineal', 'Otro'] as const;
 
 // ── HTML Leaflet (mínimo UI, sin controles propios) ──────────────────────────
 function buildMapHtml(sedesZonas: SedesZonas, layers: Layers): string {
@@ -133,7 +133,7 @@ html,body,#map{width:100%;height:100vh;background:#f0ebe3}
 <body>
 <div id="map"></div>
 
-<!-- ── Panel de dibujo de tramo Ripio ──────────────────────────────── -->
+<!-- ── Panel de dibujo de tramo Lineal ──────────────────────────────── -->
 <div id="draw-ctrl" style="display:none;position:fixed;bottom:110px;left:50%;transform:translateX(-50%);
   background:#1e2436;border-radius:14px;padding:14px 16px;z-index:2000;
   border:1.5px solid #e67e22;box-shadow:0 6px 24px rgba(0,0,0,0.65);min-width:290px;max-width:90vw">
@@ -905,9 +905,9 @@ function calcRoute(sedeLat,sedeLng,nombre){
 var RELEV_MARKERS={};
 var RIPIO_LAYERS={};
 var RELEV_TIPO_MAP={};
-var RELEV_TIPOS_VISIBLE={Puente:true,Alcantarilla:true,Tubos:true,Ripio:true,Otro:true};
+var RELEV_TIPOS_VISIBLE={Puente:true,Alcantarilla:true,Tubos:true,Lineal:true,Otro:true};
 var RELEV_COLORS={Bueno:'#27ae60',Regular:'#f39c12',Malo:'#e67e22','Crítico':'#e74c3c'};
-var RELEV_LABELS={Puente:'PTE',Alcantarilla:'ALC',Tubos:'TUB',Ripio:'RIP',Otro:'?'};
+var RELEV_LABELS={Puente:'PTE',Alcantarilla:'ALC',Tubos:'TUB',Lineal:'LIN',Otro:'?'};
 function setRelevTipoVisible(tipo,visible){
   RELEV_TIPOS_VISIBLE[tipo]=visible;
   Object.keys(RELEV_MARKERS).forEach(function(id){
@@ -916,7 +916,7 @@ function setRelevTipoVisible(tipo,visible){
       else{if(map.hasLayer(RELEV_MARKERS[id]))map.removeLayer(RELEV_MARKERS[id]);}
     }
   });
-  if(tipo==='Ripio'){
+  if(tipo==='Lineal'){
     Object.keys(RIPIO_LAYERS).forEach(function(id){
       if(visible){if(!map.hasLayer(RIPIO_LAYERS[id]))RIPIO_LAYERS[id].addTo(map);}
       else{if(map.hasLayer(RIPIO_LAYERS[id]))map.removeLayer(RIPIO_LAYERS[id]);}
@@ -975,7 +975,7 @@ function addRelevMarker(id,lat,lng,estado,tipo,ccAsociado,fecha,obs){
 function removeRelevMarker(id){
   if(RELEV_MARKERS[id]){map.removeLayer(RELEV_MARKERS[id]);delete RELEV_MARKERS[id];delete RELEV_TIPO_MAP[id];}
 }
-function addRipioLine(id,latlngs,empresa,ruta,fecha){
+function addLinealLine(id,latlngs,empresa,ruta,fecha){
   if(RIPIO_LAYERS[id])return;
   var c='#e67e22';
   var pts=latlngs.map(function(p){return[p.lat,p.lng];});
@@ -984,7 +984,7 @@ function addRipioLine(id,latlngs,empresa,ruta,fecha){
   var fechaStr=d.toLocaleDateString('es-AR')+' '+d.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
   line.bindPopup(
     '<div style="background:#1e2436;border-radius:10px;padding:12px 14px;min-width:180px">'
-    +'<div style="font-size:10px;color:#e67e22;text-transform:uppercase;letter-spacing:1px;font-weight:700">Tramo de ripio<\/div>'
+    +'<div style="font-size:10px;color:#e67e22;text-transform:uppercase;letter-spacing:1px;font-weight:700">Tramo lineal<\/div>'
     +(ruta?'<div style="font-size:13px;font-weight:800;color:#e0e6f0;margin:3px 0">'+ruta+'<\/div>':'')
     +(empresa?'<div style="font-size:11px;color:#b0bec5;margin-bottom:3px">Empresa: '+empresa+'<\/div>':'')
     +'<div style="font-size:10px;color:#7a8aaa;margin-bottom:8px">'+fechaStr+'<\/div>'
@@ -993,7 +993,7 @@ function addRipioLine(id,latlngs,empresa,ruta,fecha){
     {closeButton:true,maxWidth:260}
   );
   RIPIO_LAYERS[id]=line;
-  if(RELEV_TIPOS_VISIBLE['Ripio']!==false)line.addTo(map);
+  if(RELEV_TIPOS_VISIBLE['Lineal']!==false)line.addTo(map);
 }
 function clearRelevMarkers(){
   Object.keys(RELEV_MARKERS).forEach(function(id){
@@ -1326,7 +1326,7 @@ export default function MapaScreen() {
 
   // ── Capa Relevamientos: visibilidad por tipo ──────────────────────────────
   const [relevLayers, setRelevLayers] = useState<RelevLayers>({
-    all: true, Puente: true, Alcantarilla: true, Tubos: true, Ripio: true, Otro: true,
+    all: true, Puente: true, Alcantarilla: true, Tubos: true, Lineal: true, Otro: true,
   });
   const relevLayersRef = useRef(relevLayers);
   useEffect(() => { relevLayersRef.current = relevLayers; }, [relevLayers]);
@@ -1334,7 +1334,7 @@ export default function MapaScreen() {
   const toggleAllRelev = useCallback(() => {
     setRelevLayers(prev => {
       const newAll = !prev.all;
-      return { all: newAll, Puente: newAll, Alcantarilla: newAll, Tubos: newAll, Ripio: newAll, Otro: newAll };
+      return { all: newAll, Puente: newAll, Alcantarilla: newAll, Tubos: newAll, Lineal: newAll, Otro: newAll };
     });
   }, []);
 
@@ -1360,8 +1360,8 @@ export default function MapaScreen() {
     const layers = relevLayersRef.current;
     const markerJs = 'clearRelevMarkers();' + relevamientos.map(r => {
       let s = `addRelevMarker(${JSON.stringify(r.id)},${r.coords.lat},${r.coords.lng},${JSON.stringify(r.estadoCalzada)},${JSON.stringify(r.tipo)},${JSON.stringify(r.rutaTramo || r.ccAsociado || '')},${JSON.stringify(r.fecha)},${JSON.stringify(r.observaciones.slice(0,80))});`;
-      if (r.tipo === 'Ripio' && r.coordsLinea && r.coordsLinea.length >= 2) {
-        s += `addRipioLine(${JSON.stringify(r.id)},${JSON.stringify(r.coordsLinea)},${JSON.stringify(r.datosRipio?.empresa ?? '')},${JSON.stringify(r.rutaTramo || '')},${JSON.stringify(r.fecha)});`;
+      if (r.tipo === 'Lineal' && r.coordsLinea && r.coordsLinea.length >= 2) {
+        s += `addLinealLine(${JSON.stringify(r.id)},${JSON.stringify(r.coordsLinea)},${JSON.stringify(r.datosLineal?.empresa ?? '')},${JSON.stringify(r.rutaTramo || '')},${JSON.stringify(r.fecha)});`;
       }
       return s;
     }).join('');
@@ -1377,8 +1377,8 @@ export default function MapaScreen() {
       return;
     }
     let js = `addRelevMarker(${JSON.stringify(r.id)},${r.coords.lat},${r.coords.lng},${JSON.stringify(r.estadoCalzada)},${JSON.stringify(r.tipo)},${JSON.stringify(r.rutaTramo || r.ccAsociado || '')},${JSON.stringify(r.fecha)},${JSON.stringify(r.observaciones.slice(0,80))});`;
-    if (r.tipo === 'Ripio' && r.coordsLinea && r.coordsLinea.length >= 2) {
-      js += `addRipioLine(${JSON.stringify(r.id)},${JSON.stringify(r.coordsLinea)},${JSON.stringify(r.datosRipio?.empresa ?? '')},${JSON.stringify(r.rutaTramo || '')},${JSON.stringify(r.fecha)});`;
+    if (r.tipo === 'Lineal' && r.coordsLinea && r.coordsLinea.length >= 2) {
+      js += `addLinealLine(${JSON.stringify(r.id)},${JSON.stringify(r.coordsLinea)},${JSON.stringify(r.datosLineal?.empresa ?? '')},${JSON.stringify(r.rutaTramo || '')},${JSON.stringify(r.fecha)});`;
     }
     webviewRef.current?.injectJavaScript(js + ' true;');
     setDrawnCoordsLinea([]);
@@ -1799,7 +1799,7 @@ export default function MapaScreen() {
               { tipo: 'Puente',       icon: '🌉', color: '#4444cc' },
               { tipo: 'Alcantarilla', icon: '🏗️', color: '#44cc44' },
               { tipo: 'Tubos',        icon: '⭕',  color: '#cc4444' },
-              { tipo: 'Ripio',        icon: '🛣️', color: '#22aaee' },
+              { tipo: 'Lineal',        icon: '🛣️', color: '#22aaee' },
               { tipo: 'Otro',         icon: '❓',  color: '#888888' },
             ] as Array<{ tipo: keyof Omit<RelevLayers,'all'>; icon: string; color: string }>
           ).map(({ tipo, icon, color }) => {
@@ -1885,14 +1885,14 @@ export default function MapaScreen() {
 
       {/* ── BOTÓN RIPIO: acceso rápido a dibujar en mapa ────────────────── */}
       <TouchableOpacity
-        style={styles.btnRipio}
+        style={styles.btnLineal}
         onPress={() => {
           setRelevModalVisible(false);
           setDrawnCoordsLinea([]);
           setTimeout(() => webviewRef.current?.injectJavaScript('enterDrawMode(); true;'), 50);
         }}
       >
-        <Text style={styles.btnRipioIcon}>🛣️</Text>
+        <Text style={styles.btnLinealIcon}>🛣️</Text>
       </TouchableOpacity>
 
       {/* ── BOTÓN RELEVAR (bottom-right, encima del GPS) ─────────────────── */}
@@ -2040,14 +2040,14 @@ function makeStyles(C: ColorPalette, DRAWER_WIDTH: number) { return StyleSheet.c
   btnMeasureActive: { backgroundColor: '#F5C300', borderColor: '#d4a800' },
   btnMeasureIcon: { fontSize: 22 },
 
-  btnRipio: {
+  btnLineal: {
     position: 'absolute', bottom: 156, right: 12, width: 50, height: 50,
     backgroundColor: '#e67e22', borderRadius: 25, alignItems: 'center', justifyContent: 'center',
     zIndex: 5, elevation: 6,
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.35, shadowRadius: 4,
     borderWidth: 2, borderColor: '#d35400',
   },
-  btnRipioIcon: { fontSize: 22 },
+  btnLinealIcon: { fontSize: 22 },
 
   btnRelevar: {
     position: 'absolute', bottom: 94, right: 12, width: 50, height: 50,

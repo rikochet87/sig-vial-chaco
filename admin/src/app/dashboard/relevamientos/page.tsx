@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { Relevamiento } from '@/types'
 
-const TIPOS = ['', 'Puente', 'Alcantarilla', 'Tubos', 'Ripio', 'Otro']
+const TIPOS = ['', 'Puente', 'Alcantarilla', 'Tubos', 'Lineal', 'Otro']
 const ZONAS = ['', 'ZI', 'ZII', 'ZIII', 'ZIV', 'ZV']
 const ROLES = [
   { value: '', label: 'Todos' },

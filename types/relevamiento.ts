@@ -2,7 +2,7 @@
 
 export type EstadoCalzada = 'Bueno' | 'Regular' | 'Malo';
 
-export type TipoInfraestructura = 'Puente' | 'Alcantarilla' | 'Tubos' | 'Otro' | 'Ripio';
+export type TipoInfraestructura = 'Puente' | 'Alcantarilla' | 'Tubos' | 'Otro' | 'Lineal';
 
 export const ESTADO_COLORS: Record<EstadoCalzada, string> = {
   Bueno:   '#27ae60',
@@ -59,12 +59,28 @@ export interface DatosOtro {
   descripcion: string;
 }
 
-export interface DatosRipio {
-  ancho: string;          // m — ancho de la calzada enripiada
-  longitud: string;       // m — longitud del tramo
-  espesor: string;        // m — espesor del ripio colocado
-  empresa: string;        // empresa ejecutora
-  fechaEjecucion: string; // DD/MM/AAAA — puede diferir de la fecha de relevamiento
+export type SubtipoLineal = 'Ripio' | 'Tramo' | 'Canal';
+
+export interface DatosLineal {
+  subtipo?: SubtipoLineal;   // default 'Ripio' para compatibilidad con datos existentes
+  // ── Ripio ─────────────────────────────────────────────────────────────────
+  ancho?: string;            // m — ancho de la calzada
+  longitud?: string;         // m — longitud del tramo
+  espesor?: string;          // m — espesor del material colocado
+  empresa?: string;          // empresa ejecutora
+  fechaEjecucion?: string;   // DD/MM/AAAA
+  // ── Tramo ─────────────────────────────────────────────────────────────────
+  esNuevo?: boolean;         // true = tramo nuevo a incorporar al SIG
+  zonaTramo?: string;        // ZI | ZII | ZIII | ZIV | ZV
+  ccNumeroTramo?: string;    // número de CC
+  numTramo?: string;         // número de tramo (se usa para nomenclatura)
+  nomenclatura?: string;     // auto-generada: Z5C099002
+  // ── Canal ─────────────────────────────────────────────────────────────────
+  anchoCanal?: string;       // m
+  profundidad?: string;      // m
+  longitudCanal?: string;    // m (auto desde track GPS)
+  estadoLimpieza?: 'Limpio' | 'Parcialmente obstruido' | 'Obstruido';
+  tiposObstruccion?: string[]; // vegetación | sedimento | residuos
 }
 
 // ── Auto-deteccion ───────────────────────────────────────────────────────────
@@ -83,7 +99,7 @@ export interface Relevamiento {
   fecha: string;
   syncStatus?: 'pendiente' | 'sincronizado' | 'error';
   coords: { lat: number; lng: number };
-  coordsLinea?: { lat: number; lng: number }[]; // para features lineales (Ripio)
+  coordsLinea?: { lat: number; lng: number }[]; // para features lineales (Lineal)
   autoDeteccion?: AutoDeteccion;
   /** Zona del técnico logueado — tiene prioridad sobre autoDeteccion.zona al sincronizar */
   tecnicoZona?: string;
@@ -94,7 +110,7 @@ export interface Relevamiento {
   datosAlcantarilla?: DatosAlcantarilla;
   datosTubos?: DatosTubos;
   datosOtro?: DatosOtro;
-  datosRipio?: DatosRipio;
+  datosLineal?: DatosLineal;
   observaciones: string;
   tecnico: string;
   fotos: string[];
@@ -132,7 +148,7 @@ export const DEFAULT_TUBOS: DatosTubos = {
   jAncho: '', d: '', cabezales: '', tapada: '', cantidad: 1,
 };
 
-export const DEFAULT_RIPIO: DatosRipio = {
+export const DEFAULT_LINEAL: DatosLineal = {
   ancho: '',
   longitud: '',
   espesor: '',

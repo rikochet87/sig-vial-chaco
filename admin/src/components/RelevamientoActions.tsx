@@ -15,7 +15,7 @@ function buildGeoJSON(rel: Relevamiento): object | null {
     tramo: rel.ruta_tramo,
     observacion: rel.observaciones,
   }
-  if (rel.tipo === 'Ripio' && rel.coords_linea?.length) {
+  if (rel.tipo === 'Lineal' && rel.coords_linea?.length) {
     return {
       type: 'FeatureCollection',
       features: [{
@@ -39,7 +39,7 @@ function buildGeoJSON(rel: Relevamiento): object | null {
 }
 
 function toKML(rel: Relevamiento): string {
-  const geom = rel.tipo === 'Ripio' && rel.coords_linea?.length
+  const geom = rel.tipo === 'Lineal' && rel.coords_linea?.length
     ? `<LineString><coordinates>${rel.coords_linea.map(p => `${p.lng},${p.lat},0`).join(' ')}</coordinates></LineString>`
     : rel.coords_lat != null && rel.coords_lng != null
       ? `<Point><coordinates>${rel.coords_lng},${rel.coords_lat},0</coordinates></Point>`

@@ -52,9 +52,9 @@ function ROCell({ label: l, value }: { label: string; value: string | number | n
   )
 }
 
-// ── RipioCard (read-only) ────────────────────────────────────────────────────
+// ── LinealCard (read-only) ────────────────────────────────────────────────────
 
-function RipioCard({ data }: { data: Record<string, unknown> | null | undefined }) {
+function LinealCard({ data }: { data: Record<string, unknown> | null | undefined }) {
   if (!data) return null
   const ancho    = parseFloat(String(data.ancho    ?? '')) || 0
   const espesor  = parseFloat(String(data.espesor  ?? '')) || 0
@@ -67,7 +67,7 @@ function RipioCard({ data }: { data: Record<string, unknown> | null | undefined 
   const unitSt: React.CSSProperties   = { color: '#9E9E9E', fontSize: 12, marginLeft: 4 }
   return (
     <div style={{ background: '#2C2C2C', borderRadius: 10, padding: 20, marginBottom: 16 }}>
-      <h3 style={sectionTitle}>Datos Ripio</h3>
+      <h3 style={sectionTitle}>Datos Lineal</h3>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12 }}>
         {ancho > 0 && <div style={cellStyle}><div style={labelSt}>Ancho</div><div style={valueSt}>{ancho}<span style={unitSt}>m</span></div></div>}
         {espesor > 0 && <div style={cellStyle}><div style={labelSt}>Espesor</div><div style={valueSt}>{espesor}<span style={unitSt}>m</span></div></div>}
@@ -110,7 +110,7 @@ function DataCard({ title, data }: { title: string; data: Record<string, unknown
 
 // ── tipo-specific edit sections ───────────────────────────────────────────────
 
-function EditRipio({
+function EditLineal({
   data, onChange,
 }: {
   data: Record<string, unknown>
@@ -120,7 +120,7 @@ function EditRipio({
     onChange({ ...data, [k]: e.target.value })
   return (
     <div style={sectionCard}>
-      <h3 style={sectionTitle}>Datos Ripio</h3>
+      <h3 style={sectionTitle}>Datos Lineal</h3>
       <div style={grid2}>
         <div style={field}>
           <span style={label}>Ancho (m)</span>
@@ -373,7 +373,7 @@ export default function RelevamientoEditForm({ rel, tecnicoNombre }: Props) {
         <DataCard title="Datos Puente"       data={rel.datos_especificos?.puente as Record<string, unknown>} />
         <DataCard title="Datos Alcantarilla" data={rel.datos_especificos?.alcantarilla as Record<string, unknown>} />
         <DataCard title="Datos Tubos"        data={rel.datos_especificos?.tubos as Record<string, unknown>} />
-        <RipioCard                           data={rel.datos_especificos?.ripio as Record<string, unknown>} />
+        <LinealCard                           data={rel.datos_especificos?.ripio as Record<string, unknown>} />
         <DataCard title="Otros datos"        data={rel.datos_especificos?.otro as Record<string, unknown>} />
       </>
     )
@@ -464,8 +464,8 @@ export default function RelevamientoEditForm({ rel, tecnicoNombre }: Props) {
         />
       </div>
 
-      {rel.tipo === 'Ripio' && (
-        <EditRipio
+      {rel.tipo === 'Lineal' && (
+        <EditLineal
           data={(datosEsp?.ripio ?? {}) as Record<string, unknown>}
           onChange={d => setDatosEsp(prev => ({ ...prev, ripio: d }))}
         />

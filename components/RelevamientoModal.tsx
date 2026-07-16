@@ -9,15 +9,15 @@ import type { ColorPalette } from '@/constants/Colors';
 import { CONSORCIOS } from '@/constants/realData';
 import type {
   Relevamiento, EstadoCalzada, TipoInfraestructura,
-  DatosPuente, DatosAlcantarilla, DatosTubos, DatosRipio,
+  DatosPuente, DatosAlcantarilla, DatosTubos, DatosLineal,
 } from '@/types/relevamiento';
 import {
-  ESTADO_COLORS, DEFAULT_PUENTE, DEFAULT_ALCANTARILLA, DEFAULT_TUBOS, DEFAULT_RIPIO, DEFAULT_OTRO,
+  ESTADO_COLORS, DEFAULT_PUENTE, DEFAULT_ALCANTARILLA, DEFAULT_TUBOS, DEFAULT_LINEAL, DEFAULT_OTRO,
 } from '@/types/relevamiento';
 import { formatFechaHora } from '@/utils/formatDate';
 import * as ImagePicker from 'expo-image-picker';
 
-// expo-location: importación condicional para captura GPS en formulario ripio
+// expo-location: importación condicional para captura GPS en formulario lineal
 let Location: any = null;
 try { Location = require('expo-location'); } catch (_) {}
 
@@ -380,11 +380,20 @@ function TubosForm({ data, onChange }: {
   );
 }
 
-// ── Formulario Ripio ──────────────────────────────────────────────────────────
+// ── Formulario Lineal ─────────────────────────────────────────────────────────
 
 type LatLngPunto = { lat: number; lng: number };
 
 const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+const ZONAS_LINEAL = ['ZI', 'ZII', 'ZIII', 'ZIV', 'ZV'];
+const ZONA_NUM: Record<string, number> = { ZI: 1, ZII: 2, ZIII: 3, ZIV: 4, ZV: 5 };
+const OBSTRUCCIONES = ['vegetación', 'sedimento', 'residuos'] as const;
+
+function buildNomenclatura(zona: string, cc: string, tramo: string): string {
+  const zn = ZONA_NUM[zona];
+  if (!zn || !cc || !tramo) return '';
+  return `Z${zn}C${String(parseInt(cc)||0).padStart(3,'0')}${String(parseInt(tramo)||0).padStart(3,'0')}`;
+}
 
 // Haversine: distancia en metros entre dos coordenadas
 function haversine(a: LatLngPunto, b: LatLngPunto): number {
@@ -400,23 +409,21 @@ function totalMetros(pts: LatLngPunto[]): number {
   return d;
 }
 
-function RipioForm({ data, onChange, puntos, onCoordsChange, onRequestDraw }: {
-  data: DatosRipio;
-  onChange: (d: DatosRipio) => void;
+// ── Panel GPS Track compartido ─────────────────────────────────────────────────
+function GPSTrackPanel({
+  puntos, onCoordsChange, onRequestDraw, label,
+}: {
   puntos: LatLngPunto[];
   onCoordsChange: (pts: LatLngPunto[]) => void;
   onRequestDraw?: () => void;
+  label?: string;
 }) {
   const s = useS();
-  const Colors = useC();
-  const set = (k: keyof DatosRipio) => (v: string) => onChange({ ...data, [k]: v });
-
-  // ── GPS Track inline ───────────────────────────────────────────────────────
-  const [trackPhase,    setTrackPhase]    = useState<'idle'|'recording'>('idle');
-  const [trackPts,      setTrackPts]      = useState<LatLngPunto[]>([]);
+  const [trackPhase, setTrackPhase]       = useState<'idle'|'recording'>('idle');
+  const [trackPts,   setTrackPts]         = useState<LatLngPunto[]>([]);
   const [trackAccuracy, setTrackAccuracy] = useState<number | null>(null);
-  const trackSubRef = useRef<any>(null);
-  const trackPtsRef = useRef<LatLngPunto[]>([]);
+  const trackSubRef  = useRef<any>(null);
+  const trackPtsRef  = useRef<LatLngPunto[]>([]);
 
   const startTrack = async () => {
     if (!Location) { Alert.alert('GPS no disponible', 'expo-location no está instalado.'); return; }
@@ -457,8 +464,93 @@ function RipioForm({ data, onChange, puntos, onCoordsChange, onRequestDraw }: {
     setTrackPts([]);
   };
 
-  // ── Date stepper ──────────────────────────────────────────────────────────
-  // Inicializa desde data.fechaEjecucion (formato DD/MM/AAAA) si existe, si no desde hoy
+  const metros = trackPts.length >= 2 ? totalMetros(trackPts) : 0;
+
+  return (
+    <FGroup label={label ?? 'Tramo'}>
+      {puntos.length >= 2 ? (
+        <View style={s.tramoOk}>
+          <Text style={s.tramoOkTitle}>✓ Tramo definido — {puntos.length} puntos</Text>
+          <Text style={s.tramoOkPt}>▶ Inicio: {puntos[0].lat.toFixed(5)}, {puntos[0].lng.toFixed(5)}</Text>
+          <Text style={s.tramoOkPt}>⏹ Final:  {puntos[puntos.length-1].lat.toFixed(5)}, {puntos[puntos.length-1].lng.toFixed(5)}</Text>
+        </View>
+      ) : trackPhase === 'recording' ? (
+        <View style={s.trackPanel}>
+          <View style={s.trackPanelHeader}>
+            <View style={s.trackDot} />
+            <Text style={s.trackPanelTitle}>Grabando track GPS…</Text>
+          </View>
+          <Text style={s.trackStat}>
+            {trackPts.length} punto{trackPts.length !== 1 ? 's' : ''} registrado{trackPts.length !== 1 ? 's' : ''}
+            {metros > 0 ? `  ·  ≈ ${metros >= 1000 ? (metros/1000).toFixed(2)+' km' : Math.round(metros)+' m'}` : ''}
+          </Text>
+          {trackAccuracy !== null && (
+            <Text style={[
+              s.trackAccuracy,
+              trackAccuracy < 1  ? s.trackAccuracyExcellent :
+              trackAccuracy < 5  ? s.trackAccuracyGood :
+                                   s.trackAccuracyPoor,
+            ]}>
+              ⊕ Precisión GPS: ±{trackAccuracy < 1 ? trackAccuracy.toFixed(2) : Math.round(trackAccuracy)} m
+            </Text>
+          )}
+          {trackPts.length > 0 && (
+            <Text style={s.trackCoord}>
+              Última pos.: {trackPts[trackPts.length-1].lat.toFixed(5)}, {trackPts[trackPts.length-1].lng.toFixed(5)}
+            </Text>
+          )}
+          <View style={s.trackPanelBtns}>
+            <TouchableOpacity style={[s.trackPanelBtn, s.trackBtnStop]} onPress={stopTrack}>
+              <Text style={s.trackPanelBtnTxt}>■  FIN — guardar tramo</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[s.trackPanelBtn, s.trackBtnCancelSm]} onPress={cancelTrack}>
+              <Text style={s.trackPanelBtnTxt}>✕  Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      ) : (
+        <View style={s.metodoCards}>
+          {onRequestDraw && (
+            <>
+              <View style={s.metodoCard}>
+                <Text style={s.metodoCardIcon}>✏️</Text>
+                <View style={s.metodoCardBody}>
+                  <Text style={s.metodoCardTitle}>Dibujar en mapa</Text>
+                  <Text style={s.metodoCardDesc}>
+                    Trazá el tramo tocando puntos sobre el mapa OSM. Útil para trabajar desde gabinete o cuando no estás en el lugar.
+                  </Text>
+                  <TouchableOpacity style={s.metodoCardBtn} onPress={onRequestDraw}>
+                    <Text style={s.metodoCardBtnTxt}>Ir al mapa →</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+              <View style={s.metodoDivider} />
+            </>
+          )}
+          <View style={s.metodoCard}>
+            <Text style={s.metodoCardIcon}>📍</Text>
+            <View style={s.metodoCardBody}>
+              <Text style={s.metodoCardTitle}>GPS Track</Text>
+              <Text style={s.metodoCardDesc}>
+                Grabá el recorrido automáticamente mientras conducís. El GPS registra la ruta real cada 3 m.
+              </Text>
+              <TouchableOpacity style={[s.metodoCardBtn, s.metodoCardBtnGps]} onPress={startTrack}>
+                <Text style={s.metodoCardBtnTxt}>▶ Iniciar grabación</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
+    </FGroup>
+  );
+}
+
+// ── Sub-form Ripio ─────────────────────────────────────────────────────────────
+function RipioSubForm({ data, onChange }: { data: DatosLineal; onChange: (d: DatosLineal) => void }) {
+  const s = useS();
+  const Colors = useC();
+  const set = (k: keyof DatosLineal) => (v: string) => onChange({ ...data, [k]: v });
+
   const _initDate = (() => {
     if (data.fechaEjecucion) {
       const [dd, mm, yy] = data.fechaEjecucion.split('/').map(Number);
@@ -470,123 +562,36 @@ function RipioForm({ data, onChange, puntos, onCoordsChange, onRequestDraw }: {
   const [dDay,   setDDay]   = useState(_initDate.d);
   const [dMonth, setDMonth] = useState(_initDate.m);
   const [dYear,  setDYear]  = useState(_initDate.y);
-
   const daysInMonth = (m: number, y: number) => new Date(y, m, 0).getDate();
-  const clampDay = (d: number, m: number, y: number) => Math.min(d, daysInMonth(m, y));
-
-  const changeDay   = (n: number) => { const d = clampDay(n, dMonth, dYear); setDDay(d);   syncFecha(d, dMonth, dYear);   };
-  const changeMonth = (n: number) => { const m = ((n-1+12)%12)+1; const d = clampDay(dDay, m, dYear); setDMonth(m); setDDay(d); syncFecha(d, m, dYear);   };
-  const changeYear  = (n: number) => { const d = clampDay(dDay, dMonth, n); setDYear(n);  setDDay(d); syncFecha(d, dMonth, n); };
+  const clampDay    = (d: number, m: number, y: number) => Math.min(d, daysInMonth(m, y));
+  const changeDay   = (n: number) => { const d = clampDay(n, dMonth, dYear); setDDay(d); syncFecha(d, dMonth, dYear); };
+  const changeMonth = (n: number) => { const m = ((n-1+12)%12)+1; const d = clampDay(dDay, m, dYear); setDMonth(m); setDDay(d); syncFecha(d, m, dYear); };
+  const changeYear  = (n: number) => { const d = clampDay(dDay, dMonth, n); setDYear(n); setDDay(d); syncFecha(d, dMonth, n); };
   const syncFecha   = (d: number, m: number, y: number) =>
     onChange({ ...data, fechaEjecucion: `${String(d).padStart(2,'0')}/${String(m).padStart(2,'0')}/${y}` });
 
-  // ── Toneladas ─────────────────────────────────────────────────────────────
-  const ancho    = parseFloat(data.ancho)    || 0;
-  const longitud = parseFloat(data.longitud) || 0;
-  const espesor  = parseFloat(data.espesor)  || 0;
+  const ancho    = parseFloat(data.ancho ?? '')    || 0;
+  const longitud = parseFloat(data.longitud ?? '') || 0;
+  const espesor  = parseFloat(data.espesor ?? '')  || 0;
   const toneladas = ancho > 0 && longitud > 0 && espesor > 0
     ? (ancho * longitud * espesor * 2.1).toFixed(2) : null;
 
-  const metros = trackPts.length >= 2 ? totalMetros(trackPts) : 0;
-
   return (
     <>
-      {/* ── TRAMO ─────────────────────────────────────────────────────────── */}
-      <FGroup label="Tramo enripiado">
-        {puntos.length >= 2 ? (
-          // Tramo ya definido
-          <View style={s.tramoOk}>
-            <Text style={s.tramoOkTitle}>✓ Tramo definido — {puntos.length} puntos</Text>
-            <Text style={s.tramoOkPt}>▶ Inicio: {puntos[0].lat.toFixed(5)}, {puntos[0].lng.toFixed(5)}</Text>
-            <Text style={s.tramoOkPt}>⏹ Final:  {puntos[puntos.length-1].lat.toFixed(5)}, {puntos[puntos.length-1].lng.toFixed(5)}</Text>
-          </View>
-        ) : trackPhase === 'recording' ? (
-          // Panel GPS Track activo
-          <View style={s.trackPanel}>
-            <View style={s.trackPanelHeader}>
-              <View style={s.trackDot} />
-              <Text style={s.trackPanelTitle}>Grabando track GPS…</Text>
-            </View>
-            <Text style={s.trackStat}>
-              {trackPts.length} punto{trackPts.length !== 1 ? 's' : ''} registrado{trackPts.length !== 1 ? 's' : ''}
-              {metros > 0 ? `  ·  ≈ ${metros >= 1000 ? (metros/1000).toFixed(2)+' km' : Math.round(metros)+' m'}` : ''}
-            </Text>
-            {trackAccuracy !== null && (
-              <Text style={[
-                s.trackAccuracy,
-                trackAccuracy < 1  ? s.trackAccuracyExcellent :
-                trackAccuracy < 5  ? s.trackAccuracyGood :
-                                     s.trackAccuracyPoor,
-              ]}>
-                ⊕ Precisión GPS: ±{trackAccuracy < 1 ? trackAccuracy.toFixed(2) : Math.round(trackAccuracy)} m
-              </Text>
-            )}
-            {trackPts.length > 0 && (
-              <Text style={s.trackCoord}>
-                Última pos.: {trackPts[trackPts.length-1].lat.toFixed(5)}, {trackPts[trackPts.length-1].lng.toFixed(5)}
-              </Text>
-            )}
-            <View style={s.trackPanelBtns}>
-              <TouchableOpacity style={[s.trackPanelBtn, s.trackBtnStop]} onPress={stopTrack}>
-                <Text style={s.trackPanelBtnTxt}>■  FIN — guardar tramo</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[s.trackPanelBtn, s.trackBtnCancelSm]} onPress={cancelTrack}>
-                <Text style={s.trackPanelBtnTxt}>✕  Cancelar</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        ) : (
-          // Sin tramo: dos tarjetas de método
-          <View style={s.metodoCards}>
-            {/* Tarjeta: Dibujar en mapa */}
-            <View style={s.metodoCard}>
-              <Text style={s.metodoCardIcon}>✏️</Text>
-              <View style={s.metodoCardBody}>
-                <Text style={s.metodoCardTitle}>Dibujar en mapa</Text>
-                <Text style={s.metodoCardDesc}>
-                  Trazá el tramo tocando puntos sobre el mapa OSM. Útil para trabajar desde gabinete o cuando no estás en el lugar.
-                </Text>
-                <TouchableOpacity style={s.metodoCardBtn} onPress={onRequestDraw}>
-                  <Text style={s.metodoCardBtnTxt}>Ir al mapa →</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            <View style={s.metodoDivider} />
-
-            {/* Tarjeta: GPS Track */}
-            <View style={s.metodoCard}>
-              <Text style={s.metodoCardIcon}>📍</Text>
-              <View style={s.metodoCardBody}>
-                <Text style={s.metodoCardTitle}>GPS Track</Text>
-                <Text style={s.metodoCardDesc}>
-                  Grabá el recorrido automáticamente mientras conducís por el tramo. El GPS registra la ruta real cada 10 m.
-                </Text>
-                <TouchableOpacity style={[s.metodoCardBtn, s.metodoCardBtnGps]} onPress={startTrack}>
-                  <Text style={s.metodoCardBtnTxt}>▶ Iniciar grabación</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        )}
-      </FGroup>
-
-      {/* ── DIMENSIONES ────────────────────────────────────────────────────── */}
       <FGroup label="Dimensiones">
         <FRow>
           <View style={{ flex: 1 }}>
             <FLabel text="Ancho" />
-            <FInput value={data.ancho} onChange={set('ancho')} numeric unit="m" />
+            <FInput value={data.ancho ?? ''} onChange={set('ancho')} numeric unit="m" />
           </View>
           <View style={{ width: 10 }} />
           <View style={{ flex: 1 }}>
             <FLabel text="Longitud" />
-            <FInput value={data.longitud} onChange={set('longitud')} numeric unit="m" />
+            <FInput value={data.longitud ?? ''} onChange={set('longitud')} numeric unit="m" />
           </View>
         </FRow>
-        <FLabel text="Espesor del ripio" />
-        <FInput value={data.espesor} onChange={set('espesor')} numeric unit="m" />
-
+        <FLabel text="Espesor del material" />
+        <FInput value={data.espesor ?? ''} onChange={set('espesor')} numeric unit="m" />
         {toneladas !== null && (
           <View style={s.tonesBox}>
             <Text style={s.tonesLabel}>Toneladas estimadas</Text>
@@ -596,14 +601,11 @@ function RipioForm({ data, onChange, puntos, onCoordsChange, onRequestDraw }: {
         )}
       </FGroup>
 
-      {/* ── OBRA ───────────────────────────────────────────────────────────── */}
       <FGroup label="Obra">
         <FLabel text="Empresa ejecutora" />
-        <FInput value={data.empresa} onChange={set('empresa')} placeholder="Nombre de la empresa..." />
-
+        <FInput value={data.empresa ?? ''} onChange={set('empresa')} placeholder="Nombre de la empresa..." />
         <FLabel text="Fecha de ejecución" />
         <View style={s.dateRow}>
-          {/* Día */}
           <View style={s.dateCol}>
             <TouchableOpacity style={s.dateBtn} onPress={() => changeDay(dDay - 1 < 1 ? daysInMonth(dMonth, dYear) : dDay - 1)}>
               <Text style={s.dateBtnTxt}>−</Text>
@@ -615,7 +617,6 @@ function RipioForm({ data, onChange, puntos, onCoordsChange, onRequestDraw }: {
             <Text style={s.dateUnit}>Día</Text>
           </View>
           <Text style={s.dateSep}>/</Text>
-          {/* Mes */}
           <View style={s.dateCol}>
             <TouchableOpacity style={s.dateBtn} onPress={() => changeMonth(dMonth - 1)}>
               <Text style={s.dateBtnTxt}>−</Text>
@@ -627,7 +628,6 @@ function RipioForm({ data, onChange, puntos, onCoordsChange, onRequestDraw }: {
             <Text style={s.dateUnit}>Mes</Text>
           </View>
           <Text style={s.dateSep}>/</Text>
-          {/* Año */}
           <View style={[s.dateCol, { flex: 1.4 }]}>
             <TouchableOpacity style={s.dateBtn} onPress={() => changeYear(dYear - 1)}>
               <Text style={s.dateBtnTxt}>−</Text>
@@ -643,6 +643,223 @@ function RipioForm({ data, onChange, puntos, onCoordsChange, onRequestDraw }: {
     </>
   );
 }
+
+// ── Sub-form Tramo ─────────────────────────────────────────────────────────────
+function TramoSubForm({ data, onChange }: { data: DatosLineal; onChange: (d: DatosLineal) => void }) {
+  const s = useS();
+  const Colors = useC();
+  const esNuevo = data.esNuevo !== false; // default: true
+
+  const setField = (k: keyof DatosLineal, v: any) => {
+    const next: DatosLineal = { ...data, [k]: v };
+    if (['zonaTramo', 'ccNumeroTramo', 'numTramo'].includes(k as string)) {
+      const zona = k === 'zonaTramo'      ? v : (next.zonaTramo ?? '');
+      const cc   = k === 'ccNumeroTramo'  ? v : (next.ccNumeroTramo ?? '');
+      const num  = k === 'numTramo'       ? v : (next.numTramo ?? '');
+      next.nomenclatura = buildNomenclatura(zona, cc, num);
+    }
+    onChange(next);
+  };
+
+  return (
+    <FGroup label="Datos del tramo">
+      <FLabel text="¿Es tramo nuevo?" />
+      <View style={s.siNoRow}>
+        <TouchableOpacity style={[s.siNoBtn, esNuevo && s.siNoBtnOn]}  onPress={() => onChange({ ...data, esNuevo: true })}>
+          <Text style={[s.siNoBtnTxt, esNuevo && s.siNoBtnTxtOn]}>Sí, es nuevo</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[s.siNoBtn, !esNuevo && s.siNoBtnOn]} onPress={() => onChange({ ...data, esNuevo: false })}>
+          <Text style={[s.siNoBtnTxt, !esNuevo && s.siNoBtnTxtOn]}>Ya existe en el SIG</Text>
+        </TouchableOpacity>
+      </View>
+
+      {esNuevo && (
+        <>
+          <FLabel text="Zona" />
+          <View style={s.estadoRow}>
+            {ZONAS_LINEAL.map(z => (
+              <TouchableOpacity
+                key={z}
+                style={[s.estadoBtn, data.zonaTramo === z && { backgroundColor: '#F5C300', borderColor: '#F5C300' }]}
+                onPress={() => setField('zonaTramo', z)}
+              >
+                <Text style={[s.estadoBtnTxt, data.zonaTramo === z && { color: '#000', fontWeight: '700' }]}>{z}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <FRow>
+            <View style={{ flex: 1 }}>
+              <FLabel text="CC N°" />
+              <FInput value={data.ccNumeroTramo ?? ''} onChange={v => setField('ccNumeroTramo', v)} numeric placeholder="99" />
+            </View>
+            <View style={{ width: 10 }} />
+            <View style={{ flex: 1 }}>
+              <FLabel text="N° de tramo" />
+              <FInput value={data.numTramo ?? ''} onChange={v => setField('numTramo', v)} numeric placeholder="001" />
+            </View>
+          </FRow>
+
+          {data.nomenclatura ? (
+            <View style={s.tonesBox}>
+              <Text style={s.tonesLabel}>Nomenclatura generada</Text>
+              <Text style={[s.tonesValue, { letterSpacing: 3 }]}>{data.nomenclatura}</Text>
+            </View>
+          ) : (
+            <Text style={{ color: '#555', fontSize: 11, marginTop: 6 }}>
+              Completá zona, CC y N° de tramo para generar la nomenclatura automáticamente
+            </Text>
+          )}
+        </>
+      )}
+
+      {!esNuevo && (
+        <Text style={{ color: '#666', fontSize: 12, marginTop: 8, lineHeight: 18 }}>
+          La nomenclatura se tomará del tramo detectado en el mapa (campo Ruta / Tramo más abajo).
+        </Text>
+      )}
+    </FGroup>
+  );
+}
+
+// ── Sub-form Canal ─────────────────────────────────────────────────────────────
+function CanalSubForm({ data, onChange }: { data: DatosLineal; onChange: (d: DatosLineal) => void }) {
+  const s = useS();
+  const Colors = useC();
+  const set = (k: keyof DatosLineal) => (v: string) => onChange({ ...data, [k]: v });
+  const estadoLimpieza = data.estadoLimpieza;
+  const tiposObs = data.tiposObstruccion ?? [];
+
+  const toggleObstruccion = (tipo: string) => {
+    const next = tiposObs.includes(tipo) ? tiposObs.filter(t => t !== tipo) : [...tiposObs, tipo];
+    onChange({ ...data, tiposObstruccion: next });
+  };
+
+  const ESTADO_CANAL_COLOR: Record<string, string> = {
+    Limpio: '#27ae60',
+    'Parcialmente obstruido': '#F5C300',
+    Obstruido: '#e53935',
+  };
+
+  return (
+    <>
+      <FGroup label="Dimensiones">
+        <FRow>
+          <View style={{ flex: 1 }}>
+            <FLabel text="Ancho" />
+            <FInput value={data.anchoCanal ?? ''} onChange={set('anchoCanal')} numeric unit="m" />
+          </View>
+          <View style={{ width: 10 }} />
+          <View style={{ flex: 1 }}>
+            <FLabel text="Profundidad" />
+            <FInput value={data.profundidad ?? ''} onChange={set('profundidad')} numeric unit="m" />
+          </View>
+        </FRow>
+        <FLabel text="Longitud" />
+        <FInput value={data.longitudCanal ?? ''} onChange={set('longitudCanal')} numeric unit="m" placeholder="Auto desde track GPS..." />
+      </FGroup>
+
+      <FGroup label="Estado de limpieza">
+        <View style={[s.estadoRow, { flexWrap: 'wrap' }]}>
+          {(['Limpio', 'Parcialmente obstruido', 'Obstruido'] as const).map(e => {
+            const sel = estadoLimpieza === e;
+            const col = ESTADO_CANAL_COLOR[e];
+            return (
+              <TouchableOpacity
+                key={e}
+                style={[s.estadoBtn, { minWidth: 80 }, sel && { backgroundColor: col, borderColor: col }]}
+                onPress={() => onChange({ ...data, estadoLimpieza: e, tiposObstruccion: e === 'Limpio' ? [] : data.tiposObstruccion })}
+              >
+                <Text style={[s.estadoBtnTxt, sel && s.estadoBtnTxtOn, { fontSize: 11 }]}>{e}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {estadoLimpieza && estadoLimpieza !== 'Limpio' && (
+          <>
+            <FLabel text="Tipo de obstrucción" />
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
+              {OBSTRUCCIONES.map(tipo => {
+                const sel = tiposObs.includes(tipo);
+                return (
+                  <TouchableOpacity
+                    key={tipo}
+                    onPress={() => toggleObstruccion(tipo)}
+                    style={{
+                      paddingHorizontal: 14, paddingVertical: 8,
+                      borderRadius: 20, borderWidth: 1,
+                      borderColor: sel ? '#F5C300' : '#333',
+                      backgroundColor: sel ? 'rgba(245,195,0,0.15)' : 'transparent',
+                    }}
+                  >
+                    <Text style={{ color: sel ? '#F5C300' : '#666', fontSize: 13, textTransform: 'capitalize' }}>
+                      {tipo}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </>
+        )}
+      </FGroup>
+    </>
+  );
+}
+
+// ── LinealForm principal ───────────────────────────────────────────────────────
+function LinealForm({ data, onChange, puntos, onCoordsChange, onRequestDraw }: {
+  data: DatosLineal;
+  onChange: (d: DatosLineal) => void;
+  puntos: LatLngPunto[];
+  onCoordsChange: (pts: LatLngPunto[]) => void;
+  onRequestDraw?: () => void;
+}) {
+  const s = useS();
+  const subtipo = (data.subtipo ?? 'Ripio') as 'Ripio' | 'Tramo' | 'Canal';
+  const setSubtipo = (st: 'Ripio' | 'Tramo' | 'Canal') => onChange({ ...data, subtipo: st });
+
+  const handleCoordsChange = (pts: LatLngPunto[]) => {
+    onCoordsChange(pts);
+    // Para Canal: auto-calcular longitud desde el track
+    if (subtipo === 'Canal' && pts.length >= 2) {
+      onChange({ ...data, subtipo, longitudCanal: String(Math.round(totalMetros(pts))) });
+    }
+  };
+
+  return (
+    <>
+      {/* ── Selector de sub-tipo ─────────────────────────────────────────── */}
+      <FGroup label="Tipo de relevamiento lineal">
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          {(['Ripio', 'Tramo', 'Canal'] as const).map(st => (
+            <TouchableOpacity
+              key={st}
+              style={[s.estadoBtn, { flex: 1 }, subtipo === st && { backgroundColor: '#F5C300', borderColor: '#F5C300' }]}
+              onPress={() => setSubtipo(st)}
+            >
+              <Text style={[s.estadoBtnTxt, subtipo === st && { color: '#000', fontWeight: '700' }]}>{st}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </FGroup>
+
+      {/* ── Track GPS compartido ─────────────────────────────────────────── */}
+      <GPSTrackPanel
+        puntos={puntos}
+        onCoordsChange={handleCoordsChange}
+        onRequestDraw={subtipo === 'Ripio' ? onRequestDraw : undefined}
+        label={subtipo === 'Canal' ? 'Recorrido del canal' : 'Tramo'}
+      />
+
+      {/* ── Sub-formulario según tipo ────────────────────────────────────── */}
+      {subtipo === 'Ripio' && <RipioSubForm  data={data} onChange={onChange} />}
+      {subtipo === 'Tramo' && <TramoSubForm  data={data} onChange={onChange} />}
+      {subtipo === 'Canal' && <CanalSubForm  data={data} onChange={onChange} />}
+    </>
+  );
+}
+
 
 // ── Sección de ubicación puntual (Puente / Alcantarilla / Tubos / Otro) ──────
 
@@ -720,7 +937,7 @@ interface Props {
   editando?: Relevamiento;
   /** Callback para guardar cambios en modo edición */
   onUpdate?: (r: Relevamiento) => void;
-  /** Puntos pre-dibujados desde el mapa — activa automáticamente el tipo Ripio */
+  /** Puntos pre-dibujados desde el mapa — activa automáticamente el tipo Lineal */
   initialCoordsLinea?: LatLngPunto[];
   /** Coordenada puntual pre-colocada desde el mapa para obras puntuales */
   initialCoord?: { lat: number; lng: number } | null;
@@ -730,7 +947,7 @@ interface Props {
   tecnicoNombre?: string;
   /** Zona asignada al técnico logueado — sobreescribe la auto-detección geográfica */
   tecnicoZona?: string;
-  /** Llamado cuando el usuario elige "Dibujar en mapa" para Ripio */
+  /** Llamado cuando el usuario elige "Dibujar en mapa" para Lineal */
   onRequestDraw?: () => void;
   /** Llamado cuando el usuario elige "Ir al mapa" para colocar un punto puntual */
   onRequestPickPoint?: () => void;
@@ -738,9 +955,9 @@ interface Props {
   onClose: () => void;
 }
 
-const TIPOS: TipoInfraestructura[] = ['Puente', 'Alcantarilla', 'Tubos', 'Ripio', 'Otro'];
+const TIPOS: TipoInfraestructura[] = ['Puente', 'Alcantarilla', 'Tubos', 'Lineal', 'Otro'];
 const TIPO_ICONS: Record<TipoInfraestructura, string> = {
-  Puente: 'PTE', Alcantarilla: 'ALC', Tubos: 'TUB', Ripio: 'RIP', Otro: '?',
+  Puente: 'PTE', Alcantarilla: 'ALC', Tubos: 'TUB', Lineal: 'LIN', Otro: '?',
 };
 const ESTADOS: EstadoCalzada[] = ['Bueno', 'Regular', 'Malo'];
 
@@ -752,7 +969,7 @@ export default function RelevamientoModal({ visible, coords, editando, onUpdate,
   const [datosPuente, setDatosPuente] = useState<DatosPuente>({ ...DEFAULT_PUENTE });
   const [datosAlcantarilla, setDatosAlcantarilla] = useState<DatosAlcantarilla>({ ...DEFAULT_ALCANTARILLA });
   const [datosTubos, setDatosTubos] = useState<DatosTubos>({ ...DEFAULT_TUBOS });
-  const [datosRipio, setDatosRipio] = useState<DatosRipio>({ ...DEFAULT_RIPIO });
+  const [datosLineal, setDatosLineal] = useState<DatosLineal>({ ...DEFAULT_LINEAL });
   const [coordsLinea, setCoordsLinea] = useState<LatLngPunto[]>([]);
   // Coordenada explícita para obras puntuales (desde mapa o GPS)
   const [pointCoord, setPointCoord] = useState<LatLngPunto | null>(null);
@@ -774,21 +991,21 @@ export default function RelevamientoModal({ visible, coords, editando, onUpdate,
       if (editando.datosPuente)      setDatosPuente({ ...editando.datosPuente });
       if (editando.datosAlcantarilla) setDatosAlcantarilla({ ...editando.datosAlcantarilla });
       if (editando.datosTubos)       setDatosTubos({ ...editando.datosTubos });
-      if (editando.datosRipio)       setDatosRipio({ ...editando.datosRipio });
+      if (editando.datosLineal)       setDatosLineal({ ...editando.datosLineal });
       setCoordsLinea(editando.coordsLinea ? [...editando.coordsLinea] : []);
       setOtroDesc(editando.datosOtro?.descripcion ?? DEFAULT_OTRO.descripcion);
       setRutaTramo(editando.rutaTramo ?? '');
       setObservaciones(editando.observaciones ?? '');
       setTecnico(editando.tecnico || tecnicoNombre || '');
       setFotos([...editando.fotos]);
-      setPointCoord(editando.tipo !== 'Ripio' ? (editando.coords ?? null) : null);
+      setPointCoord(editando.tipo !== 'Lineal' ? (editando.coords ?? null) : null);
     } else {
       setTecnico(tecnicoNombre || '');
       if (initialCoordsLinea && initialCoordsLinea.length >= 2) {
         setCoordsLinea([...initialCoordsLinea]);
-        setTipo('Ripio');
+        setTipo('Lineal');
         const longM = calcPolylineM(initialCoordsLinea);
-        if (longM > 0) setDatosRipio(prev => ({ ...prev, longitud: String(longM) }));
+        if (longM > 0) setDatosLineal(prev => ({ ...prev, longitud: String(longM) }));
       }
       if (initialCoord) setPointCoord(initialCoord);
       if (snapInfo) {
@@ -808,9 +1025,9 @@ export default function RelevamientoModal({ visible, coords, editando, onUpdate,
     }
   }, [visible]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Para Ripio: primer punto del tramo. Para puntuales: pointCoord explícito o GPS del mapa.
+  // Para Lineal: primer punto del tramo. Para puntuales: pointCoord explícito o GPS del mapa.
   const effectiveCoords = useMemo(() => {
-    if (tipo === 'Ripio' && coordsLinea.length > 0) return coordsLinea[0];
+    if (tipo === 'Lineal' && coordsLinea.length > 0) return coordsLinea[0];
     return pointCoord ?? coords;
   }, [tipo, coords, coordsLinea, pointCoord]);
 
@@ -834,7 +1051,7 @@ export default function RelevamientoModal({ visible, coords, editando, onUpdate,
     setDatosPuente({ ...DEFAULT_PUENTE });
     setDatosAlcantarilla({ ...DEFAULT_ALCANTARILLA });
     setDatosTubos({ ...DEFAULT_TUBOS });
-    setDatosRipio({ ...DEFAULT_RIPIO });
+    setDatosLineal({ ...DEFAULT_LINEAL });
     setCoordsLinea([]);
     setPointCoord(null);
     setOtroDesc(DEFAULT_OTRO.descripcion);
@@ -866,7 +1083,7 @@ export default function RelevamientoModal({ visible, coords, editando, onUpdate,
   };
 
   const handleSave = () => {
-    if (tipo === 'Ripio') {
+    if (tipo === 'Lineal') {
       if (coordsLinea.length < 2) {
         Alert.alert('Tramo incompleto', 'Agregá al menos el punto de inicio y final del tramo.');
         return;
@@ -876,13 +1093,13 @@ export default function RelevamientoModal({ visible, coords, editando, onUpdate,
       return;
     }
 
-    const baseCoords = tipo === 'Ripio' ? coordsLinea[0] : effectiveCoords!;
+    const baseCoords = tipo === 'Lineal' ? coordsLinea[0] : effectiveCoords!;
 
     const r: Relevamiento = {
       id: editando ? editando.id : Date.now().toString(),
       fecha: editando ? editando.fecha : new Date().toISOString(),
       coords: baseCoords,
-      coordsLinea: tipo === 'Ripio' ? [...coordsLinea] : undefined,
+      coordsLinea: tipo === 'Lineal' ? [...coordsLinea] : undefined,
       tecnicoZona: tecnicoZona || editando?.tecnicoZona,
       autoDeteccion: resolvedCC
         ? {
@@ -892,14 +1109,21 @@ export default function RelevamientoModal({ visible, coords, editando, onUpdate,
             redKm: resolvedCC.redKm,
           }
         : undefined,
-      rutaTramo: rutaTramo.trim(),
+      rutaTramo: (
+        tipo === 'Lineal' &&
+        datosLineal.subtipo === 'Tramo' &&
+        datosLineal.esNuevo !== false &&
+        datosLineal.nomenclatura
+          ? rutaTramo.trim() || datosLineal.nomenclatura
+          : rutaTramo.trim()
+      ),
       estadoCalzada,
       tipo,
       datosPuente: tipo === 'Puente' ? { ...datosPuente } : undefined,
       datosAlcantarilla: tipo === 'Alcantarilla' ? { ...datosAlcantarilla } : undefined,
       datosTubos: tipo === 'Tubos' ? { ...datosTubos } : undefined,
       datosOtro: tipo === 'Otro' ? { descripcion: otroDesc.trim() } : undefined,
-      datosRipio: tipo === 'Ripio' ? { ...datosRipio } : undefined,
+      datosLineal: tipo === 'Lineal' ? { ...datosLineal } : undefined,
       observaciones: observaciones.trim(),
       tecnico: tecnico.trim(),
       fotos,
@@ -948,11 +1172,11 @@ export default function RelevamientoModal({ visible, coords, editando, onUpdate,
                 <Ionicons
                   name="location"
                   size={13}
-                  color={tipo === 'Ripio'
+                  color={tipo === 'Lineal'
                     ? (coordsLinea.length >= 2 ? activeColor : Colors.textMuted)
                     : (effectiveCoords ? activeColor : Colors.danger)}
                 />
-                {tipo === 'Ripio' ? (
+                {tipo === 'Lineal' ? (
                   <Text style={[s.gpsText, coordsLinea.length < 2 && { color: Colors.textMuted }]}>
                     {coordsLinea.length === 0
                       ? 'Tramo sin puntos — agregá inicio y final en el formulario'
@@ -1043,8 +1267,8 @@ export default function RelevamientoModal({ visible, coords, editando, onUpdate,
               onChangeText={setRutaTramo}
             />
 
-            {/* Estado calzada — oculto para Puente y Ripio (tienen campos propios) */}
-            {tipo !== 'Puente' && tipo !== 'Ripio' && (
+            {/* Estado calzada — oculto para Puente y Lineal (tienen campos propios) */}
+            {tipo !== 'Puente' && tipo !== 'Lineal' && (
               <>
                 <Text style={s.label}>Estado de la calzada</Text>
                 <View style={s.estadoRow}>
@@ -1082,7 +1306,7 @@ export default function RelevamientoModal({ visible, coords, editando, onUpdate,
             {/* Sub-formulario dinámico */}
             <View style={s.subform}>
               {/* Sección de ubicación para obras puntuales */}
-              {tipo !== 'Ripio' && (
+              {tipo !== 'Lineal' && (
                 <UbicacionPuntualSection
                   pointCoord={pointCoord}
                   gpsCoord={coords}
@@ -1107,10 +1331,10 @@ export default function RelevamientoModal({ visible, coords, editando, onUpdate,
               {tipo === 'Tubos' && (
                 <TubosForm data={datosTubos} onChange={setDatosTubos} />
               )}
-              {tipo === 'Ripio' && (
-                <RipioForm
-                  data={datosRipio}
-                  onChange={setDatosRipio}
+              {tipo === 'Lineal' && (
+                <LinealForm
+                  data={datosLineal}
+                  onChange={setDatosLineal}
                   puntos={coordsLinea}
                   onCoordsChange={setCoordsLinea}
                   onRequestDraw={onRequestDraw}
@@ -1323,7 +1547,7 @@ function makeStyles(Colors: ColorPalette) { return StyleSheet.create({
   },
   saveBtnTxt: { fontSize: 15, fontWeight: '700', color: '#fff' },
 
-  // Ripio — tramo definido
+  // Lineal — tramo definido
   tramoOk: {
     backgroundColor: '#122a14', borderRadius: 9, padding: 12,
     borderWidth: 1, borderColor: '#27ae60', marginBottom: 4,
@@ -1333,7 +1557,7 @@ function makeStyles(Colors: ColorPalette) { return StyleSheet.create({
     fontSize: 11, color: '#9aaac0', marginBottom: 2,
     fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
   },
-  // Ripio — tarjetas de método (sin tramo)
+  // Lineal — tarjetas de método (sin tramo)
   metodoCards: { gap: 10 },
   metodoCard: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 10,

@@ -18,7 +18,7 @@ const CC_COLORS: Record<string, string> = {
 }
 
 const TIPO_COLORS: Record<string, string> = {
-  Puente: '#2196F3', Alcantarilla: '#FF9800', Tubos: '#9C27B0', Ripio: '#4CAF50', Otro: '#607D8B',
+  Puente: '#2196F3', Alcantarilla: '#FF9800', Tubos: '#9C27B0', Lineal: '#4CAF50', Otro: '#607D8B',
 }
 
 const CC_WEIGHT: Record<string, number> = {
@@ -176,7 +176,7 @@ type LayerKey =
   | 'ccZI' | 'ccZII' | 'ccZIII' | 'ccZIV' | 'ccZV'
   | 'sedes' | 'campamentos' | 'salud' | 'educacion'
   | 'dvpZIV' | 'dvpZV'
-  | 'relevPuente' | 'relevAlcantarilla' | 'relevTubos' | 'relevRipio' | 'relevOtro'
+  | 'relevPuente' | 'relevAlcantarilla' | 'relevTubos' | 'relevLineal' | 'relevOtro'
 
 type LayerState = Record<LayerKey, boolean>
 
@@ -187,7 +187,7 @@ const DEFAULT_LAYERS: LayerState = {
   ccZI: false, ccZII: false, ccZIII: false, ccZIV: false, ccZV: false,
   sedes: true, campamentos: false, salud: false, educacion: false,
   dvpZIV: false, dvpZV: false,
-  relevPuente: true, relevAlcantarilla: true, relevTubos: true, relevRipio: true, relevOtro: true,
+  relevPuente: true, relevAlcantarilla: true, relevTubos: true, relevLineal: true, relevOtro: true,
 }
 
 interface Props { relevamientos: Relevamiento[]; measureActive?: boolean; onMeasureChange?: (v: boolean) => void }
@@ -198,15 +198,15 @@ const RELEV_ITEMS: [LayerKey, string, string][] = [
   ['relevPuente',       'Puente',       '#2196F3'],
   ['relevAlcantarilla', 'Alcantarilla', '#FF9800'],
   ['relevTubos',        'Tubos',        '#9C27B0'],
-  ['relevRipio',        'Ripio',        '#4CAF50'],
+  ['relevLineal',       'Lineal',       '#4CAF50'],
   ['relevOtro',         'Otro',         '#607D8B'],
 ]
 
 const ZONAS_LIST = ['ZI', 'ZII', 'ZIII', 'ZIV', 'ZV'] as const
 const ZONA_LABEL: Record<string, string> = { ZI: 'Zona I', ZII: 'Zona II', ZIII: 'Zona III', ZIV: 'Zona IV', ZV: 'Zona V' }
-const TIPOS_LIST = ['Puente', 'Alcantarilla', 'Tubos', 'Ripio', 'Otro']
-const TIPO_SHORT: Record<string, string> = { Puente: 'PTE', Alcantarilla: 'ALC', Tubos: 'TUB', Ripio: 'RIP', Otro: 'OTR' }
-const TIPO_COLOR: Record<string, string> = { Puente: '#2196F3', Alcantarilla: '#FF9800', Tubos: '#9C27B0', Ripio: '#4CAF50', Otro: '#607D8B' }
+const TIPOS_LIST = ['Puente', 'Alcantarilla', 'Tubos', 'Lineal', 'Otro']
+const TIPO_SHORT: Record<string, string> = { Puente: 'PTE', Alcantarilla: 'ALC', Tubos: 'TUB', Lineal: 'LIN', Otro: 'OTR' }
+const TIPO_COLOR: Record<string, string> = { Puente: '#2196F3', Alcantarilla: '#FF9800', Tubos: '#9C27B0', Lineal: '#4CAF50', Otro: '#607D8B' }
 
 function RightPanel({
   layers, toggle, relevamientos, activeZones, onToggleZone,
@@ -585,7 +585,7 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
         'rpPavimentada', 'rpMejorada', 'rpEnObra', 'rpTierra',
         'ccZI', 'ccZII', 'ccZIII', 'ccZIV', 'ccZV',
         'sedes', 'campamentos', 'salud', 'educacion',
-        'relevPuente', 'relevAlcantarilla', 'relevTubos', 'relevRipio', 'relevOtro',
+        'relevPuente', 'relevAlcantarilla', 'relevTubos', 'relevLineal', 'relevOtro',
       ]
       keys.forEach(k => {
         groupsRef.current[k] = L.layerGroup()
@@ -928,14 +928,14 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
     import('leaflet').then(L => {
       const TIPO_TO_KEY: Record<string, LayerKey> = {
         Puente: 'relevPuente', Alcantarilla: 'relevAlcantarilla',
-        Tubos: 'relevTubos', Ripio: 'relevRipio', Otro: 'relevOtro',
+        Tubos: 'relevTubos', Lineal: 'relevLineal', Otro: 'relevOtro',
       }
       const TIPO_LABEL: Record<string, string> = {
-        Puente: 'PTE', Alcantarilla: 'ALC', Tubos: 'TUB', Ripio: 'RIP', Otro: '?',
+        Puente: 'PTE', Alcantarilla: 'ALC', Tubos: 'TUB', Lineal: 'LIN', Otro: '?',
       }
 
       // Limpiar todos los grupos de relevamiento
-      ;(['relevPuente', 'relevAlcantarilla', 'relevTubos', 'relevRipio', 'relevOtro'] as LayerKey[])
+      ;(['relevPuente', 'relevAlcantarilla', 'relevTubos', 'relevLineal', 'relevOtro'] as LayerKey[])
         .forEach(k => groupsRef.current[k]?.clearLayers())
 
       relevamientos.forEach(r => {
@@ -947,7 +947,7 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
         const color = TIPO_COLORS[r.tipo] || '#607D8B'
         const popup = L.popup({ maxWidth: 300, className: 'dark-popup' }).setContent(relevPopupHtml(r))
 
-        if (r.tipo === 'Ripio' && r.coords_linea?.length) {
+        if (r.tipo === 'Lineal' && r.coords_linea?.length) {
           const positions = r.coords_linea.map(p => [p.lat, p.lng] as [number, number])
           const visLine = L.polyline(positions, { color, weight: 6, opacity: 0.9, lineCap: 'round', lineJoin: 'round' }).addTo(group)
           L.polyline(positions, { color: '#000', weight: 22, opacity: 0.001 })

@@ -3,9 +3,9 @@ import type { Relevamiento } from '@/types'
 import DashboardMap from '@/components/DashboardMap'
 
 const TIPO_COLORS: Record<string, string> = {
-  Puente: '#2196F3', Alcantarilla: '#FF9800', Tubos: '#9C27B0', Ripio: '#4CAF50', Otro: '#607D8B',
+  Puente: '#2196F3', Alcantarilla: '#FF9800', Tubos: '#9C27B0', Lineal: '#4CAF50', Otro: '#607D8B',
 }
-const TIPOS = ['Puente', 'Alcantarilla', 'Tubos', 'Ripio', 'Otro'] as const
+const TIPOS = ['Puente', 'Alcantarilla', 'Tubos', 'Lineal', 'Otro'] as const
 
 function StatCard({ label, value, sub, children }: { label: string; value: number | string; sub?: string; children?: React.ReactNode }) {
   return (
