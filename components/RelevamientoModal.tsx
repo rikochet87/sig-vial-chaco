@@ -411,12 +411,13 @@ function totalMetros(pts: LatLngPunto[]): number {
 
 // ── Panel GPS Track compartido ─────────────────────────────────────────────────
 function GPSTrackPanel({
-  puntos, onCoordsChange, onRequestDraw, label,
+  puntos, onCoordsChange, onRequestDraw, label, hideGPS,
 }: {
   puntos: LatLngPunto[];
   onCoordsChange: (pts: LatLngPunto[]) => void;
   onRequestDraw?: () => void;
   label?: string;
+  hideGPS?: boolean;
 }) {
   const s = useS();
   const [trackPhase, setTrackPhase]       = useState<'idle'|'recording'>('idle');
@@ -527,18 +528,20 @@ function GPSTrackPanel({
               <View style={s.metodoDivider} />
             </>
           )}
-          <View style={s.metodoCard}>
-            <Text style={s.metodoCardIcon}>📍</Text>
-            <View style={s.metodoCardBody}>
-              <Text style={s.metodoCardTitle}>GPS Track</Text>
-              <Text style={s.metodoCardDesc}>
-                Grabá el recorrido automáticamente mientras conducís. El GPS registra la ruta real cada 3 m.
-              </Text>
-              <TouchableOpacity style={[s.metodoCardBtn, s.metodoCardBtnGps]} onPress={startTrack}>
-                <Text style={s.metodoCardBtnTxt}>▶ Iniciar grabación</Text>
-              </TouchableOpacity>
+          {!hideGPS && (
+            <View style={s.metodoCard}>
+              <Text style={s.metodoCardIcon}>📍</Text>
+              <View style={s.metodoCardBody}>
+                <Text style={s.metodoCardTitle}>GPS Track</Text>
+                <Text style={s.metodoCardDesc}>
+                  Grabá el recorrido automáticamente mientras conducís. El GPS registra la ruta real cada 3 m.
+                </Text>
+                <TouchableOpacity style={[s.metodoCardBtn, s.metodoCardBtnGps]} onPress={startTrack}>
+                  <Text style={s.metodoCardBtnTxt}>▶ Iniciar grabación</Text>
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
+          )}
         </View>
       )}
     </FGroup>
@@ -848,7 +851,8 @@ function LinealForm({ data, onChange, puntos, onCoordsChange, onRequestDraw }: {
       <GPSTrackPanel
         puntos={puntos}
         onCoordsChange={handleCoordsChange}
-        onRequestDraw={subtipo === 'Ripio' ? onRequestDraw : undefined}
+        onRequestDraw={subtipo !== 'Tramo' ? onRequestDraw : undefined}
+        hideGPS={subtipo === 'Canal'}
         label={subtipo === 'Canal' ? 'Recorrido del canal' : 'Tramo'}
       />
 
@@ -1471,7 +1475,7 @@ function makeStyles(Colors: ColorPalette) { return StyleSheet.create({
     borderRadius: 8, borderWidth: 1.5, borderColor: Colors.border,
     backgroundColor: Colors.background,
   },
-  estadoBtnTxt: { fontSize: 12, fontWeight: '700', color: Colors.textSecondary },
+  estadoBtnTxt: { fontSize: 12, fontWeight: '700', color: Colors.textSecondary, textAlign: 'center' },
   estadoBtnTxtOn: { color: '#fff' },
 
   // Tipo buttons
