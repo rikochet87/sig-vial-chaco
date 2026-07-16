@@ -1859,7 +1859,7 @@ export default function MapaScreen() {
         </View>
       )}
 
-      {/* ── BOTÓN MEDICIÓN ──────────────────────────────────────────────── */}
+      {/* ── BOTÓN MEDICIÓN (bottom-left) ──────────────────────────────────── */}
       <TouchableOpacity
         style={[styles.btnMeasure, measureMode && styles.btnMeasureActive]}
         onPress={() => {
@@ -2011,7 +2011,7 @@ function makeStyles(C: ColorPalette, DRAWER_WIDTH: number) { return StyleSheet.c
   btnCompassIcon: { fontSize: 20 },
 
   btnMeasure: {
-    position: 'absolute', bottom: 280, right: 12, width: 50, height: 50,
+    position: 'absolute', bottom: 32, left: 12, width: 50, height: 50,
     backgroundColor: C.primary, borderRadius: 25, alignItems: 'center', justifyContent: 'center',
     zIndex: 5, elevation: 6,
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.35, shadowRadius: 4,
