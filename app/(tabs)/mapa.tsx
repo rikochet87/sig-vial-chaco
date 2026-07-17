@@ -1076,7 +1076,6 @@ function cancelDraw(){
 }
 function _exitDrawMode(){
   _drawMode=false;_drawSnapInfo=null;
-  setNonRelevLayersInteractive(true);
   map.getContainer().style.cursor='';
   map.getContainer().classList.remove('draw-mode');
   map.off('click',_onDrawClick);
