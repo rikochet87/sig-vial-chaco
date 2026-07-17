@@ -134,19 +134,19 @@ html,body,#map{width:100%;height:100vh;background:#f0ebe3}
 <div id="map"></div>
 
 <!-- ── Panel de dibujo de tramo Lineal ──────────────────────────────── -->
-<div id="draw-ctrl" style="display:none;position:fixed;bottom:110px;left:50%;transform:translateX(-50%);
-  background:#1e2436;border-radius:14px;padding:14px 16px;z-index:2000;
-  border:1.5px solid #e67e22;box-shadow:0 6px 24px rgba(0,0,0,0.65);min-width:290px;max-width:90vw">
-  <div style="color:#e67e22;font-size:11px;font-weight:700;text-align:center;letter-spacing:0.6px;margin-bottom:5px">
+<div id="draw-ctrl" style="display:none;position:fixed;top:10px;left:50%;transform:translateX(-50%);
+  background:#1e2436;border-radius:10px;padding:8px 10px;z-index:2000;
+  border:1.5px solid #e67e22;box-shadow:0 4px 14px rgba(0,0,0,0.65);min-width:200px;max-width:80vw">
+  <div style="color:#e67e22;font-size:9px;font-weight:700;text-align:center;letter-spacing:0.6px;margin-bottom:3px">
     ✏️ MODO DIBUJO — Tocá el mapa para agregar puntos
   </div>
-  <div id="draw-count" style="color:#e0e6f0;font-size:18px;font-weight:900;text-align:center;margin-bottom:12px">
+  <div id="draw-count" style="color:#e0e6f0;font-size:13px;font-weight:900;text-align:center;margin-bottom:7px">
     0 puntos
   </div>
-  <div style="display:flex;gap:8px">
-    <button onclick="undoDrawPoint()" style="flex:1;background:#252d40;border:1px solid #3a4060;color:#e0e6f0;border-radius:9px;padding:10px 4px;font-size:12px;font-weight:600;cursor:pointer">↩ Deshacer</button>
-    <button onclick="cancelDraw()" style="flex:1;background:rgba(231,76,60,0.15);border:1px solid rgba(231,76,60,0.4);color:#e74c3c;border-radius:9px;padding:10px 4px;font-size:12px;font-weight:600;cursor:pointer">✗ Cancelar</button>
-    <button onclick="confirmDraw()" style="flex:1;background:#e67e22;border:none;color:#fff;border-radius:9px;padding:10px 4px;font-size:13px;font-weight:700;cursor:pointer">✓ Confirmar</button>
+  <div style="display:flex;gap:6px">
+    <button onclick="undoDrawPoint()" ontouchend="event.preventDefault();event.stopPropagation();undoDrawPoint()" style="flex:1;background:#252d40;border:1px solid #3a4060;color:#e0e6f0;border-radius:7px;padding:7px 3px;font-size:10px;font-weight:600;cursor:pointer;touch-action:manipulation">↩ Deshacer</button>
+    <button onclick="cancelDraw()" ontouchend="event.preventDefault();event.stopPropagation();cancelDraw()" style="flex:1;background:rgba(231,76,60,0.15);border:1px solid rgba(231,76,60,0.4);color:#e74c3c;border-radius:7px;padding:7px 3px;font-size:10px;font-weight:600;cursor:pointer;touch-action:manipulation">✗ Cancelar</button>
+    <button onclick="confirmDraw()" ontouchend="event.preventDefault();event.stopPropagation();confirmDraw()" style="flex:1;background:#e67e22;border:none;color:#fff;border-radius:7px;padding:7px 3px;font-size:11px;font-weight:700;cursor:pointer;touch-action:manipulation">✓ Confirmar</button>
   </div>
 </div>
 
@@ -1172,6 +1172,17 @@ function _exitPointPickMode(){
 function clearPickedPointMarker(){
   if(_ppMarker){map.removeLayer(_ppMarker);_ppMarker=null;}
 }
+
+// ── Fix touch en Android WebView: evitar que Leaflet intercepte taps en los paneles ──
+(function(){
+  ['draw-ctrl','point-pick-ctrl','measure-ctrl'].forEach(function(id){
+    var el=document.getElementById(id);
+    if(!el)return;
+    ['touchstart','touchmove','touchend'].forEach(function(ev){
+      el.addEventListener(ev,function(e){e.stopPropagation();},{passive:false});
+    });
+  });
+})();
 <\/script>
 </body>
 </html>`;
