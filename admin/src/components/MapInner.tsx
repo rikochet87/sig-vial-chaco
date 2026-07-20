@@ -1483,23 +1483,21 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
               <>
                 <div style={SECTION_TITLE_STYLE}>Capas guardadas</div>
                 {savedLayers.map(sl => (
-                  <div key={sl.id} style={{ marginBottom: 4 }}>
-                    <div style={{ display:'flex', alignItems:'center', gap:4 }}>
+                  <div key={sl.id} style={{ marginBottom: 5 }}>
+                    <label style={{ display:'flex', alignItems:'center', gap:6, cursor:'pointer', userSelect:'none' }}>
+                      <input type="checkbox" checked={sl.visible}
+                        onChange={() => setSavedLayers(prev => prev.map(l => l.id===sl.id ? {...l,visible:!l.visible} : l))}
+                        style={{ accentColor: sl.color, cursor:'pointer', flexShrink:0 }} />
                       <span style={{ width:8, height:8, borderRadius:'50%', background:sl.color, display:'inline-block', flexShrink:0 }} />
-                      <span style={{ flex:1, fontSize:11, color:'#e0e6f0', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }} title={sl.name}>{sl.name}</span>
-                      <button onClick={() => setSavedLayers(prev => prev.map(l => l.id===sl.id ? {...l,visible:!l.visible} : l))}
-                        title={sl.visible?'Ocultar':'Mostrar'}
-                        style={{ background:'none', border:'none', cursor:'pointer', fontSize:12, color: sl.visible ? '#7a8aaa' : '#3a4060', padding:'0 1px', lineHeight:1 }}>
-                        {sl.visible ? '👁' : '🙈'}
-                      </button>
-                      <button onClick={() => exportKML(sl)} title="Exportar KML"
-                        style={{ background:'none', border:'none', cursor:'pointer', fontSize:11, color:'#27ae60', padding:'0 1px', lineHeight:1 }}>KML</button>
-                      <button onClick={() => exportSHP(sl)} title="Exportar SHP"
-                        style={{ background:'none', border:'none', cursor:'pointer', fontSize:11, color:'#2980b9', padding:'0 1px', lineHeight:1 }}>SHP</button>
-                      <button onClick={() => setSavedLayers(prev => prev.filter(l => l.id !== sl.id))} title="Eliminar"
-                        style={{ background:'none', border:'none', cursor:'pointer', fontSize:11, color:'#c0392b', padding:'0 1px', lineHeight:1 }}>✕</button>
-                    </div>
-                    <div style={{ fontSize:9, color:'#4a5a70', paddingLeft:12, marginTop:1 }}>
+                      <span style={{ flex:1, fontSize:11, color: sl.visible ? '#e0e6f0' : '#5a6a80', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }} title={sl.name}>{sl.name}</span>
+                      <button onClick={e => { e.preventDefault(); exportKML(sl) }} title="Exportar KML"
+                        style={{ background:'none', border:'none', cursor:'pointer', fontSize:10, color:'#27ae60', padding:'0 2px', lineHeight:1, flexShrink:0 }}>KML</button>
+                      <button onClick={e => { e.preventDefault(); exportSHP(sl) }} title="Exportar SHP"
+                        style={{ background:'none', border:'none', cursor:'pointer', fontSize:10, color:'#2980b9', padding:'0 2px', lineHeight:1, flexShrink:0 }}>SHP</button>
+                      <button onClick={e => { e.preventDefault(); setSavedLayers(prev => prev.filter(l => l.id !== sl.id)) }} title="Eliminar"
+                        style={{ background:'none', border:'none', cursor:'pointer', fontSize:11, color:'#c0392b', padding:'0 2px', lineHeight:1, flexShrink:0 }}>✕</button>
+                    </label>
+                    <div style={{ fontSize:9, color:'#4a5a70', paddingLeft:22, marginTop:1 }}>
                       {sl.type==='line' ? `Línea · ${fmtDist(sl.lengthM??0)}` : sl.type==='polygon' ? `Polígono · ${fmtArea(sl.areaM2??0)}` : `Círculo · r=${fmtRadius(sl.radiusM??0)}`}
                     </div>
                   </div>
