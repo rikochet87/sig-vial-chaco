@@ -458,16 +458,17 @@ interface ZoneRowProps {
   onToggleExpand: () => void
   onToggleZone: () => void    // no nums arg needed — just toggle on/off
   onToggleConsorcio: (num: number) => void
+  color: string
+  onColorChange: (c: string) => void
 }
 
-function ZoneRow({ zona, consorcios, isExpanded, isLayerOn, activeSet, onToggleExpand, onToggleZone, onToggleConsorcio }: ZoneRowProps) {
+function ZoneRow({ zona, consorcios, isExpanded, isLayerOn, activeSet, onToggleExpand, onToggleZone, onToggleConsorcio, color, onColorChange }: ZoneRowProps) {
   const checkboxRef = useRef<HTMLInputElement>(null)
   // Layer on + empty filter set = all visible (fully checked)
   // Layer on + non-empty filter set = some selected (indeterminate)
   // Layer off = unchecked
   const allChecked  = isLayerOn && activeSet.size === 0
   const someChecked = isLayerOn && activeSet.size > 0
-  const color       = CC_COLORS[zona] || '#888'
 
   useEffect(() => {
     if (checkboxRef.current) {
@@ -488,7 +489,12 @@ function ZoneRow({ zona, consorcios, isExpanded, isLayerOn, activeSet, onToggleE
             onChange={() => onToggleZone()}
             style={{ accentColor: color, cursor: 'pointer', flexShrink: 0 }}
           />
-          <span style={{ width: 8, height: 8, borderRadius: '50%', background: color, display: 'inline-block', flexShrink: 0 }} />
+          <span title="Cambiar color" onClick={e => e.stopPropagation()}
+            style={{ position: 'relative', cursor: 'pointer', flexShrink: 0, display: 'inline-flex', alignItems: 'center' }}>
+            <input type="color" value={color} onChange={e => onColorChange(e.target.value)}
+              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer', padding: 0, border: 'none' }} />
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: color, display: 'inline-block' }} />
+          </span>
           {zona}
         </label>
         {consorcios.length > 0 && (
@@ -554,6 +560,16 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
   const mLayersRef  = useRef<import('leaflet').Layer[]>([])
   const mClickRef   = useRef<((e: import('leaflet').LeafletMouseEvent) => void) | null>(null)
 
+  // ── Colores editables de capas ──
+  const [customColors, setCustomColors] = useState({
+    rnNacional: '#c0392b',
+    rpPavimentada: '#e74c3c', rpMejorada: '#27ae60', rpEnObra: '#e74c3c', rpTierra: '#e67e22',
+    ccZI: '#1565C0', ccZII: '#BF360C', ccZIII: '#E65100', ccZIV: '#6A1B9A', ccZV: '#00695C',
+    dvp: '#7B1FA2',
+  })
+  type CK = keyof typeof customColors
+  const setColor = (k: CK, v: string) => setCustomColors(p => ({...p, [k]: v}))
+
   // ── Capas guardadas ──
   const [savedLayers, setSavedLayers] = useState<SavedLayer[]>([])
   const sLayersRef = useRef<Map<string, import('leaflet').Layer[]>>(new Map())
@@ -590,7 +606,7 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
         if (!group || !cc[ccKey]) return
         group.clearLayers()
         L.geoJSON(cc[ccKey] as unknown as GeoJSON.FeatureCollection, {
-          style: { color: '#7B1FA2', weight: 3, opacity: 0.85, dashArray: '10 4' },
+          style: { color: customColors.dvp, weight: 3, opacity: 0.85, dashArray: '10 4' },
           onEachFeature(feature, layer) {
             const p = feature.properties ?? {}
             const zona = key === 'dvpZIV' ? 'Zona IV' : 'Zona V'
@@ -600,7 +616,8 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
         }).addTo(group)
       })
     })
-  }, [cc, mapReady])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cc, mapReady, customColors.dvp])
 
   // ── Basemap: cambiar entre OSM y Satélite ─────────────────────────────────
   useEffect(() => {
@@ -1068,10 +1085,10 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
     if (!rp || !mapRef.current) return
     import('leaflet').then(L => {
       const rpStyles: Record<string, import('leaflet').PathOptions> = {
-        rpTierra:      { color: '#e67e22', weight: 2,   opacity: 0.8 },
-        rpPavimentada: { color: '#e74c3c', weight: 3,   opacity: 0.9 },
-        rpMejorada:    { color: '#27ae60', weight: 2.5, opacity: 0.9 },
-        rpEnObra:      { color: '#e74c3c', weight: 3,   opacity: 0.9, dashArray: '10 6' },
+        rpTierra:      { color: customColors.rpTierra,      weight: 2,   opacity: 0.8 },
+        rpPavimentada: { color: customColors.rpPavimentada, weight: 3,   opacity: 0.9 },
+        rpMejorada:    { color: customColors.rpMejorada,    weight: 2.5, opacity: 0.9 },
+        rpEnObra:      { color: customColors.rpEnObra,      weight: 3,   opacity: 0.9, dashArray: '10 6' },
       }
       Object.entries(rpStyles).forEach(([key, style]) => {
         const group = groupsRef.current[key as LayerKey]
@@ -1081,7 +1098,7 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
       })
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rp])
+  }, [rp, customColors.rpTierra, customColors.rpPavimentada, customColors.rpMejorada, customColors.rpEnObra])
 
   // ── Populate RN layer ──
   useEffect(() => {
@@ -1090,15 +1107,16 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
       const group = groupsRef.current.rnNacional
       if (!group) return
       group.clearLayers()
-      const style: import('leaflet').PathOptions = { color: '#c0392b', weight: 3.5, opacity: 0.95 }
+      const rnColor = customColors.rnNacional
+      const style: import('leaflet').PathOptions = { color: rnColor, weight: 3.5, opacity: 0.95 }
       addInteractiveLayer(L, rn as unknown as GeoJSON.FeatureCollection, style, (p) => {
         const num  = p.Numero || p.numero || p.NUMERO || p.Nombre || p.nombre || ''
         const nom  = p.Nombre || p.nombre || ''
         const sup  = p.Superficie || p.superficie || p.Mat_Calzad || '—'
         return `
 <div>
-  <div class="ph" style="background:#c0392b20;border-bottom:1px solid #c0392b40">
-    <div class="pn" style="background:#c0392b">RN</div>
+  <div class="ph" style="background:${rnColor}20;border-bottom:1px solid ${rnColor}40">
+    <div class="pn" style="background:${rnColor}">RN</div>
     <div>
       <div class="pl">Ruta Nacional${num ? ' N° ' + num : ''}</div>
       <div class="pz">${nom || 'Chaco'}</div>
@@ -1111,7 +1129,7 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
       }, group)
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rn])
+  }, [rn, customColors.rnNacional])
 
   // ── Populate CC layers ──
   useEffect(() => {
@@ -1122,7 +1140,7 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
         const group = groupsRef.current[key]
         if (!group || !cc[zona]) return
         group.clearLayers()
-        const c = CC_COLORS[zona]
+        const c = (customColors as Record<string,string>)[`cc${zona}`] ?? CC_COLORS[zona]
         const fc = cc[zona] as GeoJSON.FeatureCollection
         const baseStyle: import('leaflet').PathOptions = { color: c, weight: 1.8, opacity: 0.85 }
         const featureToVisLayer = new Map<GeoJSON.Feature, import('leaflet').Path>()
@@ -1182,7 +1200,7 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
       })
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cc, mapReady])
+  }, [cc, mapReady, customColors.ccZI, customColors.ccZII, customColors.ccZIII, customColors.ccZIV, customColors.ccZV])
 
   // ── Populate relevamientos layers (sub-capa por tipo) ──
   useEffect(() => {
@@ -1411,18 +1429,26 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
             {/* RED VIAL */}
             <div style={SECTION_TITLE_STYLE}>Red Vial</div>
             {([
-              ['rnNacional',    'RN Nacional',     '#c0392b'],
-              ['rpPavimentada', 'RP Pavimentada',  '#e74c3c'],
-              ['rpMejorada',    'RP Mejorada',     '#27ae60'],
-              ['rpEnObra',      'RP En Obra',      '#e74c3c'],
-              ['rpTierra',      'RP Tierra',       '#e67e22'],
-            ] as [LayerKey, string, string][]).map(([k, label, color]) => (
-              <label key={k} style={ITEM_STYLE}>
-                <input type="checkbox" checked={!!layers[k]} onChange={() => toggle(k)} style={CHECKBOX_STYLE} />
-                {DOT(color)}
-                {label}
-              </label>
-            ))}
+              ['rnNacional',    'RN Nacional'],
+              ['rpPavimentada', 'RP Pavimentada'],
+              ['rpMejorada',    'RP Mejorada'],
+              ['rpEnObra',      'RP En Obra'],
+              ['rpTierra',      'RP Tierra'],
+            ] as [LayerKey, string][]).map(([k, label]) => {
+              const c = customColors[k as CK]
+              return (
+                <label key={k} style={ITEM_STYLE}>
+                  <input type="checkbox" checked={!!layers[k]} onChange={() => toggle(k)} style={CHECKBOX_STYLE} />
+                  <span title="Cambiar color" onClick={e => e.stopPropagation()}
+                    style={{ position: 'relative', cursor: 'pointer', flexShrink: 0, display: 'inline-flex', alignItems: 'center' }}>
+                    <input type="color" value={c} onChange={e => setColor(k as CK, e.target.value)}
+                      style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer', padding: 0, border: 'none' }} />
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: c, display: 'inline-block' }} />
+                  </span>
+                  {label}
+                </label>
+              )
+            })}
 
             {/* RED CC */}
             <div style={SECTION_TITLE_STYLE}>Red CC</div>
@@ -1437,6 +1463,8 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
                 onToggleExpand={() => toggleExpandCC(z)}
                 onToggleZone={() => toggleZone(z)}
                 onToggleConsorcio={(num) => toggleConsorcio(z, num)}
+                color={customColors[`cc${z}` as CK]}
+                onColorChange={(c) => setColor(`cc${z}` as CK, c)}
               />
             ))}
 
@@ -1466,16 +1494,18 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
 
             {/* TRAMOS MANTENIDOS */}
             <div style={SECTION_TITLE_STYLE}>Tramos Mantenidos</div>
-            <label style={ITEM_STYLE}>
-              <input type="checkbox" checked={!!layers.dvpZIV} onChange={() => toggle('dvpZIV')} style={CHECKBOX_STYLE} />
-              <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: '#7B1FA2', flexShrink: 0 }} />
-              Zona IV
-            </label>
-            <label style={ITEM_STYLE}>
-              <input type="checkbox" checked={!!layers.dvpZV} onChange={() => toggle('dvpZV')} style={CHECKBOX_STYLE} />
-              <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: '#7B1FA2', flexShrink: 0 }} />
-              Zona V
-            </label>
+            {(['dvpZIV', 'dvpZV'] as const).map((k, i) => (
+              <label key={k} style={ITEM_STYLE}>
+                <input type="checkbox" checked={!!layers[k]} onChange={() => toggle(k)} style={CHECKBOX_STYLE} />
+                <span title="Cambiar color" onClick={e => e.stopPropagation()}
+                  style={{ position: 'relative', cursor: 'pointer', flexShrink: 0, display: 'inline-flex', alignItems: 'center' }}>
+                  <input type="color" value={customColors.dvp} onChange={e => setColor('dvp', e.target.value)}
+                    style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer', padding: 0, border: 'none' }} />
+                  <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: customColors.dvp }} />
+                </span>
+                {i === 0 ? 'Zona IV' : 'Zona V'}
+              </label>
+            ))}
 
 
             {/* CAPAS GUARDADAS */}
@@ -1488,7 +1518,13 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
                       <input type="checkbox" checked={sl.visible}
                         onChange={() => setSavedLayers(prev => prev.map(l => l.id===sl.id ? {...l,visible:!l.visible} : l))}
                         style={{ accentColor: sl.color, cursor:'pointer', flexShrink:0 }} />
-                      <span style={{ width:8, height:8, borderRadius:'50%', background:sl.color, display:'inline-block', flexShrink:0 }} />
+                      <span title="Cambiar color" onClick={e => e.stopPropagation()}
+                        style={{ position:'relative', cursor:'pointer', flexShrink:0, display:'inline-flex', alignItems:'center' }}>
+                        <input type="color" value={sl.color}
+                          onChange={e => setSavedLayers(prev => prev.map(l => l.id===sl.id ? {...l,color:e.target.value} : l))}
+                          style={{ position:'absolute', inset:0, width:'100%', height:'100%', opacity:0, cursor:'pointer', padding:0, border:'none' }} />
+                        <span style={{ width:8, height:8, borderRadius:'50%', background:sl.color, display:'inline-block' }} />
+                      </span>
                       <span style={{ flex:1, fontSize:11, color: sl.visible ? '#e0e6f0' : '#5a6a80', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }} title={sl.name}>{sl.name}</span>
                       <button onClick={e => { e.preventDefault(); exportKML(sl) }} title="Exportar KML"
                         style={{ background:'none', border:'none', cursor:'pointer', fontSize:10, color:'#27ae60', padding:'0 2px', lineHeight:1, flexShrink:0 }}>KML</button>
