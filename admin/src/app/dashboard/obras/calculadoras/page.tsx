@@ -14,16 +14,16 @@ const panel: React.CSSProperties = {
   background: '#0e0e0e', border: '1px solid #1e1e1e', borderRadius: 6, padding: 16,
 }
 const secLabel: React.CSSProperties = {
-  fontSize: 9, color: '#444', textTransform: 'uppercase', letterSpacing: 1.2,
+  fontSize: 13, color: '#444', textTransform: 'uppercase', letterSpacing: 1.2,
   fontFamily: 'monospace', marginBottom: 10, marginTop: 16,
 }
 const inpStyle: React.CSSProperties = {
   width: '100%', background: '#080808', border: '1px solid #222', color: '#e0e0e0',
-  fontFamily: 'monospace', fontSize: 12, padding: '5px 8px', borderRadius: 3,
+  fontFamily: 'monospace', fontSize: 17, padding: '6px 10px', borderRadius: 3,
   outline: 'none', boxSizing: 'border-box',
 }
 const lbl: React.CSSProperties = {
-  fontSize: 9, color: '#555', textTransform: 'uppercase', letterSpacing: 0.8,
+  fontSize: 12, color: '#555', textTransform: 'uppercase', letterSpacing: 0.8,
   fontFamily: 'monospace', marginBottom: 3, marginTop: 10, display: 'block',
 }
 
@@ -45,17 +45,17 @@ function Inp({ label, unit, value, onChange, step = 0.1, min = 0 }: {
 function Res({ label, value, unit, accent }: { label: string; value: string; unit: string; accent?: boolean }) {
   return (
     <div style={{ marginBottom: 10, paddingBottom: 10, borderBottom: '1px solid #141414' }}>
-      <div style={{ fontSize: 9, color: '#555', textTransform: 'uppercase', letterSpacing: 0.8, fontFamily: 'monospace' }}>{label}</div>
+      <div style={{ fontSize: 12, color: '#555', textTransform: 'uppercase', letterSpacing: 0.8, fontFamily: 'monospace' }}>{label}</div>
       <div style={{ marginTop: 2 }}>
-        <span style={{ fontSize: accent ? 20 : 15, fontWeight: 700, color: accent ? '#F5C300' : '#d0d0d0', fontFamily: 'monospace' }}>{value}</span>
-        <span style={{ fontSize: 10, color: '#555', marginLeft: 4, fontFamily: 'monospace' }}>{unit}</span>
+        <span style={{ fontSize: accent ? 26 : 20, fontWeight: 700, color: accent ? '#F5C300' : '#d0d0d0', fontFamily: 'monospace' }}>{value}</span>
+        <span style={{ fontSize: 13, color: '#555', marginLeft: 4, fontFamily: 'monospace' }}>{unit}</span>
       </div>
     </div>
   )
 }
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
-  return <div style={{ fontSize: 10, color: '#666', fontFamily: 'monospace', marginBottom: 6 }}>{children}</div>
+  return <div style={{ fontSize: 13, color: '#666', fontFamily: 'monospace', marginBottom: 6 }}>{children}</div>
 }
 
 // ── SVG helpers ───────────────────────────────────────────────────────────────
@@ -367,7 +367,7 @@ function CalcCanal() {
           <div style={{ display: 'flex', gap: 6 }}>
             {(['triangular', 'trapezoidal'] as const).map(t => (
               <button key={t} onClick={() => setTipo(t)}
-                style={{ flex: 1, padding: '5px 4px', fontSize: 10, fontFamily: 'monospace', cursor: 'pointer', borderRadius: 3, border: `1px solid ${tipo === t ? color : '#222'}`, background: tipo === t ? `${color}22` : '#080808', color: tipo === t ? color : '#555' }}>
+                style={{ flex: 1, padding: '6px 4px', fontSize: 13, fontFamily: 'monospace', cursor: 'pointer', borderRadius: 3, border: `1px solid ${tipo === t ? color : '#222'}`, background: tipo === t ? `${color}22` : '#080808', color: tipo === t ? color : '#555' }}>
                 {t}
               </button>
             ))}
@@ -443,7 +443,7 @@ export default function CalculadorasPage() {
   const color = CLR[tab]
 
   return (
-    <div style={{ padding: '20px 24px', fontFamily: 'monospace', color: '#e0e0e0', maxWidth: 1200 }}>
+    <div style={{ padding: '20px 24px', fontFamily: 'monospace', color: '#e0e0e0' }}>
       {/* Header */}
       <div style={{ marginBottom: 20 }}>
         <div style={{ fontSize: 9, color: '#444', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 4 }}>
