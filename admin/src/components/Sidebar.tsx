@@ -40,6 +40,12 @@ const ICONS = {
       <circle cx="9.5" cy="5.5" r="1" fill="currentColor" />
     </svg>
   ),
+  obras: (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <polyline points="1,13 1,10 5,10 5,7 9,7 9,4 13,4 13,1" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
+      <line x1="1" y1="14" x2="15" y2="14" stroke="currentColor" strokeWidth="1.2" />
+    </svg>
+  ),
 }
 
 const NAV_ITEMS = [
@@ -54,15 +60,22 @@ const TOOL_ITEMS = [
   { id: 'measure', label: 'Medir', icon: '📏', href: '/dashboard/herramientas?tool=measure' },
 ]
 
+// Sub-ítems de Obras
+const OBRA_ITEMS = [
+  { id: 'calculadoras', label: 'Calculadoras', icon: '∑', href: '/dashboard/obras/calculadoras' },
+]
+
 export default function Sidebar() {
   const [collapsed, setCollapsed]     = useState(false)
   const [hoveredHref, setHoveredHref] = useState<string | null>(null)
   const [toolsOpen, setToolsOpen]     = useState(false)
+  const [obrasOpen, setObrasOpen]     = useState(false)
   const pathname = usePathname()
 
-  // Auto-expandir acordeón si estamos en /dashboard/herramientas
+  // Auto-expandir acordeones
   useEffect(() => {
     if (pathname.startsWith('/dashboard/herramientas')) setToolsOpen(true)
+    if (pathname.startsWith('/dashboard/obras'))        setObrasOpen(true)
   }, [pathname])
 
   const w = collapsed ? 48 : 220
@@ -79,6 +92,7 @@ export default function Sidebar() {
   }
 
   const isToolsActive = pathname.startsWith('/dashboard/herramientas')
+  const isObrasActive = pathname.startsWith('/dashboard/obras')
 
   return (
     <div style={{
@@ -188,6 +202,60 @@ export default function Sidebar() {
                 >
                   <span style={{ fontSize: 13 }}>{tool.icon}</span>
                   <span>{tool.label}</span>
+                </Link>
+              )
+            })}
+          </div>
+        )}
+
+        {/* ── Obras — acordeón ── */}
+        <button
+          onClick={() => setObrasOpen(v => !v)}
+          onMouseEnter={() => setHoveredHref('obras')}
+          onMouseLeave={() => setHoveredHref(null)}
+          style={{
+            ...linkBase,
+            width: '100%', border: 'none', cursor: 'pointer',
+            color: isObrasActive ? '#F5C300' : hoveredHref === 'obras' ? '#bbb' : '#555',
+            borderLeftColor: isObrasActive ? '#F5C300' : hoveredHref === 'obras' ? '#3a3a3a' : 'transparent',
+            background: isObrasActive ? 'rgba(245,195,0,0.06)' : hoveredHref === 'obras' ? 'rgba(255,255,255,0.025)' : 'transparent',
+            textShadow: hoveredHref === 'obras' && !isObrasActive ? '0 0 10px rgba(255,255,255,0.18)' : 'none',
+          } as React.CSSProperties}
+        >
+          <span style={{ flexShrink: 0, opacity: isObrasActive || hoveredHref === 'obras' ? 0.9 : 0.6, color: isObrasActive ? '#F5C300' : 'currentColor' }}>
+            {ICONS.obras}
+          </span>
+          {!collapsed && (
+            <>
+              <span>Obras</span>
+              <span style={{ marginLeft: 'auto', fontSize: 9, opacity: 0.5, transition: 'transform 0.15s', display: 'inline-block', transform: obrasOpen ? 'rotate(90deg)' : 'none' }}>▶</span>
+            </>
+          )}
+        </button>
+
+        {/* Sub-ítems de obras */}
+        {obrasOpen && !collapsed && (
+          <div style={{ borderLeft: '1px solid #1e1e1e', marginLeft: 24, marginTop: 2, marginBottom: 2 }}>
+            {OBRA_ITEMS.map(item => {
+              const isActive  = pathname.startsWith(item.href)
+              const isHovered = hoveredHref === item.id
+              return (
+                <Link
+                  key={item.id} href={item.href}
+                  onMouseEnter={() => setHoveredHref(item.id)}
+                  onMouseLeave={() => setHoveredHref(null)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    padding: '7px 12px', textDecoration: 'none',
+                    fontSize: 11, fontFamily: '"DM Mono", ui-monospace, monospace',
+                    letterSpacing: 0.3, whiteSpace: 'nowrap',
+                    color: isActive ? '#F5C300' : isHovered ? '#bbb' : '#555',
+                    background: isHovered ? 'rgba(255,255,255,0.025)' : 'transparent',
+                    transition: 'color 0.15s, background 0.15s',
+                  }}
+                >
+                  <span style={{ fontSize: 14, fontFamily: 'monospace' }}>{item.icon}</span>
+                  <span>{item.label}</span>
                 </Link>
               )
             })}
