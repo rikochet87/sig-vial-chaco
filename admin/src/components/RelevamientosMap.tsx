@@ -10,10 +10,11 @@ const MapInner = dynamic(() => import('./MapInner'), { ssr: false, loading: () =
 
 interface Props {
   relevamientos: Relevamiento[]
-  measureActive?: boolean
-  onMeasureChange?: (v: boolean) => void
+  measureActive?: boolean; onMeasureChange?: (v: boolean) => void
+  areaActive?: boolean;    onAreaChange?:    (v: boolean) => void
+  circleActive?: boolean;  onCircleChange?:  (v: boolean) => void
 }
 
-export default function RelevamientosMap({ relevamientos, measureActive, onMeasureChange }: Props) {
-  return <MapInner relevamientos={relevamientos} measureActive={measureActive} onMeasureChange={onMeasureChange} />
+export default function RelevamientosMap({ relevamientos, measureActive, onMeasureChange, areaActive, onAreaChange, circleActive, onCircleChange }: Props) {
+  return <MapInner relevamientos={relevamientos} measureActive={measureActive} onMeasureChange={onMeasureChange} areaActive={areaActive} onAreaChange={onAreaChange} circleActive={circleActive} onCircleChange={onCircleChange} />
 }

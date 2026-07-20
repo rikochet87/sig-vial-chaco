@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, Suspense } from 'react'
+import React, { useState, useEffect, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { createClient } from '@/lib/supabase/client'
@@ -28,20 +28,41 @@ function HerramientasInner() {
       .then(({ data }) => setRelevamientos((data as Relevamiento[]) ?? []))
   }, [])
 
-  const handleMeasureChange = (v: boolean) => {
-    router.replace(v ? '/dashboard/herramientas?tool=measure' : '/dashboard/herramientas')
-  }
+  const setTool = (tool: string | null) =>
+    router.replace(tool ? `/dashboard/herramientas?tool=${tool}` : '/dashboard/herramientas')
+
+  const TOOL_BTN = (id: string, label: string, color: string): React.CSSProperties => ({
+    display: 'flex', alignItems: 'center', gap: 8,
+    background: activeTool === id ? `${color}22` : '#191919',
+    border: `1px solid ${activeTool === id ? color : '#2a2a2a'}`,
+    borderRadius: 6, padding: '7px 14px', cursor: 'pointer',
+    color: activeTool === id ? color : '#9E9E9E',
+    fontSize: 12, fontWeight: 600, transition: 'all 0.15s',
+  })
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 64px)' }}>
-      <h1 style={{ color: '#e0e0e0', fontSize: 20, fontWeight: 700, marginBottom: 16, letterSpacing: 0.5, flexShrink: 0 }}>
-        Herramientas
-      </h1>
+    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 32px)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 0', flexShrink: 0, flexWrap: 'wrap' }}>
+        <span style={{ color: '#555', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, marginRight: 4 }}>Herramientas</span>
+        <button style={TOOL_BTN('measure', '📏 Medir distancia', '#F5C300')} onClick={() => setTool(activeTool === 'measure' ? null : 'measure')}>
+          📏 Medir distancia
+        </button>
+        <button style={TOOL_BTN('area', '📐 Medir área', '#ce93d8')} onClick={() => setTool(activeTool === 'area' ? null : 'area')}>
+          📐 Medir área
+        </button>
+        <button style={TOOL_BTN('circle', '⭕ Trazar círculo', '#f0a060')} onClick={() => setTool(activeTool === 'circle' ? null : 'circle')}>
+          ⭕ Trazar círculo
+        </button>
+      </div>
       <div style={{ flex: 1, minHeight: 0, borderRadius: 8, overflow: 'hidden', border: '1px solid #1e1e1e', position: 'relative' }}>
         <RelevamientosMap
           relevamientos={relevamientos}
           measureActive={activeTool === 'measure'}
-          onMeasureChange={handleMeasureChange}
+          onMeasureChange={v => setTool(v ? 'measure' : null)}
+          areaActive={activeTool === 'area'}
+          onAreaChange={v => setTool(v ? 'area' : null)}
+          circleActive={activeTool === 'circle'}
+          onCircleChange={v => setTool(v ? 'circle' : null)}
         />
       </div>
     </div>

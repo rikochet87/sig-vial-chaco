@@ -190,7 +190,12 @@ const DEFAULT_LAYERS: LayerState = {
   relevPuente: true, relevAlcantarilla: true, relevTubos: true, relevLineal: true, relevOtro: true,
 }
 
-interface Props { relevamientos: Relevamiento[]; measureActive?: boolean; onMeasureChange?: (v: boolean) => void }
+interface Props {
+  relevamientos: Relevamiento[]
+  measureActive?: boolean; onMeasureChange?: (v: boolean) => void
+  areaActive?: boolean;    onAreaChange?:    (v: boolean) => void
+  circleActive?: boolean;  onCircleChange?:  (v: boolean) => void
+}
 
 // ── RightPanel: panel flotante derecho para tipos de relevamiento ────────────
 
@@ -455,7 +460,7 @@ function ZoneRow({ zona, consorcios, isExpanded, isLayerOn, activeSet, onToggleE
 
 // ── Componente principal ─────────────────────────────────────────────────────
 
-export default function MapInner({ relevamientos, measureActive = false, onMeasureChange }: Props) {
+export default function MapInner({ relevamientos, measureActive = false, onMeasureChange, areaActive = false, onAreaChange, circleActive = false, onCircleChange }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef       = useRef<import('leaflet').Map | null>(null)
   // Leaflet layer groups keyed by LayerKey
@@ -485,14 +490,12 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
   const mLayersRef  = useRef<import('leaflet').Layer[]>([])
   const mClickRef   = useRef<((e: import('leaflet').LeafletMouseEvent) => void) | null>(null)
 
-  // ── Herramienta: Medir área ──
-  const [areaMode, setAreaMode]   = useState(false)
+  // ── Herramienta: Medir área (controlada por prop areaActive) ──
   const [areaPts, setAreaPts]     = useState<{lat:number;lng:number}[]>([])
   const aLayersRef  = useRef<import('leaflet').Layer[]>([])
   const aClickRef   = useRef<((e: import('leaflet').LeafletMouseEvent) => void) | null>(null)
 
-  // ── Herramienta: Trazar círculo ──
-  const [circleMode, setCircleMode]   = useState(false)
+  // ── Herramienta: Trazar círculo (controlada por prop circleActive) ──
   const [circlePts, setCirclePts]     = useState<{lat:number;lng:number}[]>([])
   const cLayersRef        = useRef<import('leaflet').Layer[]>([])
   const cClickRef         = useRef<((e: import('leaflet').LeafletMouseEvent) => void) | null>(null)
@@ -587,16 +590,13 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
     })
   }, [measurePts, mapReady])
 
-  // ── Exclusión mutua: desactivar área/círculo si el tool de distancia se activa ──
-  useEffect(() => {
-    if (measureActive) { setAreaMode(false); setCircleMode(false) }
-  }, [measureActive])
+  // ── Exclusión mutua ya está garantizada en herramientas/page.tsx (un solo ?tool activo) ──
 
   // ── Área: activar/desactivar ──────────────────────────────────────────────
   useEffect(() => {
     const map = mapRef.current
     if (!map || !mapReady) return
-    if (areaMode) {
+    if (areaActive) {
       map.getContainer().style.cursor = 'crosshair'
       const onClick = (e: import('leaflet').LeafletMouseEvent) => {
         setAreaPts(prev => [...prev, { lat: e.latlng.lat, lng: e.latlng.lng }])
@@ -610,7 +610,7 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
       setAreaPts([])
     }
     return () => { if (aClickRef.current) map.off('click', aClickRef.current) }
-  }, [areaMode, mapReady])
+  }, [areaActive, mapReady])
 
   // ── Área: redibujar polígono cuando cambian areaPts ──────────────────────
   useEffect(() => {
@@ -641,7 +641,7 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
   useEffect(() => {
     const map = mapRef.current
     if (!map || !mapReady) return
-    if (circleMode) {
+    if (circleActive) {
       map.getContainer().style.cursor = 'crosshair'
       circleHasCenterRef.current = false
       const onClick = (e: import('leaflet').LeafletMouseEvent) => {
@@ -670,7 +670,7 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
       circleHasCenterRef.current = false
     }
     return () => { if (cClickRef.current) map.off('click', cClickRef.current) }
-  }, [circleMode, mapReady])
+  }, [circleActive, mapReady])
 
   // ── Círculo: redibujar cuando cambian circlePts ───────────────────────────
   useEffect(() => {
@@ -1364,30 +1364,6 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
               Zona V
             </label>
 
-            {/* HERRAMIENTAS */}
-            <div style={SECTION_TITLE_STYLE}>Herramientas</div>
-            <button
-              onClick={() => { const next = !areaMode; setAreaMode(next); if (next) { setCircleMode(false); onMeasureChange?.(false) } }}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 6, width: '100%',
-                background: areaMode ? 'rgba(156,39,176,.18)' : 'transparent',
-                border: `1px solid ${areaMode ? '#9C27B0' : '#2a3450'}`,
-                borderRadius: 6, padding: '5px 8px', cursor: 'pointer',
-                color: areaMode ? '#ce93d8' : '#9aaac0', fontSize: 11, fontWeight: 600,
-                marginBottom: 4, textAlign: 'left',
-              }}
-            >📐 Medir área</button>
-            <button
-              onClick={() => { const next = !circleMode; setCircleMode(next); if (next) { setAreaMode(false); onMeasureChange?.(false) } }}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 6, width: '100%',
-                background: circleMode ? 'rgba(230,126,34,.18)' : 'transparent',
-                border: `1px solid ${circleMode ? '#e67e22' : '#2a3450'}`,
-                borderRadius: 6, padding: '5px 8px', cursor: 'pointer',
-                color: circleMode ? '#f0a060' : '#9aaac0', fontSize: 11, fontWeight: 600,
-                textAlign: 'left',
-              }}
-            >⭕ Trazar círculo</button>
 
           </div>
         )}
@@ -1427,7 +1403,7 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
       )}
 
       {/* ── Panel de medición de área ── */}
-      {areaMode && (
+      {areaActive && (
         <div style={{
           position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)',
           zIndex: 1000, background: '#1e2436', border: '1.5px solid #9C27B0',
@@ -1467,14 +1443,14 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
               style={{ flex: 1, background: '#252d40', border: '1px solid #3a4060', color: '#e0e6f0', borderRadius: 8, padding: '8px 4px', fontSize: 12, fontWeight: 600, cursor: 'pointer', opacity: areaPts.length === 0 ? 0.4 : 1 }}>↩ Deshacer</button>
             <button onClick={() => setAreaPts([])} disabled={areaPts.length === 0}
               style={{ flex: 1, background: '#252d40', border: '1px solid #3a4060', color: '#aaa', borderRadius: 8, padding: '8px 4px', fontSize: 12, fontWeight: 600, cursor: 'pointer', opacity: areaPts.length === 0 ? 0.4 : 1 }}>🗑 Limpiar</button>
-            <button onClick={() => setAreaMode(false)}
+            <button onClick={() => onAreaChange?.(false)}
               style={{ flex: 1, background: 'rgba(231,76,60,.15)', border: '1px solid rgba(231,76,60,.4)', color: '#e74c3c', borderRadius: 8, padding: '8px 4px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>✗ Cerrar</button>
           </div>
         </div>
       )}
 
       {/* ── Panel de círculo ── */}
-      {circleMode && (
+      {circleActive && (
         <div style={{
           position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)',
           zIndex: 1000, background: '#1e2436', border: '1.5px solid #e67e22',
@@ -1511,7 +1487,7 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={() => { setCirclePts([]); circleHasCenterRef.current = false }} disabled={circlePts.length === 0}
               style={{ flex: 1, background: '#252d40', border: '1px solid #3a4060', color: '#aaa', borderRadius: 8, padding: '8px 4px', fontSize: 12, fontWeight: 600, cursor: 'pointer', opacity: circlePts.length === 0 ? 0.4 : 1 }}>🗑 Limpiar</button>
-            <button onClick={() => setCircleMode(false)}
+            <button onClick={() => onCircleChange?.(false)}
               style={{ flex: 1, background: 'rgba(231,76,60,.15)', border: '1px solid rgba(231,76,60,.4)', color: '#e74c3c', borderRadius: 8, padding: '8px 4px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>✗ Cerrar</button>
           </div>
         </div>
