@@ -11,7 +11,8 @@ const CLR: Record<Tab, string> = {
 
 // ── Estilos base ──────────────────────────────────────────────────────────────
 const panel: React.CSSProperties = {
-  background: '#0e0e0e', border: '1px solid #1e1e1e', borderRadius: 6, padding: 16,
+  background: '#0e0e0e', border: '1px solid #1e1e1e', borderRadius: 6, padding: 14,
+  overflowY: 'auto', minHeight: 0,
 }
 const secLabel: React.CSSProperties = {
   fontSize: 13, color: '#444', textTransform: 'uppercase', letterSpacing: 1.2,
@@ -148,7 +149,7 @@ function CalcTerraplen() {
   const color = CLR.terraplen
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr 150px', gap: 16 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr 148px', gap: 10, height: '100%' }}>
       {/* Inputs */}
       <div style={panel}>
         <SectionTitle>Geometría</SectionTitle>
@@ -167,7 +168,7 @@ function CalcTerraplen() {
       </div>
 
       {/* SVG + Pipeline */}
-      <div style={{ ...panel, display: 'flex', flexDirection: 'column' }}>
+      <div style={{ ...panel, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
         <SectionTitle>Sección tipo — Terraplén (escala proporcional)</SectionTitle>
         <svg viewBox={`0 0 ${W_SVG} ${H_SVG}`} style={{ width: '100%', height: 'auto' }}>
           {HATCH(GY, W_SVG)}
@@ -236,7 +237,7 @@ function CalcExcavacion() {
   const color = CLR.excavacion
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr 150px', gap: 16 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr 148px', gap: 10, height: '100%' }}>
       <div style={panel}>
         <SectionTitle>Geometría</SectionTitle>
         <Inp label="Longitud"           unit="m"   value={L}   onChange={setL}   step={10} />
@@ -252,7 +253,7 @@ function CalcExcavacion() {
         </div>
       </div>
 
-      <div style={{ ...panel, display: 'flex', flexDirection: 'column' }}>
+      <div style={{ ...panel, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
         <SectionTitle>Sección tipo — Excavación / Corte (escala proporcional)</SectionTitle>
         <svg viewBox={`0 0 ${W_SVG} ${H_SVG}`} style={{ width: '100%', height: 'auto' }}>
           <line x1={0} y1={GY} x2={W_SVG} y2={GY} stroke="#2a2a2a" strokeWidth={1} />
@@ -318,7 +319,7 @@ function CalcRipio() {
   const color = CLR.ripio
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr 150px', gap: 16 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr 148px', gap: 10, height: '100%' }}>
       <div style={panel}>
         <SectionTitle>Geometría</SectionTitle>
         <Inp label="Longitud"      unit="m"   value={L}   onChange={setL}   step={100} />
@@ -332,7 +333,7 @@ function CalcRipio() {
         </div>
       </div>
 
-      <div style={{ ...panel, display: 'flex', flexDirection: 'column' }}>
+      <div style={{ ...panel, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
         <SectionTitle>Sección tipo — Capa granular (escala referencial)</SectionTitle>
         <svg viewBox={`0 0 ${W_SVG} ${H_SVG}`} style={{ width: '100%', height: 'auto' }}>
           {/* Subrasante */}
@@ -409,7 +410,7 @@ function CalcCanal() {
     : `${cx - dBs/2},${GY} ${cx + dBs/2},${GY} ${cx + dBf/2},${GY + dH} ${cx - dBf/2},${GY + dH}`
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr 150px', gap: 16 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr 148px', gap: 10, height: '100%' }}>
       <div style={panel}>
         <SectionTitle>Geometría</SectionTitle>
         <div>
@@ -432,7 +433,7 @@ function CalcCanal() {
         <Inp label="Pendiente long." unit="%" value={S} onChange={setS} step={0.05} min={0.01} />
       </div>
 
-      <div style={{ ...panel, display: 'flex', flexDirection: 'column' }}>
+      <div style={{ ...panel, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
         <SectionTitle>Sección tipo — Canal {tipo} (escala proporcional)</SectionTitle>
         <svg viewBox={`0 0 ${W_SVG} ${H_SVG}`} style={{ width: '100%', height: 'auto', flex: 1 }}>
           <line x1={0} y1={GY} x2={W_SVG} y2={GY} stroke="#2a2a2a" strokeWidth={1} />
@@ -508,48 +509,39 @@ export default function CalculadorasPage() {
   const color = CLR[tab]
 
   return (
-    <div style={{ padding: '20px 24px', fontFamily: 'monospace', color: '#e0e0e0' }}>
-      {/* Header */}
-      <div style={{ marginBottom: 20 }}>
-        <div style={{ fontSize: 9, color: '#444', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 4 }}>
-          Obras · Etapa 1
-        </div>
-        <h1 style={{ fontSize: 18, fontWeight: 700, color: '#e0e0e0', margin: 0, letterSpacing: 0.5 }}>
-          Calculadoras de Ingeniería Vial
-        </h1>
-        <p style={{ fontSize: 11, color: '#444', margin: '4px 0 0', lineHeight: 1.5 }}>
-          Cómputo métrico para obras de tierra y capas granulares. Sin persistencia — resultados en tiempo real.
-        </p>
+    <div style={{
+      height: 'calc(100vh - 32px)', display: 'flex', flexDirection: 'column',
+      padding: '10px 16px 8px', overflow: 'hidden', boxSizing: 'border-box',
+      fontFamily: 'monospace', color: '#e0e0e0',
+    }}>
+      {/* Header compacto */}
+      <div style={{ flexShrink: 0, marginBottom: 6 }}>
+        <span style={{ fontSize: 9, color: '#444', letterSpacing: 1.5, textTransform: 'uppercase', marginRight: 8 }}>Obras · Etapa 1</span>
+        <span style={{ fontSize: 15, fontWeight: 700, color: '#e0e0e0', letterSpacing: 0.5 }}>Calculadoras de Ingeniería Vial</span>
       </div>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: 6, marginBottom: 20, borderBottom: '1px solid #1a1a1a', paddingBottom: 0 }}>
+      <div style={{ display: 'flex', gap: 4, flexShrink: 0, borderBottom: '1px solid #1a1a1a' }}>
         {TABS.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)}
             style={{
-              padding: '8px 16px', fontSize: 11, fontFamily: 'monospace', cursor: 'pointer',
+              padding: '6px 14px', fontSize: 11, fontFamily: 'monospace', cursor: 'pointer',
               border: 'none', borderBottom: `2px solid ${tab === t.id ? CLR[t.id] : 'transparent'}`,
               background: 'transparent', letterSpacing: 0.5, transition: 'all 0.15s',
-              color: tab === t.id ? CLR[t.id] : '#555',
-              marginBottom: -1,
+              color: tab === t.id ? CLR[t.id] : '#555', marginBottom: -1,
             }}>
-            <span style={{ marginRight: 6, fontSize: 12 }}>{t.icon}</span>
+            <span style={{ marginRight: 5, fontSize: 11 }}>{t.icon}</span>
             {t.label}
           </button>
         ))}
       </div>
 
-      {/* Calculadora activa */}
-      <div style={{ borderLeft: `2px solid ${color}44`, paddingLeft: 16 }}>
+      {/* Calculadora activa — ocupa todo el espacio restante */}
+      <div style={{ flex: 1, minHeight: 0, borderLeft: `2px solid ${color}44`, paddingLeft: 14, marginTop: 10 }}>
         {tab === 'terraplen'  && <CalcTerraplen />}
         {tab === 'excavacion' && <CalcExcavacion />}
         {tab === 'ripio'      && <CalcRipio />}
         {tab === 'canal'      && <CalcCanal />}
-      </div>
-
-      {/* Footer */}
-      <div style={{ marginTop: 24, fontSize: 9, color: '#2a2a2a', fontFamily: 'monospace' }}>
-        Terraplén/Excavación: fórmula de sección prismática · Canal: Manning-Strickler · Ripio: densidad 2.10 t/m³ · SIG Vial Chaco
       </div>
     </div>
   )
