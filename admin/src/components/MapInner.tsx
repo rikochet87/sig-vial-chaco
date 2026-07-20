@@ -354,6 +354,29 @@ function totalDist(pts: {lat:number;lng:number}[]): number {
   let t = 0; for (let i = 1; i < pts.length; i++) t += haversine(pts[i-1], pts[i]); return t
 }
 
+// ── Medición de área — helpers ───────────────────────────────────────────────
+function polygonAreaM2(pts: {lat:number;lng:number}[]): number {
+  if (pts.length < 3) return 0
+  const latMid = pts.reduce((s, p) => s + p.lat, 0) / pts.length
+  const mPerLat = 111320
+  const mPerLng = 111320 * Math.cos(latMid * Math.PI / 180)
+  let area = 0
+  const n = pts.length
+  for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n
+    area += (pts[i].lng * mPerLng) * (pts[j].lat * mPerLat) - (pts[j].lng * mPerLng) * (pts[i].lat * mPerLat)
+  }
+  return Math.abs(area / 2)
+}
+function fmtArea(m2: number): string {
+  const ha  = m2 / 10000
+  const km2 = m2 / 1000000
+  if (ha < 1)    return `${Math.round(m2).toLocaleString('es-AR')} m²`
+  if (ha < 1000) return `${ha.toFixed(2)} ha  ·  ${km2.toFixed(4)} km²`
+  return `${km2.toFixed(3)} km²  ·  ${Math.round(ha).toLocaleString('es-AR')} ha`
+}
+function circleAreaM2(r: number): number { return Math.PI * r * r }
+function fmtRadius(m: number): string { return m < 1000 ? `${Math.round(m)} m` : `${(m/1000).toFixed(3)} km` }
 
 // ── ZoneRow: fila de zona CC con checkbox padre indeterminado + sub-lista ────
 
@@ -462,6 +485,19 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
   const mLayersRef  = useRef<import('leaflet').Layer[]>([])
   const mClickRef   = useRef<((e: import('leaflet').LeafletMouseEvent) => void) | null>(null)
 
+  // ── Herramienta: Medir área ──
+  const [areaMode, setAreaMode]   = useState(false)
+  const [areaPts, setAreaPts]     = useState<{lat:number;lng:number}[]>([])
+  const aLayersRef  = useRef<import('leaflet').Layer[]>([])
+  const aClickRef   = useRef<((e: import('leaflet').LeafletMouseEvent) => void) | null>(null)
+
+  // ── Herramienta: Trazar círculo ──
+  const [circleMode, setCircleMode]   = useState(false)
+  const [circlePts, setCirclePts]     = useState<{lat:number;lng:number}[]>([])
+  const cLayersRef        = useRef<import('leaflet').Layer[]>([])
+  const cClickRef         = useRef<((e: import('leaflet').LeafletMouseEvent) => void) | null>(null)
+  const circleHasCenterRef = useRef(false)
+
   // ── Inject popup CSS once ──
   useEffect(() => {
     if (document.getElementById('map-popup-css')) return
@@ -550,6 +586,119 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
       mLayersRef.current = newLayers
     })
   }, [measurePts, mapReady])
+
+  // ── Exclusión mutua: desactivar área/círculo si el tool de distancia se activa ──
+  useEffect(() => {
+    if (measureActive) { setAreaMode(false); setCircleMode(false) }
+  }, [measureActive])
+
+  // ── Área: activar/desactivar ──────────────────────────────────────────────
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !mapReady) return
+    if (areaMode) {
+      map.getContainer().style.cursor = 'crosshair'
+      const onClick = (e: import('leaflet').LeafletMouseEvent) => {
+        setAreaPts(prev => [...prev, { lat: e.latlng.lat, lng: e.latlng.lng }])
+      }
+      aClickRef.current = onClick
+      map.on('click', onClick)
+    } else {
+      map.getContainer().style.cursor = ''
+      if (aClickRef.current) { map.off('click', aClickRef.current); aClickRef.current = null }
+      aLayersRef.current.forEach(l => map.removeLayer(l)); aLayersRef.current = []
+      setAreaPts([])
+    }
+    return () => { if (aClickRef.current) map.off('click', aClickRef.current) }
+  }, [areaMode, mapReady])
+
+  // ── Área: redibujar polígono cuando cambian areaPts ──────────────────────
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !mapReady) return
+    aLayersRef.current.forEach(l => map.removeLayer(l)); aLayersRef.current = []
+    if (areaPts.length === 0) return
+    import('leaflet').then(L => {
+      const newLayers: import('leaflet').Layer[] = []
+      areaPts.forEach((p, i) => {
+        const fc = i === 0 ? '#27ae60' : '#fff'
+        newLayers.push(L.circleMarker([p.lat, p.lng], { radius: 5, color: '#111', weight: 2, fillColor: fc, fillOpacity: 1 }).addTo(map))
+      })
+      if (areaPts.length >= 3) {
+        newLayers.push(L.polygon(areaPts.map(p => [p.lat, p.lng] as [number,number]), {
+          color: '#9C27B0', weight: 2, fillColor: '#9C27B0', fillOpacity: 0.14, dashArray: '7 4',
+        }).addTo(map))
+      } else if (areaPts.length >= 2) {
+        newLayers.push(L.polyline(areaPts.map(p => [p.lat, p.lng] as [number,number]), {
+          color: '#9C27B0', weight: 2, dashArray: '7 4', opacity: 0.9,
+        }).addTo(map))
+      }
+      aLayersRef.current = newLayers
+    })
+  }, [areaPts, mapReady])
+
+  // ── Círculo: activar/desactivar ───────────────────────────────────────────
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !mapReady) return
+    if (circleMode) {
+      map.getContainer().style.cursor = 'crosshair'
+      circleHasCenterRef.current = false
+      const onClick = (e: import('leaflet').LeafletMouseEvent) => {
+        const pt = { lat: e.latlng.lat, lng: e.latlng.lng }
+        if (!circleHasCenterRef.current) {
+          circleHasCenterRef.current = true
+          setCirclePts([pt])
+        } else {
+          setCirclePts(prev => {
+            if (prev.length >= 2) {
+              // tercer clic: reiniciar con nuevo centro
+              circleHasCenterRef.current = true
+              return [pt]
+            }
+            return [prev[0], pt]
+          })
+        }
+      }
+      cClickRef.current = onClick
+      map.on('click', onClick)
+    } else {
+      map.getContainer().style.cursor = ''
+      if (cClickRef.current) { map.off('click', cClickRef.current); cClickRef.current = null }
+      cLayersRef.current.forEach(l => map.removeLayer(l)); cLayersRef.current = []
+      setCirclePts([])
+      circleHasCenterRef.current = false
+    }
+    return () => { if (cClickRef.current) map.off('click', cClickRef.current) }
+  }, [circleMode, mapReady])
+
+  // ── Círculo: redibujar cuando cambian circlePts ───────────────────────────
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !mapReady) return
+    cLayersRef.current.forEach(l => map.removeLayer(l)); cLayersRef.current = []
+    if (circlePts.length === 0) return
+    import('leaflet').then(L => {
+      const newLayers: import('leaflet').Layer[] = []
+      const center = circlePts[0]
+      newLayers.push(L.circleMarker([center.lat, center.lng], {
+        radius: 7, color: '#111', weight: 2, fillColor: '#e67e22', fillOpacity: 1,
+      }).addTo(map))
+      if (circlePts.length >= 2) {
+        const r = haversine(center, circlePts[1])
+        newLayers.push(L.circle([center.lat, center.lng], {
+          radius: r, color: '#e67e22', weight: 2, fillColor: '#e67e22', fillOpacity: 0.12,
+        }).addTo(map))
+        newLayers.push(L.polyline([[center.lat, center.lng],[circlePts[1].lat, circlePts[1].lng]], {
+          color: '#e67e22', weight: 1.5, dashArray: '6 4',
+        }).addTo(map))
+        newLayers.push(L.circleMarker([circlePts[1].lat, circlePts[1].lng], {
+          radius: 5, color: '#111', weight: 2, fillColor: '#fff', fillOpacity: 1,
+        }).addTo(map))
+      }
+      cLayersRef.current = newLayers
+    })
+  }, [circlePts, mapReady])
 
   // ── Load GeoJSON data ──
   useEffect(() => {
@@ -1215,6 +1364,30 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
               Zona V
             </label>
 
+            {/* HERRAMIENTAS */}
+            <div style={SECTION_TITLE_STYLE}>Herramientas</div>
+            <button
+              onClick={() => { const next = !areaMode; setAreaMode(next); if (next) { setCircleMode(false); onMeasureChange?.(false) } }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6, width: '100%',
+                background: areaMode ? 'rgba(156,39,176,.18)' : 'transparent',
+                border: `1px solid ${areaMode ? '#9C27B0' : '#2a3450'}`,
+                borderRadius: 6, padding: '5px 8px', cursor: 'pointer',
+                color: areaMode ? '#ce93d8' : '#9aaac0', fontSize: 11, fontWeight: 600,
+                marginBottom: 4, textAlign: 'left',
+              }}
+            >📐 Medir área</button>
+            <button
+              onClick={() => { const next = !circleMode; setCircleMode(next); if (next) { setAreaMode(false); onMeasureChange?.(false) } }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6, width: '100%',
+                background: circleMode ? 'rgba(230,126,34,.18)' : 'transparent',
+                border: `1px solid ${circleMode ? '#e67e22' : '#2a3450'}`,
+                borderRadius: 6, padding: '5px 8px', cursor: 'pointer',
+                color: circleMode ? '#f0a060' : '#9aaac0', fontSize: 11, fontWeight: 600,
+                textAlign: 'left',
+              }}
+            >⭕ Trazar círculo</button>
 
           </div>
         )}
@@ -1223,7 +1396,7 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
       {/* ── Panel derecho — tipos de relevamiento ── */}
       <RightPanel layers={layers} toggle={toggle} relevamientos={relevamientos} activeZones={activeZones} onToggleZone={onToggleZone} />
 
-      {/* ── Panel de medición flotante ── */}
+      {/* ── Panel de medición de distancia ── */}
       {measureActive && (
         <div style={{
           position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)',
@@ -1243,20 +1416,103 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
             }
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button
-              onClick={() => setMeasurePts(prev => prev.slice(0, -1))}
-              disabled={measurePts.length === 0}
-              style={{ flex: 1, background: '#252d40', border: '1px solid #3a4060', color: '#e0e6f0', borderRadius: 8, padding: '8px 4px', fontSize: 12, fontWeight: 600, cursor: 'pointer', opacity: measurePts.length === 0 ? 0.4 : 1 }}
-            >↩ Deshacer</button>
-            <button
-              onClick={() => setMeasurePts([])}
-              disabled={measurePts.length === 0}
-              style={{ flex: 1, background: '#252d40', border: '1px solid #3a4060', color: '#aaa', borderRadius: 8, padding: '8px 4px', fontSize: 12, fontWeight: 600, cursor: 'pointer', opacity: measurePts.length === 0 ? 0.4 : 1 }}
-            >🗑 Limpiar</button>
-            <button
-              onClick={() => onMeasureChange?.(false)}
-              style={{ flex: 1, background: 'rgba(231,76,60,.15)', border: '1px solid rgba(231,76,60,.4)', color: '#e74c3c', borderRadius: 8, padding: '8px 4px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
-            >✗ Cerrar</button>
+            <button onClick={() => setMeasurePts(prev => prev.slice(0, -1))} disabled={measurePts.length === 0}
+              style={{ flex: 1, background: '#252d40', border: '1px solid #3a4060', color: '#e0e6f0', borderRadius: 8, padding: '8px 4px', fontSize: 12, fontWeight: 600, cursor: 'pointer', opacity: measurePts.length === 0 ? 0.4 : 1 }}>↩ Deshacer</button>
+            <button onClick={() => setMeasurePts([])} disabled={measurePts.length === 0}
+              style={{ flex: 1, background: '#252d40', border: '1px solid #3a4060', color: '#aaa', borderRadius: 8, padding: '8px 4px', fontSize: 12, fontWeight: 600, cursor: 'pointer', opacity: measurePts.length === 0 ? 0.4 : 1 }}>🗑 Limpiar</button>
+            <button onClick={() => onMeasureChange?.(false)}
+              style={{ flex: 1, background: 'rgba(231,76,60,.15)', border: '1px solid rgba(231,76,60,.4)', color: '#e74c3c', borderRadius: 8, padding: '8px 4px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>✗ Cerrar</button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Panel de medición de área ── */}
+      {areaMode && (
+        <div style={{
+          position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)',
+          zIndex: 1000, background: '#1e2436', border: '1.5px solid #9C27B0',
+          borderRadius: 12, padding: '12px 16px',
+          boxShadow: '0 6px 24px rgba(0,0,0,.65)', minWidth: 300, maxWidth: '90%',
+        }}>
+          <div style={{ color: '#ce93d8', fontSize: 10, fontWeight: 700, textAlign: 'center', letterSpacing: 0.8, marginBottom: 6, textTransform: 'uppercase' }}>
+            📐 Medir Área — clic para agregar vértices
+          </div>
+          <div style={{ textAlign: 'center', marginBottom: 10, minHeight: 28 }}>
+            {areaPts.length < 3
+              ? <span style={{ fontSize: 13, color: '#7a8aaa' }}>
+                  {areaPts.length === 0 ? 'Hacé clic en el mapa para comenzar' : areaPts.length === 1 ? '1 punto agregado — seguí haciendo clic' : '2 puntos — agregá al menos uno más'}
+                </span>
+              : <span style={{ fontSize: 22, fontWeight: 900, color: '#ce93d8' }}>{fmtArea(polygonAreaM2(areaPts))}</span>
+            }
+          </div>
+          {areaPts.length >= 3 && (() => {
+            const m2 = polygonAreaM2(areaPts)
+            return (
+              <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+                {([
+                  ['m²',    Math.round(m2).toLocaleString('es-AR')],
+                  ['ha',    (m2/10000).toFixed(4)],
+                  ['km²',   (m2/1000000).toFixed(6)],
+                ] as [string,string][]).map(([unit, val]) => (
+                  <div key={unit} style={{ flex: 1, background: '#252d40', borderRadius: 6, padding: '5px 4px', textAlign: 'center' }}>
+                    <div style={{ fontSize: 9, color: '#7a8aaa', marginBottom: 2 }}>{unit}</div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: '#ce93d8' }}>{val}</div>
+                  </div>
+                ))}
+              </div>
+            )
+          })()}
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={() => setAreaPts(prev => prev.slice(0, -1))} disabled={areaPts.length === 0}
+              style={{ flex: 1, background: '#252d40', border: '1px solid #3a4060', color: '#e0e6f0', borderRadius: 8, padding: '8px 4px', fontSize: 12, fontWeight: 600, cursor: 'pointer', opacity: areaPts.length === 0 ? 0.4 : 1 }}>↩ Deshacer</button>
+            <button onClick={() => setAreaPts([])} disabled={areaPts.length === 0}
+              style={{ flex: 1, background: '#252d40', border: '1px solid #3a4060', color: '#aaa', borderRadius: 8, padding: '8px 4px', fontSize: 12, fontWeight: 600, cursor: 'pointer', opacity: areaPts.length === 0 ? 0.4 : 1 }}>🗑 Limpiar</button>
+            <button onClick={() => setAreaMode(false)}
+              style={{ flex: 1, background: 'rgba(231,76,60,.15)', border: '1px solid rgba(231,76,60,.4)', color: '#e74c3c', borderRadius: 8, padding: '8px 4px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>✗ Cerrar</button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Panel de círculo ── */}
+      {circleMode && (
+        <div style={{
+          position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)',
+          zIndex: 1000, background: '#1e2436', border: '1.5px solid #e67e22',
+          borderRadius: 12, padding: '12px 16px',
+          boxShadow: '0 6px 24px rgba(0,0,0,.65)', minWidth: 300, maxWidth: '90%',
+        }}>
+          <div style={{ color: '#f0a060', fontSize: 10, fontWeight: 700, textAlign: 'center', letterSpacing: 0.8, marginBottom: 6, textTransform: 'uppercase' }}>
+            ⭕ Círculo — {circlePts.length === 0 ? '1° clic: centro' : circlePts.length === 1 ? '2° clic: punto de radio' : '3° clic: nuevo centro'}
+          </div>
+          {circlePts.length >= 2 ? (() => {
+            const r = haversine(circlePts[0], circlePts[1])
+            const area = circleAreaM2(r)
+            return (
+              <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+                {([
+                  ['Radio',    fmtRadius(r)],
+                  ['Diámetro', fmtRadius(r * 2)],
+                  ['Área m²',  Math.round(area).toLocaleString('es-AR')],
+                  ['Área ha',  (area/10000).toFixed(4)],
+                  ['Área km²', (area/1000000).toFixed(6)],
+                ] as [string,string][]).map(([label, val]) => (
+                  <div key={label} style={{ flex: 1, background: '#252d40', borderRadius: 6, padding: '5px 4px', textAlign: 'center' }}>
+                    <div style={{ fontSize: 9, color: '#7a8aaa', marginBottom: 2 }}>{label}</div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: '#f0a060' }}>{val}</div>
+                  </div>
+                ))}
+              </div>
+            )
+          })() : (
+            <div style={{ color: '#7a8aaa', fontSize: 13, textAlign: 'center', marginBottom: 10, minHeight: 28 }}>
+              {circlePts.length === 0 ? 'Hacé clic en el mapa para fijar el centro' : 'Ahora clic para definir el radio'}
+            </div>
+          )}
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={() => { setCirclePts([]); circleHasCenterRef.current = false }} disabled={circlePts.length === 0}
+              style={{ flex: 1, background: '#252d40', border: '1px solid #3a4060', color: '#aaa', borderRadius: 8, padding: '8px 4px', fontSize: 12, fontWeight: 600, cursor: 'pointer', opacity: circlePts.length === 0 ? 0.4 : 1 }}>🗑 Limpiar</button>
+            <button onClick={() => setCircleMode(false)}
+              style={{ flex: 1, background: 'rgba(231,76,60,.15)', border: '1px solid rgba(231,76,60,.4)', color: '#e74c3c', borderRadius: 8, padding: '8px 4px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>✗ Cerrar</button>
           </div>
         </div>
       )}
