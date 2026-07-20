@@ -781,12 +781,26 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
 
   // ── Basemap: cambiar entre OSM y Satélite ─────────────────────────────────
   useEffect(() => {
-    if (!tileRef.current) return
-    tileRef.current.setUrl(
-      satellite
-        ? 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
-        : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
-    )
+    const map = mapRef.current
+    if (!map || !tileRef.current) return
+    import('leaflet').then(L => {
+      map.removeLayer(tileRef.current!)
+      if (satellite) {
+        // Google Satellite — mejor resolución disponible, zoom nativo 20+
+        tileRef.current = L.tileLayer(
+          'https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
+          { attribution: '&copy; Google',
+            subdomains: ['0','1','2','3'],
+            maxZoom: 21, maxNativeZoom: 20 }
+        ).addTo(map)
+      } else {
+        tileRef.current = L.tileLayer(
+          'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+          { attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+            maxZoom: 21, maxNativeZoom: 19 }
+        ).addTo(map)
+      }
+    })
   }, [satellite])
 
   // ── Medición: activar/desactivar handler de click ──────────────────────────
@@ -1013,6 +1027,7 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
       })
       tileRef.current = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+        maxZoom: 21, maxNativeZoom: 19,
       }).addTo(map)
       mapRef.current = map
       setMapReady(true)
