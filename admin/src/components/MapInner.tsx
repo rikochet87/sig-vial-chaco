@@ -357,14 +357,41 @@ const TIPO_COLOR: Record<string, string> = { Puente: '#2196F3', Alcantarilla: '#
 
 function RightPanel({
   layers, toggle, relevamientos, activeZones, onToggleZone,
+  relevColors, onRelevColorChange, relevSizes, onRelevSizeChange,
 }: {
   layers: LayerState
   toggle: (k: LayerKey) => void
   relevamientos: Relevamiento[]
   activeZones: Set<string>
   onToggleZone: (z: string) => void
+  relevColors: Record<string, string>
+  onRelevColorChange: (k: string, c: string) => void
+  relevSizes: Record<string, number>
+  onRelevSizeChange: (k: string, v: number) => void
 }) {
   const [open, setOpen] = useState(true)
+  const [rPanelWidth, setRPanelWidth]   = useState(210)
+  const [rPanelHeight, setRPanelHeight] = useState<number | null>(null)
+  const rResizingRef = useRef(false)
+
+  const startRResize = (dir: 'w' | 's' | 'sw', e: React.MouseEvent) => {
+    e.preventDefault(); e.stopPropagation()
+    rResizingRef.current = true
+    const startX = e.clientX, startY = e.clientY
+    const startW = rPanelWidth, startH = rPanelHeight ?? 500
+    const onMove = (ev: MouseEvent) => {
+      if (dir === 'w' || dir === 'sw') setRPanelWidth(Math.max(160, startW - (ev.clientX - startX)))
+      if (dir === 's' || dir === 'sw') setRPanelHeight(Math.max(120, startH + (ev.clientY - startY)))
+    }
+    const onUp = () => {
+      rResizingRef.current = false
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }
+
   const PANEL: React.CSSProperties = {
     position: 'absolute', top: 10, right: 10, zIndex: 1000,
     background: '#1A1A1A', border: '1px solid #222',
@@ -372,10 +399,11 @@ function RightPanel({
     overflowX: 'clip' as React.CSSProperties['overflowX'],
     boxShadow: '0 4px 16px rgba(0,0,0,.7)',
     fontFamily: 'monospace',
-    width: open ? 210 : 32,
-    transition: 'width 0.2s',
+    width: open ? rPanelWidth : 32,
+    height: open && rPanelHeight ? rPanelHeight : undefined,
+    maxHeight: open && rPanelHeight ? undefined : 'calc(100vh - 40px)',
     display: 'flex', flexDirection: 'column',
-    maxHeight: 'calc(100vh - 40px)',
+    userSelect: 'none',
   }
   const ITEM: React.CSSProperties = {
     display: 'flex', alignItems: 'center', gap: 6,
@@ -407,15 +435,16 @@ function RightPanel({
         </button>
       </div>
       {open && (
-        <div style={{ padding: '8px 10px 10px', overflowY: 'auto', flex: 1 }}>
+        <div className="map-panel-scroll" style={{ padding: '8px 10px 10px', overflowY: 'auto', flex: 1 }}>
 
           {/* Tipos */}
           <div style={SEC}>Tipo</div>
-          {RELEV_ITEMS.map(([k, label, color]) => (
+          {RELEV_ITEMS.map(([k, label]) => (
             <label key={k} style={ITEM}>
               <input type="checkbox" checked={!!layers[k]} onChange={() => toggle(k)} style={CB} />
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: color, display: 'inline-block', flexShrink: 0 }} />
+              <ColorDot color={relevColors[label] ?? '#888'} onChange={c => onRelevColorChange(label, c)} />
               {label}
+              <WidthBtn value={relevSizes[label] ?? 18} onChange={v => onRelevSizeChange(label, v)} />
             </label>
           ))}
 
@@ -481,6 +510,17 @@ function RightPanel({
           </div>
         </div>
       )}
+
+      {/* ── Resize handles (izquierda, abajo, esquina inferior-izquierda) ── */}
+      {open && <>
+        <div onMouseDown={e => startRResize('w', e)}
+          style={{ position:'absolute', top:0, left:0, bottom:0, width:4, cursor:'ew-resize', zIndex:10 }} />
+        <div onMouseDown={e => startRResize('s', e)}
+          style={{ position:'absolute', bottom:0, left:0, right:0, height:4, cursor:'ns-resize', zIndex:10 }} />
+        <div onMouseDown={e => startRResize('sw', e)}
+          style={{ position:'absolute', bottom:0, left:0, width:10, height:10, cursor:'nesw-resize', zIndex:11,
+            background: 'linear-gradient(225deg, transparent 50%, #333 50%)', borderRadius:'0 0 0 6px' }} />
+      </>}
     </div>
   )
 }
@@ -676,6 +716,19 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
   })
   type WK = keyof typeof customWidths
   const setWidth = (k: WK, v: number) => setCustomWidths(p => ({...p, [k]: v}))
+
+  // ── Colores y tamaños de relevamientos ──
+  const [customRelevColors, setCustomRelevColors] = useState({
+    Puente: '#2196F3', Alcantarilla: '#FF9800', Tubos: '#9C27B0', Lineal: '#4CAF50', Otro: '#607D8B',
+  })
+  type RCK = keyof typeof customRelevColors
+  const setRelevColor = (k: RCK, v: string) => setCustomRelevColors(p => ({...p, [k]: v}))
+
+  const [customRelevSizes, setCustomRelevSizes] = useState({
+    Puente: 18, Alcantarilla: 18, Tubos: 18, Lineal: 6, Otro: 18,
+  })
+  type RSK = keyof typeof customRelevSizes
+  const setRelevSize = (k: RSK, v: number) => setCustomRelevSizes(p => ({...p, [k]: v}))
 
   // ── Capas guardadas ──
   const [savedLayers, setSavedLayers] = useState<SavedLayer[]>([])
@@ -1333,40 +1386,45 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
         const groupKey = TIPO_TO_KEY[r.tipo] ?? 'relevOtro'
         const group = groupsRef.current[groupKey]
         if (!group) return
-        const color = TIPO_COLORS[r.tipo] || '#607D8B'
+        const color = (customRelevColors as Record<string,string>)[r.tipo] ?? TIPO_COLORS[r.tipo] ?? '#607D8B'
+        const sz    = (customRelevSizes  as Record<string,number>)[r.tipo]  ?? 18
         const popup = L.popup({ maxWidth: 300, className: 'dark-popup' }).setContent(relevPopupHtml(r))
 
         if (r.tipo === 'Lineal' && r.coords_linea?.length) {
           const positions = r.coords_linea.map(p => [p.lat, p.lng] as [number, number])
-          const visLine = L.polyline(positions, { color, weight: 6, opacity: 0.9, lineCap: 'round', lineJoin: 'round' }).addTo(group)
+          const lineW = sz
+          const visLine = L.polyline(positions, { color, weight: lineW, opacity: 0.9, lineCap: 'round', lineJoin: 'round' }).addTo(group)
           L.polyline(positions, { color: '#000', weight: 22, opacity: 0.001 })
             .bindPopup(popup)
             .on('click', () => {
-              visLine.setStyle({ color: '#F5C300', weight: 8 })
-              popup.on('remove', () => visLine.setStyle({ color, weight: 6 }))
+              visLine.setStyle({ color: '#F5C300', weight: lineW + 2 })
+              popup.on('remove', () => visLine.setStyle({ color, weight: lineW }))
             })
             .addTo(group)
           const [startLat, startLng] = positions[0]
+          const dot = Math.max(10, Math.round(lineW * 1.8))
           L.marker([startLat, startLng], { icon: L.divIcon({
             className: '',
-            html: `<div style="width:14px;height:14px;border-radius:50%;background:${color};border:1.5px solid #fff;box-shadow:0 2px 5px rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;font-size:6px;font-weight:800;color:#fff;letter-spacing:.2px">RIP</div>`,
-            iconSize: [14, 14], iconAnchor: [7, 7],
+            html: `<div style="width:${dot}px;height:${dot}px;border-radius:50%;background:${color};border:1.5px solid #fff;box-shadow:0 2px 5px rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;font-size:${Math.max(5, dot/3)}px;font-weight:800;color:#fff">RIP</div>`,
+            iconSize: [dot, dot], iconAnchor: [dot/2, dot/2],
           }) }).bindPopup(popup).addTo(group)
 
         } else if (r.coords_lat != null && r.coords_lng != null) {
           const label = TIPO_LABEL[r.tipo] || '?'
+          const h = sz + 3
           L.marker([r.coords_lat, r.coords_lng], { icon: L.divIcon({
             className: '',
-            html: `<div style="position:relative;width:18px;height:21px">
-              <div style="width:18px;height:18px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:${color};border:1.5px solid #fff;box-shadow:0 2px 5px rgba(0,0,0,.55);position:absolute;top:0;left:0"></div>
-              <div style="position:absolute;top:2px;left:0;width:18px;height:14px;display:flex;align-items:center;justify-content:center;font-size:6px;font-weight:800;color:#fff;letter-spacing:.2px;line-height:1">${label}</div>
+            html: `<div style="position:relative;width:${sz}px;height:${h}px">
+              <div style="width:${sz}px;height:${sz}px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:${color};border:1.5px solid #fff;box-shadow:0 2px 5px rgba(0,0,0,.55);position:absolute;top:0;left:0"></div>
+              <div style="position:absolute;top:2px;left:0;width:${sz}px;height:${sz-4}px;display:flex;align-items:center;justify-content:center;font-size:${Math.max(4,Math.round(sz/3))}px;font-weight:800;color:#fff;letter-spacing:.2px;line-height:1">${label}</div>
             </div>`,
-            iconSize: [18, 21], iconAnchor: [9, 21],
+            iconSize: [sz, h], iconAnchor: [sz/2, h],
           }) }).bindPopup(popup).addTo(group)
         }
       })
     })
-  }, [relevamientos, mapReady, activeZones])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [relevamientos, mapReady, activeZones, customRelevColors.Puente, customRelevColors.Alcantarilla, customRelevColors.Tubos, customRelevColors.Lineal, customRelevColors.Otro, customRelevSizes.Puente, customRelevSizes.Alcantarilla, customRelevSizes.Tubos, customRelevSizes.Lineal, customRelevSizes.Otro])
 
   // ── Toggle layer visibility ──
   useEffect(() => {
@@ -1654,7 +1712,12 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
       </div>
 
       {/* ── Panel derecho — tipos de relevamiento ── */}
-      <RightPanel layers={layers} toggle={toggle} relevamientos={relevamientos} activeZones={activeZones} onToggleZone={onToggleZone} />
+      <RightPanel
+        layers={layers} toggle={toggle} relevamientos={relevamientos}
+        activeZones={activeZones} onToggleZone={onToggleZone}
+        relevColors={customRelevColors} onRelevColorChange={(k, c) => setRelevColor(k as RCK, c)}
+        relevSizes={customRelevSizes}   onRelevSizeChange={(k, v) => setRelevSize(k as RSK, v)}
+      />
 
       {/* ── Panel de medición de distancia ── */}
       {measureActive && (
