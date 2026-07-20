@@ -254,6 +254,79 @@ async function exportSHP(sl: SavedLayer) {
   } catch(e) { console.error('SHP export:', e) }
 }
 
+// ── Paleta de colores ─────────────────────────────────────────────────────────
+
+const PALETTE = [
+  '#000000','#4d4d4d','#808080','#b3b3b3','#e0e0e0','#ffffff',
+  '#e74c3c','#e91e63','#ce93d8','#9b59b6','#3f51b5','#1565C0',
+  '#2196F3','#03a9f4','#00bcd4','#27ae60','#4caf50','#8bc34a',
+  '#cddc39','#F5C300','#ff9800','#e67e22','#ff5722','#c0392b',
+]
+
+function ColorDot({ color, onChange, shape = 'circle' }: { color: string; onChange: (c: string) => void; shape?: 'circle' | 'square' }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const handle = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handle)
+    return () => document.removeEventListener('mousedown', handle)
+  }, [open])
+
+  const dotStyle: React.CSSProperties = {
+    width: 10, height: 10, background: color, cursor: 'pointer', display: 'inline-block',
+    borderRadius: shape === 'circle' ? '50%' : 2,
+    border: open ? '1.5px solid #F5C300' : '1.5px solid transparent',
+    flexShrink: 0,
+  }
+
+  return (
+    <div ref={ref} style={{ position: 'relative', flexShrink: 0, display: 'inline-flex', alignItems: 'center' }}>
+      <span title="Cambiar color" style={dotStyle} onClick={e => { e.stopPropagation(); setOpen(v => !v) }} />
+      {open && (
+        <div style={{
+          position: 'absolute', top: 14, left: 0, zIndex: 9999,
+          background: '#111', border: '1px solid #333', borderRadius: 6,
+          padding: 6, display: 'grid', gridTemplateColumns: 'repeat(6, 16px)', gap: 4,
+          boxShadow: '0 4px 20px rgba(0,0,0,.9)',
+        }}
+          onClick={e => e.stopPropagation()}>
+          {PALETTE.map(c => (
+            <span key={c} title={c}
+              onClick={() => { onChange(c); setOpen(false) }}
+              style={{
+                width: 16, height: 16, borderRadius: '50%', background: c, cursor: 'pointer',
+                border: c === color ? '2px solid #F5C300' : '2px solid transparent',
+                boxSizing: 'border-box',
+              }}
+            />
+          ))}
+          <input type="color" value={color} onChange={e => onChange(e.target.value)}
+            title="Color personalizado"
+            style={{ gridColumn: '1 / -1', width: '100%', height: 18, cursor: 'pointer',
+              background: 'none', border: '1px solid #333', borderRadius: 3, marginTop: 2, padding: 0 }} />
+        </div>
+      )}
+    </div>
+  )
+}
+
+function WidthBtn({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 2, marginLeft: 'auto' }}
+      onClick={e => e.stopPropagation()}>
+      <button onMouseDown={e => { e.preventDefault(); e.stopPropagation(); onChange(Math.max(0.5, +(value - 0.5).toFixed(1))) }}
+        style={{ background: 'none', border: '1px solid #333', color: '#666', cursor: 'pointer', fontSize: 9, padding: '0 4px', lineHeight: '14px', borderRadius: 2, fontFamily: 'monospace' }}>−</button>
+      <span style={{ fontSize: 9, color: '#888', minWidth: 22, textAlign: 'center', fontFamily: 'monospace' }}>{value}</span>
+      <button onMouseDown={e => { e.preventDefault(); e.stopPropagation(); onChange(Math.min(10, +(value + 0.5).toFixed(1))) }}
+        style={{ background: 'none', border: '1px solid #333', color: '#666', cursor: 'pointer', fontSize: 9, padding: '0 4px', lineHeight: '14px', borderRadius: 2, fontFamily: 'monospace' }}>+</button>
+    </div>
+  )
+}
+
 interface Props {
   relevamientos: Relevamiento[]
   measureActive?: boolean; onMeasureChange?: (v: boolean) => void
@@ -289,12 +362,12 @@ function RightPanel({
   const [open, setOpen] = useState(true)
   const PANEL: React.CSSProperties = {
     position: 'absolute', top: 10, right: 10, zIndex: 1000,
-    background: '#1e2436', border: '1px solid #2a3450',
-    borderRadius: 8,
+    background: '#1A1A1A', border: '1px solid #222',
+    borderRadius: 6,
     overflowX: 'clip' as React.CSSProperties['overflowX'],
-    boxShadow: '0 4px 12px rgba(0,0,0,.5)',
-    fontFamily: 'system-ui, sans-serif',
-    width: open ? 210 : 36,
+    boxShadow: '0 4px 16px rgba(0,0,0,.7)',
+    fontFamily: 'monospace',
+    width: open ? 210 : 32,
     transition: 'width 0.2s',
     display: 'flex', flexDirection: 'column',
     maxHeight: 'calc(100vh - 40px)',
@@ -302,10 +375,10 @@ function RightPanel({
   const ITEM: React.CSSProperties = {
     display: 'flex', alignItems: 'center', gap: 6,
     marginBottom: 3, cursor: 'pointer', whiteSpace: 'nowrap',
-    fontSize: 12, color: '#e0e6f0', userSelect: 'none',
+    fontSize: 10, color: '#e0e0e0', userSelect: 'none', fontFamily: 'monospace',
   }
   const CB: React.CSSProperties = { accentColor: '#F5C300', cursor: 'pointer', flexShrink: 0 }
-  const SEC: React.CSSProperties = { fontSize: 9, color: '#7a8aaa', textTransform: 'uppercase', letterSpacing: 0.8, margin: '8px 0 4px', fontWeight: 600 }
+  const SEC: React.CSSProperties = { fontSize: 9, color: '#555', textTransform: 'uppercase', letterSpacing: 0.8, margin: '8px 0 4px', fontWeight: 600 }
 
   // Stats: contar por zona y tipo
   const stats: Record<string, Record<string, number>> = {}
@@ -322,9 +395,9 @@ function RightPanel({
 
   return (
     <div style={PANEL}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', borderBottom: '1px solid #2a3450', background: '#252d40', flexShrink: 0 }}>
-        {open && <span style={{ fontWeight: 700, fontSize: 11, color: '#e0e6f0' }}>Relevamientos</span>}
-        <button onClick={() => setOpen(v => !v)} style={{ background: 'none', border: 'none', color: '#7a8aaa', cursor: 'pointer', fontSize: 13, padding: 0, lineHeight: 1, marginLeft: open ? 0 : 'auto' }} title={open ? 'Colapsar' : 'Expandir'}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 10px', borderBottom: '1px solid #222', background: '#111', flexShrink: 0, height: 32 }}>
+        {open && <span style={{ fontWeight: 600, fontSize: 11, color: '#e0e0e0', letterSpacing: 0.3, fontFamily: 'monospace' }}>Relevamientos</span>}
+        <button onClick={() => setOpen(v => !v)} style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: 13, padding: 0, lineHeight: 1, marginLeft: open ? 0 : 'auto' }} title={open ? 'Colapsar' : 'Expandir'}>
           {open ? '⮞' : '⮜'}
         </button>
       </div>
@@ -460,9 +533,11 @@ interface ZoneRowProps {
   onToggleConsorcio: (num: number) => void
   color: string
   onColorChange: (c: string) => void
+  width: number
+  onWidthChange: (v: number) => void
 }
 
-function ZoneRow({ zona, consorcios, isExpanded, isLayerOn, activeSet, onToggleExpand, onToggleZone, onToggleConsorcio, color, onColorChange }: ZoneRowProps) {
+function ZoneRow({ zona, consorcios, isExpanded, isLayerOn, activeSet, onToggleExpand, onToggleZone, onToggleConsorcio, color, onColorChange, width, onWidthChange }: ZoneRowProps) {
   const checkboxRef = useRef<HTMLInputElement>(null)
   // Layer on + empty filter set = all visible (fully checked)
   // Layer on + non-empty filter set = some selected (indeterminate)
@@ -489,13 +564,9 @@ function ZoneRow({ zona, consorcios, isExpanded, isLayerOn, activeSet, onToggleE
             onChange={() => onToggleZone()}
             style={{ accentColor: color, cursor: 'pointer', flexShrink: 0 }}
           />
-          <span title="Cambiar color" onClick={e => e.stopPropagation()}
-            style={{ position: 'relative', cursor: 'pointer', flexShrink: 0, display: 'inline-flex', alignItems: 'center' }}>
-            <input type="color" value={color} onChange={e => onColorChange(e.target.value)}
-              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer', padding: 0, border: 'none' }} />
-            <span style={{ width: 8, height: 8, borderRadius: '50%', background: color, display: 'inline-block' }} />
-          </span>
+          <ColorDot color={color} onChange={onColorChange} />
           {zona}
+          <WidthBtn value={width} onChange={onWidthChange} />
         </label>
         {consorcios.length > 0 && (
           <button
@@ -570,6 +641,16 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
   type CK = keyof typeof customColors
   const setColor = (k: CK, v: string) => setCustomColors(p => ({...p, [k]: v}))
 
+  // ── Grosores editables de capas ──
+  const [customWidths, setCustomWidths] = useState({
+    rnNacional: 3.5,
+    rpPavimentada: 3, rpMejorada: 2.5, rpEnObra: 3, rpTierra: 2,
+    ccZI: 1.8, ccZII: 1.8, ccZIII: 1.8, ccZIV: 1.8, ccZV: 1.8,
+    dvp: 3,
+  })
+  type WK = keyof typeof customWidths
+  const setWidth = (k: WK, v: number) => setCustomWidths(p => ({...p, [k]: v}))
+
   // ── Capas guardadas ──
   const [savedLayers, setSavedLayers] = useState<SavedLayer[]>([])
   const sLayersRef = useRef<Map<string, import('leaflet').Layer[]>>(new Map())
@@ -606,7 +687,7 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
         if (!group || !cc[ccKey]) return
         group.clearLayers()
         L.geoJSON(cc[ccKey] as unknown as GeoJSON.FeatureCollection, {
-          style: { color: customColors.dvp, weight: 3, opacity: 0.85, dashArray: '10 4' },
+          style: { color: customColors.dvp, weight: customWidths.dvp, opacity: 0.85, dashArray: '10 4' },
           onEachFeature(feature, layer) {
             const p = feature.properties ?? {}
             const zona = key === 'dvpZIV' ? 'Zona IV' : 'Zona V'
@@ -617,7 +698,7 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
       })
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cc, mapReady, customColors.dvp])
+  }, [cc, mapReady, customColors.dvp, customWidths.dvp])
 
   // ── Basemap: cambiar entre OSM y Satélite ─────────────────────────────────
   useEffect(() => {
@@ -1085,10 +1166,10 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
     if (!rp || !mapRef.current) return
     import('leaflet').then(L => {
       const rpStyles: Record<string, import('leaflet').PathOptions> = {
-        rpTierra:      { color: customColors.rpTierra,      weight: 2,   opacity: 0.8 },
-        rpPavimentada: { color: customColors.rpPavimentada, weight: 3,   opacity: 0.9 },
-        rpMejorada:    { color: customColors.rpMejorada,    weight: 2.5, opacity: 0.9 },
-        rpEnObra:      { color: customColors.rpEnObra,      weight: 3,   opacity: 0.9, dashArray: '10 6' },
+        rpTierra:      { color: customColors.rpTierra,      weight: customWidths.rpTierra,      opacity: 0.8 },
+        rpPavimentada: { color: customColors.rpPavimentada, weight: customWidths.rpPavimentada, opacity: 0.9 },
+        rpMejorada:    { color: customColors.rpMejorada,    weight: customWidths.rpMejorada,    opacity: 0.9 },
+        rpEnObra:      { color: customColors.rpEnObra,      weight: customWidths.rpEnObra,      opacity: 0.9, dashArray: '10 6' },
       }
       Object.entries(rpStyles).forEach(([key, style]) => {
         const group = groupsRef.current[key as LayerKey]
@@ -1098,7 +1179,7 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
       })
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rp, customColors.rpTierra, customColors.rpPavimentada, customColors.rpMejorada, customColors.rpEnObra])
+  }, [rp, customColors.rpTierra, customColors.rpPavimentada, customColors.rpMejorada, customColors.rpEnObra, customWidths.rpTierra, customWidths.rpPavimentada, customWidths.rpMejorada, customWidths.rpEnObra])
 
   // ── Populate RN layer ──
   useEffect(() => {
@@ -1108,7 +1189,7 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
       if (!group) return
       group.clearLayers()
       const rnColor = customColors.rnNacional
-      const style: import('leaflet').PathOptions = { color: rnColor, weight: 3.5, opacity: 0.95 }
+      const style: import('leaflet').PathOptions = { color: rnColor, weight: customWidths.rnNacional, opacity: 0.95 }
       addInteractiveLayer(L, rn as unknown as GeoJSON.FeatureCollection, style, (p) => {
         const num  = p.Numero || p.numero || p.NUMERO || p.Nombre || p.nombre || ''
         const nom  = p.Nombre || p.nombre || ''
@@ -1129,7 +1210,7 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
       }, group)
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rn, customColors.rnNacional])
+  }, [rn, customColors.rnNacional, customWidths.rnNacional])
 
   // ── Populate CC layers ──
   useEffect(() => {
@@ -1141,8 +1222,10 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
         if (!group || !cc[zona]) return
         group.clearLayers()
         const c = (customColors as Record<string,string>)[`cc${zona}`] ?? CC_COLORS[zona]
+        const baseWeight = (customWidths as Record<string,number>)[`cc${zona}`] ?? 1.8
+        const ccScale = baseWeight / 1.8
         const fc = cc[zona] as GeoJSON.FeatureCollection
-        const baseStyle: import('leaflet').PathOptions = { color: c, weight: 1.8, opacity: 0.85 }
+        const baseStyle: import('leaflet').PathOptions = { color: c, weight: baseWeight, opacity: 0.85 }
         const featureToVisLayer = new Map<GeoJSON.Feature, import('leaflet').Path>()
         // Inicializar mapa de layers por CC número para esta zona
         ccLayersRef.current[zona] = new Map()
@@ -1151,7 +1234,7 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
         L.geoJSON(fc, {
           style(feature) {
             const j = (feature?.properties?.JERARQUIA || feature?.properties?.jerarquia || feature?.properties?.J || '') as string
-            return { ...baseStyle, weight: CC_WEIGHT[j] ?? 1.8 }
+            return { ...baseStyle, weight: (CC_WEIGHT[j] ?? 1.8) * ccScale }
           },
           onEachFeature(feature, layer) {
             const visLayer = layer as import('leaflet').Path
@@ -1167,7 +1250,7 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
             }
 
             const j = (p.JERARQUIA || p.jerarquia || p.J || '') as string
-            const featureW = CC_WEIGHT[j] ?? 1.8
+            const featureW = (CC_WEIGHT[j] ?? 1.8) * ccScale
             const featureStyle: import('leaflet').PathOptions = { ...baseStyle, weight: featureW }
             const popup = L.popup({ maxWidth: 280 }).setContent(ccPopupHtml(p, zona))
             visLayer.bindPopup(popup)
@@ -1200,7 +1283,7 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
       })
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cc, mapReady, customColors.ccZI, customColors.ccZII, customColors.ccZIII, customColors.ccZIV, customColors.ccZV])
+  }, [cc, mapReady, customColors.ccZI, customColors.ccZII, customColors.ccZIII, customColors.ccZIV, customColors.ccZV, customWidths.ccZI, customWidths.ccZII, customWidths.ccZIII, customWidths.ccZIV, customWidths.ccZV])
 
   // ── Populate relevamientos layers (sub-capa por tipo) ──
   useEffect(() => {
@@ -1363,10 +1446,10 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
   const ITEM_STYLE: React.CSSProperties = {
     display: 'flex', alignItems: 'center', gap: 6,
     marginBottom: 3, cursor: 'pointer', whiteSpace: 'nowrap',
-    fontSize: 12, color: '#e0e6f0', userSelect: 'none',
+    fontSize: 10, color: '#e0e0e0', userSelect: 'none', fontFamily: 'monospace',
   }
   const SECTION_TITLE_STYLE: React.CSSProperties = {
-    fontSize: 10, color: '#7a8aaa', textTransform: 'uppercase',
+    fontSize: 9, color: '#555', textTransform: 'uppercase',
     letterSpacing: 0.5, margin: '8px 0 4px', fontWeight: 600,
   }
   const DOT = (color: string) => (
@@ -1381,25 +1464,23 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
       {/* Panel de capas flotante */}
       <div style={{
         position: 'absolute', top: 10, left: 10, zIndex: 1000,
-        background: '#1e2436', border: '1px solid #2a3450',
-        borderRadius: 8,
-        // overflowX:clip recorta solo el eje horizontal (para la animación de colapso)
-        // sin bloquear el scroll vertical del hijo
+        background: '#1A1A1A', border: '1px solid #222',
+        borderRadius: 6,
         overflowX: 'clip' as React.CSSProperties['overflowX'],
-        boxShadow: '0 4px 12px rgba(0,0,0,.5)',
-        fontFamily: 'system-ui, sans-serif',
-        width: panelOpen ? 178 : 36,
+        boxShadow: '0 4px 16px rgba(0,0,0,.7)',
+        fontFamily: 'monospace',
+        width: panelOpen ? 178 : 32,
         transition: 'width 0.2s',
         maxHeight: 'calc(100% - 20px)',
         display: 'flex', flexDirection: 'column',
       }}>
 
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', borderBottom: '1px solid #2a3450', background: '#252d40', flexShrink: 0 }}>
-          {panelOpen && <span style={{ fontWeight: 700, fontSize: 11, color: '#e0e6f0' }}>Capas</span>}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 10px', borderBottom: '1px solid #222', background: '#111', flexShrink: 0, height: 32 }}>
+          {panelOpen && <span style={{ fontWeight: 600, fontSize: 11, color: '#e0e0e0', letterSpacing: 0.3, fontFamily: 'monospace' }}>Capas</span>}
           <button
             onClick={() => setPanelOpen(v => !v)}
-            style={{ background: 'none', border: 'none', color: '#7a8aaa', cursor: 'pointer', fontSize: 13, padding: 0, lineHeight: 1, marginLeft: panelOpen ? 0 : 'auto' }}
+            style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: 13, padding: 0, lineHeight: 1, marginLeft: panelOpen ? 0 : 'auto' }}
             title={panelOpen ? 'Colapsar' : 'Expandir'}
           >
             {panelOpen ? '⮜' : '⮞'}
@@ -1434,21 +1515,14 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
               ['rpMejorada',    'RP Mejorada'],
               ['rpEnObra',      'RP En Obra'],
               ['rpTierra',      'RP Tierra'],
-            ] as [LayerKey, string][]).map(([k, label]) => {
-              const c = customColors[k as CK]
-              return (
-                <label key={k} style={ITEM_STYLE}>
-                  <input type="checkbox" checked={!!layers[k]} onChange={() => toggle(k)} style={CHECKBOX_STYLE} />
-                  <span title="Cambiar color" onClick={e => e.stopPropagation()}
-                    style={{ position: 'relative', cursor: 'pointer', flexShrink: 0, display: 'inline-flex', alignItems: 'center' }}>
-                    <input type="color" value={c} onChange={e => setColor(k as CK, e.target.value)}
-                      style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer', padding: 0, border: 'none' }} />
-                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: c, display: 'inline-block' }} />
-                  </span>
-                  {label}
-                </label>
-              )
-            })}
+            ] as [LayerKey, string][]).map(([k, label]) => (
+              <label key={k} style={ITEM_STYLE}>
+                <input type="checkbox" checked={!!layers[k]} onChange={() => toggle(k)} style={CHECKBOX_STYLE} />
+                <ColorDot color={customColors[k as CK]} onChange={c => setColor(k as CK, c)} />
+                {label}
+                <WidthBtn value={customWidths[k as WK]} onChange={v => setWidth(k as WK, v)} />
+              </label>
+            ))}
 
             {/* RED CC */}
             <div style={SECTION_TITLE_STYLE}>Red CC</div>
@@ -1465,6 +1539,8 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
                 onToggleConsorcio={(num) => toggleConsorcio(z, num)}
                 color={customColors[`cc${z}` as CK]}
                 onColorChange={(c) => setColor(`cc${z}` as CK, c)}
+                width={customWidths[`cc${z}` as WK]}
+                onWidthChange={(v) => setWidth(`cc${z}` as WK, v)}
               />
             ))}
 
@@ -1497,13 +1573,9 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
             {(['dvpZIV', 'dvpZV'] as const).map((k, i) => (
               <label key={k} style={ITEM_STYLE}>
                 <input type="checkbox" checked={!!layers[k]} onChange={() => toggle(k)} style={CHECKBOX_STYLE} />
-                <span title="Cambiar color" onClick={e => e.stopPropagation()}
-                  style={{ position: 'relative', cursor: 'pointer', flexShrink: 0, display: 'inline-flex', alignItems: 'center' }}>
-                  <input type="color" value={customColors.dvp} onChange={e => setColor('dvp', e.target.value)}
-                    style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer', padding: 0, border: 'none' }} />
-                  <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: customColors.dvp }} />
-                </span>
+                <ColorDot color={customColors.dvp} onChange={c => setColor('dvp', c)} shape="square" />
                 {i === 0 ? 'Zona IV' : 'Zona V'}
+                {i === 0 && <WidthBtn value={customWidths.dvp} onChange={v => setWidth('dvp', v)} />}
               </label>
             ))}
 
@@ -1518,13 +1590,8 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
                       <input type="checkbox" checked={sl.visible}
                         onChange={() => setSavedLayers(prev => prev.map(l => l.id===sl.id ? {...l,visible:!l.visible} : l))}
                         style={{ accentColor: sl.color, cursor:'pointer', flexShrink:0 }} />
-                      <span title="Cambiar color" onClick={e => e.stopPropagation()}
-                        style={{ position:'relative', cursor:'pointer', flexShrink:0, display:'inline-flex', alignItems:'center' }}>
-                        <input type="color" value={sl.color}
-                          onChange={e => setSavedLayers(prev => prev.map(l => l.id===sl.id ? {...l,color:e.target.value} : l))}
-                          style={{ position:'absolute', inset:0, width:'100%', height:'100%', opacity:0, cursor:'pointer', padding:0, border:'none' }} />
-                        <span style={{ width:8, height:8, borderRadius:'50%', background:sl.color, display:'inline-block' }} />
-                      </span>
+                      <ColorDot color={sl.color}
+                        onChange={c => setSavedLayers(prev => prev.map(l => l.id===sl.id ? {...l,color:c} : l))} />
                       <span style={{ flex:1, fontSize:11, color: sl.visible ? '#e0e6f0' : '#5a6a80', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }} title={sl.name}>{sl.name}</span>
                       <button onClick={e => { e.preventDefault(); exportKML(sl) }} title="Exportar KML"
                         style={{ background:'none', border:'none', cursor:'pointer', fontSize:10, color:'#27ae60', padding:'0 2px', lineHeight:1, flexShrink:0 }}>KML</button>
