@@ -190,6 +190,70 @@ const DEFAULT_LAYERS: LayerState = {
   relevPuente: true, relevAlcantarilla: true, relevTubos: true, relevLineal: true, relevOtro: true,
 }
 
+// ── Capas guardadas ──────────────────────────────────────────────────────────
+interface SavedLayer {
+  id: string; name: string; color: string; visible: boolean
+  type: 'line' | 'polygon' | 'circle'
+  pts: {lat:number;lng:number}[]
+  center?: {lat:number;lng:number}; radiusM?: number
+  lengthM?: number; areaM2?: number
+}
+
+const LAYER_COLORS = ['#2ecc71','#3498db','#e74c3c','#f39c12','#9b59b6','#1abc9c','#e67e22','#e91e63']
+
+function circleToPolygonPts(center:{lat:number;lng:number}, r:number, n=64): {lat:number;lng:number}[] {
+  const mPerLat = 111320, mPerLng = 111320 * Math.cos(center.lat * Math.PI / 180)
+  return Array.from({length: n+1}, (_, i) => {
+    const a = (i / n) * 2 * Math.PI
+    return { lat: center.lat + (r * Math.sin(a)) / mPerLat, lng: center.lng + (r * Math.cos(a)) / mPerLng }
+  })
+}
+
+function downloadFile(content: string | Blob | ArrayBuffer, filename: string, mime: string) {
+  const blob = content instanceof Blob ? content : new Blob([content], { type: mime })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a'); a.href = url; a.download = filename; a.click()
+  URL.revokeObjectURL(url)
+}
+
+function exportKML(sl: SavedLayer) {
+  const coords = (pts: {lat:number;lng:number}[]) => pts.map(p => `${p.lng},${p.lat},0`).join('\n')
+  let geom: string
+  if (sl.type === 'line') {
+    geom = `<LineString><tessellate>1</tessellate><coordinates>${coords(sl.pts)}</coordinates></LineString>`
+  } else if (sl.type === 'polygon') {
+    geom = `<Polygon><outerBoundaryIs><LinearRing><coordinates>${coords([...sl.pts, sl.pts[0]])}</coordinates></LinearRing></outerBoundaryIs></Polygon>`
+  } else {
+    const ring = circleToPolygonPts(sl.center!, sl.radiusM!)
+    geom = `<Polygon><outerBoundaryIs><LinearRing><coordinates>${coords(ring)}</coordinates></LinearRing></outerBoundaryIs></Polygon>`
+  }
+  const kml = `<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>${sl.name}</name><Placemark><name>${sl.name}</name>${geom}</Placemark></Document></kml>`
+  downloadFile(kml, `${sl.name}.kml`, 'application/vnd.google-earth.kml+xml')
+}
+
+async function exportSHP(sl: SavedLayer) {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const shpwrite = require('@mapbox/shp-write')
+  const toCoords = (pts: {lat:number;lng:number}[]) => pts.map(p => [p.lng, p.lat] as [number,number])
+  let fc: {type:'FeatureCollection'; features: unknown[]}
+  const props: Record<string,unknown> = { name: sl.name }
+  if (sl.type === 'line') {
+    props.long_m = Math.round(sl.lengthM ?? 0)
+    fc = { type:'FeatureCollection', features:[{ type:'Feature', properties:props, geometry:{ type:'LineString', coordinates:toCoords(sl.pts) } }] }
+  } else if (sl.type === 'polygon') {
+    props.area_m2 = Math.round(sl.areaM2 ?? 0); props.area_ha = +((sl.areaM2??0)/10000).toFixed(4)
+    fc = { type:'FeatureCollection', features:[{ type:'Feature', properties:props, geometry:{ type:'Polygon', coordinates:[toCoords([...sl.pts, sl.pts[0]])] } }] }
+  } else {
+    const ring = circleToPolygonPts(sl.center!, sl.radiusM!)
+    props.radio_m = Math.round(sl.radiusM ?? 0); props.area_m2 = Math.round(sl.areaM2 ?? 0)
+    fc = { type:'FeatureCollection', features:[{ type:'Feature', properties:props, geometry:{ type:'Polygon', coordinates:[toCoords(ring)] } }] }
+  }
+  try {
+    const zip = await shpwrite.zip(fc, { outputType:'blob', compression:'DEFLATE' })
+    downloadFile(zip, `${sl.name}.zip`, 'application/zip')
+  } catch(e) { console.error('SHP export:', e) }
+}
+
 interface Props {
   relevamientos: Relevamiento[]
   measureActive?: boolean; onMeasureChange?: (v: boolean) => void
@@ -490,6 +554,12 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
   const mLayersRef  = useRef<import('leaflet').Layer[]>([])
   const mClickRef   = useRef<((e: import('leaflet').LeafletMouseEvent) => void) | null>(null)
 
+  // ── Capas guardadas ──
+  const [savedLayers, setSavedLayers] = useState<SavedLayer[]>([])
+  const sLayersRef = useRef<Map<string, import('leaflet').Layer[]>>(new Map())
+  const [savingAs, setSavingAs] = useState<'line'|'area'|'circle'|null>(null)
+  const [saveName, setSaveName] = useState('')
+
   // ── Herramienta: Medir área (controlada por prop areaActive) ──
   const [areaPts, setAreaPts]     = useState<{lat:number;lng:number}[]>([])
   const aLayersRef  = useRef<import('leaflet').Layer[]>([])
@@ -699,6 +769,49 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
       cLayersRef.current = newLayers
     })
   }, [circlePts, mapReady])
+
+  // ── Render saved layers ───────────────────────────────────────────────────
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !mapReady) return
+    import('leaflet').then(L => {
+      // remove all previous
+      sLayersRef.current.forEach(layers => layers.forEach(l => map.removeLayer(l)))
+      sLayersRef.current.clear()
+      savedLayers.forEach(sl => {
+        if (!sl.visible) return
+        const lls: import('leaflet').Layer[] = []
+        const popHtml = `<div class="poi-popup"><div class="poi-name">${sl.name}</div><div class="poi-type">${
+          sl.type === 'line' ? `Línea · ${fmtDist(sl.lengthM ?? 0)}`
+          : sl.type === 'polygon' ? `Polígono · ${fmtArea(sl.areaM2 ?? 0)}`
+          : `Círculo · r=${fmtRadius(sl.radiusM ?? 0)} · ${fmtArea(sl.areaM2 ?? 0)}`
+        }</div></div>`
+        if (sl.type === 'line') {
+          lls.push(L.polyline(sl.pts.map(p=>[p.lat,p.lng] as [number,number]),{color:sl.color,weight:3,opacity:.9}).bindPopup(popHtml).addTo(map))
+        } else if (sl.type === 'polygon') {
+          lls.push(L.polygon(sl.pts.map(p=>[p.lat,p.lng] as [number,number]),{color:sl.color,weight:2,fillColor:sl.color,fillOpacity:.15}).bindPopup(popHtml).addTo(map))
+        } else if (sl.center && sl.radiusM) {
+          lls.push(L.circle([sl.center.lat,sl.center.lng],{radius:sl.radiusM,color:sl.color,weight:2,fillColor:sl.color,fillOpacity:.12}).bindPopup(popHtml).addTo(map))
+        }
+        sLayersRef.current.set(sl.id, lls)
+      })
+    })
+  }, [savedLayers, mapReady])
+
+  // ── Guardar medición como capa ────────────────────────────────────────────
+  function confirmSave() {
+    const name = saveName.trim() || `Capa ${savedLayers.length + 1}`
+    const color = LAYER_COLORS[savedLayers.length % LAYER_COLORS.length]
+    if (savingAs === 'line' && measurePts.length >= 2) {
+      setSavedLayers(prev => [...prev, { id: Date.now().toString(), name, type:'line', pts:[...measurePts], lengthM: totalDist(measurePts), color, visible:true }])
+    } else if (savingAs === 'area' && areaPts.length >= 3) {
+      setSavedLayers(prev => [...prev, { id: Date.now().toString(), name, type:'polygon', pts:[...areaPts], areaM2: polygonAreaM2(areaPts), color, visible:true }])
+    } else if (savingAs === 'circle' && circlePts.length >= 2) {
+      const c = circlePts[0], r = haversine(c, circlePts[1])
+      setSavedLayers(prev => [...prev, { id: Date.now().toString(), name, type:'circle', pts: circleToPolygonPts(c, r), center:c, radiusM:r, areaM2: circleAreaM2(r), color, visible:true }])
+    }
+    setSavingAs(null); setSaveName('')
+  }
 
   // ── Load GeoJSON data ──
   useEffect(() => {
@@ -1365,6 +1478,35 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
             </label>
 
 
+            {/* CAPAS GUARDADAS */}
+            {savedLayers.length > 0 && (
+              <>
+                <div style={SECTION_TITLE_STYLE}>Capas guardadas</div>
+                {savedLayers.map(sl => (
+                  <div key={sl.id} style={{ marginBottom: 4 }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:4 }}>
+                      <span style={{ width:8, height:8, borderRadius:'50%', background:sl.color, display:'inline-block', flexShrink:0 }} />
+                      <span style={{ flex:1, fontSize:11, color:'#e0e6f0', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }} title={sl.name}>{sl.name}</span>
+                      <button onClick={() => setSavedLayers(prev => prev.map(l => l.id===sl.id ? {...l,visible:!l.visible} : l))}
+                        title={sl.visible?'Ocultar':'Mostrar'}
+                        style={{ background:'none', border:'none', cursor:'pointer', fontSize:12, color: sl.visible ? '#7a8aaa' : '#3a4060', padding:'0 1px', lineHeight:1 }}>
+                        {sl.visible ? '👁' : '🙈'}
+                      </button>
+                      <button onClick={() => exportKML(sl)} title="Exportar KML"
+                        style={{ background:'none', border:'none', cursor:'pointer', fontSize:11, color:'#27ae60', padding:'0 1px', lineHeight:1 }}>KML</button>
+                      <button onClick={() => exportSHP(sl)} title="Exportar SHP"
+                        style={{ background:'none', border:'none', cursor:'pointer', fontSize:11, color:'#2980b9', padding:'0 1px', lineHeight:1 }}>SHP</button>
+                      <button onClick={() => setSavedLayers(prev => prev.filter(l => l.id !== sl.id))} title="Eliminar"
+                        style={{ background:'none', border:'none', cursor:'pointer', fontSize:11, color:'#c0392b', padding:'0 1px', lineHeight:1 }}>✕</button>
+                    </div>
+                    <div style={{ fontSize:9, color:'#4a5a70', paddingLeft:12, marginTop:1 }}>
+                      {sl.type==='line' ? `Línea · ${fmtDist(sl.lengthM??0)}` : sl.type==='polygon' ? `Polígono · ${fmtArea(sl.areaM2??0)}` : `Círculo · r=${fmtRadius(sl.radiusM??0)}`}
+                    </div>
+                  </div>
+                ))}
+              </>
+            )}
+
           </div>
         )}
       </div>
@@ -1399,6 +1541,20 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
             <button onClick={() => onMeasureChange?.(false)}
               style={{ flex: 1, background: 'rgba(231,76,60,.15)', border: '1px solid rgba(231,76,60,.4)', color: '#e74c3c', borderRadius: 8, padding: '8px 4px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>✗ Cerrar</button>
           </div>
+          <button onClick={() => { setSavingAs('line'); setSaveName(`Línea ${savedLayers.filter(l=>l.type==='line').length+1}`) }}
+            disabled={measurePts.length < 2}
+            style={{ width:'100%', marginTop:8, background:'rgba(245,195,0,.12)', border:'1px solid rgba(245,195,0,.4)', color:'#F5C300', borderRadius:8, padding:'7px 4px', fontSize:12, fontWeight:600, cursor:'pointer', opacity:measurePts.length<2?0.4:1 }}>
+            💾 Guardar como capa
+          </button>
+          {savingAs === 'line' && (
+            <div style={{ display:'flex', gap:6, marginTop:6 }}>
+              <input value={saveName} onChange={e=>setSaveName(e.target.value)} onKeyDown={e=>e.key==='Enter'&&confirmSave()}
+                placeholder="Nombre de la capa..." autoFocus
+                style={{ flex:1, background:'#141a2a', border:'1px solid #F5C300', borderRadius:6, padding:'6px 8px', color:'#e0e6f0', fontSize:12, outline:'none' }} />
+              <button onClick={confirmSave} style={{ background:'rgba(245,195,0,.2)', border:'1px solid #F5C300', color:'#F5C300', borderRadius:6, padding:'6px 10px', cursor:'pointer', fontWeight:700 }}>✓</button>
+              <button onClick={()=>setSavingAs(null)} style={{ background:'#252d40', border:'1px solid #3a4060', color:'#aaa', borderRadius:6, padding:'6px 8px', cursor:'pointer' }}>✗</button>
+            </div>
+          )}
         </div>
       )}
 
@@ -1446,6 +1602,20 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
             <button onClick={() => onAreaChange?.(false)}
               style={{ flex: 1, background: 'rgba(231,76,60,.15)', border: '1px solid rgba(231,76,60,.4)', color: '#e74c3c', borderRadius: 8, padding: '8px 4px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>✗ Cerrar</button>
           </div>
+          <button onClick={() => { setSavingAs('area'); setSaveName(`Área ${savedLayers.filter(l=>l.type==='polygon').length+1}`) }}
+            disabled={areaPts.length < 3}
+            style={{ width:'100%', marginTop:8, background:'rgba(156,39,176,.15)', border:'1px solid rgba(156,39,176,.5)', color:'#ce93d8', borderRadius:8, padding:'7px 4px', fontSize:12, fontWeight:600, cursor:'pointer', opacity:areaPts.length<3?0.4:1 }}>
+            💾 Guardar como capa
+          </button>
+          {savingAs === 'area' && (
+            <div style={{ display:'flex', gap:6, marginTop:6 }}>
+              <input value={saveName} onChange={e=>setSaveName(e.target.value)} onKeyDown={e=>e.key==='Enter'&&confirmSave()}
+                placeholder="Nombre de la capa..." autoFocus
+                style={{ flex:1, background:'#141a2a', border:'1px solid #9C27B0', borderRadius:6, padding:'6px 8px', color:'#e0e6f0', fontSize:12, outline:'none' }} />
+              <button onClick={confirmSave} style={{ background:'rgba(156,39,176,.2)', border:'1px solid #9C27B0', color:'#ce93d8', borderRadius:6, padding:'6px 10px', cursor:'pointer', fontWeight:700 }}>✓</button>
+              <button onClick={()=>setSavingAs(null)} style={{ background:'#252d40', border:'1px solid #3a4060', color:'#aaa', borderRadius:6, padding:'6px 8px', cursor:'pointer' }}>✗</button>
+            </div>
+          )}
         </div>
       )}
 
@@ -1490,6 +1660,20 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
             <button onClick={() => onCircleChange?.(false)}
               style={{ flex: 1, background: 'rgba(231,76,60,.15)', border: '1px solid rgba(231,76,60,.4)', color: '#e74c3c', borderRadius: 8, padding: '8px 4px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>✗ Cerrar</button>
           </div>
+          <button onClick={() => { setSavingAs('circle'); setSaveName(`Círculo ${savedLayers.filter(l=>l.type==='circle').length+1}`) }}
+            disabled={circlePts.length < 2}
+            style={{ width:'100%', marginTop:8, background:'rgba(230,126,34,.15)', border:'1px solid rgba(230,126,34,.5)', color:'#f0a060', borderRadius:8, padding:'7px 4px', fontSize:12, fontWeight:600, cursor:'pointer', opacity:circlePts.length<2?0.4:1 }}>
+            💾 Guardar como capa
+          </button>
+          {savingAs === 'circle' && (
+            <div style={{ display:'flex', gap:6, marginTop:6 }}>
+              <input value={saveName} onChange={e=>setSaveName(e.target.value)} onKeyDown={e=>e.key==='Enter'&&confirmSave()}
+                placeholder="Nombre de la capa..." autoFocus
+                style={{ flex:1, background:'#141a2a', border:'1px solid #e67e22', borderRadius:6, padding:'6px 8px', color:'#e0e6f0', fontSize:12, outline:'none' }} />
+              <button onClick={confirmSave} style={{ background:'rgba(230,126,34,.2)', border:'1px solid #e67e22', color:'#f0a060', borderRadius:6, padding:'6px 10px', cursor:'pointer', fontWeight:700 }}>✓</button>
+              <button onClick={()=>setSavingAs(null)} style={{ background:'#252d40', border:'1px solid #3a4060', color:'#aaa', borderRadius:6, padding:'6px 8px', cursor:'pointer' }}>✗</button>
+            </div>
+          )}
         </div>
       )}
     </div>
