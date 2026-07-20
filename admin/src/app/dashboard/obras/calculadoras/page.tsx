@@ -58,13 +58,45 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   return <div style={{ fontSize: 13, color: '#666', fontFamily: 'monospace', marginBottom: 6 }}>{children}</div>
 }
 
-// Bloque de detalle de cálculo: fórmula + sustitución + resultado
-function Step({ formula, sub, result }: { formula: string; sub: string; result: string }) {
+// Pipeline de pasos — se renderiza DEBAJO del SVG en el panel central
+function Pipeline({ steps, color }: {
+  steps: { label: string; formula: string; sub: string; result: string; accent?: boolean }[]
+  color: string
+}) {
   return (
-    <div style={{ marginBottom: 10, paddingBottom: 10, borderBottom: '1px solid #0d0d0d' }}>
-      <div style={{ fontSize: 11, color: '#333', fontFamily: 'monospace', letterSpacing: 0.3 }}>{formula}</div>
-      <div style={{ fontSize: 11, color: '#3a3a3a', fontFamily: 'monospace', marginTop: 2 }}>{sub}</div>
-      <div style={{ fontSize: 13, color: '#888', fontFamily: 'monospace', fontWeight: 600, marginTop: 2 }}>= {result}</div>
+    <div style={{ borderTop: '1px solid #1a1a1a', paddingTop: 12, marginTop: 8 }}>
+      <div style={{ fontSize: 9, color: '#333', textTransform: 'uppercase', letterSpacing: 1.2, fontFamily: 'monospace', marginBottom: 8 }}>
+        Procedimiento de cálculo
+      </div>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        {steps.map((s, i) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'stretch', gap: 6 }}>
+            {/* Tarjeta */}
+            <div style={{
+              background: s.accent ? `${color}14` : '#080808',
+              border: `1px solid ${s.accent ? color + '44' : '#1a1a1a'}`,
+              borderRadius: 4, padding: '8px 10px', minWidth: 110,
+            }}>
+              <div style={{ fontSize: 9, color: '#444', fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 4 }}>
+                {s.label}
+              </div>
+              <div style={{ fontSize: 10, color: '#2a2a2a', fontFamily: 'monospace', lineHeight: 1.4 }}>
+                {s.formula}
+              </div>
+              <div style={{ fontSize: 10, color: '#383838', fontFamily: 'monospace', marginTop: 3, lineHeight: 1.4 }}>
+                = {s.sub}
+              </div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: s.accent ? color : '#666', fontFamily: 'monospace', marginTop: 4 }}>
+                {s.result}
+              </div>
+            </div>
+            {/* Flecha entre pasos */}
+            {i < steps.length - 1 && (
+              <div style={{ display: 'flex', alignItems: 'center', color: '#222', fontSize: 14, paddingTop: 14 }}>→</div>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
@@ -134,71 +166,46 @@ function CalcTerraplen() {
         </div>
       </div>
 
-      {/* SVG */}
+      {/* SVG + Pipeline */}
       <div style={{ ...panel, display: 'flex', flexDirection: 'column' }}>
         <SectionTitle>Sección tipo — Terraplén (escala proporcional)</SectionTitle>
-        <svg viewBox={`0 0 ${W_SVG} ${H_SVG}`} style={{ width: '100%', height: 'auto', flex: 1 }}>
+        <svg viewBox={`0 0 ${W_SVG} ${H_SVG}`} style={{ width: '100%', height: 'auto' }}>
           {HATCH(GY, W_SVG)}
           <line x1={0} y1={GY} x2={W_SVG} y2={GY} stroke="#2a2a2a" strokeWidth={1} />
           <polygon points={pts} fill={`${color}18`} stroke={color} strokeWidth={2} strokeLinejoin="round" />
-          {/* Bc label */}
           <DimLine x1={cx - dBc/2} y1={GY - dH - 14} x2={cx + dBc/2} y2={GY - dH - 14}
             label={`Bc = ${Bc.toFixed(1)} m`} textX={cx} textY={GY - dH - 18} />
-          {/* Bb label */}
           <DimLine x1={cx - dBb/2} y1={GY + 16} x2={cx + dBb/2} y2={GY + 16}
             label={`Bb = ${Bb.toFixed(2)} m`} textX={cx} textY={GY + 26} />
-          {/* H label */}
           <DimLine x1={cx - dBb/2 - 16} y1={GY} x2={cx - dBb/2 - 16} y2={GY - dH}
             label={`H=${H.toFixed(1)}m`} textX={cx - dBb/2 - 30} textY={(GY + GY - dH)/2}
             rotate={`rotate(-90,${cx - dBb/2 - 30},${(GY + GY - dH)/2})`} />
-          {/* Slope label */}
           <text x={cx - dBb/2 + dBb*0.13} y={GY - dH*0.45} fontSize={9} fill="#555" fontFamily="monospace">{m}:1</text>
           <text x={cx + dBb/2 - dBb*0.13} y={GY - dH*0.45} fontSize={9} fill="#555" fontFamily="monospace" textAnchor="end">{m}:1</text>
-          {/* Area label center */}
           <text x={cx} y={(GY + GY - dH)/2 + 4} textAnchor="middle" fontSize={12}
             fill={color} fontFamily="monospace" fontWeight="bold">A = {A.toFixed(2)} m²</text>
         </svg>
+        <Pipeline color={color} steps={[
+          { label: 'Ancho base',      formula: 'Bb = Bc + 2·H·m',       sub: `${Bc} + 2·${H}·${m}`,                     result: `${Bb.toFixed(3)} m` },
+          { label: 'Sección',         formula: 'A = (Bc+Bb)/2 · H',     sub: `(${Bc}+${Bb.toFixed(2)})/2 · ${H}`,       result: `${A.toFixed(3)} m²` },
+          { label: 'Vol. compactado', formula: 'V = A · L',              sub: `${A.toFixed(3)} · ${L}`,                  result: `${fmt(Vneto)} m³` },
+          { label: 'Material banco',  formula: 'Vb = V / (Fc/100)',      sub: `${fmt(Vneto)} / ${(Fc/100).toFixed(2)}`,  result: `${fmt(Vbanco)} m³` },
+          { label: 'Vol. esponjado',  formula: 'Ve = Vb · (1+Fe/100)',   sub: `${fmt(Vbanco)} · ${(1+Fe/100).toFixed(2)}`, result: `${fmt(Vesp)} m³` },
+          { label: 'Peso total',      formula: 'W = Vb · ρ',             sub: `${fmt(Vbanco)} · ${rho}`,                 result: `${fmt(W)} t`, accent: true },
+        ]} />
       </div>
 
       {/* Resultados */}
-      <div style={{ ...panel, overflow: 'auto' }}>
+      <div style={panel}>
         <SectionTitle>Cómputo</SectionTitle>
-        <Res label="Sección"             value={A.toFixed(3)}         unit="m²" />
-        <Res label="Volumen compactado"  value={fmt(Vneto)}           unit="m³" />
-        <Res label="Material en banco"   value={fmt(Vbanco)}          unit="m³" />
-        <Res label="Volumen esponjado"   value={fmt(Vesp)}            unit="m³ (camión)" />
-        <Res label="Peso total"          value={fmt(W)}               unit="t" accent />
+        <Res label="Sección"             value={A.toFixed(3)}  unit="m²" />
+        <Res label="Volumen compactado"  value={fmt(Vneto)}    unit="m³" />
+        <Res label="Material en banco"   value={fmt(Vbanco)}   unit="m³" />
+        <Res label="Volumen esponjado"   value={fmt(Vesp)}     unit="m³" />
+        <Res label="Peso total"          value={fmt(W)}        unit="t" accent />
         <div style={{ marginTop: 8, fontSize: 11, color: '#333', fontFamily: 'monospace', lineHeight: 1.8 }}>
           Camiones 15t: ~{Math.ceil(W/15).toLocaleString('es-AR')}<br/>
           Camiones 20t: ~{Math.ceil(W/20).toLocaleString('es-AR')}
-        </div>
-        {/* Detalle del cálculo */}
-        <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid #1a1a1a' }}>
-          <div style={{ fontSize: 10, color: '#333', textTransform: 'uppercase', letterSpacing: 1, fontFamily: 'monospace', marginBottom: 10 }}>Detalle</div>
-          <Step
-            formula="Bb = Bc + 2 × H × m"
-            sub={`${Bc} + 2 × ${H} × ${m}`}
-            result={`${Bb.toFixed(3)} m`} />
-          <Step
-            formula="A = (Bc + Bb) / 2 × H"
-            sub={`(${Bc} + ${Bb.toFixed(3)}) / 2 × ${H}`}
-            result={`${A.toFixed(3)} m²`} />
-          <Step
-            formula="V_neto = A × L"
-            sub={`${A.toFixed(3)} × ${L}`}
-            result={`${fmt(Vneto)} m³`} />
-          <Step
-            formula="V_banco = V_neto / (Fc/100)"
-            sub={`${fmt(Vneto)} / ${(Fc/100).toFixed(2)}`}
-            result={`${fmt(Vbanco)} m³`} />
-          <Step
-            formula="V_esp = V_banco × (1 + Fe/100)"
-            sub={`${fmt(Vbanco)} × ${(1 + Fe/100).toFixed(2)}`}
-            result={`${fmt(Vesp)} m³`} />
-          <Step
-            formula="W = V_banco × ρ"
-            sub={`${fmt(Vbanco)} × ${rho}`}
-            result={`${fmt(W)} t`} />
         </div>
       </div>
     </div>
@@ -247,68 +254,44 @@ function CalcExcavacion() {
 
       <div style={{ ...panel, display: 'flex', flexDirection: 'column' }}>
         <SectionTitle>Sección tipo — Excavación / Corte (escala proporcional)</SectionTitle>
-        <svg viewBox={`0 0 ${W_SVG} ${H_SVG}`} style={{ width: '100%', height: 'auto', flex: 1 }}>
-          {/* Ground surface */}
+        <svg viewBox={`0 0 ${W_SVG} ${H_SVG}`} style={{ width: '100%', height: 'auto' }}>
           <line x1={0} y1={GY} x2={W_SVG} y2={GY} stroke="#2a2a2a" strokeWidth={1} />
-          {/* Hatch on sides */}
           {Array.from({ length: 5 }, (_, i) => (
             <line key={i} x1={0} y1={GY + i * 9} x2={cx - dBb/2 - 2} y2={GY + i * 9} stroke="#1a1a1a" strokeWidth={1} />
           ))}
           {Array.from({ length: 5 }, (_, i) => (
             <line key={i} x1={cx + dBb/2 + 2} y1={GY + i * 9} x2={W_SVG} y2={GY + i * 9} stroke="#1a1a1a" strokeWidth={1} />
           ))}
-          {/* Cut polygon */}
           <polygon points={pts} fill={`${color}18`} stroke={color} strokeWidth={2} strokeLinejoin="round" />
-          {/* Bb label */}
           <DimLine x1={cx - dBb/2} y1={GY - 16} x2={cx + dBb/2} y2={GY - 16}
             label={`Boca = ${Bb.toFixed(2)} m`} textX={cx} textY={GY - 20} />
-          {/* Bf label */}
           <DimLine x1={cx - dBf/2} y1={GY + dH + 16} x2={cx + dBf/2} y2={GY + dH + 16}
             label={`Bf = ${Bf.toFixed(1)} m`} textX={cx} textY={GY + dH + 26} />
-          {/* H label */}
           <DimLine x1={cx + dBb/2 + 14} y1={GY} x2={cx + dBb/2 + 14} y2={GY + dH}
             label={`H=${H.toFixed(1)}m`} textX={cx + dBb/2 + 28} textY={GY + dH/2}
             rotate={`rotate(90,${cx + dBb/2 + 28},${GY + dH/2})`} />
-          {/* Slope label */}
           <text x={cx - dBb/2 + dBb*0.13} y={GY + dH*0.45} fontSize={9} fill="#555" fontFamily="monospace">{m}:1</text>
-          {/* Area */}
           <text x={cx} y={GY + dH/2 + 4} textAnchor="middle" fontSize={12}
             fill={color} fontFamily="monospace" fontWeight="bold">A = {A.toFixed(2)} m²</text>
         </svg>
+        <Pipeline color={color} steps={[
+          { label: 'Ancho boca',     formula: 'Bb = Bf + 2·H·m',      sub: `${Bf}+2·${H}·${m}`,                    result: `${Bb.toFixed(3)} m` },
+          { label: 'Sección',        formula: 'A = (Bf+Bb)/2 · H',    sub: `(${Bf}+${Bb.toFixed(2)})/2·${H}`,      result: `${A.toFixed(3)} m²` },
+          { label: 'Vol. corte',     formula: 'Vc = A · L',            sub: `${A.toFixed(3)}·${L}`,                 result: `${fmt(Vc)} m³` },
+          { label: 'Vol. esponjado', formula: 'Ve = Vc · (1+Fe/100)', sub: `${fmt(Vc)}·${(1+Fe/100).toFixed(2)}`,  result: `${fmt(Ves)} m³` },
+          { label: 'Peso haul',      formula: 'W = Vc · ρ',           sub: `${fmt(Vc)}·${rho}`,                    result: `${fmt(W)} t`, accent: true },
+        ]} />
       </div>
 
-      <div style={{ ...panel, overflow: 'auto' }}>
+      <div style={panel}>
         <SectionTitle>Cómputo</SectionTitle>
         <Res label="Sección"            value={A.toFixed(3)}  unit="m²" />
         <Res label="Volumen de corte"   value={fmt(Vc)}       unit="m³" />
-        <Res label="Vol. esponjado"     value={fmt(Ves)}      unit="m³ (transporte)" />
+        <Res label="Vol. esponjado"     value={fmt(Ves)}      unit="m³" />
         <Res label="Peso a transportar" value={fmt(W)}        unit="t" accent />
         <div style={{ marginTop: 8, fontSize: 11, color: '#333', fontFamily: 'monospace', lineHeight: 1.8 }}>
           Camiones 15t: ~{Math.ceil(W/15).toLocaleString('es-AR')}<br/>
           Camiones 20t: ~{Math.ceil(W/20).toLocaleString('es-AR')}
-        </div>
-        <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid #1a1a1a' }}>
-          <div style={{ fontSize: 10, color: '#333', textTransform: 'uppercase', letterSpacing: 1, fontFamily: 'monospace', marginBottom: 10 }}>Detalle</div>
-          <Step
-            formula="Bb = Bf + 2 × H × m"
-            sub={`${Bf} + 2 × ${H} × ${m}`}
-            result={`${Bb.toFixed(3)} m`} />
-          <Step
-            formula="A = (Bf + Bb) / 2 × H"
-            sub={`(${Bf} + ${Bb.toFixed(3)}) / 2 × ${H}`}
-            result={`${A.toFixed(3)} m²`} />
-          <Step
-            formula="V_corte = A × L"
-            sub={`${A.toFixed(3)} × ${L}`}
-            result={`${fmt(Vc)} m³`} />
-          <Step
-            formula="V_esp = V_corte × (1 + Fe/100)"
-            sub={`${fmt(Vc)} × ${(1 + Fe/100).toFixed(2)}`}
-            result={`${fmt(Ves)} m³`} />
-          <Step
-            formula="W = V_corte × ρ"
-            sub={`${fmt(Vc)} × ${rho}`}
-            result={`${fmt(W)} t`} />
         </div>
       </div>
     </div>
@@ -351,7 +334,7 @@ function CalcRipio() {
 
       <div style={{ ...panel, display: 'flex', flexDirection: 'column' }}>
         <SectionTitle>Sección tipo — Capa granular (escala referencial)</SectionTitle>
-        <svg viewBox={`0 0 ${W_SVG} ${H_SVG}`} style={{ width: '100%', height: 'auto', flex: 1 }}>
+        <svg viewBox={`0 0 ${W_SVG} ${H_SVG}`} style={{ width: '100%', height: 'auto' }}>
           {/* Subrasante */}
           {Array.from({ length: 8 }, (_, i) => (
             <line key={i} x1={x0} y1={yMid + 4 + i*3.5} x2={x1} y2={yMid + 4 + i*3.5} stroke="#1a1a1a" strokeWidth={1} />
@@ -370,32 +353,22 @@ function CalcRipio() {
             label={`e=${E.toFixed(2)}m`} textX={x1 + 28} textY={yTop + ripH/2}
             rotate={`rotate(90,${x1+28},${yTop + ripH/2})`} />
         </svg>
+        <Pipeline color={color} steps={[
+          { label: 'Volumen',   formula: 'V = L · A · e', sub: `${L}·${An}·${E}`,        result: `${V.toFixed(3)} m³` },
+          { label: 'Toneladas', formula: 'W = V · ρ',     sub: `${V.toFixed(3)}·${rho}`, result: `${fmt(W)} t`, accent: true },
+          { label: 'Por metro', formula: 'w = W / L',     sub: `${fmt(W)}/${L}`,         result: `${(W/L).toFixed(2)} t/m` },
+        ]} />
       </div>
 
-      <div style={{ ...panel, overflow: 'auto' }}>
+      <div style={panel}>
         <SectionTitle>Cómputo</SectionTitle>
-        <Res label="Volumen"       value={fmt(V)}              unit="m³" />
-        <Res label="Toneladas"     value={fmt(W)}              unit="t" accent />
-        <Res label="Longitud"      value={fmt(L)}              unit="m" />
+        <Res label="Volumen"    value={fmt(V)}   unit="m³" />
+        <Res label="Toneladas"  value={fmt(W)}   unit="t" accent />
+        <Res label="Longitud"   value={fmt(L)}   unit="m" />
         <div style={{ marginTop: 8, fontSize: 11, color: '#333', fontFamily: 'monospace', lineHeight: 1.8 }}>
           Camiones 15t: ~{Math.ceil(W/15).toLocaleString('es-AR')}<br/>
           Camiones 20t: ~{Math.ceil(W/20).toLocaleString('es-AR')}<br/>
           {Math.round(W/L * 10)/10} t/m lineal
-        </div>
-        <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid #1a1a1a' }}>
-          <div style={{ fontSize: 10, color: '#333', textTransform: 'uppercase', letterSpacing: 1, fontFamily: 'monospace', marginBottom: 10 }}>Detalle</div>
-          <Step
-            formula="V = L × A × e"
-            sub={`${L} × ${An} × ${E}`}
-            result={`${V.toFixed(3)} m³`} />
-          <Step
-            formula="W = V × ρ"
-            sub={`${V.toFixed(3)} × ${rho}`}
-            result={`${fmt(W)} t`} />
-          <Step
-            formula="t/m = W / L"
-            sub={`${fmt(W)} / ${L}`}
-            result={`${(W/L).toFixed(3)} t/m`} />
         </div>
       </div>
     </div>
@@ -490,45 +463,33 @@ function CalcCanal() {
           <text x={cx} y={H_SVG - 10} textAnchor="middle" fontSize={10}
             fill="#29B6F6" fontFamily="monospace">Q = {Q.toFixed(3)} m³/s · V = {V_vel.toFixed(2)} m/s</text>
         </svg>
+        <Pipeline color={color} steps={[
+          { label: 'Sección',     formula: tipo === 'triangular' ? 'A = H²·m' : 'A = (Bf+Bs)/2·H',
+            sub: tipo === 'triangular' ? `${H}²·${m}` : `(${Bf}+${Bs.toFixed(2)})/2·${H}`,
+            result: `${A.toFixed(4)} m²` },
+          { label: 'Per. mojado', formula: 'P = Bf + 2·√(H²+(H·m)²)',
+            sub: `Σ lados mojados`,       result: `${P.toFixed(3)} m` },
+          { label: 'Radio hidráu.', formula: 'R = A / P',
+            sub: `${A.toFixed(4)}/${P.toFixed(3)}`, result: `${R.toFixed(4)} m` },
+          { label: 'Caudal',      formula: 'Q = A·R^⅔·S^½/n',
+            sub: `n=${n} · S=${S}%`,      result: `${Q.toFixed(4)} m³/s`, accent: true },
+          { label: 'Velocidad',   formula: 'V = Q / A',
+            sub: `${Q.toFixed(4)}/${A.toFixed(4)}`, result: `${V_vel.toFixed(3)} m/s` },
+          { label: 'Vol. exc.',   formula: 'Ve = A · L',
+            sub: `${A.toFixed(4)}·${L}`,  result: `${fmt(Vex)} m³` },
+        ]} />
       </div>
 
-      <div style={{ ...panel, overflow: 'auto' }}>
+      <div style={panel}>
         <SectionTitle>Cómputo</SectionTitle>
-        <Res label="Sección hidráulica" value={A.toFixed(4)}        unit="m²" />
-        <Res label="Perímetro mojado"   value={P.toFixed(3)}        unit="m" />
-        <Res label="Radio hidráulico"   value={R.toFixed(4)}        unit="m" />
-        <Res label="Caudal (Manning)"   value={Q.toFixed(4)}        unit="m³/s" accent />
-        <Res label="Velocidad media"    value={V_vel.toFixed(3)}    unit="m/s" />
+        <Res label="Sección hidráulica" value={A.toFixed(4)}     unit="m²" />
+        <Res label="Perímetro mojado"   value={P.toFixed(3)}     unit="m" />
+        <Res label="Radio hidráulico"   value={R.toFixed(4)}     unit="m" />
+        <Res label="Caudal (Manning)"   value={Q.toFixed(4)}     unit="m³/s" accent />
+        <Res label="Velocidad media"    value={V_vel.toFixed(3)} unit="m/s" />
         <div style={{ height: 1, background: '#1a1a1a', margin: '8px 0' }} />
-        <Res label="Vol. excavación"    value={fmt(Vex)}            unit="m³" />
-        <Res label="Vol. esponjado"     value={fmt(Ves)}            unit="m³" />
-        <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid #1a1a1a' }}>
-          <div style={{ fontSize: 10, color: '#333', textTransform: 'uppercase', letterSpacing: 1, fontFamily: 'monospace', marginBottom: 10 }}>Detalle</div>
-          <Step
-            formula={tipo === 'triangular' ? 'A = H² × m' : 'A = (Bf + Bs) / 2 × H'}
-            sub={tipo === 'triangular' ? `${H}² × ${m}` : `(${Bf} + ${Bs.toFixed(3)}) / 2 × ${H}`}
-            result={`${A.toFixed(4)} m²`} />
-          <Step
-            formula="P = Bf + 2 × √(H² + (H×m)²)"
-            sub={`perímetro mojado`}
-            result={`${P.toFixed(3)} m`} />
-          <Step
-            formula="R = A / P"
-            sub={`${A.toFixed(4)} / ${P.toFixed(3)}`}
-            result={`${R.toFixed(4)} m`} />
-          <Step
-            formula="Q = (1/n) × A × R^⅔ × S^½"
-            sub={`(1/${n}) × ${A.toFixed(4)} × ${R.toFixed(4)}^⅔ × ${(S/100).toFixed(4)}^½`}
-            result={`${Q.toFixed(4)} m³/s`} />
-          <Step
-            formula="V = Q / A"
-            sub={`${Q.toFixed(4)} / ${A.toFixed(4)}`}
-            result={`${V_vel.toFixed(3)} m/s`} />
-          <Step
-            formula="V_exc = A × L"
-            sub={`${A.toFixed(4)} × ${L}`}
-            result={`${fmt(Vex)} m³`} />
-        </div>
+        <Res label="Vol. excavación"    value={fmt(Vex)}         unit="m³" />
+        <Res label="Vol. esponjado"     value={fmt(Ves)}         unit="m³" />
       </div>
     </div>
   )
