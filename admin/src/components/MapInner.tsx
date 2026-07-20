@@ -58,6 +58,11 @@ const POPUP_CSS = `
              padding: 8px 10px; }
 .poi-name  { color: #e0e6f0; font-size: 12px; font-weight: 700; }
 .poi-type  { color: #7a8aaa; font-size: 10px; margin-top: 2px; }
+.map-panel-scroll::-webkit-scrollbar { width: 3px; }
+.map-panel-scroll::-webkit-scrollbar-track { background: transparent; }
+.map-panel-scroll::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 2px; }
+.map-panel-scroll::-webkit-scrollbar-thumb:hover { background: #444; }
+.map-panel-scroll { scrollbar-width: thin; scrollbar-color: #2a2a2a transparent; }
 `
 
 // ── Helpers HTML de popups ───────────────────────────────────────────────────
@@ -612,7 +617,28 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
 
   const [mapReady, setMapReady]   = useState(false)
   const [layers, setLayers]       = useState<LayerState>(DEFAULT_LAYERS)
-  const [panelOpen, setPanelOpen] = useState(true)
+  const [panelOpen, setPanelOpen]   = useState(true)
+  const [panelWidth, setPanelWidth]   = useState(190)
+  const [panelHeight, setPanelHeight] = useState<number | null>(null)
+  const panelResizingRef = useRef(false)
+
+  const startResize = (dir: 'e' | 's' | 'se', e: React.MouseEvent) => {
+    e.preventDefault(); e.stopPropagation()
+    panelResizingRef.current = true
+    const startX = e.clientX, startY = e.clientY
+    const startW = panelWidth, startH = panelHeight ?? 500
+    const onMove = (ev: MouseEvent) => {
+      if (dir === 'e' || dir === 'se') setPanelWidth(Math.max(160, startW + ev.clientX - startX))
+      if (dir === 's' || dir === 'se') setPanelHeight(Math.max(120, startH + ev.clientY - startY))
+    }
+    const onUp = () => {
+      panelResizingRef.current = false
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }
   const [geo, setGeo] = useState<Record<string, unknown> | null>(null)
   const [rp,  setRp]  = useState<Record<string, unknown> | null>(null)
   const [cc,  setCc]  = useState<Record<string, unknown> | null>(null)
@@ -1469,10 +1495,11 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
         overflowX: 'clip' as React.CSSProperties['overflowX'],
         boxShadow: '0 4px 16px rgba(0,0,0,.7)',
         fontFamily: 'monospace',
-        width: panelOpen ? 178 : 32,
-        transition: 'width 0.2s',
-        maxHeight: 'calc(100% - 20px)',
+        width: panelOpen ? panelWidth : 32,
+        height: panelOpen && panelHeight ? panelHeight : undefined,
+        maxHeight: panelOpen && panelHeight ? undefined : 'calc(100% - 20px)',
         display: 'flex', flexDirection: 'column',
+        userSelect: 'none',
       }}>
 
         {/* Header */}
@@ -1488,7 +1515,7 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
         </div>
 
         {panelOpen && (
-          <div style={{ padding: '4px 10px 10px', overflowY: 'auto', flex: 1 }}>
+          <div className="map-panel-scroll" style={{ padding: '4px 10px 10px', overflowY: 'auto', flex: 1 }}>
 
             {/* BASE */}
             <div style={SECTION_TITLE_STYLE}>Base</div>
@@ -1610,6 +1637,20 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
 
           </div>
         )}
+
+        {/* ── Resize handles ── */}
+        {panelOpen && <>
+          {/* right edge */}
+          <div onMouseDown={e => startResize('e', e)}
+            style={{ position:'absolute', top:0, right:0, bottom:0, width:4, cursor:'ew-resize', zIndex:10 }} />
+          {/* bottom edge */}
+          <div onMouseDown={e => startResize('s', e)}
+            style={{ position:'absolute', bottom:0, left:0, right:0, height:4, cursor:'ns-resize', zIndex:10 }} />
+          {/* corner */}
+          <div onMouseDown={e => startResize('se', e)}
+            style={{ position:'absolute', bottom:0, right:0, width:10, height:10, cursor:'nwse-resize', zIndex:11,
+              background: 'linear-gradient(135deg, transparent 50%, #333 50%)', borderRadius:'0 0 6px 0' }} />
+        </>}
       </div>
 
       {/* ── Panel derecho — tipos de relevamiento ── */}
