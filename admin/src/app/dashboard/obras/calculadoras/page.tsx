@@ -58,6 +58,17 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   return <div style={{ fontSize: 13, color: '#666', fontFamily: 'monospace', marginBottom: 6 }}>{children}</div>
 }
 
+// Bloque de detalle de cálculo: fórmula + sustitución + resultado
+function Step({ formula, sub, result }: { formula: string; sub: string; result: string }) {
+  return (
+    <div style={{ marginBottom: 10, paddingBottom: 10, borderBottom: '1px solid #0d0d0d' }}>
+      <div style={{ fontSize: 11, color: '#333', fontFamily: 'monospace', letterSpacing: 0.3 }}>{formula}</div>
+      <div style={{ fontSize: 11, color: '#3a3a3a', fontFamily: 'monospace', marginTop: 2 }}>{sub}</div>
+      <div style={{ fontSize: 13, color: '#888', fontFamily: 'monospace', fontWeight: 600, marginTop: 2 }}>= {result}</div>
+    </div>
+  )
+}
+
 // ── SVG helpers ───────────────────────────────────────────────────────────────
 const HATCH = (y0: number, w: number) =>
   Array.from({ length: 6 }, (_, i) => (
@@ -150,16 +161,44 @@ function CalcTerraplen() {
       </div>
 
       {/* Resultados */}
-      <div style={panel}>
+      <div style={{ ...panel, overflow: 'auto' }}>
         <SectionTitle>Cómputo</SectionTitle>
         <Res label="Sección"             value={A.toFixed(3)}         unit="m²" />
         <Res label="Volumen compactado"  value={fmt(Vneto)}           unit="m³" />
         <Res label="Material en banco"   value={fmt(Vbanco)}          unit="m³" />
         <Res label="Volumen esponjado"   value={fmt(Vesp)}            unit="m³ (camión)" />
         <Res label="Peso total"          value={fmt(W)}               unit="t" accent />
-        <div style={{ marginTop: 8, fontSize: 9, color: '#333', fontFamily: 'monospace', lineHeight: 1.8 }}>
+        <div style={{ marginTop: 8, fontSize: 11, color: '#333', fontFamily: 'monospace', lineHeight: 1.8 }}>
           Camiones 15t: ~{Math.ceil(W/15).toLocaleString('es-AR')}<br/>
           Camiones 20t: ~{Math.ceil(W/20).toLocaleString('es-AR')}
+        </div>
+        {/* Detalle del cálculo */}
+        <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid #1a1a1a' }}>
+          <div style={{ fontSize: 10, color: '#333', textTransform: 'uppercase', letterSpacing: 1, fontFamily: 'monospace', marginBottom: 10 }}>Detalle</div>
+          <Step
+            formula="Bb = Bc + 2 × H × m"
+            sub={`${Bc} + 2 × ${H} × ${m}`}
+            result={`${Bb.toFixed(3)} m`} />
+          <Step
+            formula="A = (Bc + Bb) / 2 × H"
+            sub={`(${Bc} + ${Bb.toFixed(3)}) / 2 × ${H}`}
+            result={`${A.toFixed(3)} m²`} />
+          <Step
+            formula="V_neto = A × L"
+            sub={`${A.toFixed(3)} × ${L}`}
+            result={`${fmt(Vneto)} m³`} />
+          <Step
+            formula="V_banco = V_neto / (Fc/100)"
+            sub={`${fmt(Vneto)} / ${(Fc/100).toFixed(2)}`}
+            result={`${fmt(Vbanco)} m³`} />
+          <Step
+            formula="V_esp = V_banco × (1 + Fe/100)"
+            sub={`${fmt(Vbanco)} × ${(1 + Fe/100).toFixed(2)}`}
+            result={`${fmt(Vesp)} m³`} />
+          <Step
+            formula="W = V_banco × ρ"
+            sub={`${fmt(Vbanco)} × ${rho}`}
+            result={`${fmt(W)} t`} />
         </div>
       </div>
     </div>
@@ -238,15 +277,38 @@ function CalcExcavacion() {
         </svg>
       </div>
 
-      <div style={panel}>
+      <div style={{ ...panel, overflow: 'auto' }}>
         <SectionTitle>Cómputo</SectionTitle>
         <Res label="Sección"            value={A.toFixed(3)}  unit="m²" />
         <Res label="Volumen de corte"   value={fmt(Vc)}       unit="m³" />
         <Res label="Vol. esponjado"     value={fmt(Ves)}      unit="m³ (transporte)" />
         <Res label="Peso a transportar" value={fmt(W)}        unit="t" accent />
-        <div style={{ marginTop: 8, fontSize: 9, color: '#333', fontFamily: 'monospace', lineHeight: 1.8 }}>
+        <div style={{ marginTop: 8, fontSize: 11, color: '#333', fontFamily: 'monospace', lineHeight: 1.8 }}>
           Camiones 15t: ~{Math.ceil(W/15).toLocaleString('es-AR')}<br/>
           Camiones 20t: ~{Math.ceil(W/20).toLocaleString('es-AR')}
+        </div>
+        <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid #1a1a1a' }}>
+          <div style={{ fontSize: 10, color: '#333', textTransform: 'uppercase', letterSpacing: 1, fontFamily: 'monospace', marginBottom: 10 }}>Detalle</div>
+          <Step
+            formula="Bb = Bf + 2 × H × m"
+            sub={`${Bf} + 2 × ${H} × ${m}`}
+            result={`${Bb.toFixed(3)} m`} />
+          <Step
+            formula="A = (Bf + Bb) / 2 × H"
+            sub={`(${Bf} + ${Bb.toFixed(3)}) / 2 × ${H}`}
+            result={`${A.toFixed(3)} m²`} />
+          <Step
+            formula="V_corte = A × L"
+            sub={`${A.toFixed(3)} × ${L}`}
+            result={`${fmt(Vc)} m³`} />
+          <Step
+            formula="V_esp = V_corte × (1 + Fe/100)"
+            sub={`${fmt(Vc)} × ${(1 + Fe/100).toFixed(2)}`}
+            result={`${fmt(Ves)} m³`} />
+          <Step
+            formula="W = V_corte × ρ"
+            sub={`${fmt(Vc)} × ${rho}`}
+            result={`${fmt(W)} t`} />
         </div>
       </div>
     </div>
@@ -310,15 +372,30 @@ function CalcRipio() {
         </svg>
       </div>
 
-      <div style={panel}>
+      <div style={{ ...panel, overflow: 'auto' }}>
         <SectionTitle>Cómputo</SectionTitle>
         <Res label="Volumen"       value={fmt(V)}              unit="m³" />
         <Res label="Toneladas"     value={fmt(W)}              unit="t" accent />
         <Res label="Longitud"      value={fmt(L)}              unit="m" />
-        <div style={{ marginTop: 8, fontSize: 9, color: '#333', fontFamily: 'monospace', lineHeight: 1.8 }}>
+        <div style={{ marginTop: 8, fontSize: 11, color: '#333', fontFamily: 'monospace', lineHeight: 1.8 }}>
           Camiones 15t: ~{Math.ceil(W/15).toLocaleString('es-AR')}<br/>
           Camiones 20t: ~{Math.ceil(W/20).toLocaleString('es-AR')}<br/>
           {Math.round(W/L * 10)/10} t/m lineal
+        </div>
+        <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid #1a1a1a' }}>
+          <div style={{ fontSize: 10, color: '#333', textTransform: 'uppercase', letterSpacing: 1, fontFamily: 'monospace', marginBottom: 10 }}>Detalle</div>
+          <Step
+            formula="V = L × A × e"
+            sub={`${L} × ${An} × ${E}`}
+            result={`${V.toFixed(3)} m³`} />
+          <Step
+            formula="W = V × ρ"
+            sub={`${V.toFixed(3)} × ${rho}`}
+            result={`${fmt(W)} t`} />
+          <Step
+            formula="t/m = W / L"
+            sub={`${fmt(W)} / ${L}`}
+            result={`${(W/L).toFixed(3)} t/m`} />
         </div>
       </div>
     </div>
@@ -415,7 +492,7 @@ function CalcCanal() {
         </svg>
       </div>
 
-      <div style={panel}>
+      <div style={{ ...panel, overflow: 'auto' }}>
         <SectionTitle>Cómputo</SectionTitle>
         <Res label="Sección hidráulica" value={A.toFixed(4)}        unit="m²" />
         <Res label="Perímetro mojado"   value={P.toFixed(3)}        unit="m" />
@@ -425,6 +502,33 @@ function CalcCanal() {
         <div style={{ height: 1, background: '#1a1a1a', margin: '8px 0' }} />
         <Res label="Vol. excavación"    value={fmt(Vex)}            unit="m³" />
         <Res label="Vol. esponjado"     value={fmt(Ves)}            unit="m³" />
+        <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid #1a1a1a' }}>
+          <div style={{ fontSize: 10, color: '#333', textTransform: 'uppercase', letterSpacing: 1, fontFamily: 'monospace', marginBottom: 10 }}>Detalle</div>
+          <Step
+            formula={tipo === 'triangular' ? 'A = H² × m' : 'A = (Bf + Bs) / 2 × H'}
+            sub={tipo === 'triangular' ? `${H}² × ${m}` : `(${Bf} + ${Bs.toFixed(3)}) / 2 × ${H}`}
+            result={`${A.toFixed(4)} m²`} />
+          <Step
+            formula="P = Bf + 2 × √(H² + (H×m)²)"
+            sub={`perímetro mojado`}
+            result={`${P.toFixed(3)} m`} />
+          <Step
+            formula="R = A / P"
+            sub={`${A.toFixed(4)} / ${P.toFixed(3)}`}
+            result={`${R.toFixed(4)} m`} />
+          <Step
+            formula="Q = (1/n) × A × R^⅔ × S^½"
+            sub={`(1/${n}) × ${A.toFixed(4)} × ${R.toFixed(4)}^⅔ × ${(S/100).toFixed(4)}^½`}
+            result={`${Q.toFixed(4)} m³/s`} />
+          <Step
+            formula="V = Q / A"
+            sub={`${Q.toFixed(4)} / ${A.toFixed(4)}`}
+            result={`${V_vel.toFixed(3)} m/s`} />
+          <Step
+            formula="V_exc = A × L"
+            sub={`${A.toFixed(4)} × ${L}`}
+            result={`${fmt(Vex)} m³`} />
+        </div>
       </div>
     </div>
   )
