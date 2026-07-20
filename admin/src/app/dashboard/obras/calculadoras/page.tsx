@@ -44,11 +44,11 @@ function Inp({ label, unit, value, onChange, step = 0.1, min = 0 }: {
 
 function Res({ label, value, unit, accent }: { label: string; value: string; unit: string; accent?: boolean }) {
   return (
-    <div style={{ marginBottom: 10, paddingBottom: 10, borderBottom: '1px solid #141414' }}>
-      <div style={{ fontSize: 12, color: '#555', textTransform: 'uppercase', letterSpacing: 0.8, fontFamily: 'monospace' }}>{label}</div>
-      <div style={{ marginTop: 2 }}>
-        <span style={{ fontSize: accent ? 26 : 20, fontWeight: 700, color: accent ? '#F5C300' : '#d0d0d0', fontFamily: 'monospace' }}>{value}</span>
-        <span style={{ fontSize: 13, color: '#555', marginLeft: 4, fontFamily: 'monospace' }}>{unit}</span>
+    <div style={{ marginBottom: 6, paddingBottom: 6, borderBottom: '1px solid #141414' }}>
+      <div style={{ fontSize: 9, color: '#444', textTransform: 'uppercase', letterSpacing: 0.8, fontFamily: 'monospace' }}>{label}</div>
+      <div style={{ marginTop: 1 }}>
+        <span style={{ fontSize: accent ? 15 : 12, fontWeight: 700, color: accent ? '#F5C300' : '#bbb', fontFamily: 'monospace' }}>{value}</span>
+        <span style={{ fontSize: 9, color: '#444', marginLeft: 3, fontFamily: 'monospace' }}>{unit}</span>
       </div>
     </div>
   )
@@ -148,7 +148,7 @@ function CalcTerraplen() {
   const color = CLR.terraplen
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr 210px', gap: 16 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr 150px', gap: 16 }}>
       {/* Inputs */}
       <div style={panel}>
         <SectionTitle>Geometría</SectionTitle>
@@ -236,7 +236,7 @@ function CalcExcavacion() {
   const color = CLR.excavacion
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr 210px', gap: 16 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr 150px', gap: 16 }}>
       <div style={panel}>
         <SectionTitle>Geometría</SectionTitle>
         <Inp label="Longitud"           unit="m"   value={L}   onChange={setL}   step={10} />
@@ -318,7 +318,7 @@ function CalcRipio() {
   const color = CLR.ripio
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr 210px', gap: 16 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr 150px', gap: 16 }}>
       <div style={panel}>
         <SectionTitle>Geometría</SectionTitle>
         <Inp label="Longitud"      unit="m"   value={L}   onChange={setL}   step={100} />
@@ -409,7 +409,7 @@ function CalcCanal() {
     : `${cx - dBs/2},${GY} ${cx + dBs/2},${GY} ${cx + dBf/2},${GY + dH} ${cx - dBf/2},${GY + dH}`
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr 210px', gap: 16 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr 150px', gap: 16 }}>
       <div style={panel}>
         <SectionTitle>Geometría</SectionTitle>
         <div>
