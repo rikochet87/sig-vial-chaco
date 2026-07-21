@@ -783,6 +783,56 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
     window.addEventListener('mouseup', onUp)
   }
 
+  // ── Panel de herramienta activa — draggable magnético ────────────────────────
+  // Los 3 paneles de medición son mutuamente excluyentes → comparten estado de posición
+  const toolPanelRef    = useRef<HTMLDivElement>(null)
+  // null en `y` = usar bottom:20 (posición inicial sin necesidad de calcular altura)
+  const toolPanelPosRef = useRef<{ x: number; y: number | null }>({ x: 10, y: null })
+  const [toolPanelPos, setToolPanelPosState] = useState<{ x: number; y: number | null }>({ x: 10, y: null })
+  const setToolPanelPos = (p: { x: number; y: number | null }) => { toolPanelPosRef.current = p; setToolPanelPosState(p) }
+
+  // Resetear posición al cambiar de herramienta
+  useEffect(() => { setToolPanelPos({ x: 10, y: null }) }, [measureActive, areaActive, circleActive])
+
+  const onToolPanelDragStart = (e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest('button, input')) return
+    e.preventDefault()
+    const panel     = toolPanelRef.current
+    const container = containerRef.current
+    if (!panel || !container) return
+    // Calcular posición actual en px relativa al container
+    const pRect  = panel.getBoundingClientRect()
+    const cRect  = container.getBoundingClientRect()
+    const curX   = pRect.left - cRect.left
+    const curY   = pRect.top  - cRect.top
+    const startMX = e.clientX, startMY = e.clientY
+    const onMove  = (ev: MouseEvent) => {
+      setToolPanelPos({ x: curX + ev.clientX - startMX, y: curY + ev.clientY - startMY })
+    }
+    const onUp = (ev: MouseEvent) => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+      const mapW = container.offsetWidth, mapH = container.offsetHeight
+      const tbW  = panel.offsetWidth,   tbH  = panel.offsetHeight
+      const snap = 56
+      let x = curX + ev.clientX - startMX
+      let y = curY + ev.clientY - startMY
+      x = Math.max(0, Math.min(x, mapW - tbW))
+      y = Math.max(0, Math.min(y, mapH - tbH))
+      if (x < snap)                  x = 0
+      else if (x > mapW - tbW - snap) x = mapW - tbW
+      if (y < snap)                  y = 0
+      else if (y > mapH - tbH - snap) y = mapH - tbH
+      setToolPanelPos({ x, y })
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }
+
+  const toolPanelStyle: React.CSSProperties = toolPanelPos.y === null
+    ? { position: 'absolute', bottom: 20, left: toolPanelPos.x, zIndex: 1000 }
+    : { position: 'absolute', top: toolPanelPos.y, left: toolPanelPos.x, zIndex: 1000 }
+
   // ── Inject popup CSS once ──
   useEffect(() => {
     if (document.getElementById('map-popup-css')) return
@@ -1762,8 +1812,8 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
         </>}
       </div>
 
-      {/* ── Toolbar flotante magnética ── */}
-      <div
+      {/* ── Toolbar flotante magnética — solo cuando el mapa tiene herramientas habilitadas ── */}
+      {(onMeasureChange || onAreaChange || onCircleChange) && <div
         ref={toolbarRef}
         onMouseDown={onToolbarDragStart}
         style={{
@@ -1821,7 +1871,7 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
             CLIC EN MAPA
           </div>
         )}
-      </div>
+      </div>}
 
       {/* ── Panel derecho — tipos de relevamiento ── */}
       <RightPanel
@@ -1833,14 +1883,15 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
 
       {/* ── Panel de medición de distancia ── */}
       {measureActive && (
-        <div style={{
-          position: 'absolute', bottom: 20, left: 10,
-          zIndex: 1000, background: '#0e0e0e', border: '1px solid #222',
-          borderLeft: '3px solid #F5C300',
-          borderRadius: 4, padding: '10px 14px',
-          boxShadow: '0 4px 20px rgba(0,0,0,.8)', minWidth: 280, maxWidth: 360,
-          fontFamily: 'monospace',
-        }}>
+        <div ref={toolPanelRef} onMouseDown={onToolPanelDragStart}
+          style={{
+            ...toolPanelStyle,
+            background: '#0e0e0e', border: '1px solid #222',
+            borderLeft: '3px solid #F5C300',
+            borderRadius: 4, padding: '10px 14px',
+            boxShadow: '0 4px 20px rgba(0,0,0,.8)', minWidth: 280, maxWidth: 360,
+            fontFamily: 'monospace', cursor: 'grab',
+          }}>
           <div style={{ fontSize: 9, color: '#555', letterSpacing: 1.4, textTransform: 'uppercase', marginBottom: 8 }}>
             ◫ Medir distancia
           </div>
@@ -1880,14 +1931,15 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
 
       {/* ── Panel de medición de área ── */}
       {areaActive && (
-        <div style={{
-          position: 'absolute', bottom: 20, left: 10,
-          zIndex: 1000, background: '#0e0e0e', border: '1px solid #222',
-          borderLeft: '3px solid #ce93d8',
-          borderRadius: 4, padding: '10px 14px',
-          boxShadow: '0 4px 20px rgba(0,0,0,.8)', minWidth: 280, maxWidth: 360,
-          fontFamily: 'monospace',
-        }}>
+        <div ref={toolPanelRef} onMouseDown={onToolPanelDragStart}
+          style={{
+            ...toolPanelStyle,
+            background: '#0e0e0e', border: '1px solid #222',
+            borderLeft: '3px solid #ce93d8',
+            borderRadius: 4, padding: '10px 14px',
+            boxShadow: '0 4px 20px rgba(0,0,0,.8)', minWidth: 280, maxWidth: 360,
+            fontFamily: 'monospace', cursor: 'grab',
+          }}>
           <div style={{ fontSize: 9, color: '#555', letterSpacing: 1.4, textTransform: 'uppercase', marginBottom: 8 }}>
             ⬡ Medir área
           </div>
@@ -1940,14 +1992,15 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
 
       {/* ── Panel de círculo ── */}
       {circleActive && (
-        <div style={{
-          position: 'absolute', bottom: 20, left: 10,
-          zIndex: 1000, background: '#0e0e0e', border: '1px solid #222',
-          borderLeft: '3px solid #f0a060',
-          borderRadius: 4, padding: '10px 14px',
-          boxShadow: '0 4px 20px rgba(0,0,0,.8)', minWidth: 280, maxWidth: 360,
-          fontFamily: 'monospace',
-        }}>
+        <div ref={toolPanelRef} onMouseDown={onToolPanelDragStart}
+          style={{
+            ...toolPanelStyle,
+            background: '#0e0e0e', border: '1px solid #222',
+            borderLeft: '3px solid #f0a060',
+            borderRadius: 4, padding: '10px 14px',
+            boxShadow: '0 4px 20px rgba(0,0,0,.8)', minWidth: 280, maxWidth: 360,
+            fontFamily: 'monospace', cursor: 'grab',
+          }}>
           <div style={{ fontSize: 9, color: '#555', letterSpacing: 1.4, textTransform: 'uppercase', marginBottom: 8 }}>
             ◯ Círculo — {circlePts.length === 0 ? '1° clic: centro' : circlePts.length === 1 ? '2° clic: punto de radio' : '3° clic: nuevo centro'}
           </div>
