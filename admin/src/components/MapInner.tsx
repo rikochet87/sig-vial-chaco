@@ -747,6 +747,42 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
   const cClickRef         = useRef<((e: import('leaflet').LeafletMouseEvent) => void) | null>(null)
   const circleHasCenterRef = useRef(false)
 
+  // ── Toolbar flotante magnética ──────────────────────────────────────────────
+  const toolbarRef    = useRef<HTMLDivElement>(null)
+  const tbPosRef      = useRef({ x: 52, y: 10 })
+  const [tbPos, setTbPosState] = useState({ x: 52, y: 10 })
+  const setTbPos = (p: { x: number; y: number }) => { tbPosRef.current = p; setTbPosState(p) }
+
+  const onToolbarDragStart = (e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest('button')) return  // no drag from buttons
+    e.preventDefault()
+    const startMX = e.clientX, startMY = e.clientY
+    const startX  = tbPosRef.current.x, startY = tbPosRef.current.y
+    const onMove  = (ev: MouseEvent) => {
+      setTbPos({ x: startX + ev.clientX - startMX, y: startY + ev.clientY - startMY })
+    }
+    const onUp = (ev: MouseEvent) => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+      const container = containerRef.current, toolbar = toolbarRef.current
+      if (!container || !toolbar) return
+      const mapW = container.offsetWidth, mapH = container.offsetHeight
+      const tbW  = toolbar.offsetWidth,  tbH  = toolbar.offsetHeight
+      const snap = 56  // px threshold para snap magnético
+      let x = startX + ev.clientX - startMX
+      let y = startY + ev.clientY - startMY
+      x = Math.max(0, Math.min(x, mapW - tbW))
+      y = Math.max(0, Math.min(y, mapH - tbH))
+      if (x < snap)          x = 0
+      else if (x > mapW - tbW - snap) x = mapW - tbW
+      if (y < snap)          y = 0
+      else if (y > mapH - tbH - snap) y = mapH - tbH
+      setTbPos({ x, y })
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }
+
   // ── Inject popup CSS once ──
   useEffect(() => {
     if (document.getElementById('map-popup-css')) return
@@ -1726,6 +1762,67 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
         </>}
       </div>
 
+      {/* ── Toolbar flotante magnética ── */}
+      <div
+        ref={toolbarRef}
+        onMouseDown={onToolbarDragStart}
+        style={{
+          position: 'absolute', left: tbPos.x, top: tbPos.y, zIndex: 1001,
+          background: '#111', border: '1px solid #222',
+          borderRadius: 4, boxShadow: '0 2px 12px rgba(0,0,0,.7)',
+          fontFamily: 'monospace', userSelect: 'none',
+          cursor: 'grab', display: 'flex', alignItems: 'stretch',
+        }}
+      >
+        {/* Handle de arrastre */}
+        <div style={{
+          display: 'flex', alignItems: 'center', padding: '0 6px',
+          borderRight: '1px solid #1e1e1e', color: '#2a2a2a', fontSize: 12,
+          letterSpacing: 0, lineHeight: 1, flexShrink: 0,
+          cursor: 'grab',
+        }}>⣿</div>
+
+        {/* Botones de herramienta */}
+        {([
+          { id: 'measure', label: 'Medir distancia', icon: '◫', active: measureActive, color: '#F5C300',  cb: () => onMeasureChange?.(!measureActive) },
+          { id: 'area',    label: 'Medir área',       icon: '⬡', active: areaActive,    color: '#ce93d8',  cb: () => onAreaChange?.(!areaActive) },
+          { id: 'circle',  label: 'Trazar círculo',   icon: '◯', active: circleActive,  color: '#f0a060',  cb: () => onCircleChange?.(!circleActive) },
+        ] as const).map(t => (
+          <button
+            key={t.id}
+            onClick={t.cb}
+            title={t.label}
+            style={{
+              background: t.active ? `${t.color}14` : 'transparent',
+              border: 'none',
+              borderRight: '1px solid #1e1e1e',
+              borderLeft: t.active ? `2px solid ${t.color}` : '2px solid transparent',
+              color: t.active ? t.color : '#555',
+              padding: '7px 10px',
+              fontSize: 10, fontFamily: 'monospace', letterSpacing: 0.6,
+              cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: 5,
+              transition: 'color 0.12s, background 0.12s, border-color 0.12s',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            <span style={{ fontSize: 13, lineHeight: 1 }}>{t.icon}</span>
+            {t.label}
+          </button>
+        ))}
+
+        {/* Indicador "activo" */}
+        {(measureActive || areaActive || circleActive) && (
+          <div style={{
+            display: 'flex', alignItems: 'center', padding: '0 8px',
+            fontSize: 9, color: '#444', fontFamily: 'monospace', letterSpacing: 0.8,
+            borderLeft: '1px solid #1e1e1e', flexShrink: 0,
+          }}>
+            CLIC EN MAPA
+          </div>
+        )}
+      </div>
+
       {/* ── Panel derecho — tipos de relevamiento ── */}
       <RightPanel
         layers={layers} toggle={toggle} relevamientos={relevamientos}
@@ -1737,42 +1834,45 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
       {/* ── Panel de medición de distancia ── */}
       {measureActive && (
         <div style={{
-          position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)',
-          zIndex: 1000, background: '#1e2436', border: '1.5px solid #F5C300',
-          borderRadius: 12, padding: '12px 16px',
-          boxShadow: '0 6px 24px rgba(0,0,0,.65)', minWidth: 280, maxWidth: '90%',
+          position: 'absolute', bottom: 20, left: '50%', transform: 'translateX(-50%)',
+          zIndex: 1000, background: '#0e0e0e', border: '1px solid #222',
+          borderLeft: '3px solid #F5C300',
+          borderRadius: 4, padding: '10px 14px',
+          boxShadow: '0 4px 20px rgba(0,0,0,.8)', minWidth: 300, maxWidth: '90%',
+          fontFamily: 'monospace',
         }}>
-          <div style={{ color: '#F5C300', fontSize: 10, fontWeight: 700, textAlign: 'center', letterSpacing: 0.8, marginBottom: 6, textTransform: 'uppercase' }}>
-            📏 Medición — clic en el mapa para agregar puntos
+          <div style={{ fontSize: 9, color: '#555', letterSpacing: 1.4, textTransform: 'uppercase', marginBottom: 8 }}>
+            ◫ Medir distancia
           </div>
-          <div style={{ color: '#e0e6f0', fontSize: 22, fontWeight: 900, textAlign: 'center', marginBottom: 12, minHeight: 30 }}>
+          <div style={{ fontSize: measurePts.length >= 2 ? 22 : 13, fontWeight: 700, textAlign: 'center', marginBottom: 10, minHeight: 28,
+            color: measurePts.length >= 2 ? '#F5C300' : '#444' }}>
             {measurePts.length === 0
-              ? <span style={{ fontSize: 13, color: '#7a8aaa' }}>Hacé clic en el mapa para comenzar</span>
+              ? 'Clic en el mapa para comenzar'
               : measurePts.length === 1
-              ? <span style={{ fontSize: 13, color: '#aaa' }}>1 punto — seguí haciendo clic</span>
-              : <span style={{ color: '#F5C300' }}>{fmtDist(totalDist(measurePts))}</span>
+              ? '1 punto — seguí haciendo clic'
+              : fmtDist(totalDist(measurePts))
             }
           </div>
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 6 }}>
             <button onClick={() => setMeasurePts(prev => prev.slice(0, -1))} disabled={measurePts.length === 0}
-              style={{ flex: 1, background: '#252d40', border: '1px solid #3a4060', color: '#e0e6f0', borderRadius: 8, padding: '8px 4px', fontSize: 12, fontWeight: 600, cursor: 'pointer', opacity: measurePts.length === 0 ? 0.4 : 1 }}>↩ Deshacer</button>
+              style={{ flex: 1, background: '#0a0a0a', border: '1px solid #222', color: '#888', borderRadius: 3, padding: '7px 4px', fontSize: 11, fontFamily: 'monospace', cursor: 'pointer', opacity: measurePts.length === 0 ? 0.35 : 1 }}>↩ Deshacer</button>
             <button onClick={() => setMeasurePts([])} disabled={measurePts.length === 0}
-              style={{ flex: 1, background: '#252d40', border: '1px solid #3a4060', color: '#aaa', borderRadius: 8, padding: '8px 4px', fontSize: 12, fontWeight: 600, cursor: 'pointer', opacity: measurePts.length === 0 ? 0.4 : 1 }}>🗑 Limpiar</button>
+              style={{ flex: 1, background: '#0a0a0a', border: '1px solid #222', color: '#666', borderRadius: 3, padding: '7px 4px', fontSize: 11, fontFamily: 'monospace', cursor: 'pointer', opacity: measurePts.length === 0 ? 0.35 : 1 }}>✕ Limpiar</button>
             <button onClick={() => onMeasureChange?.(false)}
-              style={{ flex: 1, background: 'rgba(231,76,60,.15)', border: '1px solid rgba(231,76,60,.4)', color: '#e74c3c', borderRadius: 8, padding: '8px 4px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>✗ Cerrar</button>
+              style={{ flex: 1, background: '#0a0a0a', border: '1px solid #2a1010', color: '#c0392b', borderRadius: 3, padding: '7px 4px', fontSize: 11, fontFamily: 'monospace', cursor: 'pointer' }}>✕ Cerrar</button>
           </div>
           <button onClick={() => { setSavingAs('line'); setSaveName(`Línea ${savedLayers.filter(l=>l.type==='line').length+1}`) }}
             disabled={measurePts.length < 2}
-            style={{ width:'100%', marginTop:8, background:'rgba(245,195,0,.12)', border:'1px solid rgba(245,195,0,.4)', color:'#F5C300', borderRadius:8, padding:'7px 4px', fontSize:12, fontWeight:600, cursor:'pointer', opacity:measurePts.length<2?0.4:1 }}>
-            💾 Guardar como capa
+            style={{ width:'100%', marginTop:6, background:'#F5C30010', border:'1px solid #F5C30040', color:'#F5C300', borderRadius:3, padding:'6px 4px', fontSize:11, fontFamily:'monospace', cursor:'pointer', opacity:measurePts.length<2?0.35:1 }}>
+            ↓ Guardar como capa
           </button>
           {savingAs === 'line' && (
-            <div style={{ display:'flex', gap:6, marginTop:6 }}>
+            <div style={{ display:'flex', gap:5, marginTop:6 }}>
               <input value={saveName} onChange={e=>setSaveName(e.target.value)} onKeyDown={e=>e.key==='Enter'&&confirmSave()}
                 placeholder="Nombre de la capa..." autoFocus
-                style={{ flex:1, background:'#141a2a', border:'1px solid #F5C300', borderRadius:6, padding:'6px 8px', color:'#e0e6f0', fontSize:12, outline:'none' }} />
-              <button onClick={confirmSave} style={{ background:'rgba(245,195,0,.2)', border:'1px solid #F5C300', color:'#F5C300', borderRadius:6, padding:'6px 10px', cursor:'pointer', fontWeight:700 }}>✓</button>
-              <button onClick={()=>setSavingAs(null)} style={{ background:'#252d40', border:'1px solid #3a4060', color:'#aaa', borderRadius:6, padding:'6px 8px', cursor:'pointer' }}>✗</button>
+                style={{ flex:1, background:'#050505', border:'1px solid #F5C300', borderRadius:3, padding:'5px 8px', color:'#e0e0e0', fontSize:12, outline:'none', fontFamily:'monospace' }} />
+              <button onClick={confirmSave} style={{ background:'#F5C30018', border:'1px solid #F5C300', color:'#F5C300', borderRadius:3, padding:'5px 10px', cursor:'pointer', fontFamily:'monospace' }}>✓</button>
+              <button onClick={()=>setSavingAs(null)} style={{ background:'#0a0a0a', border:'1px solid #222', color:'#555', borderRadius:3, padding:'5px 8px', cursor:'pointer', fontFamily:'monospace' }}>✕</button>
             </div>
           )}
         </div>
@@ -1781,59 +1881,58 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
       {/* ── Panel de medición de área ── */}
       {areaActive && (
         <div style={{
-          position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)',
-          zIndex: 1000, background: '#1e2436', border: '1.5px solid #9C27B0',
-          borderRadius: 12, padding: '12px 16px',
-          boxShadow: '0 6px 24px rgba(0,0,0,.65)', minWidth: 300, maxWidth: '90%',
+          position: 'absolute', bottom: 20, left: '50%', transform: 'translateX(-50%)',
+          zIndex: 1000, background: '#0e0e0e', border: '1px solid #222',
+          borderLeft: '3px solid #ce93d8',
+          borderRadius: 4, padding: '10px 14px',
+          boxShadow: '0 4px 20px rgba(0,0,0,.8)', minWidth: 300, maxWidth: '90%',
+          fontFamily: 'monospace',
         }}>
-          <div style={{ color: '#ce93d8', fontSize: 10, fontWeight: 700, textAlign: 'center', letterSpacing: 0.8, marginBottom: 6, textTransform: 'uppercase' }}>
-            📐 Medir Área — clic para agregar vértices
+          <div style={{ fontSize: 9, color: '#555', letterSpacing: 1.4, textTransform: 'uppercase', marginBottom: 8 }}>
+            ⬡ Medir área
           </div>
-          <div style={{ textAlign: 'center', marginBottom: 10, minHeight: 28 }}>
+          <div style={{ fontSize: areaPts.length >= 3 ? 22 : 13, fontWeight: 700, textAlign: 'center', marginBottom: 8, minHeight: 28,
+            color: areaPts.length >= 3 ? '#ce93d8' : '#444' }}>
             {areaPts.length < 3
-              ? <span style={{ fontSize: 13, color: '#7a8aaa' }}>
-                  {areaPts.length === 0 ? 'Hacé clic en el mapa para comenzar' : areaPts.length === 1 ? '1 punto agregado — seguí haciendo clic' : '2 puntos — agregá al menos uno más'}
-                </span>
-              : <span style={{ fontSize: 22, fontWeight: 900, color: '#ce93d8' }}>{fmtArea(polygonAreaM2(areaPts))}</span>
+              ? (areaPts.length === 0 ? 'Clic en el mapa para comenzar'
+                : areaPts.length === 1 ? '1 punto — seguí haciendo clic'
+                : '2 puntos — agregá al menos uno más')
+              : fmtArea(polygonAreaM2(areaPts))
             }
           </div>
           {areaPts.length >= 3 && (() => {
             const m2 = polygonAreaM2(areaPts)
             return (
-              <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
-                {([
-                  ['m²',    Math.round(m2).toLocaleString('es-AR')],
-                  ['ha',    (m2/10000).toFixed(4)],
-                  ['km²',   (m2/1000000).toFixed(6)],
-                ] as [string,string][]).map(([unit, val]) => (
-                  <div key={unit} style={{ flex: 1, background: '#252d40', borderRadius: 6, padding: '5px 4px', textAlign: 'center' }}>
-                    <div style={{ fontSize: 9, color: '#7a8aaa', marginBottom: 2 }}>{unit}</div>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: '#ce93d8' }}>{val}</div>
+              <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
+                {([['m²', Math.round(m2).toLocaleString('es-AR')], ['ha', (m2/10000).toFixed(4)], ['km²', (m2/1000000).toFixed(6)]] as [string,string][]).map(([unit, val]) => (
+                  <div key={unit} style={{ flex: 1, background: '#0a0a0a', border: '1px solid #1e1e1e', borderRadius: 3, padding: '4px', textAlign: 'center' }}>
+                    <div style={{ fontSize: 9, color: '#444', marginBottom: 2, fontFamily: 'monospace' }}>{unit}</div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: '#ce93d8', fontFamily: 'monospace' }}>{val}</div>
                   </div>
                 ))}
               </div>
             )
           })()}
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 6 }}>
             <button onClick={() => setAreaPts(prev => prev.slice(0, -1))} disabled={areaPts.length === 0}
-              style={{ flex: 1, background: '#252d40', border: '1px solid #3a4060', color: '#e0e6f0', borderRadius: 8, padding: '8px 4px', fontSize: 12, fontWeight: 600, cursor: 'pointer', opacity: areaPts.length === 0 ? 0.4 : 1 }}>↩ Deshacer</button>
+              style={{ flex: 1, background: '#0a0a0a', border: '1px solid #222', color: '#888', borderRadius: 3, padding: '7px 4px', fontSize: 11, fontFamily: 'monospace', cursor: 'pointer', opacity: areaPts.length === 0 ? 0.35 : 1 }}>↩ Deshacer</button>
             <button onClick={() => setAreaPts([])} disabled={areaPts.length === 0}
-              style={{ flex: 1, background: '#252d40', border: '1px solid #3a4060', color: '#aaa', borderRadius: 8, padding: '8px 4px', fontSize: 12, fontWeight: 600, cursor: 'pointer', opacity: areaPts.length === 0 ? 0.4 : 1 }}>🗑 Limpiar</button>
+              style={{ flex: 1, background: '#0a0a0a', border: '1px solid #222', color: '#666', borderRadius: 3, padding: '7px 4px', fontSize: 11, fontFamily: 'monospace', cursor: 'pointer', opacity: areaPts.length === 0 ? 0.35 : 1 }}>✕ Limpiar</button>
             <button onClick={() => onAreaChange?.(false)}
-              style={{ flex: 1, background: 'rgba(231,76,60,.15)', border: '1px solid rgba(231,76,60,.4)', color: '#e74c3c', borderRadius: 8, padding: '8px 4px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>✗ Cerrar</button>
+              style={{ flex: 1, background: '#0a0a0a', border: '1px solid #2a1010', color: '#c0392b', borderRadius: 3, padding: '7px 4px', fontSize: 11, fontFamily: 'monospace', cursor: 'pointer' }}>✕ Cerrar</button>
           </div>
           <button onClick={() => { setSavingAs('area'); setSaveName(`Área ${savedLayers.filter(l=>l.type==='polygon').length+1}`) }}
             disabled={areaPts.length < 3}
-            style={{ width:'100%', marginTop:8, background:'rgba(156,39,176,.15)', border:'1px solid rgba(156,39,176,.5)', color:'#ce93d8', borderRadius:8, padding:'7px 4px', fontSize:12, fontWeight:600, cursor:'pointer', opacity:areaPts.length<3?0.4:1 }}>
-            💾 Guardar como capa
+            style={{ width:'100%', marginTop:6, background:'#ce93d810', border:'1px solid #ce93d840', color:'#ce93d8', borderRadius:3, padding:'6px 4px', fontSize:11, fontFamily:'monospace', cursor:'pointer', opacity:areaPts.length<3?0.35:1 }}>
+            ↓ Guardar como capa
           </button>
           {savingAs === 'area' && (
-            <div style={{ display:'flex', gap:6, marginTop:6 }}>
+            <div style={{ display:'flex', gap:5, marginTop:6 }}>
               <input value={saveName} onChange={e=>setSaveName(e.target.value)} onKeyDown={e=>e.key==='Enter'&&confirmSave()}
                 placeholder="Nombre de la capa..." autoFocus
-                style={{ flex:1, background:'#141a2a', border:'1px solid #9C27B0', borderRadius:6, padding:'6px 8px', color:'#e0e6f0', fontSize:12, outline:'none' }} />
-              <button onClick={confirmSave} style={{ background:'rgba(156,39,176,.2)', border:'1px solid #9C27B0', color:'#ce93d8', borderRadius:6, padding:'6px 10px', cursor:'pointer', fontWeight:700 }}>✓</button>
-              <button onClick={()=>setSavingAs(null)} style={{ background:'#252d40', border:'1px solid #3a4060', color:'#aaa', borderRadius:6, padding:'6px 8px', cursor:'pointer' }}>✗</button>
+                style={{ flex:1, background:'#050505', border:'1px solid #ce93d8', borderRadius:3, padding:'5px 8px', color:'#e0e0e0', fontSize:12, outline:'none', fontFamily:'monospace' }} />
+              <button onClick={confirmSave} style={{ background:'#ce93d818', border:'1px solid #ce93d8', color:'#ce93d8', borderRadius:3, padding:'5px 10px', cursor:'pointer', fontFamily:'monospace' }}>✓</button>
+              <button onClick={()=>setSavingAs(null)} style={{ background:'#0a0a0a', border:'1px solid #222', color:'#555', borderRadius:3, padding:'5px 8px', cursor:'pointer', fontFamily:'monospace' }}>✕</button>
             </div>
           )}
         </div>
@@ -1842,56 +1941,58 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
       {/* ── Panel de círculo ── */}
       {circleActive && (
         <div style={{
-          position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)',
-          zIndex: 1000, background: '#1e2436', border: '1.5px solid #e67e22',
-          borderRadius: 12, padding: '12px 16px',
-          boxShadow: '0 6px 24px rgba(0,0,0,.65)', minWidth: 300, maxWidth: '90%',
+          position: 'absolute', bottom: 20, left: '50%', transform: 'translateX(-50%)',
+          zIndex: 1000, background: '#0e0e0e', border: '1px solid #222',
+          borderLeft: '3px solid #f0a060',
+          borderRadius: 4, padding: '10px 14px',
+          boxShadow: '0 4px 20px rgba(0,0,0,.8)', minWidth: 340, maxWidth: '90%',
+          fontFamily: 'monospace',
         }}>
-          <div style={{ color: '#f0a060', fontSize: 10, fontWeight: 700, textAlign: 'center', letterSpacing: 0.8, marginBottom: 6, textTransform: 'uppercase' }}>
-            ⭕ Círculo — {circlePts.length === 0 ? '1° clic: centro' : circlePts.length === 1 ? '2° clic: punto de radio' : '3° clic: nuevo centro'}
+          <div style={{ fontSize: 9, color: '#555', letterSpacing: 1.4, textTransform: 'uppercase', marginBottom: 8 }}>
+            ◯ Círculo — {circlePts.length === 0 ? '1° clic: centro' : circlePts.length === 1 ? '2° clic: punto de radio' : '3° clic: nuevo centro'}
           </div>
           {circlePts.length >= 2 ? (() => {
             const r = haversine(circlePts[0], circlePts[1])
             const area = circleAreaM2(r)
             return (
-              <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+              <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
                 {([
                   ['Radio',    fmtRadius(r)],
                   ['Diámetro', fmtRadius(r * 2)],
-                  ['Área m²',  Math.round(area).toLocaleString('es-AR')],
-                  ['Área ha',  (area/10000).toFixed(4)],
-                  ['Área km²', (area/1000000).toFixed(6)],
+                  ['m²',       Math.round(area).toLocaleString('es-AR')],
+                  ['ha',       (area/10000).toFixed(4)],
+                  ['km²',      (area/1000000).toFixed(6)],
                 ] as [string,string][]).map(([label, val]) => (
-                  <div key={label} style={{ flex: 1, background: '#252d40', borderRadius: 6, padding: '5px 4px', textAlign: 'center' }}>
-                    <div style={{ fontSize: 9, color: '#7a8aaa', marginBottom: 2 }}>{label}</div>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: '#f0a060' }}>{val}</div>
+                  <div key={label} style={{ flex: 1, background: '#0a0a0a', border: '1px solid #1e1e1e', borderRadius: 3, padding: '4px', textAlign: 'center' }}>
+                    <div style={{ fontSize: 9, color: '#444', marginBottom: 2, fontFamily: 'monospace' }}>{label}</div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: '#f0a060', fontFamily: 'monospace' }}>{val}</div>
                   </div>
                 ))}
               </div>
             )
           })() : (
-            <div style={{ color: '#7a8aaa', fontSize: 13, textAlign: 'center', marginBottom: 10, minHeight: 28 }}>
-              {circlePts.length === 0 ? 'Hacé clic en el mapa para fijar el centro' : 'Ahora clic para definir el radio'}
+            <div style={{ color: '#444', fontSize: 13, textAlign: 'center', marginBottom: 8, minHeight: 28 }}>
+              {circlePts.length === 0 ? 'Clic en el mapa para fijar el centro' : 'Ahora clic para definir el radio'}
             </div>
           )}
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 6 }}>
             <button onClick={() => { setCirclePts([]); circleHasCenterRef.current = false }} disabled={circlePts.length === 0}
-              style={{ flex: 1, background: '#252d40', border: '1px solid #3a4060', color: '#aaa', borderRadius: 8, padding: '8px 4px', fontSize: 12, fontWeight: 600, cursor: 'pointer', opacity: circlePts.length === 0 ? 0.4 : 1 }}>🗑 Limpiar</button>
+              style={{ flex: 1, background: '#0a0a0a', border: '1px solid #222', color: '#666', borderRadius: 3, padding: '7px 4px', fontSize: 11, fontFamily: 'monospace', cursor: 'pointer', opacity: circlePts.length === 0 ? 0.35 : 1 }}>✕ Limpiar</button>
             <button onClick={() => onCircleChange?.(false)}
-              style={{ flex: 1, background: 'rgba(231,76,60,.15)', border: '1px solid rgba(231,76,60,.4)', color: '#e74c3c', borderRadius: 8, padding: '8px 4px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>✗ Cerrar</button>
+              style={{ flex: 1, background: '#0a0a0a', border: '1px solid #2a1010', color: '#c0392b', borderRadius: 3, padding: '7px 4px', fontSize: 11, fontFamily: 'monospace', cursor: 'pointer' }}>✕ Cerrar</button>
           </div>
           <button onClick={() => { setSavingAs('circle'); setSaveName(`Círculo ${savedLayers.filter(l=>l.type==='circle').length+1}`) }}
             disabled={circlePts.length < 2}
-            style={{ width:'100%', marginTop:8, background:'rgba(230,126,34,.15)', border:'1px solid rgba(230,126,34,.5)', color:'#f0a060', borderRadius:8, padding:'7px 4px', fontSize:12, fontWeight:600, cursor:'pointer', opacity:circlePts.length<2?0.4:1 }}>
-            💾 Guardar como capa
+            style={{ width:'100%', marginTop:6, background:'#f0a06010', border:'1px solid #f0a06040', color:'#f0a060', borderRadius:3, padding:'6px 4px', fontSize:11, fontFamily:'monospace', cursor:'pointer', opacity:circlePts.length<2?0.35:1 }}>
+            ↓ Guardar como capa
           </button>
           {savingAs === 'circle' && (
-            <div style={{ display:'flex', gap:6, marginTop:6 }}>
+            <div style={{ display:'flex', gap:5, marginTop:6 }}>
               <input value={saveName} onChange={e=>setSaveName(e.target.value)} onKeyDown={e=>e.key==='Enter'&&confirmSave()}
                 placeholder="Nombre de la capa..." autoFocus
-                style={{ flex:1, background:'#141a2a', border:'1px solid #e67e22', borderRadius:6, padding:'6px 8px', color:'#e0e6f0', fontSize:12, outline:'none' }} />
-              <button onClick={confirmSave} style={{ background:'rgba(230,126,34,.2)', border:'1px solid #e67e22', color:'#f0a060', borderRadius:6, padding:'6px 10px', cursor:'pointer', fontWeight:700 }}>✓</button>
-              <button onClick={()=>setSavingAs(null)} style={{ background:'#252d40', border:'1px solid #3a4060', color:'#aaa', borderRadius:6, padding:'6px 8px', cursor:'pointer' }}>✗</button>
+                style={{ flex:1, background:'#050505', border:'1px solid #e67e22', borderRadius:3, padding:'5px 8px', color:'#e0e0e0', fontSize:12, outline:'none', fontFamily:'monospace' }} />
+              <button onClick={confirmSave} style={{ background:'#f0a06018', border:'1px solid #e67e22', color:'#f0a060', borderRadius:3, padding:'5px 10px', cursor:'pointer', fontFamily:'monospace' }}>✓</button>
+              <button onClick={()=>setSavingAs(null)} style={{ background:'#0a0a0a', border:'1px solid #222', color:'#555', borderRadius:3, padding:'5px 8px', cursor:'pointer', fontFamily:'monospace' }}>✕</button>
             </div>
           )}
         </div>
