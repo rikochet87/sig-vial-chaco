@@ -749,8 +749,8 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
 
   // ── Toolbar flotante magnética ──────────────────────────────────────────────
   const toolbarRef    = useRef<HTMLDivElement>(null)
-  const tbPosRef      = useRef({ x: 52, y: 10 })
-  const [tbPos, setTbPosState] = useState({ x: 52, y: 10 })
+  const tbPosRef      = useRef({ x: 10, y: 44 })
+  const [tbPos, setTbPosState] = useState({ x: 10, y: 44 })
   const setTbPos = (p: { x: number; y: number }) => { tbPosRef.current = p; setTbPosState(p) }
 
   const onToolbarDragStart = (e: React.MouseEvent) => {
@@ -1834,11 +1834,11 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
       {/* ── Panel de medición de distancia ── */}
       {measureActive && (
         <div style={{
-          position: 'absolute', bottom: 20, left: '50%', transform: 'translateX(-50%)',
+          position: 'absolute', bottom: 20, left: 10,
           zIndex: 1000, background: '#0e0e0e', border: '1px solid #222',
           borderLeft: '3px solid #F5C300',
           borderRadius: 4, padding: '10px 14px',
-          boxShadow: '0 4px 20px rgba(0,0,0,.8)', minWidth: 300, maxWidth: '90%',
+          boxShadow: '0 4px 20px rgba(0,0,0,.8)', minWidth: 280, maxWidth: 360,
           fontFamily: 'monospace',
         }}>
           <div style={{ fontSize: 9, color: '#555', letterSpacing: 1.4, textTransform: 'uppercase', marginBottom: 8 }}>
@@ -1881,11 +1881,11 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
       {/* ── Panel de medición de área ── */}
       {areaActive && (
         <div style={{
-          position: 'absolute', bottom: 20, left: '50%', transform: 'translateX(-50%)',
+          position: 'absolute', bottom: 20, left: 10,
           zIndex: 1000, background: '#0e0e0e', border: '1px solid #222',
           borderLeft: '3px solid #ce93d8',
           borderRadius: 4, padding: '10px 14px',
-          boxShadow: '0 4px 20px rgba(0,0,0,.8)', minWidth: 300, maxWidth: '90%',
+          boxShadow: '0 4px 20px rgba(0,0,0,.8)', minWidth: 280, maxWidth: 360,
           fontFamily: 'monospace',
         }}>
           <div style={{ fontSize: 9, color: '#555', letterSpacing: 1.4, textTransform: 'uppercase', marginBottom: 8 }}>
@@ -1941,11 +1941,11 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
       {/* ── Panel de círculo ── */}
       {circleActive && (
         <div style={{
-          position: 'absolute', bottom: 20, left: '50%', transform: 'translateX(-50%)',
+          position: 'absolute', bottom: 20, left: 10,
           zIndex: 1000, background: '#0e0e0e', border: '1px solid #222',
           borderLeft: '3px solid #f0a060',
           borderRadius: 4, padding: '10px 14px',
-          boxShadow: '0 4px 20px rgba(0,0,0,.8)', minWidth: 340, maxWidth: '90%',
+          boxShadow: '0 4px 20px rgba(0,0,0,.8)', minWidth: 280, maxWidth: 360,
           fontFamily: 'monospace',
         }}>
           <div style={{ fontSize: 9, color: '#555', letterSpacing: 1.4, textTransform: 'uppercase', marginBottom: 8 }}>
