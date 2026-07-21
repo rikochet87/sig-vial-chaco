@@ -2,11 +2,12 @@
 import { useState } from 'react'
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
-type Tab = 'terraplen' | 'excavacion' | 'ripio' | 'canal'
+type Tab = 'terraplen' | 'excavacion' | 'ripio' | 'canal' | 'desmalezado' | 'desbosque'
 
 // ── Colores por tipo ──────────────────────────────────────────────────────────
 const CLR: Record<Tab, string> = {
   terraplen: '#8D6E63', excavacion: '#FF7043', ripio: '#90A4AE', canal: '#29B6F6',
+  desmalezado: '#66BB6A', desbosque: '#795548',
 }
 
 // ── Estilos base ──────────────────────────────────────────────────────────────
@@ -496,12 +497,235 @@ function CalcCanal() {
   )
 }
 
+// ── DESMALEZADO DE BANQUINAS ──────────────────────────────────────────────────
+function CalcDesmalezado() {
+  const [L, setL]         = useState(1000)
+  const [Ab, setAb]       = useState(3.0)
+  const [lados, setLados] = useState(2)
+
+  const Sup_m2 = L * Ab * lados
+  const Sup_ha = Sup_m2 / 10000
+  const fmt    = (n: number) => Math.round(n).toLocaleString('es-AR')
+  const color  = CLR.desmalezado
+
+  const W_SVG = 420, H_SVG = 180
+  const cx = W_SVG / 2
+  const roadW_px = 130, bankW_px = 66
+  const roadY = 28, roadH = 122
+
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr 148px', gap: 10, height: '100%' }}>
+      <div style={panel}>
+        <SectionTitle>Geometría</SectionTitle>
+        <Inp label="Longitud"       unit="m" value={L}   onChange={setL}   step={100} />
+        <Inp label="Ancho banquina" unit="m" value={Ab}  onChange={setAb}  step={0.5} min={0.5} />
+        <div>
+          <span style={lbl}>Cantidad de lados</span>
+          <div style={{ display: 'flex', gap: 6 }}>
+            {[1, 2].map(l => (
+              <button key={l} onClick={() => setLados(l)}
+                style={{ flex: 1, padding: '6px 4px', fontSize: 13, fontFamily: 'monospace',
+                  cursor: 'pointer', borderRadius: 3,
+                  border: `1px solid ${lados === l ? color : '#222'}`,
+                  background: lados === l ? `${color}22` : '#080808',
+                  color: lados === l ? color : '#555' }}>
+                {l} lado{l > 1 ? 's' : ''}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div style={{ marginTop: 12, padding: '8px', background: '#0a0a0a', borderRadius: 4,
+          fontSize: 9, color: '#333', fontFamily: 'monospace', lineHeight: 1.6 }}>
+          Área total: {fmt(Sup_m2)} m²<br/>= {Sup_ha.toFixed(4)} ha
+        </div>
+      </div>
+
+      <div style={{ ...panel, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
+        <SectionTitle>Vista en planta — Desmalezado de banquinas</SectionTitle>
+        <svg viewBox={`0 0 ${W_SVG} ${H_SVG}`} style={{ width: '100%', height: 'auto' }}>
+          <rect x={0} y={0} width={W_SVG} height={H_SVG} fill="#0a0a0a" />
+          {/* Banquina izquierda */}
+          <rect x={cx - roadW_px/2 - bankW_px} y={roadY} width={bankW_px} height={roadH}
+            fill={lados === 2 ? `${color}30` : '#0d0d0d'}
+            stroke={lados === 2 ? color : '#1a1a1a'} strokeWidth={lados === 2 ? 1.5 : 0.8}
+            strokeDasharray={lados === 2 ? '' : '4 4'} />
+          {lados === 2 && (
+            <text x={cx - roadW_px/2 - bankW_px/2} y={roadY + roadH/2 + 4}
+              textAnchor="middle" fontSize={9} fill={color} fontFamily="monospace">BANQ.</text>
+          )}
+          {/* Calzada */}
+          <rect x={cx - roadW_px/2} y={roadY} width={roadW_px} height={roadH}
+            fill="#161616" stroke="#2a2a2a" strokeWidth={1} />
+          <line x1={cx} y1={roadY} x2={cx} y2={roadY + roadH}
+            stroke="#222" strokeWidth={1} strokeDasharray="8 6" />
+          <text x={cx} y={roadY + roadH/2 + 4} textAnchor="middle"
+            fontSize={9} fill="#333" fontFamily="monospace">CALZADA</text>
+          {/* Banquina derecha */}
+          <rect x={cx + roadW_px/2} y={roadY} width={bankW_px} height={roadH}
+            fill={`${color}30`} stroke={color} strokeWidth={1.5} />
+          <text x={cx + roadW_px/2 + bankW_px/2} y={roadY + roadH/2 + 4}
+            textAnchor="middle" fontSize={9} fill={color} fontFamily="monospace">BANQ.</text>
+          {/* Achurado diagonal sobre banquinas activas */}
+          {lados === 2 && Array.from({ length: 8 }, (_, i) => (
+            <line key={i} x1={cx - roadW_px/2 - bankW_px + i*10} y1={roadY}
+              x2={cx - roadW_px/2 - bankW_px + i*10 + roadH} y2={roadY + roadH}
+              stroke={`${color}18`} strokeWidth={1.5} />
+          ))}
+          {Array.from({ length: 8 }, (_, i) => (
+            <line key={i} x1={cx + roadW_px/2 + i*10} y1={roadY}
+              x2={cx + roadW_px/2 + i*10 + roadH} y2={roadY + roadH}
+              stroke={`${color}18`} strokeWidth={1.5} />
+          ))}
+          {/* Dim: ancho banquina */}
+          <DimLine x1={cx + roadW_px/2} y1={roadY - 14} x2={cx + roadW_px/2 + bankW_px} y2={roadY - 14}
+            label={`Ab = ${Ab.toFixed(1)} m`} textX={cx + roadW_px/2 + bankW_px/2} textY={roadY - 18} />
+          {/* Sentido de avance */}
+          <text x={12} y={roadY + roadH/2 + 4} fontSize={12} fill="#222" fontFamily="monospace">→→</text>
+          <text x={W_SVG - 32} y={roadY + roadH/2 + 4} fontSize={12} fill="#222" fontFamily="monospace">→→</text>
+          <text x={cx} y={H_SVG - 8} textAnchor="middle" fontSize={10} fill={color} fontFamily="monospace">
+            Sup = {fmt(Sup_m2)} m² = {Sup_ha.toFixed(2)} ha
+          </text>
+        </svg>
+        <Pipeline color={color} steps={[
+          { label: 'Superficie', formula: 'S = L · Ab · lados',
+            sub: `${L}·${Ab}·${lados}`, result: `${fmt(Sup_m2)} m²` },
+          { label: 'Hectáreas',  formula: 'ha = S / 10.000',
+            sub: `${fmt(Sup_m2)}/10000`, result: `${Sup_ha.toFixed(4)} ha`, accent: true },
+        ]} />
+      </div>
+
+      <div style={panel}>
+        <SectionTitle>Cómputo</SectionTitle>
+        <Res label="Superficie total" value={fmt(Sup_m2)}        unit="m²" />
+        <Res label="Hectáreas"        value={Sup_ha.toFixed(4)}  unit="ha" accent />
+        <div style={{ marginTop: 8, fontSize: 11, color: '#333', fontFamily: 'monospace', lineHeight: 1.8 }}>
+          {(Sup_ha / (L / 1000)).toFixed(2)} ha/km<br />
+          {lados} lado{lados > 1 ? 's' : ''} · {Ab} m c/u
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── DESBOSQUE, DESTRONQUE Y LIMPIEZA ──────────────────────────────────────────
+const MONTE: Record<string, { label: string; factor: number; desc: string }> = {
+  ligero: { label: 'Ligero', factor: 50,  desc: '~50 m³/ha' },
+  medio:  { label: 'Medio',  factor: 150, desc: '~150 m³/ha' },
+  denso:  { label: 'Denso',  factor: 400, desc: '~400 m³/ha' },
+}
+
+function CalcDesbosque() {
+  const [L, setL]     = useState(1000)
+  const [Ad, setAd]   = useState(20.0)
+  const [tipo, setTipo] = useState('medio')
+
+  const Sup_m2 = L * Ad
+  const Sup_ha = Sup_m2 / 10000
+  const VolArb = Sup_ha * MONTE[tipo].factor
+  const fmt    = (n: number) => Math.round(n).toLocaleString('es-AR')
+  const color  = CLR.desbosque
+
+  const W_SVG = 420, H_SVG = 185
+  const cx = W_SVG / 2
+  const clearW_px = 220, roadW_px = 80
+  const roadY = 30, roadH = 120
+
+  // Posiciones de "árboles" en zona de desmonte (relativas al centro)
+  const trees = [[-65, 40], [-50, 85], [-78, 110], [-40, 130], [-90, 65],
+                 [38, 55], [60, 95], [72, 75], [50, 135], [85, 110]]
+
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr 148px', gap: 10, height: '100%' }}>
+      <div style={panel}>
+        <SectionTitle>Geometría</SectionTitle>
+        <Inp label="Longitud"       unit="m" value={L}   onChange={setL}   step={100} />
+        <Inp label="Ancho desmonte" unit="m" value={Ad}  onChange={setAd}  step={1} min={5} />
+        <div>
+          <span style={lbl}>Tipo de monte</span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {Object.entries(MONTE).map(([k, v]) => (
+              <button key={k} onClick={() => setTipo(k)}
+                style={{ padding: '6px 10px', fontSize: 11, fontFamily: 'monospace',
+                  cursor: 'pointer', borderRadius: 3, textAlign: 'left' as const,
+                  border: `1px solid ${tipo === k ? color : '#222'}`,
+                  background: tipo === k ? `${color}22` : '#080808',
+                  color: tipo === k ? color : '#555' }}>
+                {v.label}{' '}
+                <span style={{ fontSize: 9, color: '#444' }}>{v.desc}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+        <div style={{ marginTop: 12, padding: '8px', background: '#0a0a0a', borderRadius: 4,
+          fontSize: 9, color: '#333', fontFamily: 'monospace', lineHeight: 1.6 }}>
+          Factor: {MONTE[tipo].factor} m³/ha<br/>Sup: {Sup_ha.toFixed(4)} ha
+        </div>
+      </div>
+
+      <div style={{ ...panel, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
+        <SectionTitle>Vista en planta — Desbosque, destronque y limpieza</SectionTitle>
+        <svg viewBox={`0 0 ${W_SVG} ${H_SVG}`} style={{ width: '100%', height: 'auto' }}>
+          <rect x={0} y={0} width={W_SVG} height={H_SVG} fill="#0a0a0a" />
+          {/* Zona de desmonte */}
+          <rect x={cx - clearW_px/2} y={roadY} width={clearW_px} height={roadH}
+            fill={`${color}18`} stroke={color} strokeWidth={1.5} />
+          {/* Árboles estilizados */}
+          {trees.map(([dx, dy], i) => (
+            <g key={i}>
+              <circle cx={cx + dx} cy={roadY + dy} r={6}
+                fill={`${color}40`} stroke={color} strokeWidth={0.8} />
+              <line x1={cx + dx} y1={roadY + dy - 6} x2={cx + dx} y2={roadY + dy - 10}
+                stroke={color} strokeWidth={0.8} opacity={0.5} />
+            </g>
+          ))}
+          {/* Calzada encima */}
+          <rect x={cx - roadW_px/2} y={roadY} width={roadW_px} height={roadH}
+            fill="#161616" stroke="#2a2a2a" strokeWidth={1} />
+          <line x1={cx} y1={roadY} x2={cx} y2={roadY + roadH}
+            stroke="#222" strokeWidth={1} strokeDasharray="8 6" />
+          <text x={cx} y={roadY + roadH/2 + 4} textAnchor="middle"
+            fontSize={9} fill="#333" fontFamily="monospace">CALZADA</text>
+          {/* Dim: ancho desmonte */}
+          <DimLine x1={cx - clearW_px/2} y1={roadY - 14} x2={cx + clearW_px/2} y2={roadY - 14}
+            label={`Ad = ${Ad.toFixed(1)} m`} textX={cx} textY={roadY - 18} />
+          <text x={cx} y={H_SVG - 8} textAnchor="middle" fontSize={10} fill={color} fontFamily="monospace">
+            {Sup_ha.toFixed(2)} ha · {fmt(VolArb)} m³ ({MONTE[tipo].label})
+          </text>
+        </svg>
+        <Pipeline color={color} steps={[
+          { label: 'Superficie',   formula: 'S = L · Ad',
+            sub: `${L}·${Ad}`, result: `${fmt(Sup_m2)} m²` },
+          { label: 'Hectáreas',    formula: 'ha = S / 10.000',
+            sub: `${fmt(Sup_m2)}/10000`, result: `${Sup_ha.toFixed(4)} ha` },
+          { label: 'Vol. arbóreo', formula: 'V = ha · factor',
+            sub: `${Sup_ha.toFixed(4)}·${MONTE[tipo].factor}`,
+            result: `${fmt(VolArb)} m³`, accent: true },
+        ]} />
+      </div>
+
+      <div style={panel}>
+        <SectionTitle>Cómputo</SectionTitle>
+        <Res label="Superficie total" value={fmt(Sup_m2)}        unit="m²" />
+        <Res label="Hectáreas"        value={Sup_ha.toFixed(4)}  unit="ha" />
+        <Res label="Volumen arbóreo"  value={fmt(VolArb)}        unit="m³" accent />
+        <div style={{ marginTop: 8, fontSize: 11, color: '#333', fontFamily: 'monospace', lineHeight: 1.8 }}>
+          Monte {MONTE[tipo].label}<br />
+          {MONTE[tipo].factor} m³/ha<br />
+          {(Sup_ha / (L / 1000)).toFixed(2)} ha/km
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── PÁGINA PRINCIPAL ──────────────────────────────────────────────────────────
 const TABS: { id: Tab; label: string; icon: string }[] = [
-  { id: 'terraplen',  label: 'Terraplén',   icon: '▲' },
-  { id: 'excavacion', label: 'Excavación',  icon: '▼' },
-  { id: 'ripio',      label: 'Ripio',       icon: '≡' },
-  { id: 'canal',      label: 'Canal',       icon: '⌣' },
+  { id: 'terraplen',   label: 'Terraplén',    icon: '▲' },
+  { id: 'excavacion',  label: 'Excavación',   icon: '▼' },
+  { id: 'ripio',       label: 'Ripio',        icon: '≡' },
+  { id: 'canal',       label: 'Canal',        icon: '⌣' },
+  { id: 'desmalezado', label: 'Desmalezado',  icon: '≈' },
+  { id: 'desbosque',   label: 'Desbosque',    icon: '※' },
 ]
 
 export default function CalculadorasPage() {
@@ -538,10 +762,12 @@ export default function CalculadorasPage() {
 
       {/* Calculadora activa — ocupa todo el espacio restante */}
       <div style={{ flex: 1, minHeight: 0, borderLeft: `2px solid ${color}44`, paddingLeft: 14, marginTop: 10 }}>
-        {tab === 'terraplen'  && <CalcTerraplen />}
-        {tab === 'excavacion' && <CalcExcavacion />}
-        {tab === 'ripio'      && <CalcRipio />}
-        {tab === 'canal'      && <CalcCanal />}
+        {tab === 'terraplen'   && <CalcTerraplen />}
+        {tab === 'excavacion'  && <CalcExcavacion />}
+        {tab === 'ripio'       && <CalcRipio />}
+        {tab === 'canal'       && <CalcCanal />}
+        {tab === 'desmalezado' && <CalcDesmalezado />}
+        {tab === 'desbosque'   && <CalcDesbosque />}
       </div>
     </div>
   )
