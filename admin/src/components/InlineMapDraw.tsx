@@ -38,7 +38,7 @@ function polygonAreaHa(pts: LatLng[]): number {
 interface Props {
   color: string
   onConfirm: (side: 'izq' | 'der', monte: MonteKey, area_ha: number) => void
-  onCancel: () => void
+  onCancel?: () => void
 }
 
 // ── Componente ────────────────────────────────────────────────────────────────
@@ -302,7 +302,7 @@ export default function InlineMapDraw({ color, onConfirm, onCancel }: Props) {
           </>
         )}
 
-        <button onClick={onCancel} style={{ ...toolBtn(), color: '#444', fontSize: 9 }}>✕ Cerrar mapa</button>
+        {onCancel && <button onClick={onCancel} style={{ ...toolBtn(), color: '#444', fontSize: 9 }}>✕ Cerrar mapa</button>}
       </div>
 
       {/* ── Mapa ── */}

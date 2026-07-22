@@ -675,7 +675,6 @@ function CalcDesbosque({ paramsRef }: { paramsRef?: React.MutableRefObject<Param
 
   // ── Sub-vista ─────────────────────────────────────────────────
   const [view, setView] = useState<'computo' | 'jornales' | 'presupuesto'>('computo')
-  const [mapOpen, setMapOpen] = useState(false)
 
   // ── Derived: Ae-7 ────────────────────────────────────────────
   const combPerHpD = consumoLHpH * hsDiaComb * precioLitro * coefLubri
@@ -1257,108 +1256,66 @@ function CalcDesbosque({ paramsRef }: { paramsRef?: React.MutableRefObject<Param
             </div>
           </div>
 
-          {/* ── Panel central ── */}
-          <div style={{ ...panel, display: 'flex', flexDirection: 'column', ...(mapOpen ? { padding: 0, overflow: 'hidden' } : { overflowY: 'auto' }) }}>
-            {mapOpen ? (
-              <InlineMapDraw
-                color={color}
-                onConfirm={(side, monteKey, area_ha) => {
-                  const ne: MonteEntry = { id: `${side}-${Date.now()}`, ha: area_ha, monte: monteKey, fromMap: true }
-                  if (side === 'izq') setEntriesIzq(prev => [...prev, ne])
-                  else               setEntriesDer(prev => [...prev, ne])
-                  setMapOpen(false)
-                }}
-                onCancel={() => setMapOpen(false)}
-              />
-            ) : (
-            <>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-              <span style={{ fontSize: 13, color: '#666', fontFamily: 'monospace' }}>Vista en planta — Desbosque, destronque y limpieza</span>
-              <button onClick={() => setMapOpen(true)} style={{
-                padding: '4px 12px', fontSize: 10, fontFamily: 'monospace', cursor: 'pointer',
-                border: `1px solid ${color}66`, background: `${color}15`, color,
-                letterSpacing: 0.5, borderRadius: 2, flexShrink: 0,
-              }}>Dibujar en mapa →</button>
-            </div>
-            <svg viewBox={`0 0 ${W_SVG} ${H_SVG}`} style={{ width: '100%', height: 'auto' }}>
-              <rect x={0} y={0} width={W_SVG} height={H_SVG} fill="#0a0a0a" />
-              {/* Left desmonte strip */}
-              <rect x={cx - roadW_px/2 - izqW_px} y={roadY} width={izqW_px} height={roadH}
-                fill={`${color}18`} stroke={color} strokeWidth={1.5} />
-              {/* Right desmonte strip */}
-              <rect x={cx + roadW_px/2} y={roadY} width={derW_px} height={roadH}
-                fill={`${color}18`} stroke={color} strokeWidth={1.5} />
-              {trees.map(([dx, dy], i) => (
-                <g key={i}>
-                  <circle cx={cx + dx} cy={roadY + dy} r={5.5}
-                    fill={`${color}40`} stroke={color} strokeWidth={0.8} />
-                  <line x1={cx + dx} y1={roadY + dy - 5.5} x2={cx + dx} y2={roadY + dy - 9}
-                    stroke={color} strokeWidth={0.8} opacity={0.5} />
-                </g>
-              ))}
-              <rect x={cx - roadW_px/2} y={roadY} width={roadW_px} height={roadH}
-                fill="#161616" stroke="#2a2a2a" strokeWidth={1} />
-              <line x1={cx} y1={roadY} x2={cx} y2={roadY + roadH}
-                stroke="#222" strokeWidth={1} strokeDasharray="8 6" />
-              <text x={cx} y={roadY + roadH/2 + 4} textAnchor="middle"
-                fontSize={9} fill="#333" fontFamily="monospace">CALZADA</text>
-              <DimLine x1={cx - roadW_px/2 - izqW_px} y1={roadY - 14} x2={cx - roadW_px/2} y2={roadY - 14}
-                label={`Izq ${Sup_ha_izq.toFixed(2)} ha`} textX={cx - roadW_px/2 - izqW_px/2} textY={roadY - 18} />
-              <DimLine x1={cx + roadW_px/2} y1={roadY - 14} x2={cx + roadW_px/2 + derW_px} y2={roadY - 14}
-                label={`Der ${Sup_ha_der.toFixed(2)} ha`} textX={cx + roadW_px/2 + derW_px/2} textY={roadY - 18} />
-              <text x={cx} y={H_SVG - 8} textAnchor="middle" fontSize={9} fill={color} fontFamily="monospace">
-                {`Izq ${Sup_ha_izq.toFixed(2)} ha + Der ${Sup_ha_der.toFixed(2)} ha = ${Sup_ha.toFixed(2)} ha · ${diasTrab.toFixed(1)} d`}
-              </text>
-            </svg>
+          {/* ── Panel central: mapa siempre visible ── */}
+          <div style={{ ...panel, display: 'flex', flexDirection: 'column', padding: 0, overflow: 'hidden' }}>
+            {/* Mapa Leaflet */}
+            <InlineMapDraw
+              color={color}
+              onConfirm={(side, monteKey, area_ha) => {
+                const ne: MonteEntry = { id: `${side}-${Date.now()}`, ha: area_ha, monte: monteKey, fromMap: true }
+                if (side === 'izq') setEntriesIzq(prev => [...prev, ne])
+                else               setEntriesDer(prev => [...prev, ne])
+              }}
+            />
             {/* Tabla desglose por tipo */}
-            <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 10 }}>
-              <thead>
-                <tr>
-                  <th style={{ ...TH, textAlign: 'left' }}>Tipo</th>
-                  <th style={{ ...TH, textAlign: 'right' }}>Ha izq.</th>
-                  <th style={{ ...TH, textAlign: 'right' }}>Ha der.</th>
-                  <th style={{ ...TH, textAlign: 'right' }}>Total ha</th>
-                  <th style={{ ...TH, textAlign: 'right' }}>rend.</th>
-                  <th style={{ ...TH, textAlign: 'right' }}>$/ha</th>
-                  <th style={{ ...TH, textAlign: 'right' }}>Días</th>
-                  <th style={{ ...TH, textAlign: 'right' }}>Subtotal</th>
-                </tr>
-              </thead>
-              <tbody>
-                {Object.entries(MONTE).map(([k, v]) => {
-                  const haIzq = entriesIzq.filter(e => e.monte === k).reduce((s, e) => s + (e.ha||0), 0)
-                  const haDer = entriesDer.filter(e => e.monte === k).reduce((s, e) => s + (e.ha||0), 0)
-                  const ha = haIzq + haDer
-                  const dias = v.rendimientoDia > 0 ? ha / v.rendimientoDia : 0
-                  return (
-                    <tr key={k} style={{ opacity: ha > 0 ? 1 : 0.3 }}>
-                      <td style={{ ...TD, fontFamily: 'monospace', fontSize: 10, color: ha > 0 ? '#888' : '#333' }}>{v.label}</td>
-                      <td style={{ ...TD, textAlign: 'right', fontFamily: 'monospace', fontSize: 10, color: '#555' }}>{haIzq > 0 ? haIzq.toFixed(3) : '—'}</td>
-                      <td style={{ ...TD, textAlign: 'right', fontFamily: 'monospace', fontSize: 10, color: '#555' }}>{haDer > 0 ? haDer.toFixed(3) : '—'}</td>
-                      <td style={{ ...TD, textAlign: 'right', fontFamily: 'monospace', fontSize: 10, color: ha > 0 ? '#aaa' : '#333' }}>{ha > 0 ? ha.toFixed(3) : '—'}</td>
-                      <td style={{ ...TD, textAlign: 'right', fontFamily: 'monospace', fontSize: 10, color: '#444' }}>{v.rendimientoDia}</td>
-                      <td style={{ ...TD, textAlign: 'right', fontFamily: 'monospace', fontSize: 10, color: ha > 0 ? color : '#333' }}>${fmt(Math.round(precioHaPorTipo[k]))}</td>
-                      <td style={{ ...TD, textAlign: 'right', fontFamily: 'monospace', fontSize: 10, color: '#555' }}>{ha > 0 ? dias.toFixed(1) : '—'}</td>
-                      <td style={{ ...TD, textAlign: 'right', fontFamily: 'monospace', fontSize: 10, color: ha > 0 ? '#aaa' : '#222' }}>{ha > 0 ? fmtM(costoByType[k]) : '—'}</td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-              <tfoot>
-                <tr>
-                  <td style={{ ...TH, borderTop: '1px solid #1a1a1a', paddingTop: 5 }}>Total</td>
-                  <td style={{ ...TH, textAlign: 'right', borderTop: '1px solid #1a1a1a', paddingTop: 5, color: '#666' }}>{Sup_ha_izq.toFixed(3)}</td>
-                  <td style={{ ...TH, textAlign: 'right', borderTop: '1px solid #1a1a1a', paddingTop: 5, color: '#666' }}>{Sup_ha_der.toFixed(3)}</td>
-                  <td style={{ ...TH, textAlign: 'right', borderTop: '1px solid #1a1a1a', paddingTop: 5, color: '#888' }}>{Sup_ha.toFixed(3)}</td>
-                  <td style={{ borderTop: '1px solid #1a1a1a' }}></td>
-                  <td style={{ borderTop: '1px solid #1a1a1a' }}></td>
-                  <td style={{ ...TH, textAlign: 'right', borderTop: '1px solid #1a1a1a', paddingTop: 5, color: '#666' }}>{diasTrab.toFixed(1)}</td>
-                  <td style={{ ...TH, textAlign: 'right', borderTop: '1px solid #1a1a1a', paddingTop: 5, color: color, fontSize: 12 }}>{fmtM(CostoTotal)}</td>
-                </tr>
-              </tfoot>
-            </table>
-            </>
-            )}
+            <div style={{ flexShrink: 0, maxHeight: 148, overflowY: 'auto', borderTop: '1px solid #1a1a1a' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', padding: '0 14px' }}>
+                <thead>
+                  <tr>
+                    <th style={{ ...TH, textAlign: 'left', paddingLeft: 10 }}>Tipo</th>
+                    <th style={{ ...TH, textAlign: 'right' }}>Ha izq.</th>
+                    <th style={{ ...TH, textAlign: 'right' }}>Ha der.</th>
+                    <th style={{ ...TH, textAlign: 'right' }}>Total ha</th>
+                    <th style={{ ...TH, textAlign: 'right' }}>rend.</th>
+                    <th style={{ ...TH, textAlign: 'right' }}>$/ha</th>
+                    <th style={{ ...TH, textAlign: 'right' }}>Días</th>
+                    <th style={{ ...TH, textAlign: 'right', paddingRight: 10 }}>Subtotal</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Object.entries(MONTE).map(([k, v]) => {
+                    const haIzq = entriesIzq.filter(e => e.monte === k).reduce((s, e) => s + (e.ha||0), 0)
+                    const haDer = entriesDer.filter(e => e.monte === k).reduce((s, e) => s + (e.ha||0), 0)
+                    const ha = haIzq + haDer
+                    const dias = v.rendimientoDia > 0 ? ha / v.rendimientoDia : 0
+                    return (
+                      <tr key={k} style={{ opacity: ha > 0 ? 1 : 0.3 }}>
+                        <td style={{ ...TD, fontFamily: 'monospace', fontSize: 10, color: ha > 0 ? '#888' : '#333', paddingLeft: 10 }}>{v.label}</td>
+                        <td style={{ ...TD, textAlign: 'right', fontFamily: 'monospace', fontSize: 10, color: '#555' }}>{haIzq > 0 ? haIzq.toFixed(3) : '—'}</td>
+                        <td style={{ ...TD, textAlign: 'right', fontFamily: 'monospace', fontSize: 10, color: '#555' }}>{haDer > 0 ? haDer.toFixed(3) : '—'}</td>
+                        <td style={{ ...TD, textAlign: 'right', fontFamily: 'monospace', fontSize: 10, color: ha > 0 ? '#aaa' : '#333' }}>{ha > 0 ? ha.toFixed(3) : '—'}</td>
+                        <td style={{ ...TD, textAlign: 'right', fontFamily: 'monospace', fontSize: 10, color: '#444' }}>{v.rendimientoDia}</td>
+                        <td style={{ ...TD, textAlign: 'right', fontFamily: 'monospace', fontSize: 10, color: ha > 0 ? color : '#333' }}>${fmt(Math.round(precioHaPorTipo[k]))}</td>
+                        <td style={{ ...TD, textAlign: 'right', fontFamily: 'monospace', fontSize: 10, color: '#555' }}>{ha > 0 ? dias.toFixed(1) : '—'}</td>
+                        <td style={{ ...TD, textAlign: 'right', fontFamily: 'monospace', fontSize: 10, color: ha > 0 ? '#aaa' : '#222', paddingRight: 10 }}>{ha > 0 ? fmtM(costoByType[k]) : '—'}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td style={{ ...TH, borderTop: '1px solid #1a1a1a', paddingTop: 5, paddingLeft: 10 }}>Total</td>
+                    <td style={{ ...TH, textAlign: 'right', borderTop: '1px solid #1a1a1a', paddingTop: 5, color: '#666' }}>{Sup_ha_izq.toFixed(3)}</td>
+                    <td style={{ ...TH, textAlign: 'right', borderTop: '1px solid #1a1a1a', paddingTop: 5, color: '#666' }}>{Sup_ha_der.toFixed(3)}</td>
+                    <td style={{ ...TH, textAlign: 'right', borderTop: '1px solid #1a1a1a', paddingTop: 5, color: '#888' }}>{Sup_ha.toFixed(3)}</td>
+                    <td style={{ borderTop: '1px solid #1a1a1a' }}></td>
+                    <td style={{ borderTop: '1px solid #1a1a1a' }}></td>
+                    <td style={{ ...TH, textAlign: 'right', borderTop: '1px solid #1a1a1a', paddingTop: 5, color: '#666' }}>{diasTrab.toFixed(1)}</td>
+                    <td style={{ ...TH, textAlign: 'right', borderTop: '1px solid #1a1a1a', paddingTop: 5, color, fontSize: 12, paddingRight: 10 }}>{fmtM(CostoTotal)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
           </div>
 
           {/* ── Panel derecho ── */}
