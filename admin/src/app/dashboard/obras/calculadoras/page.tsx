@@ -1,7 +1,8 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { setObraTransfer, getReturnedArea, clearReturnedArea, saveReturnTab, consumeReturnTab } from '@/lib/obraTransfer'
+import { setObraTransfer, saveReturnTab, consumeReturnTab } from '@/lib/obraTransfer'
+import InlineMapDraw from '@/components/InlineMapDraw'
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 type Tab    = 'terraplen' | 'excavacion' | 'ripio' | 'canal' | 'desmalezado' | 'desbosque'
@@ -631,8 +632,6 @@ type MonteKey = 'ralo' | 'semitupido' | 'tupido'
 interface MonteEntry { id: string; ha: number; monte: MonteKey; fromMap?: boolean }
 
 function CalcDesbosque({ paramsRef }: { paramsRef?: React.MutableRefObject<Params> }) {
-  const router = useRouter()
-
   // ── Geometría — múltiples superficies por tipo en cada lado ──────────────
   const [entriesIzq, setEntriesIzq] = useState<MonteEntry[]>([
     { id: 'izq-0', ha: 1.0, monte: 'semitupido' }
@@ -676,6 +675,7 @@ function CalcDesbosque({ paramsRef }: { paramsRef?: React.MutableRefObject<Param
 
   // ── Sub-vista ─────────────────────────────────────────────────
   const [view, setView] = useState<'computo' | 'jornales' | 'presupuesto'>('computo')
+  const [mapOpen, setMapOpen] = useState(false)
 
   // ── Derived: Ae-7 ────────────────────────────────────────────
   const combPerHpD = consumoLHpH * hsDiaComb * precioLitro * coefLubri
@@ -720,17 +720,6 @@ function CalcDesbosque({ paramsRef }: { paramsRef?: React.MutableRefObject<Param
   const presTotal = presRows.reduce((s, r) => s + r.cant * r.precioUnit, 0)
   const aporteDVP = presTotal * dvpPct / 100
   const aporteCC  = presTotal * (1 - dvpPct / 100)
-
-  // ── Área devuelta desde Planta → nueva entry ─────────────────
-  useEffect(() => {
-    const ret = getReturnedArea()
-    if (ret) {
-      const ne: MonteEntry = { id: `${ret.side}-${Date.now()}`, ha: ret.area_ha, monte: 'semitupido', fromMap: true }
-      if (ret.side === 'izq') setEntriesIzq(prev => [...prev, ne])
-      else                    setEntriesDer(prev => [...prev, ne])
-      clearReturnedArea()
-    }
-  }, [])
 
   useEffect(() => {
     if (paramsRef) paramsRef.current = { Ad: Sup_ha * 10000, monte: 'semitupido', precioHa }
@@ -829,15 +818,7 @@ function CalcDesbosque({ paramsRef }: { paramsRef?: React.MutableRefObject<Param
           <span>Subtotal {side === 'izq' ? 'izq.' : 'der.'}</span>
           <span style={{ color: subtotal > 0 ? '#888' : '#333' }}>{subtotal.toFixed(4)} ha</span>
         </div>
-        <div style={{ display: 'flex', gap: 4 }}>
-          <button style={{ ...addBtn, flex: 1, marginTop: 2 }} onClick={() => addEntry(side)}>+ agregar</button>
-          <button style={{ ...addBtn, flex: 1, marginTop: 2, color: `${color}99`, borderColor: `${color}44` }}
-            onClick={() => {
-              saveReturnTab('desbosque')
-              setObraTransfer({ type: 'desbosque', params: { Ad: 15, monte: 'semitupido' }, precioUnitario: Math.round(precioHa), unidad: '$/ha', pendingSide: side })
-              router.push('/dashboard/obras/planta')
-            }}>← mapa</button>
-        </div>
+        <button style={{ ...addBtn, marginTop: 2 }} onClick={() => addEntry(side)}>+ agregar</button>
       </>
     )
   }
@@ -1277,8 +1258,28 @@ function CalcDesbosque({ paramsRef }: { paramsRef?: React.MutableRefObject<Param
           </div>
 
           {/* ── Panel central ── */}
-          <div style={{ ...panel, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
-            <SectionTitle>Vista en planta — Desbosque, destronque y limpieza</SectionTitle>
+          <div style={{ ...panel, display: 'flex', flexDirection: 'column', ...(mapOpen ? { padding: 0, overflow: 'hidden' } : { overflowY: 'auto' }) }}>
+            {mapOpen ? (
+              <InlineMapDraw
+                color={color}
+                onConfirm={(side, monteKey, area_ha) => {
+                  const ne: MonteEntry = { id: `${side}-${Date.now()}`, ha: area_ha, monte: monteKey, fromMap: true }
+                  if (side === 'izq') setEntriesIzq(prev => [...prev, ne])
+                  else               setEntriesDer(prev => [...prev, ne])
+                  setMapOpen(false)
+                }}
+                onCancel={() => setMapOpen(false)}
+              />
+            ) : (
+            <>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+              <span style={{ fontSize: 13, color: '#666', fontFamily: 'monospace' }}>Vista en planta — Desbosque, destronque y limpieza</span>
+              <button onClick={() => setMapOpen(true)} style={{
+                padding: '4px 12px', fontSize: 10, fontFamily: 'monospace', cursor: 'pointer',
+                border: `1px solid ${color}66`, background: `${color}15`, color,
+                letterSpacing: 0.5, borderRadius: 2, flexShrink: 0,
+              }}>Dibujar en mapa →</button>
+            </div>
             <svg viewBox={`0 0 ${W_SVG} ${H_SVG}`} style={{ width: '100%', height: 'auto' }}>
               <rect x={0} y={0} width={W_SVG} height={H_SVG} fill="#0a0a0a" />
               {/* Left desmonte strip */}
@@ -1356,6 +1357,8 @@ function CalcDesbosque({ paramsRef }: { paramsRef?: React.MutableRefObject<Param
                 </tr>
               </tfoot>
             </table>
+            </>
+            )}
           </div>
 
           {/* ── Panel derecho ── */}
@@ -1465,17 +1468,19 @@ export default function CalculadorasPage() {
           </span>
         )}
         <div style={{ flex: 1 }} />
-        <button
-          onClick={handleDraw}
-          style={{
-            padding: '7px 18px', fontSize: 11, fontFamily: 'monospace',
-            fontWeight: 700, letterSpacing: 0.8, cursor: 'pointer',
-            border: `1px solid ${color}`, background: `${color}22`,
-            color: color, transition: 'background 0.15s',
-          }}
-        >
-          Dibujar en mapa →
-        </button>
+        {tab !== 'desbosque' && (
+          <button
+            onClick={handleDraw}
+            style={{
+              padding: '7px 18px', fontSize: 11, fontFamily: 'monospace',
+              fontWeight: 700, letterSpacing: 0.8, cursor: 'pointer',
+              border: `1px solid ${color}`, background: `${color}22`,
+              color: color, transition: 'background 0.15s',
+            }}
+          >
+            Dibujar en mapa →
+          </button>
+        )}
       </div>
 
       {/* Calculadora activa */}
