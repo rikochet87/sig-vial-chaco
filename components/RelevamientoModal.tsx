@@ -423,13 +423,14 @@ function GPSTrackPanel({
   const [trackPhase,    setTrackPhase]    = useState<'idle'|'recording'>('idle');
   const [trackPts,      setTrackPts]      = useState<LatLngPunto[]>([]);
   const [trackAccuracy, setTrackAccuracy] = useState<number | null>(null);
-  const [intervaloM,    setIntervaloM]    = useState<number>(100);   // metros entre puntos
+  const [intervaloM,    setIntervaloM]    = useState<number>(50);    // metros entre puntos
   const [skipped,       setSkipped]       = useState(0);             // pts descartados por baja precisión
   const trackSubRef  = useRef<any>(null);
   const trackPtsRef  = useRef<LatLngPunto[]>([]);
   const skippedRef   = useRef(0);
 
   const INTERVALOS = [
+    { label: '50 m',  value: 50   },
     { label: '100 m', value: 100  },
     { label: '250 m', value: 250  },
     { label: '500 m', value: 500  },
@@ -449,7 +450,7 @@ function GPSTrackPanel({
     setTrackAccuracy(null);
     setTrackPhase('recording');
     trackSubRef.current = await Location.watchPositionAsync(
-      { accuracy: Location.Accuracy.BestForNavigation, distanceInterval: intervaloM, timeInterval: 5000 },
+      { accuracy: Location.Accuracy.BestForNavigation, distanceInterval: intervaloM, timeInterval: 3000 },
       (loc: any) => {
         const acc = loc.coords.accuracy ?? null;
         setTrackAccuracy(acc);
