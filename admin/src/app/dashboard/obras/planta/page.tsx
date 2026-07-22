@@ -241,6 +241,19 @@ const lblS: React.CSSProperties = {
   fontFamily: 'monospace', marginBottom: 2, display: 'block', marginTop: 8,
 }
 
+const MONTE_FACTORS: Record<string, number> = { ralo: 50, semitupido: 150, tupido: 400 }
+const MONTE_LABELS:  Record<string, string>  = {
+  ralo: 'Ralo — <40% · 50 m³/ha',
+  semitupido: 'Semi-tupido — 40-70% · 150 m³/ha',
+  tupido: 'Tupido — >70% · 400 m³/ha',
+}
+
+function fmtArea(ha: number, unit: 'ha' | 'm2' | 'km2'): string {
+  if (unit === 'm2')  return `${Math.round(ha * 10000).toLocaleString('es-AR')} m²`
+  if (unit === 'km2') return `${(ha / 100).toFixed(6)} km²`
+  return `${ha.toFixed(4)} ha`
+}
+
 function NInp({ label, k, p, step = 0.1, onChange }: {
   label: string; k: string; p: Params; step?: number
   onChange: (k: string, v: number) => void
@@ -323,6 +336,16 @@ export default function PlantaPage() {
   const [saveModal,  setSaveModal]  = useState<SaveModal | null>(null)
   const [polyResult, setPolyResult] = useState<{ area_ha: number; pts: LatLng[] } | null>(null)
 
+  // ── HUD en tiempo real durante dibujo de polígono ─────────────────────────
+  const [polyHUD, setPolyHUD] = useState<{
+    vertices: number; perimM: number; areaHa: number; lastSegM: number
+  } | null>(null)
+  const [hudUnit,  setHudUnit]  = useState<'ha' | 'm2' | 'km2'>('ha')
+  const [hudMonte, setHudMonte] = useState<string>('semitupido')
+
+  // ── Superficies guardadas (para mostrar como referencia en el mapa) ────────
+  const [refPolygons, setRefPolygons] = useState<{ side: string; pts: LatLng[] }[]>([])
+
   const [allParams, setAllParams] = useState<Record<ObraType, Params>>({
     terraplen:   { ...DEFAULTS.terraplen   },
     excavacion:  { ...DEFAULTS.excavacion  },
@@ -375,9 +398,15 @@ export default function PlantaPage() {
       setUnidad(transfer.unidad)
       if (transfer.pendingSide) {
         setPendingSide(transfer.pendingSide)
+        // Load saved polygons into state
+        const saved = sessionStorage.getItem('planta_prevPolygons')
+        if (saved) setRefPolygons(JSON.parse(saved))
+        // Restore hudMonte from last transfer params if available
+        if (transfer.params?.monte) setHudMonte(transfer.params.monte as string)
       } else {
-        // Fresh entry (not from CalcDesbosque polygon mode) — clear saved polygons
+        // Fresh entry — clear saved polygon references
         sessionStorage.removeItem('planta_prevPolygons')
+        setRefPolygons([])
       }
       clearObraTransfer()
     }
@@ -583,29 +612,24 @@ export default function PlantaPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const refLayersRef = useRef<any[]>([])
   useEffect(() => {
-    if (!mapReady || !pendingSide) return
+    if (!mapReady) return
     const map = mapRef.current; const Lf = LfRef.current
     if (!map || !Lf) return
-    const saved = sessionStorage.getItem('planta_prevPolygons')
-    if (!saved) return
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const list: { side: string; pts: [number,number][] }[] = JSON.parse(saved)
     // Remove old ref layers first
     refLayersRef.current.forEach(l => map.removeLayer(l))
     refLayersRef.current = []
-    list.forEach((item, i) => {
+    refPolygons.forEach((item, i) => {
       const sideColor = item.side === 'izq' ? '#4fc3f7' : '#a5d6a7'
-      const poly = Lf.polygon(item.pts, {
+      const poly = Lf.polygon(item.pts as [number,number][], {
         color: sideColor, fillColor: sideColor, fillOpacity: 0.12,
         weight: 1.5, opacity: 0.5, dashArray: '5 5',
       }).addTo(map)
       poly.bindTooltip(`Sup. ${i + 1} — Lado ${item.side.toUpperCase()}`, {
-        permanent: true, direction: 'center',
-        className: '', opacity: 0.7,
+        permanent: true, direction: 'center', opacity: 0.7,
       })
       refLayersRef.current.push(poly)
     })
-  }, [mapReady, pendingSide])
+  }, [mapReady, refPolygons])
 
   // ── Modo dibujo ───────────────────────────────────────────────────────────
   const startDraw = useCallback(() => {
@@ -672,68 +696,93 @@ export default function PlantaPage() {
     if (!map || !Lf || drawing) return
     setDrawing(true)
     setPolyResult(null)
+    setPolyHUD(null)
     map.getContainer().style.cursor = 'crosshair'
 
     const pts: LatLng[] = []
     const color = obraColorsRef.current[obraTypeRef.current]
+
+    // ── Persistent Leaflet layers (updated via setLatLngs for fluidity) ──
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let tempLine: any = null, closeLine: any = null, snapRing: any = null
+    const committedLine = Lf.polyline([], { color, weight: 2.5, opacity: 0.95 }).addTo(map)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const previewSeg    = Lf.polyline([], { color, weight: 1.5, dashArray: '8 5', opacity: 0.55 }).addTo(map)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const closeSeg      = Lf.polyline([], { color, weight: 1,   dashArray: '3 8', opacity: 0.25 }).addTo(map)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const vertexMarkers: any[] = []
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let snapRing: any = null
     let snapping = false
 
     const cleanup = () => {
       map.off('click',       onPolyClick)
       map.off('mousemove',   onPolyMove)
       map.off('contextmenu', onPolyRight)
-      if (tempLine)  { map.removeLayer(tempLine);  tempLine  = null }
-      if (closeLine) { map.removeLayer(closeLine); closeLine = null }
-      if (snapRing)  { map.removeLayer(snapRing);  snapRing  = null }
+      map.removeLayer(committedLine)
+      map.removeLayer(previewSeg)
+      map.removeLayer(closeSeg)
+      if (snapRing) { map.removeLayer(snapRing); snapRing = null }
       vertexMarkers.forEach(m => map.removeLayer(m))
       vertexMarkers.length = 0
       map.getContainer().style.cursor = ''
       drawStateRef.current = null
+      setPolyHUD(null)
     }
 
     const redraw = (cursor?: LatLng) => {
-      if (tempLine)  { map.removeLayer(tempLine);  tempLine  = null }
-      if (closeLine) { map.removeLayer(closeLine); closeLine = null }
-      if (snapRing)  { map.removeLayer(snapRing);  snapRing  = null }
-      if (pts.length >= 2) {
-        tempLine = Lf.polyline(pts as [number,number][], {
-          color, weight: 2, dashArray: '6 4', opacity: 0.9,
-        }).addTo(map)
+      // Committed polyline (solid, all clicked pts)
+      committedLine.setLatLngs(pts.length >= 2 ? pts as [number,number][] : [])
+
+      // Preview segment: last clicked pt → cursor
+      if (cursor && pts.length >= 1) {
+        previewSeg.setLatLngs([[pts[pts.length - 1], cursor] as [number,number][]])
+      } else {
+        previewSeg.setLatLngs([])
       }
-      // Closing dashed segment: cursor → first vertex (when ≥3 pts)
-      if (pts.length >= 2 && cursor) {
-        closeLine = Lf.polyline(
-          [cursor, pts[0]] as [number,number][],
-          { color, weight: 1, dashArray: '3 8', opacity: snapping ? 0.9 : 0.35 }
-        ).addTo(map)
+
+      // Close segment: cursor → first pt (only when ≥3 pts)
+      if (cursor && pts.length >= 3) {
+        closeSeg.setLatLngs([[cursor, pts[0]] as [number,number][]])
+        closeSeg.setStyle({ opacity: snapping ? 0.85 : 0.22 })
+      } else {
+        closeSeg.setLatLngs([])
       }
-      // Snap ring: highlight first vertex when snapping
+
+      // Snap ring around first vertex
+      if (snapRing) { map.removeLayer(snapRing); snapRing = null }
       if (snapping && pts.length >= 3) {
         snapRing = Lf.circleMarker(pts[0] as [number,number], {
-          radius: 9, color, fillColor: '#fff', fillOpacity: 0.9, weight: 2, opacity: 1,
+          radius: 10, color, fillColor: '#fff', fillOpacity: 0.85, weight: 2.5, opacity: 1,
         }).addTo(map)
       }
+    }
+
+    const updateHUD = (cursor?: LatLng) => {
+      if (!pts.length) return
+      const allPts = cursor ? [...pts, cursor] : pts
+      const perimM  = totalLen(allPts) + (allPts.length >= 3 ? segLen(allPts[allPts.length - 1], allPts[0]) : 0)
+      const areaHa  = polygonAreaHa(allPts)
+      const lastSegM = pts.length >= 1 && cursor ? segLen(pts[pts.length - 1], cursor) : 0
+      setPolyHUD({ vertices: pts.length, perimM, areaHa, lastSegM })
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const onPolyClick = (e: any) => {
-      // If snapping to first vertex, close the polygon
-      if (snapping && pts.length >= 3) {
-        onPolyRight(e)
-        return
-      }
+      if (snapping && pts.length >= 3) { onPolyRight(e); return }
       const latlng: LatLng = [e.latlng.lat, e.latlng.lng]
       pts.push(latlng)
-      // Vertex circle marker
+      // Vertex marker (first vertex larger + outlined)
+      const isFirst = pts.length === 1
       const vm = Lf.circleMarker(latlng as [number,number], {
-        radius: 4, color, fillColor: color, fillOpacity: 0.9, weight: 1.5, opacity: 1,
+        radius: isFirst ? 6 : 4,
+        color, fillColor: isFirst ? '#fff' : color,
+        fillOpacity: isFirst ? 0.9 : 0.85,
+        weight: isFirst ? 2 : 1.5, opacity: 1,
       }).addTo(map)
       vertexMarkers.push(vm)
       redraw()
+      updateHUD()
       drawStateRef.current = { pts: [...pts], cleanup }
     }
 
@@ -742,17 +791,17 @@ export default function PlantaPage() {
       if (!pts.length) return
       let cursor: LatLng = [e.latlng.lat, e.latlng.lng]
       snapping = false
-      // Snap detection: if cursor is within 16px of first vertex and ≥3 pts placed
       if (pts.length >= 3) {
         const p0 = map.latLngToLayerPoint(Lf.latLng(pts[0][0], pts[0][1]))
         const cp = map.latLngToLayerPoint(e.latlng)
-        if (Math.hypot(p0.x - cp.x, p0.y - cp.y) < 16) {
+        if (Math.hypot(p0.x - cp.x, p0.y - cp.y) < 18) {
           cursor = [pts[0][0], pts[0][1]]
           snapping = true
         }
       }
       map.getContainer().style.cursor = snapping ? 'cell' : 'crosshair'
       redraw(cursor)
+      updateHUD(cursor)
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -761,19 +810,18 @@ export default function PlantaPage() {
       if (pts.length < 3) return
       cleanup()
       const area_ha = polygonAreaHa(pts)
-      // Draw closed filled polygon as preview
       const poly = Lf.polygon(pts as [number,number][], {
-        color, fillColor: color, fillOpacity: 0.45, weight: 2, opacity: 0.9,
+        color, fillColor: color, fillOpacity: 0.4, weight: 2, opacity: 0.9,
       }).addTo(map)
       previewLayersRef.current = [poly]
       setPolyResult({ area_ha, pts })
-      // drawing stays true until modal is confirmed or discarded
     }
 
     drawStateRef.current = { pts, cleanup }
     map.on('click',       onPolyClick)
     map.on('mousemove',   onPolyMove)
     map.on('contextmenu', onPolyRight)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [drawing])
 
   // ── Descartar polígono ────────────────────────────────────────────────────
@@ -898,6 +946,15 @@ export default function PlantaPage() {
     previewLayersRef.current = []
     setSaveModal(null)
     setDrawing(false)
+  }, [])
+
+  // ── Eliminar superficie de referencia ────────────────────────────────────
+  const deleteRefPolygon = useCallback((idx: number) => {
+    setRefPolygons(prev => {
+      const next = prev.filter((_, i) => i !== idx)
+      sessionStorage.setItem('planta_prevPolygons', JSON.stringify(next))
+      return next
+    })
   }, [])
 
   // ── Eliminar obra del mapa ────────────────────────────────────────────────
@@ -1026,6 +1083,37 @@ export default function PlantaPage() {
             )}
           </div>
 
+          {/* Superficies guardadas (solo en modo Desbosque por lado) */}
+          {pendingSide && refPolygons.length > 0 && (
+            <div style={{ marginTop: 12 }}>
+              <div style={{ fontSize: 9, color: '#444', letterSpacing: 1.5, textTransform: 'uppercase', ...MONO, marginBottom: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>Superficies ({refPolygons.length})</span>
+                <button
+                  onClick={() => { setRefPolygons([]); sessionStorage.removeItem('planta_prevPolygons') }}
+                  style={{ background: 'transparent', border: 'none', color: '#333', ...MONO, fontSize: 9, cursor: 'pointer', padding: 0 }}
+                >
+                  limpiar
+                </button>
+              </div>
+              {refPolygons.map((rp, i) => {
+                const sideColor = rp.side === 'izq' ? '#4fc3f7' : '#a5d6a7'
+                const area = polygonAreaHa(rp.pts as LatLng[])
+                return (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 8px', background: '#0a0a0a', border: '1px solid #1a1a1a', borderLeft: `2px solid ${sideColor}`, marginBottom: 3 }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 9, color: sideColor, ...MONO }}>Sup. {i + 1} — Lado {rp.side.toUpperCase()}</div>
+                      <div style={{ fontSize: 10, color: '#888', fontWeight: 700, ...MONO }}>{area.toFixed(4)} ha</div>
+                    </div>
+                    <button onClick={() => deleteRefPolygon(i)}
+                      style={{ background: 'transparent', border: 'none', color: '#2a2a2a', cursor: 'pointer', fontSize: 15, padding: '0 2px', flexShrink: 0, lineHeight: 1 }}
+                      title="Eliminar superficie"
+                    >×</button>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
           {/* Resultados live */}
           {results.length > 0 && (
             <div style={{ marginTop: 12 }}>
@@ -1151,6 +1239,71 @@ export default function PlantaPage() {
             {pendingSide
               ? `Polígono — Lado ${pendingSide === 'izq' ? 'Izquierdo' : 'Derecho'} · Click derecho → cerrar`
               : `${currentT.label} · ±${halfWidth.toFixed(1)} m · Click derecho → finalizar`}
+          </div>
+        )}
+
+        {/* ── HUD en tiempo real — polígono de Desbosque ── */}
+        {drawing && pendingSide && polyHUD && (
+          <div style={{
+            position: 'absolute', bottom: 50, left: 12, zIndex: 850,
+            background: 'rgba(8,8,8,0.93)', border: `1px solid ${currentColor}55`,
+            borderLeft: `3px solid ${currentColor}`,
+            padding: '10px 14px', fontFamily: 'monospace', minWidth: 230,
+            backdropFilter: 'blur(6px)',
+          }}>
+            {/* Header */}
+            <div style={{ fontSize: 8, color: currentColor, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>▶ Geometría — Lado {pendingSide === 'izq' ? 'IZQ' : 'DER'}</span>
+              {/* Unit toggle */}
+              <div style={{ display: 'flex', gap: 2 }}>
+                {(['ha','m2','km2'] as const).map(u => (
+                  <button key={u} onClick={() => setHudUnit(u)} style={{
+                    fontSize: 7, padding: '1px 5px', fontFamily: 'monospace', cursor: 'pointer',
+                    border: `1px solid ${hudUnit === u ? currentColor : '#333'}`,
+                    background: hudUnit === u ? `${currentColor}22` : 'transparent',
+                    color: hudUnit === u ? currentColor : '#444',
+                  }}>{u === 'm2' ? 'm²' : u}</button>
+                ))}
+              </div>
+            </div>
+
+            {/* Rows */}
+            {[
+              { label: 'Vértices',      value: String(polyHUD.vertices) },
+              { label: 'Perímetro',     value: polyHUD.perimM >= 1000 ? `${(polyHUD.perimM/1000).toFixed(3)} km` : `${Math.round(polyHUD.perimM)} m` },
+              { label: 'Área estimada', value: fmtArea(polyHUD.areaHa, hudUnit), accent: true },
+              { label: 'Últ. segmento', value: polyHUD.lastSegM > 0 ? (polyHUD.lastSegM >= 1000 ? `${(polyHUD.lastSegM/1000).toFixed(3)} km` : `${Math.round(polyHUD.lastSegM)} m`) : '—' },
+            ].map(r => (
+              <div key={r.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
+                <span style={{ fontSize: 9, color: '#444' }}>{r.label}</span>
+                <span style={{ fontSize: r.accent ? 14 : 10, fontWeight: r.accent ? 700 : 400, color: r.accent ? currentColor : '#888' }}>
+                  {r.value}
+                </span>
+              </div>
+            ))}
+
+            {/* Monte selector + vol. arbóreo */}
+            <div style={{ borderTop: `1px solid ${currentColor}22`, marginTop: 6, paddingTop: 6 }}>
+              <div style={{ fontSize: 8, color: '#333', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>Tipo de monte</div>
+              <select value={hudMonte} onChange={e => setHudMonte(e.target.value)}
+                style={{ width: '100%', background: '#080808', border: `1px solid #222`, color: '#888', fontFamily: 'monospace', fontSize: 9, padding: '3px 4px', outline: 'none', marginBottom: 5 }}>
+                {Object.entries(MONTE_LABELS).map(([k, label]) => (
+                  <option key={k} value={k}>{label}</option>
+                ))}
+              </select>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                <span style={{ fontSize: 9, color: '#444' }}>Vol. arbóreo</span>
+                <span style={{ fontSize: 10, color: '#666' }}>
+                  {Math.round(polyHUD.areaHa * (MONTE_FACTORS[hudMonte] ?? 150)).toLocaleString('es-AR')} m³
+                </span>
+              </div>
+            </div>
+
+            {/* Instrucción snap */}
+            <div style={{ marginTop: 8, fontSize: 8, color: '#333', lineHeight: 1.7 }}>
+              Clic cerca del 1.er punto → cerrar
+              <br />Click derecho → cerrar y medir
+            </div>
           </div>
         )}
 
@@ -1445,27 +1598,74 @@ export default function PlantaPage() {
               ÁREA DEL POLÍGONO — LADO {pendingSide === 'izq' ? 'IZQUIERDO' : 'DERECHO'}
             </div>
 
-            <div style={{ background: '#0a0a0a', borderLeft: `3px solid ${currentColor}`, padding: '10px 12px', marginBottom: 20 }}>
+            <div style={{ background: '#0a0a0a', borderLeft: `3px solid ${currentColor}`, padding: '10px 12px', marginBottom: 16 }}>
+              {/* Unit toggle */}
+              <div style={{ display: 'flex', gap: 4, marginBottom: 10, justifyContent: 'flex-end' }}>
+                {(['ha','m2','km2'] as const).map(u => (
+                  <button key={u} onClick={() => setHudUnit(u)} style={{
+                    fontSize: 8, padding: '2px 7px', fontFamily: 'monospace', cursor: 'pointer',
+                    border: `1px solid ${hudUnit === u ? currentColor : '#333'}`,
+                    background: hudUnit === u ? `${currentColor}22` : 'transparent',
+                    color: hudUnit === u ? currentColor : '#555',
+                  }}>{u === 'm2' ? 'm²' : u}</button>
+                ))}
+              </div>
+              {/* Primary value */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
                 <span style={{ fontSize: 10, color: '#555' }}>Superficie</span>
-                <span style={{ fontSize: 20, fontWeight: 700, color: currentColor }}>{polyResult.area_ha.toFixed(4)} ha</span>
+                <span style={{ fontSize: 22, fontWeight: 700, color: currentColor }}>{fmtArea(polyResult.area_ha, hudUnit)}</span>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                <span style={{ fontSize: 9, color: '#444' }}>km²</span>
-                <span style={{ fontSize: 11, color: '#666' }}>{(polyResult.area_ha / 100).toFixed(5)} km²</span>
+              {/* Secondary values */}
+              {hudUnit !== 'ha' && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+                  <span style={{ fontSize: 9, color: '#444' }}>ha</span>
+                  <span style={{ fontSize: 10, color: '#555' }}>{polyResult.area_ha.toFixed(4)} ha</span>
+                </div>
+              )}
+              {hudUnit !== 'km2' && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+                  <span style={{ fontSize: 9, color: '#444' }}>km²</span>
+                  <span style={{ fontSize: 10, color: '#555' }}>{(polyResult.area_ha / 100).toFixed(6)} km²</span>
+                </div>
+              )}
+              {hudUnit !== 'm2' && (
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: 9, color: '#444' }}>m²</span>
+                  <span style={{ fontSize: 10, color: '#555' }}>{Math.round(polyResult.area_ha * 10000).toLocaleString('es-AR')} m²</span>
+                </div>
+              )}
+              {/* Perimeter */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, paddingTop: 6, borderTop: `1px solid ${currentColor}22` }}>
+                <span style={{ fontSize: 9, color: '#444' }}>Perímetro</span>
+                <span style={{ fontSize: 10, color: '#666' }}>
+                  {(() => { const p = totalLen([...polyResult.pts, polyResult.pts[0]]); return p >= 1000 ? `${(p/1000).toFixed(3)} km` : `${Math.round(p)} m` })()}
+                </span>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: 9, color: '#444' }}>m²</span>
-                <span style={{ fontSize: 11, color: '#666' }}>{Math.round(polyResult.area_ha * 10000).toLocaleString('es-AR')} m²</span>
+              {/* Vol. arbóreo con selector monte */}
+              <div style={{ marginTop: 8 }}>
+                <div style={{ fontSize: 8, color: '#333', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>Tipo de monte</div>
+                <select value={hudMonte} onChange={e => setHudMonte(e.target.value)}
+                  style={{ width: '100%', background: '#080808', border: '1px solid #222', color: '#888', fontFamily: 'monospace', fontSize: 9, padding: '3px 4px', outline: 'none', marginBottom: 5 }}>
+                  {Object.entries(MONTE_LABELS).map(([k, label]) => (
+                    <option key={k} value={k}>{label}</option>
+                  ))}
+                </select>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: 9, color: '#444' }}>Vol. arbóreo estimado</span>
+                  <span style={{ fontSize: 10, color: currentColor, fontWeight: 600 }}>
+                    {Math.round(polyResult.area_ha * (MONTE_FACTORS[hudMonte] ?? 150)).toLocaleString('es-AR')} m³
+                  </span>
+                </div>
               </div>
             </div>
 
             <button
               onClick={() => {
                 // Save polygon as reference layer for next visit
-                const prevPolygons: unknown[] = JSON.parse(sessionStorage.getItem('planta_prevPolygons') || '[]')
-                prevPolygons.push({ side: pendingSide, pts: polyResult.pts })
-                sessionStorage.setItem('planta_prevPolygons', JSON.stringify(prevPolygons))
+                const newEntry = { side: pendingSide, pts: polyResult.pts }
+                const updated = [...refPolygons, newEntry]
+                setRefPolygons(updated)
+                sessionStorage.setItem('planta_prevPolygons', JSON.stringify(updated))
                 setReturnedArea(pendingSide, polyResult.area_ha)
                 setPolyResult(null)
                 setDrawing(false)
