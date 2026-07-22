@@ -73,7 +73,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* Map */}
-      <div style={{ height: 560, margin: '0 -1.5rem', borderRadius: 0, position: 'relative' }}>
+      <div style={{ height: 'calc(100vh - 260px)', minHeight: 480, margin: '0 -1.5rem', borderRadius: 0, position: 'relative' }}>
         <DashboardMap relevamientos={(relevamientos as Relevamiento[]) ?? []} />
       </div>
     </div>
