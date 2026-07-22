@@ -373,7 +373,12 @@ export default function PlantaPage() {
       setAllParams(prev => ({ ...prev, [transfer.type]: transfer.params }))
       setPrecioUnitario(transfer.precioUnitario)
       setUnidad(transfer.unidad)
-      if (transfer.pendingSide) setPendingSide(transfer.pendingSide)
+      if (transfer.pendingSide) {
+        setPendingSide(transfer.pendingSide)
+      } else {
+        // Fresh entry (not from CalcDesbosque polygon mode) — clear saved polygons
+        sessionStorage.removeItem('planta_prevPolygons')
+      }
       clearObraTransfer()
     }
   }, [])
@@ -397,11 +402,22 @@ export default function PlantaPage() {
     import('leaflet').then(Lf => {
       if (!mounted || !mapDivRef.current || mapRef.current) return
       LfRef.current = Lf
+      // Restore saved map position (persists between Calculadoras ↔ Planta trips)
+      const savedCenter = sessionStorage.getItem('planta_mapCenter')
+      const savedZoom   = sessionStorage.getItem('planta_mapZoom')
+      const initCenter: [number, number] = savedCenter ? JSON.parse(savedCenter) : [-26.5, -60.5]
+      const initZoom = savedZoom ? parseInt(savedZoom) : 7
+
       const map = Lf.map(mapDivRef.current, {
-        center: [-26.5, -60.5], zoom: 7,
+        center: initCenter, zoom: initZoom,
         zoomControl: false, doubleClickZoom: false,
       })
       mapRef.current = map
+      map.on('moveend', () => {
+        const c = map.getCenter()
+        sessionStorage.setItem('planta_mapCenter', JSON.stringify([c.lat, c.lng]))
+        sessionStorage.setItem('planta_mapZoom', String(map.getZoom()))
+      })
       tileRef.current = Lf.tileLayer(
         'https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
         { subdomains: ['0','1','2','3'], maxZoom: 21, maxNativeZoom: 20, attribution: '© Google' }
@@ -563,6 +579,34 @@ export default function PlantaPage() {
     })
   }, [baseLayers, mapReady])
 
+  // ── Capas de referencia: polígonos anteriores de Desbosque ──────────────
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const refLayersRef = useRef<any[]>([])
+  useEffect(() => {
+    if (!mapReady || !pendingSide) return
+    const map = mapRef.current; const Lf = LfRef.current
+    if (!map || !Lf) return
+    const saved = sessionStorage.getItem('planta_prevPolygons')
+    if (!saved) return
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const list: { side: string; pts: [number,number][] }[] = JSON.parse(saved)
+    // Remove old ref layers first
+    refLayersRef.current.forEach(l => map.removeLayer(l))
+    refLayersRef.current = []
+    list.forEach((item, i) => {
+      const sideColor = item.side === 'izq' ? '#4fc3f7' : '#a5d6a7'
+      const poly = Lf.polygon(item.pts, {
+        color: sideColor, fillColor: sideColor, fillOpacity: 0.12,
+        weight: 1.5, opacity: 0.5, dashArray: '5 5',
+      }).addTo(map)
+      poly.bindTooltip(`Sup. ${i + 1} — Lado ${item.side.toUpperCase()}`, {
+        permanent: true, direction: 'center',
+        className: '', opacity: 0.7,
+      })
+      refLayersRef.current.push(poly)
+    })
+  }, [mapReady, pendingSide])
+
   // ── Modo dibujo ───────────────────────────────────────────────────────────
   const startDraw = useCallback(() => {
     const map = mapRef.current; const Lf = LfRef.current
@@ -633,7 +677,10 @@ export default function PlantaPage() {
     const pts: LatLng[] = []
     const color = obraColorsRef.current[obraTypeRef.current]
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let tempLine: any = null, closeLine: any = null
+    let tempLine: any = null, closeLine: any = null, snapRing: any = null
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const vertexMarkers: any[] = []
+    let snapping = false
 
     const cleanup = () => {
       map.off('click',       onPolyClick)
@@ -641,6 +688,9 @@ export default function PlantaPage() {
       map.off('contextmenu', onPolyRight)
       if (tempLine)  { map.removeLayer(tempLine);  tempLine  = null }
       if (closeLine) { map.removeLayer(closeLine); closeLine = null }
+      if (snapRing)  { map.removeLayer(snapRing);  snapRing  = null }
+      vertexMarkers.forEach(m => map.removeLayer(m))
+      vertexMarkers.length = 0
       map.getContainer().style.cursor = ''
       drawStateRef.current = null
     }
@@ -648,6 +698,7 @@ export default function PlantaPage() {
     const redraw = (cursor?: LatLng) => {
       if (tempLine)  { map.removeLayer(tempLine);  tempLine  = null }
       if (closeLine) { map.removeLayer(closeLine); closeLine = null }
+      if (snapRing)  { map.removeLayer(snapRing);  snapRing  = null }
       if (pts.length >= 2) {
         tempLine = Lf.polyline(pts as [number,number][], {
           color, weight: 2, dashArray: '6 4', opacity: 0.9,
@@ -657,14 +708,31 @@ export default function PlantaPage() {
       if (pts.length >= 2 && cursor) {
         closeLine = Lf.polyline(
           [cursor, pts[0]] as [number,number][],
-          { color, weight: 1, dashArray: '3 8', opacity: 0.35 }
+          { color, weight: 1, dashArray: '3 8', opacity: snapping ? 0.9 : 0.35 }
         ).addTo(map)
+      }
+      // Snap ring: highlight first vertex when snapping
+      if (snapping && pts.length >= 3) {
+        snapRing = Lf.circleMarker(pts[0] as [number,number], {
+          radius: 9, color, fillColor: '#fff', fillOpacity: 0.9, weight: 2, opacity: 1,
+        }).addTo(map)
       }
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const onPolyClick = (e: any) => {
-      pts.push([e.latlng.lat, e.latlng.lng])
+      // If snapping to first vertex, close the polygon
+      if (snapping && pts.length >= 3) {
+        onPolyRight(e)
+        return
+      }
+      const latlng: LatLng = [e.latlng.lat, e.latlng.lng]
+      pts.push(latlng)
+      // Vertex circle marker
+      const vm = Lf.circleMarker(latlng as [number,number], {
+        radius: 4, color, fillColor: color, fillOpacity: 0.9, weight: 1.5, opacity: 1,
+      }).addTo(map)
+      vertexMarkers.push(vm)
       redraw()
       drawStateRef.current = { pts: [...pts], cleanup }
     }
@@ -672,12 +740,24 @@ export default function PlantaPage() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const onPolyMove = (e: any) => {
       if (!pts.length) return
-      redraw([e.latlng.lat, e.latlng.lng])
+      let cursor: LatLng = [e.latlng.lat, e.latlng.lng]
+      snapping = false
+      // Snap detection: if cursor is within 16px of first vertex and ≥3 pts placed
+      if (pts.length >= 3) {
+        const p0 = map.latLngToLayerPoint(Lf.latLng(pts[0][0], pts[0][1]))
+        const cp = map.latLngToLayerPoint(e.latlng)
+        if (Math.hypot(p0.x - cp.x, p0.y - cp.y) < 16) {
+          cursor = [pts[0][0], pts[0][1]]
+          snapping = true
+        }
+      }
+      map.getContainer().style.cursor = snapping ? 'cell' : 'crosshair'
+      redraw(cursor)
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const onPolyRight = (e: any) => {
-      e.originalEvent.preventDefault()
+      if (e?.originalEvent) e.originalEvent.preventDefault()
       if (pts.length < 3) return
       cleanup()
       const area_ha = polygonAreaHa(pts)
@@ -1382,6 +1462,10 @@ export default function PlantaPage() {
 
             <button
               onClick={() => {
+                // Save polygon as reference layer for next visit
+                const prevPolygons: unknown[] = JSON.parse(sessionStorage.getItem('planta_prevPolygons') || '[]')
+                prevPolygons.push({ side: pendingSide, pts: polyResult.pts })
+                sessionStorage.setItem('planta_prevPolygons', JSON.stringify(prevPolygons))
                 setReturnedArea(pendingSide, polyResult.area_ha)
                 setPolyResult(null)
                 setDrawing(false)

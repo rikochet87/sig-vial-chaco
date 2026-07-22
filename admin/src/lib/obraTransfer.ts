@@ -26,3 +26,8 @@ let _returnData: ReturnArea | null = null
 export const setReturnedArea   = (side: 'izq' | 'der', area_ha: number) => { _returnData = { side, area_ha } }
 export const getReturnedArea   = (): ReturnArea | null => _returnData
 export const clearReturnedArea = () => { _returnData = null }
+
+// ── Saved tab: calculadoras saves active tab before navigating to planta ─────
+let _savedTab: string | null = null
+export const saveReturnTab    = (tab: string) => { _savedTab = tab }
+export const consumeReturnTab = (): string | null => { const t = _savedTab; _savedTab = null; return t }

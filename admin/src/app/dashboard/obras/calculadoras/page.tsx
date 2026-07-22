@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { setObraTransfer, getReturnedArea, clearReturnedArea } from '@/lib/obraTransfer'
+import { setObraTransfer, getReturnedArea, clearReturnedArea, saveReturnTab, consumeReturnTab } from '@/lib/obraTransfer'
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 type Tab    = 'terraplen' | 'excavacion' | 'ripio' | 'canal' | 'desmalezado' | 'desbosque'
@@ -833,7 +833,8 @@ function CalcDesbosque({ paramsRef }: { paramsRef?: React.MutableRefObject<Param
           <button style={{ ...addBtn, flex: 1, marginTop: 2 }} onClick={() => addEntry(side)}>+ agregar</button>
           <button style={{ ...addBtn, flex: 1, marginTop: 2, color: `${color}99`, borderColor: `${color}44` }}
             onClick={() => {
-              setObraTransfer({ type: 'desbosque', params: { ...paramsRef?.current }, precioUnitario: precioHa, unidad: '$/ha', pendingSide: side })
+              saveReturnTab('desbosque')
+              setObraTransfer({ type: 'desbosque', params: { Ad: 15, monte: 'semitupido' }, precioUnitario: Math.round(precioHa), unidad: '$/ha', pendingSide: side })
               router.push('/dashboard/obras/planta')
             }}>← mapa</button>
         </div>
@@ -1393,13 +1394,14 @@ const TABS: { id: Tab; label: string; icon: string }[] = [
 ]
 
 export default function CalculadorasPage() {
-  const [tab, setTab]     = useState<Tab>('terraplen')
+  const [tab, setTab]     = useState<Tab>(() => (consumeReturnTab() as Tab) || 'terraplen')
   const [precio, setPrecio] = useState(0)
   const paramsRef = useRef<Params>({})
   const router    = useRouter()
   const color     = CLR[tab]
 
   const handleDraw = () => {
+    saveReturnTab(tab)
     setObraTransfer({
       type: tab,
       params: { ...paramsRef.current },
