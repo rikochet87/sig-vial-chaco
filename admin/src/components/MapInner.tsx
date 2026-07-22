@@ -1497,11 +1497,17 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
               popup.on('remove', () => visLine.setStyle({ color, weight: lineW }))
             })
             .addTo(group)
+          const dot = 22  // tamaño fijo para marcadores inicio/fin, independiente del weight de la línea
+          const mkHtml = (label: string, bg: string) =>
+            `<div style="width:${dot}px;height:${dot}px;border-radius:50%;background:${bg};border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;color:#fff;letter-spacing:.3px">${label}</div>`
           const [startLat, startLng] = positions[0]
-          const dot = Math.max(10, Math.round(lineW * 1.8))
+          const [endLat,   endLng]   = positions[positions.length - 1]
           L.marker([startLat, startLng], { icon: L.divIcon({
-            className: '',
-            html: `<div style="width:${dot}px;height:${dot}px;border-radius:50%;background:${color};border:1.5px solid #fff;box-shadow:0 2px 5px rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;font-size:${Math.max(5, dot/3)}px;font-weight:800;color:#fff">RIP</div>`,
+            className: '', html: mkHtml('INI', color),
+            iconSize: [dot, dot], iconAnchor: [dot/2, dot/2],
+          }) }).bindPopup(popup).addTo(group)
+          L.marker([endLat, endLng], { icon: L.divIcon({
+            className: '', html: mkHtml('FIN', '#333'),
             iconSize: [dot, dot], iconAnchor: [dot/2, dot/2],
           }) }).bindPopup(popup).addTo(group)
 

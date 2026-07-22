@@ -420,27 +420,48 @@ function GPSTrackPanel({
   hideGPS?: boolean;
 }) {
   const s = useS();
-  const [trackPhase, setTrackPhase]       = useState<'idle'|'recording'>('idle');
-  const [trackPts,   setTrackPts]         = useState<LatLngPunto[]>([]);
+  const [trackPhase,    setTrackPhase]    = useState<'idle'|'recording'>('idle');
+  const [trackPts,      setTrackPts]      = useState<LatLngPunto[]>([]);
   const [trackAccuracy, setTrackAccuracy] = useState<number | null>(null);
+  const [intervaloM,    setIntervaloM]    = useState<number>(100);   // metros entre puntos
+  const [skipped,       setSkipped]       = useState(0);             // pts descartados por baja precisión
   const trackSubRef  = useRef<any>(null);
   const trackPtsRef  = useRef<LatLngPunto[]>([]);
+  const skippedRef   = useRef(0);
+
+  const INTERVALOS = [
+    { label: '100 m', value: 100  },
+    { label: '250 m', value: 250  },
+    { label: '500 m', value: 500  },
+    { label: '1 km',  value: 1000 },
+    { label: '5 km',  value: 5000 },
+  ];
+  const MAX_ACCURACY_M = 50; // descartar punto si la precisión GPS es peor que esto
 
   const startTrack = async () => {
     if (!Location) { Alert.alert('GPS no disponible', 'expo-location no está instalado.'); return; }
     const { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== 'granted') { Alert.alert('Permiso denegado', 'Se necesita GPS para grabar el track.'); return; }
     trackPtsRef.current = [];
+    skippedRef.current  = 0;
     setTrackPts([]);
+    setSkipped(0);
     setTrackAccuracy(null);
     setTrackPhase('recording');
     trackSubRef.current = await Location.watchPositionAsync(
-      { accuracy: Location.Accuracy.BestForNavigation, distanceInterval: 3, timeInterval: 2000 },
+      { accuracy: Location.Accuracy.BestForNavigation, distanceInterval: intervaloM, timeInterval: 5000 },
       (loc: any) => {
+        const acc = loc.coords.accuracy ?? null;
+        setTrackAccuracy(acc);
+        // Filtro de precisión: descartar puntos con GPS impreciso
+        if (acc !== null && acc > MAX_ACCURACY_M) {
+          skippedRef.current++;
+          setSkipped(skippedRef.current);
+          return;
+        }
         const next = [...trackPtsRef.current, { lat: loc.coords.latitude, lng: loc.coords.longitude }];
         trackPtsRef.current = next;
         setTrackPts(next);
-        setTrackAccuracy(loc.coords.accuracy ?? null);
       }
     );
   };
@@ -488,11 +509,17 @@ function GPSTrackPanel({
           {trackAccuracy !== null && (
             <Text style={[
               s.trackAccuracy,
-              trackAccuracy < 1  ? s.trackAccuracyExcellent :
-              trackAccuracy < 5  ? s.trackAccuracyGood :
+              trackAccuracy < 15 ? s.trackAccuracyExcellent :
+              trackAccuracy < 50 ? s.trackAccuracyGood :
                                    s.trackAccuracyPoor,
             ]}>
               ⊕ Precisión GPS: ±{trackAccuracy < 1 ? trackAccuracy.toFixed(2) : Math.round(trackAccuracy)} m
+              {trackAccuracy > MAX_ACCURACY_M ? '  ⚠ punto descartado' : ''}
+            </Text>
+          )}
+          {skipped > 0 && (
+            <Text style={{ fontSize: 10, color: '#e67e22', marginBottom: 2 }}>
+              ⚠ {skipped} punto{skipped !== 1 ? 's' : ''} descartado{skipped !== 1 ? 's' : ''} por baja precisión GPS
             </Text>
           )}
           {trackPts.length > 0 && (
@@ -534,8 +561,28 @@ function GPSTrackPanel({
               <View style={s.metodoCardBody}>
                 <Text style={s.metodoCardTitle}>GPS Track</Text>
                 <Text style={s.metodoCardDesc}>
-                  Grabá el recorrido automáticamente mientras conducís. El GPS registra la ruta real cada 3 m.
+                  Grabá el recorrido automáticamente mientras conducís. El GPS registra un punto cada vez que avanzás la distancia elegida.
                 </Text>
+                {/* Selector de intervalo */}
+                <Text style={{ fontSize: 10, color: '#888', marginTop: 6, marginBottom: 4 }}>
+                  Intervalo entre puntos:
+                </Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginBottom: 8 }}>
+                  {INTERVALOS.map(op => (
+                    <TouchableOpacity
+                      key={op.value}
+                      onPress={() => setIntervaloM(op.value)}
+                      style={{
+                        paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4,
+                        backgroundColor: intervaloM === op.value ? '#F5C300' : '#2a2a2a',
+                        borderWidth: 1, borderColor: intervaloM === op.value ? '#F5C300' : '#444',
+                      }}>
+                      <Text style={{ fontSize: 11, fontWeight: '700', color: intervaloM === op.value ? '#111' : '#aaa' }}>
+                        {op.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
                 <TouchableOpacity style={[s.metodoCardBtn, s.metodoCardBtnGps]} onPress={startTrack}>
                   <Text style={s.metodoCardBtnTxt}>▶ Iniciar grabación</Text>
                 </TouchableOpacity>
