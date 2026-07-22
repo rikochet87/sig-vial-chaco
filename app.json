@@ -10,7 +10,7 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#2C2C2C"
+      "backgroundColor": "#0d0d0d"
     },
     "ios": {
       "supportsTablet": true,
@@ -20,7 +20,7 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/android-icon-foreground.png",
         "monochromeImage": "./assets/android-icon-monochrome.png",
-        "backgroundColor": "#2C2C2C"
+        "backgroundColor": "#0d0d0d"
       },
       "package": "com.rosello.sigvialchaco",
       "versionCode": 2,
@@ -65,7 +65,7 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#2C2C2C",
+          "backgroundColor": "#0d0d0d",
           "image": "./assets/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain"

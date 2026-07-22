@@ -59,7 +59,11 @@ function RouteGuard() {
   }, [session, profile, loading, segments]);
 
   useEffect(() => {
-    if (!loading) SplashScreen.hideAsync();
+    if (!loading) {
+      // Esperar a que la navegación complete antes de ocultar el splash
+      const t = setTimeout(() => SplashScreen.hideAsync(), 200);
+      return () => clearTimeout(t);
+    }
   }, [loading]);
 
   return null;
@@ -70,12 +74,12 @@ export default function RootLayout() {
     <ErrorBoundary>
     <ThemeProvider>
       <SafeAreaProvider>
-        <GestureHandlerRootView style={{ flex: 1 }}>
+        <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#0d0d0d' }}>
           <ErrorBoundary>
           <AuthProvider>
             <RouteGuard />
             <StatusBar style="light" />
-            <Stack screenOptions={{ headerShown: false }}>
+            <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#0d0d0d' } }}>
               <Stack.Screen name="login" />
               <Stack.Screen name="(tabs)" />
               <Stack.Screen name="red-vial" />
