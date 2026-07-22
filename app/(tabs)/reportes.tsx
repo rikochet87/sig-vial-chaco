@@ -456,117 +456,120 @@ function makeStyles(C: ColorPalette) {
     container: { flex: 1, backgroundColor: C.background },
 
     summary: {
-      flexDirection: 'row', backgroundColor: C.primary,
-      paddingVertical: 14, paddingHorizontal: 8, justifyContent: 'space-around',
+      flexDirection: 'row', backgroundColor: C.surface,
+      borderBottomWidth: 1, borderBottomColor: C.border,
+      paddingVertical: 10, paddingHorizontal: 8, justifyContent: 'space-around',
     },
     summaryItem: { alignItems: 'center' },
-    summaryValue: { fontSize: 22, fontWeight: '800', lineHeight: 26 },
-    summaryLabel: { fontSize: 11, color: 'rgba(255,255,255,0.65)', marginTop: 2 },
+    summaryValue: { fontSize: 22, fontWeight: '800', lineHeight: 26, fontFamily: 'monospace' },
+    summaryLabel: { fontSize: 9, color: C.textMuted, marginTop: 2, textTransform: 'uppercase', fontFamily: 'monospace' },
 
     filterScroll: { flexShrink: 0, flexGrow: 0 },
     filterRow: {
-      paddingHorizontal: 12, paddingRight: 24, paddingVertical: 8,
-      gap: 6, flexDirection: 'row', alignItems: 'center',
+      paddingHorizontal: 12, paddingRight: 24, paddingVertical: 6,
+      gap: 4, flexDirection: 'row', alignItems: 'center',
     },
     filterChip: {
-      paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20,
+      paddingHorizontal: 10, paddingVertical: 5,
       backgroundColor: C.surface, borderWidth: 1, borderColor: C.border,
     },
-    filterChipText: { fontSize: 12, color: C.textSecondary, fontWeight: '600' },
+    filterChipText: {
+      fontSize: 10, color: C.textSecondary, fontWeight: '600',
+      fontFamily: 'monospace', textTransform: 'uppercase',
+    },
     filterChipTextActive: { color: '#fff' },
 
     topBar: {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
       paddingHorizontal: 16, paddingBottom: 4,
     },
-    countText: { fontSize: 12, color: C.textMuted },
+    countText: { fontSize: 10, color: C.textMuted, fontFamily: 'monospace' },
     exportAllBtn: {
       flexDirection: 'row', alignItems: 'center', gap: 4,
-      paddingVertical: 4, paddingHorizontal: 8, borderRadius: 8,
+      paddingVertical: 4, paddingHorizontal: 8,
       backgroundColor: C.surface, borderWidth: 1, borderColor: C.border,
     },
-    exportAllText: { fontSize: 12, color: C.accent, fontWeight: '600' },
+    exportAllText: { fontSize: 10, color: C.accent, fontWeight: '600', fontFamily: 'monospace' },
 
     list: { padding: 12, paddingTop: 4 },
 
     card: {
-      backgroundColor: C.surface, borderRadius: 12, marginBottom: 10,
-      borderLeftWidth: 4, elevation: 2, shadowColor: '#000',
-      shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 3,
+      backgroundColor: C.surface, marginBottom: 6,
+      borderWidth: 1, borderColor: C.border, borderLeftWidth: 3,
       overflow: 'hidden',
     },
-    cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12 },
-    estadoBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 7, flexShrink: 0 },
-    estadoBadgeText: { fontSize: 10, fontWeight: '800', color: '#fff' },
+    cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 10 },
+    estadoBadge: { paddingHorizontal: 6, paddingVertical: 3, flexShrink: 0 },
+    estadoBadgeText: { fontSize: 9, fontWeight: '800', color: '#fff', fontFamily: 'monospace' },
     tipoBadge: {
-      backgroundColor: C.background, borderRadius: 6,
-      paddingHorizontal: 6, paddingVertical: 4, flexShrink: 0,
+      backgroundColor: C.background,
+      paddingHorizontal: 5, paddingVertical: 3, flexShrink: 0,
       borderWidth: 1, borderColor: C.border,
     },
-    tipoBadgeText: { fontSize: 10, fontWeight: '900', color: C.textSecondary },
-    cardTitle: { fontSize: 13, fontWeight: '700', color: C.textPrimary },
+    tipoBadgeText: { fontSize: 9, fontWeight: '900', color: C.textSecondary, fontFamily: 'monospace' },
+    cardTitle: { fontSize: 12, fontWeight: '700', color: C.textPrimary },
     cardMeta: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2, flexWrap: 'wrap' },
-    cardZona: { fontSize: 10, color: C.accent, fontWeight: '700', marginRight: 4 },
-    cardMetaText: { fontSize: 11, color: C.textMuted },
+    cardZona: { fontSize: 9, color: C.accent, fontWeight: '700', marginRight: 4, fontFamily: 'monospace' },
+    cardMetaText: { fontSize: 10, color: C.textMuted, fontFamily: 'monospace' },
 
     detail: {
-      backgroundColor: C.background, paddingHorizontal: 14,
+      backgroundColor: C.background, paddingHorizontal: 12,
       paddingTop: 10, paddingBottom: 4, borderTopWidth: 1, borderTopColor: C.border,
     },
     detailRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
     detailText: { fontSize: 12, color: C.textSecondary, flex: 1 },
     detailMono: {
-      fontSize: 12, color: C.textSecondary,
-      fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+      fontSize: 11, color: C.textSecondary, fontFamily: 'monospace',
     },
 
     tipoSection: {
-      backgroundColor: C.surface, borderRadius: 8,
-      padding: 10, marginBottom: 10,
+      backgroundColor: C.surface,
+      padding: 8, marginBottom: 10,
       borderWidth: 1, borderColor: C.border,
+      borderLeftWidth: 2, borderLeftColor: C.accent,
     },
     tipoSectionLabel: {
-      fontSize: 10, fontWeight: '800', color: C.accent,
+      fontSize: 9, fontWeight: '800', color: C.accent,
       textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6,
+      fontFamily: 'monospace',
     },
     fieldList: { gap: 3 },
     fieldRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 6 },
     fieldDot: {
-      width: 4, height: 4, borderRadius: 2,
-      backgroundColor: C.textMuted, marginTop: 5, flexShrink: 0,
+      width: 3, height: 3,
+      backgroundColor: C.textMuted, marginTop: 6, flexShrink: 0,
     },
     fieldText: { fontSize: 11, color: C.textSecondary, flex: 1, lineHeight: 16 },
 
     actions: {
-      flexDirection: 'row', gap: 8, paddingVertical: 10,
+      flexDirection: 'row', gap: 4, paddingVertical: 8,
       borderTopWidth: 1, borderTopColor: C.border, marginTop: 4,
     },
     actionBtn: {
       flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-      gap: 5, paddingVertical: 8, borderRadius: 8,
+      gap: 4, paddingVertical: 7,
       backgroundColor: C.surface, borderWidth: 1, borderColor: C.border,
     },
     actionBtnDanger: {
       borderColor: C.danger + '40',
       backgroundColor: C.danger + '08',
     },
-    actionText: { fontSize: 11, fontWeight: '700' },
+    actionText: { fontSize: 10, fontWeight: '700', fontFamily: 'monospace' },
 
-    // Mini-menú de exportación
     exportMenu: {
       flexDirection: 'row', borderTopWidth: 1, borderTopColor: C.border,
     },
     exportMenuBtn: {
       flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-      gap: 5, paddingVertical: 9, paddingHorizontal: 6,
+      gap: 5, paddingVertical: 8, paddingHorizontal: 6,
     },
-    exportMenuTxt: { fontSize: 12, fontWeight: '800' },
-    exportMenuDesc: { fontSize: 10, color: C.textMuted },
+    exportMenuTxt: { fontSize: 11, fontWeight: '800', fontFamily: 'monospace' },
+    exportMenuDesc: { fontSize: 9, color: C.textMuted, fontFamily: 'monospace' },
     exportMenuDivider: { width: 1, backgroundColor: C.border, marginVertical: 8 },
 
     empty: { alignItems: 'center', paddingTop: 70, gap: 10, paddingHorizontal: 32 },
-    emptyIcon: { fontSize: 48 },
-    emptyTitle: { fontSize: 16, fontWeight: '700', color: C.textSecondary },
-    emptyText: { fontSize: 13, color: C.textMuted, textAlign: 'center', lineHeight: 19 },
+    emptyIcon: { fontSize: 40 },
+    emptyTitle: { fontSize: 14, fontWeight: '700', color: C.textSecondary, fontFamily: 'monospace' },
+    emptyText: { fontSize: 12, color: C.textMuted, textAlign: 'center', lineHeight: 18 },
   });
 }

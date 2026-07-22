@@ -5,10 +5,10 @@ interface ThemeCtx {
   colors: ColorPalette;
 }
 
-const Ctx = createContext<ThemeCtx>({ colors: THEMES.dark });
+const Ctx = createContext<ThemeCtx>({ colors: THEMES.cad });
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  return <Ctx.Provider value={{ colors: THEMES.dark }}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={{ colors: THEMES.cad }}>{children}</Ctx.Provider>;
 }
 
 export function useTheme() {

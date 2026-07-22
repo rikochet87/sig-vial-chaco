@@ -25,7 +25,7 @@ export type ColorPalette = {
   tabBarInactive: string;
 };
 
-export type ThemeName = 'original' | 'dark' | 'light';
+export type ThemeName = 'original' | 'dark' | 'light' | 'cad';
 
 const ORIGINAL: ColorPalette = {
   primary:        '#2C2C2C',
@@ -102,10 +102,37 @@ const LIGHT: ColorPalette = {
   tabBarInactive: '#94A3B8',
 };
 
+// Tema técnico CAD — alineado con el panel web admin
+const CAD: ColorPalette = {
+  primary:        '#111111',
+  primaryLight:   '#191919',
+  primaryDark:    '#0d0d0d',
+  accent:         '#F5C300',
+  accentLight:    '#FFD740',
+  accentDark:     '#D4A900',
+  secondary:      '#F5C300',
+  secondaryLight: '#FFD740',
+  success:        '#4CAF50',
+  warning:        '#F5C300',
+  danger:         '#E74C3C',
+  background:     '#0d0d0d',
+  surface:        '#111111',
+  border:         '#1e1e1e',
+  textPrimary:    '#e0e0e0',
+  textSecondary:  '#888888',
+  textMuted:      '#444444',
+  white:          '#e0e0e0',
+  black:          '#0d0d0d',
+  tabBar:         '#111111',
+  tabBarActive:   '#F5C300',
+  tabBarInactive: '#444444',
+};
+
 export const THEMES: Record<ThemeName, ColorPalette> = {
   original: ORIGINAL,
   dark:     DARK,
   light:    LIGHT,
+  cad:      CAD,
 };
 
 export const THEME_LABELS: Record<ThemeName, string> = {
