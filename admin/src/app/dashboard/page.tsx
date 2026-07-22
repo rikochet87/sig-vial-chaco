@@ -55,7 +55,7 @@ export default async function DashboardPage() {
       <h1 style={{ color: '#fff', fontSize: 22, fontWeight: 700, marginBottom: 24 }}>Dashboard</h1>
 
       {/* Stat cards */}
-      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 32 }}>
+      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 8 }}>
         <StatCard label="Relevamientos totales" value={totalRelev ?? 0}>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 10px', marginTop: 8 }}>
             {TIPOS.map(t => (
@@ -73,7 +73,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* Map */}
-      <div style={{ height: 'calc(100vh - 260px)', minHeight: 480, margin: '0 -1.5rem', borderRadius: 0, position: 'relative' }}>
+      <div style={{ height: 'calc(100vh - 236px)', minHeight: 480, margin: '0 -1.5rem', borderRadius: 0, position: 'relative' }}>
         <DashboardMap relevamientos={(relevamientos as Relevamiento[]) ?? []} />
       </div>
     </div>
