@@ -52,6 +52,7 @@ export default function InlineMapDraw({ color, onConfirm, onCancel }: Props) {
   } | null>(null)
   const [hudUnit,  setHudUnit]  = useState<'ha' | 'm2' | 'km2'>('ha')
   const [mapReady, setMapReady] = useState(false)
+  const [basemap,  setBasemap]  = useState<'osm' | 'sat'>('osm')
 
   const mapDivRef    = useRef<HTMLDivElement>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -61,6 +62,10 @@ export default function InlineMapDraw({ color, onConfirm, onCancel }: Props) {
   const drawStateRef = useRef<{ pts: LatLng[]; cleanup: () => void } | null>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const previewRef   = useRef<any[]>([])
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const osmLayerRef  = useRef<any>(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const satLayerRef  = useRef<any>(null)
 
   // ── Inicializar mapa ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -77,7 +82,13 @@ export default function InlineMapDraw({ color, onConfirm, onCancel }: Props) {
       const map = Lf.map(mapDivRef.current, {
         center, zoom, zoomControl: true, attributionControl: false,
       })
-      Lf.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map)
+      const osmLayer = Lf.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 })
+      const satLayer = Lf.tileLayer('https://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+        maxZoom: 20, subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+      })
+      osmLayer.addTo(map)
+      osmLayerRef.current = osmLayer
+      satLayerRef.current = satLayer
       map.on('moveend', () => {
         const c = map.getCenter()
         sessionStorage.setItem('planta_mapCenter', JSON.stringify([c.lat, c.lng]))
@@ -96,6 +107,16 @@ export default function InlineMapDraw({ color, onConfirm, onCancel }: Props) {
       LfRef.current = null
     }
   }, [])
+
+  // ── Cambio de capa base ───────────────────────────────────────────────────
+  useEffect(() => {
+    const map = mapRef.current
+    const osm = osmLayerRef.current
+    const sat = satLayerRef.current
+    if (!map || !osm || !sat) return
+    if (basemap === 'sat') { map.removeLayer(osm); sat.addTo(map) }
+    else                   { map.removeLayer(sat); osm.addTo(map) }
+  }, [basemap])
 
   // ── Iniciar dibujo de polígono ────────────────────────────────────────────
   const startDraw = useCallback(() => {
@@ -302,6 +323,12 @@ export default function InlineMapDraw({ color, onConfirm, onCancel }: Props) {
           </>
         )}
 
+        <div style={{ flex: 1 }} />
+        {/* Toggle capa base */}
+        <div style={{ display: 'flex', gap: 2 }}>
+          <button onClick={() => setBasemap('osm')} style={{ ...toolBtn(basemap === 'osm'), fontSize: 9 }}>OSM</button>
+          <button onClick={() => setBasemap('sat')} style={{ ...toolBtn(basemap === 'sat'), fontSize: 9 }}>Satélite</button>
+        </div>
         {onCancel && <button onClick={onCancel} style={{ ...toolBtn(), color: '#444', fontSize: 9 }}>✕ Cerrar mapa</button>}
       </div>
 
