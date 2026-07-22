@@ -46,6 +46,16 @@ input:focus, select:focus, textarea:focus {
 }
 select option { background: #1a1a1a; }
 
+/* ─── Scrollbars oscuros (estándar del proyecto) ────────── */
+/* Webkit (Chrome, Edge, Safari) */
+::-webkit-scrollbar              { width: 4px; height: 4px; }
+::-webkit-scrollbar-track        { background: transparent; }
+::-webkit-scrollbar-thumb        { background: #2a2a2a; border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover  { background: #3a3a3a; }
+::-webkit-scrollbar-corner       { background: transparent; }
+/* Firefox */
+html                             { scrollbar-width: thin; scrollbar-color: #2a2a2a transparent; }
+
 /* ─── Hover glow utilities ──────────────────────────────── */
 /* Botones primarios (amarillo):  className="glow-y"         */
 .glow-y:hover:not(:disabled) { box-shadow: 0 0 18px var(--accent-glow) !important; }

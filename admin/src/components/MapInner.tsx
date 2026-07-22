@@ -58,11 +58,6 @@ const POPUP_CSS = `
              padding: 8px 10px; }
 .poi-name  { color: #e0e6f0; font-size: 12px; font-weight: 700; }
 .poi-type  { color: #7a8aaa; font-size: 10px; margin-top: 2px; }
-.map-panel-scroll::-webkit-scrollbar { width: 3px; }
-.map-panel-scroll::-webkit-scrollbar-track { background: transparent; }
-.map-panel-scroll::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 2px; }
-.map-panel-scroll::-webkit-scrollbar-thumb:hover { background: #444; }
-.map-panel-scroll { scrollbar-width: thin; scrollbar-color: #2a2a2a transparent; }
 `
 
 // ── Helpers HTML de popups ───────────────────────────────────────────────────
@@ -435,7 +430,7 @@ function RightPanel({
         </button>
       </div>
       {open && (
-        <div className="map-panel-scroll" style={{ padding: '8px 10px 10px', overflowY: 'auto', flex: 1 }}>
+        <div style={{ padding: '8px 10px 10px', overflowY: 'auto', flex: 1 }}>
 
           {/* Tipos */}
           <div style={SEC}>Tipo</div>
@@ -1674,7 +1669,7 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
         </div>
 
         {panelOpen && (
-          <div className="map-panel-scroll" style={{ padding: '4px 10px 10px', overflowY: 'auto', flex: 1 }}>
+          <div style={{ padding: '4px 10px 10px', overflowY: 'auto', flex: 1 }}>
 
             {/* BASE */}
             <div style={SECTION_TITLE_STYLE}>Base</div>

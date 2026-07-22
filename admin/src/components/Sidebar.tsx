@@ -64,7 +64,6 @@ const TOOL_ITEMS = [
 const OBRA_ITEMS = [
   { id: 'calculadoras',  label: 'Calculadoras',  icon: '∑',  href: '/dashboard/obras/calculadoras'  },
   { id: 'planta',        label: 'Planta',         icon: '⬛', href: '/dashboard/obras/planta'        },
-  { id: 'desmalezado',   label: 'Desmalezado',    icon: '≈',  href: '/dashboard/obras/desmalezado'   },
 ]
 
 export default function Sidebar() {
