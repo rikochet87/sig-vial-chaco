@@ -38,23 +38,7 @@ const CC_PER_ZONA: Record<string, number[]> = {
   ZIV:  [3, 18, 21, 49, 50, 59, 72, 78, 79, 80, 81, 83, 85, 86, 88, 89, 90, 95, 100, 101, 103],
   ZV:   [6, 11, 19, 28, 35, 57, 66, 70, 96, 99, 108],
 };
-const CC_NAMES: Record<number, string> = Object.fromEntries(
-  (GEO_BUNDLE.sedes as any[]).map((s: any) => [Number(s.numero), s.nombre || s.localidad || ''])
-);
 type CCZonaState = { expanded: boolean; allOn: boolean; ccs: Record<number, boolean> };
-
-// ── Serializar datos una sola vez ────────────────────────────────────────────
-const SEDES_JSON         = JSON.stringify(GEO_BUNDLE.sedes);
-const LIMITES_ZONAS_JSON = JSON.stringify(GEO_BUNDLE.limites_zonas);
-const LIMITE_PROV_JSON   = JSON.stringify(GEO_BUNDLE.limite_provincial);
-const DEPTOS_JSON        = JSON.stringify(GEO_BUNDLE.departamentos);
-const RUTAS_JSON         = JSON.stringify(GEO_BUNDLE.rutas);
-const CAMPAMENTOS_JSON   = JSON.stringify(GEO_BUNDLE.campamentos);
-const SALUD_JSON         = JSON.stringify(GEO_BUNDLE.salud);
-const RP_PAV_JSON = JSON.stringify(RP_BUNDLE.rpPavimentada);
-const RP_MEJ_JSON = JSON.stringify(RP_BUNDLE.rpMejorada);
-const RP_OBR_JSON = JSON.stringify(RP_BUNDLE.rpEnObra);
-const RP_TIE_JSON = JSON.stringify(RP_BUNDLE.rpTierra);
 
 type Layers = {
   basemap: boolean;
@@ -81,6 +65,18 @@ const RELEV_TIPOS = ['Puente', 'Alcantarilla', 'Tubos', 'Lineal', 'Otro'] as con
 
 // ── HTML Leaflet (mínimo UI, sin controles propios) ──────────────────────────
 function buildMapHtml(sedesZonas: SedesZonas, layers: Layers): string {
+  // Serialized lazily — only runs when the map tab is first opened
+  const SEDES_JSON         = JSON.stringify(GEO_BUNDLE.sedes);
+  const LIMITES_ZONAS_JSON = JSON.stringify(GEO_BUNDLE.limites_zonas);
+  const LIMITE_PROV_JSON   = JSON.stringify(GEO_BUNDLE.limite_provincial);
+  const DEPTOS_JSON        = JSON.stringify(GEO_BUNDLE.departamentos);
+  const RUTAS_JSON         = JSON.stringify(GEO_BUNDLE.rutas);
+  const CAMPAMENTOS_JSON   = JSON.stringify(GEO_BUNDLE.campamentos);
+  const SALUD_JSON         = JSON.stringify(GEO_BUNDLE.salud);
+  const RP_PAV_JSON        = JSON.stringify(RP_BUNDLE.rpPavimentada);
+  const RP_MEJ_JSON        = JSON.stringify(RP_BUNDLE.rpMejorada);
+  const RP_OBR_JSON        = JSON.stringify(RP_BUNDLE.rpEnObra);
+  const RP_TIE_JSON        = JSON.stringify(RP_BUNDLE.rpTierra);
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -1196,6 +1192,10 @@ export default function MapaScreen() {
   const { width, height } = useWindowDimensions();
   const DRAWER_WIDTH = useMemo(() => Math.min(width * 0.78, 300), [width]);
   const styles = useMemo(() => makeStyles(C, DRAWER_WIDTH), [C, DRAWER_WIDTH]);
+  // Lazy — GEO_BUNDLE is only accessed after the map tab is first opened
+  const CC_NAMES = useMemo<Record<number, string>>(() => Object.fromEntries(
+    (GEO_BUNDLE.sedes as any[]).map((s: any) => [Number(s.numero), s.nombre || s.localidad || ''])
+  ), []);
   const drawerAnim = useRef(new Animated.Value(-DRAWER_WIDTH)).current;
   // Ref para la orientación actual — leído dentro del listener del Magnetómetro
   const isLandscapeRef = useRef(width > height);
