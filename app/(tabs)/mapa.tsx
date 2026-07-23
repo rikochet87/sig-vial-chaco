@@ -98,30 +98,30 @@ html,body,#map{width:100%;height:100vh;background:#f0ebe3}
   box-shadow:0 1px 4px rgba(0,0,0,.5);
 }
 .leaflet-popup-content-wrapper{
-  background:#1e2436;border:1px solid #2a3045;
+  background:#111;border:1px solid #1e1e1e;
   border-radius:10px;padding:0;overflow:hidden;
-  box-shadow:0 4px 12px rgba(0,0,0,.5);
+  box-shadow:0 6px 20px rgba(0,0,0,.7);
 }
-.leaflet-popup-tip{background:#1e2436}
+.leaflet-popup-tip{background:#111}
 .leaflet-popup-content{margin:0;width:260px!important}
 .ph{padding:10px;display:flex;align-items:center;gap:8px}
-.pn{width:34px;height:34px;border-radius:50%;background:rgba(0,0,0,.25);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:#fff;flex-shrink:0}
+.pn{width:34px;height:34px;border-radius:50%;background:rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:#fff;flex-shrink:0}
 .pl{color:#fff;font-size:12px;font-weight:700;line-height:1.3}
-.pz{color:rgba(255,255,255,.8);font-size:10px;margin-top:2px}
+.pz{color:rgba(255,255,255,.7);font-size:10px;margin-top:2px}
 .pb{padding:10px}
-.ps{font-size:10px;color:#7a8aaa;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
-.pr{display:flex;padding:2px 0}
-.plb{font-size:11px;color:#7a8aaa;width:100px}
-.pv{font-size:11px;color:#e0e6f0;font-weight:600;flex:1}
+.ps{font-size:10px;color:#666;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.pr{display:flex;padding:3px 0;border-bottom:1px solid #1e1e1e}
+.plb{font-size:11px;color:#666;width:100px}
+.pv{font-size:11px;color:#e0e0e0;font-weight:600;flex:1}
 .kg{display:flex;gap:4px;margin-top:8px}
-.kc{flex:1;background:#252d40;border-radius:5px;padding:5px;text-align:center}
-.kv{font-size:11px;font-weight:800;color:#e0e6f0}
-.kl{font-size:9px;color:#7a8aaa;margin-top:1px}
-.poi-popup{background:#1e2436;border:1px solid #2a3045;border-radius:8px;padding:8px 10px}
-.poi-name{color:#e0e6f0;font-size:12px;font-weight:700}
-.poi-type{color:#7a8aaa;font-size:10px;margin-top:2px}
-.dark-popup .leaflet-popup-content-wrapper{background:#1e2436;border:1px solid #2a3045;border-radius:8px;padding:0;box-shadow:0 4px 12px rgba(0,0,0,.5)}
-.dark-popup .leaflet-popup-tip{background:#1e2436}
+.kc{flex:1;background:#1e1e1e;border-radius:5px;padding:5px;text-align:center}
+.kv{font-size:11px;font-weight:800;color:#e0e0e0}
+.kl{font-size:9px;color:#555;margin-top:1px}
+.poi-popup{background:#111;border:1px solid #1e1e1e;border-radius:8px;padding:8px 10px}
+.poi-name{color:#e0e0e0;font-size:12px;font-weight:700}
+.poi-type{color:#666;font-size:10px;margin-top:2px}
+.dark-popup .leaflet-popup-content-wrapper{background:#111;border:1px solid #1e1e1e;border-radius:8px;padding:0;box-shadow:0 6px 20px rgba(0,0,0,.7)}
+.dark-popup .leaflet-popup-tip{background:#111}
 .dark-popup .leaflet-popup-content{margin:0}
 .rn-popup .leaflet-popup-content-wrapper{background:transparent!important;border:none!important;box-shadow:none!important;padding:0!important;min-width:0!important;}
 .rn-popup .leaflet-popup-tip-container{display:none!important;}
@@ -135,16 +135,16 @@ html,body,#map{width:100%;height:100vh;background:#f0ebe3}
 
 <!-- ── Panel de dibujo de tramo Lineal ──────────────────────────────── -->
 <div id="draw-ctrl" style="display:none;position:fixed;top:10px;left:50%;transform:translateX(-50%);
-  background:#1e2436;border-radius:10px;padding:8px 10px;z-index:2000;
+  background:#111;border-radius:10px;padding:8px 10px;z-index:2000;
   border:1.5px solid #e67e22;box-shadow:0 4px 14px rgba(0,0,0,0.65);min-width:200px;max-width:80vw">
   <div style="color:#e67e22;font-size:9px;font-weight:700;text-align:center;letter-spacing:0.6px;margin-bottom:3px">
     ✏️ MODO DIBUJO — Tocá el mapa para agregar puntos
   </div>
-  <div id="draw-count" style="color:#e0e6f0;font-size:13px;font-weight:900;text-align:center;margin-bottom:7px">
+  <div id="draw-count" style="color:#e0e0e0;font-size:13px;font-weight:900;text-align:center;margin-bottom:7px">
     0 puntos
   </div>
   <div style="display:flex;gap:6px">
-    <button onclick="undoDrawPoint()" ontouchend="event.preventDefault();event.stopPropagation();undoDrawPoint()" style="flex:1;background:#252d40;border:1px solid #3a4060;color:#e0e6f0;border-radius:7px;padding:7px 3px;font-size:10px;font-weight:600;cursor:pointer;touch-action:manipulation">↩ Deshacer</button>
+    <button onclick="undoDrawPoint()" ontouchend="event.preventDefault();event.stopPropagation();undoDrawPoint()" style="flex:1;background:#1c1c1c;border:1px solid #333;color:#e0e0e0;border-radius:7px;padding:7px 3px;font-size:10px;font-weight:600;cursor:pointer;touch-action:manipulation">↩ Deshacer</button>
     <button onclick="cancelDraw()" ontouchend="event.preventDefault();event.stopPropagation();cancelDraw()" style="flex:1;background:rgba(231,76,60,0.15);border:1px solid rgba(231,76,60,0.4);color:#e74c3c;border-radius:7px;padding:7px 3px;font-size:10px;font-weight:600;cursor:pointer;touch-action:manipulation">✗ Cancelar</button>
     <button onclick="confirmDraw()" ontouchend="event.preventDefault();event.stopPropagation();confirmDraw()" style="flex:1;background:#e67e22;border:none;color:#fff;border-radius:7px;padding:7px 3px;font-size:11px;font-weight:700;cursor:pointer;touch-action:manipulation">✓ Confirmar</button>
   </div>
@@ -152,7 +152,7 @@ html,body,#map{width:100%;height:100vh;background:#f0ebe3}
 
 <!-- ── Panel de colocación de punto puntual ─────────────────────────── -->
 <div id="point-pick-ctrl" style="display:none;position:fixed;bottom:110px;left:50%;transform:translateX(-50%);
-  background:#1e2436;border-radius:14px;padding:14px 16px;z-index:2000;
+  background:#111;border-radius:14px;padding:14px 16px;z-index:2000;
   border:1.5px solid #27ae60;box-shadow:0 6px 24px rgba(0,0,0,0.65);min-width:260px;max-width:90vw">
   <div style="color:#27ae60;font-size:11px;font-weight:700;text-align:center;letter-spacing:0.6px;margin-bottom:10px">
     📍 COLOCAR PUNTO — Tocá el mapa para ubicar la obra
@@ -161,16 +161,16 @@ html,body,#map{width:100%;height:100vh;background:#f0ebe3}
 </div>
 
 <!-- ── Panel de medición de distancias ──────────────────────────────── -->
-<div id="measure-ctrl" style="display:none;position:fixed;bottom:110px;left:50%;transform:translateX(-50%);background:#1e2436;border-radius:14px;padding:14px 16px;z-index:2000;border:1.5px solid #F5C300;box-shadow:0 6px 24px rgba(0,0,0,0.65);min-width:290px;max-width:90vw">
+<div id="measure-ctrl" style="display:none;position:fixed;bottom:110px;left:50%;transform:translateX(-50%);background:#111;border-radius:14px;padding:14px 16px;z-index:2000;border:1.5px solid #F5C300;box-shadow:0 6px 24px rgba(0,0,0,0.65);min-width:290px;max-width:90vw">
   <div style="color:#F5C300;font-size:11px;font-weight:700;text-align:center;letter-spacing:0.6px;margin-bottom:5px">
     📏 MEDICIÓN — Tocá el mapa para agregar puntos
   </div>
-  <div id="measure-dist" style="color:#e0e6f0;font-size:20px;font-weight:900;text-align:center;margin-bottom:12px;min-height:28px">
+  <div id="measure-dist" style="color:#e0e0e0;font-size:20px;font-weight:900;text-align:center;margin-bottom:12px;min-height:28px">
     Tocá el mapa para medir
   </div>
   <div style="display:flex;gap:8px">
-    <button onclick="undoMeasurePoint()" style="flex:1;background:#252d40;border:1px solid #3a4060;color:#e0e6f0;border-radius:9px;padding:10px 4px;font-size:12px;font-weight:600;cursor:pointer">↩ Deshacer</button>
-    <button onclick="clearMeasure()" style="flex:1;background:#252d40;border:1px solid #3a4060;color:#aaa;border-radius:9px;padding:10px 4px;font-size:12px;font-weight:600;cursor:pointer">🗑 Limpiar</button>
+    <button onclick="undoMeasurePoint()" style="flex:1;background:#1c1c1c;border:1px solid #333;color:#e0e0e0;border-radius:9px;padding:10px 4px;font-size:12px;font-weight:600;cursor:pointer">↩ Deshacer</button>
+    <button onclick="clearMeasure()" style="flex:1;background:#1c1c1c;border:1px solid #333;color:#888;border-radius:9px;padding:10px 4px;font-size:12px;font-weight:600;cursor:pointer">🗑 Limpiar</button>
     <button onclick="exitMeasureMode()" style="flex:1;background:rgba(231,76,60,0.15);border:1px solid rgba(231,76,60,0.4);color:#e74c3c;border-radius:9px;padding:10px 4px;font-size:12px;font-weight:600;cursor:pointer">✗ Cerrar</button>
   </div>
 </div>
@@ -211,9 +211,9 @@ if(LAYERS.departamentos)
     onEachFeature:function(f,layer){
       var nombre=(f.properties||{}).Departamen||'Departamento';
       layer.bindPopup(
-        '<div style="background:#1e2436;border-radius:8px;padding:10px 14px;min-width:140px">'
-        +'<div style="font-size:10px;color:#7a8aaa;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Departamento</div>'
-        +'<div style="font-size:14px;font-weight:800;color:#e0e6f0">'+nombre+'<\/div>'
+        '<div style="background:#111;border-radius:8px;padding:10px 14px;min-width:140px">'
+        +'<div style="font-size:10px;color:#666;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Departamento</div>'
+        +'<div style="font-size:14px;font-weight:800;color:#e0e0e0">'+nombre+'<\/div>'
         +'<\/div>',
         {className:'dark-popup',closeButton:false}
       );
@@ -241,12 +241,12 @@ if(LAYERS.zonaBoundaries)
         var nombre=p.NOMBRE||p.Nombre||'';
         var zonaLabel=p.ZONA||p.Zona||zona;
         layer.bindPopup(
-          '<div style="background:#1e2436;border-radius:8px;padding:10px 14px;min-width:140px">'
+          '<div style="background:#111;border-radius:8px;padding:10px 14px;min-width:140px">'
           +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">'
           +'<div style="width:12px;height:12px;border-radius:50%;background:'+c+'"><\/div>'
-          +'<div style="font-size:13px;font-weight:800;color:#e0e6f0">'+zonaLabel+'<\/div>'
+          +'<div style="font-size:13px;font-weight:800;color:#e0e0e0">'+zonaLabel+'<\/div>'
           +'<\/div>'
-          +(nombre?'<div style="font-size:11px;color:#9aaac0">'+nombre+'<\/div>':'')
+          +(nombre?'<div style="font-size:11px;color:#888">'+nombre+'<\/div>':'')
           +'<\/div>',
           {className:'dark-popup',closeButton:false}
         );
@@ -314,32 +314,27 @@ function rpPopup(f, categoria){
   var num=p.Nombre?'N\u00b0 '+String(parseInt(p.Nombre)||p.Nombre):'—';
   var jer=(p.Jerarq||'').charAt(0)+(p.Jerarq||'').slice(1).toLowerCase();
   var zona=p.Zona?'Zona '+p.Zona:'—';
-  var cc=p.CC?(' N\u00b0 '+String(parseInt(p.CC)||p.CC)):'';  var mant=p.Mantenim==='DVP'?'Vialidad Provincial':p.Mantenim==='CC'?('Consorcio Caminero'+cc):p.Mantenim||'—';
+  var cc=p.CC?(' N\u00b0 '+String(parseInt(p.CC)||p.CC)):'';
+  var mant=p.Mantenim==='DVP'?'Vialidad Provincial':p.Mantenim==='CC'?('Consorcio Caminero'+cc):p.Mantenim||'—';
   var mat=p.Mat_Calzad?p.Mat_Calzad.charAt(0)+p.Mat_Calzad.slice(1).toLowerCase():'—';
   var catColors={pav:'#e74c3c',mej:'#27ae60',obra:'#e74c3c',tie:'#e67e22'};
-  var col=catColors[categoria]||'#7a8aaa';
-  return '<div style="background:#1e2436;border-radius:10px;overflow:hidden;font-family:sans-serif;min-width:200px;max-width:240px">'
+  var col=catColors[categoria]||'#666';
+  var km=calcLineKm(f);
+  var row='<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #1e1e1e">';
+  var lbl='<span style="font-size:10px;color:#666;width:80px">';
+  var val='<span style="font-size:12px;color:#e0e0e0;font-weight:600">';
+  return '<div style="background:#111;border-radius:10px;overflow:hidden;font-family:sans-serif;min-width:200px;max-width:240px">'
     +'<div style="background:'+col+';padding:10px 14px">'
-    +'<div style="font-size:11px;color:rgba(255,255,255,0.75);text-transform:uppercase;letter-spacing:1px">Ruta Provincial</div>'
+    +'<div style="font-size:10px;color:rgba(255,255,255,0.7);text-transform:uppercase;letter-spacing:1px">Ruta Provincial<\/div>'
     +'<div style="font-size:20px;font-weight:900;color:#fff;margin-top:2px">'+num+'<\/div>'
     +'<\/div>'
     +'<div style="padding:10px 14px">'
-    +'<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #2a3045">'
-    +'<span style="font-size:10px;color:#7a8aaa;width:80px">Zona<\/span>'
-    +'<span style="font-size:12px;color:#e0e6f0;font-weight:600">'+zona+'<\/span>'
-    +'<\/div>'
-    +'<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #2a3045">'
-    +'<span style="font-size:10px;color:#7a8aaa;width:80px">Jerarqu\u00eda<\/span>'
-    +'<span style="font-size:12px;color:#e0e6f0;font-weight:600">'+jer+'<\/span>'
-    +'<\/div>'
-    +'<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #2a3045">'
-    +'<span style="font-size:10px;color:#7a8aaa;width:80px">Superficie<\/span>'
-    +'<span style="font-size:12px;color:#e0e6f0;font-weight:600">'+mat+'<\/span>'
-    +'<\/div>'
+    +(km?row+lbl+'Longitud<\/span><span style="font-size:12px;color:#F5C300;font-weight:700">'+km+' km<\/span><\/div>':'')
+    +row+lbl+'Zona<\/span>'+val+zona+'<\/span><\/div>'
+    +row+lbl+'Jerarqu\u00eda<\/span>'+val+jer+'<\/span><\/div>'
+    +row+lbl+'Superficie<\/span>'+val+mat+'<\/span><\/div>'
     +'<div style="display:flex;align-items:center;gap:8px;padding:5px 0">'
-    +'<span style="font-size:10px;color:#7a8aaa;width:80px">Mantenimiento<\/span>'
-    +'<span style="font-size:12px;color:#e0e6f0;font-weight:600">'+mant+'<\/span>'
-    +'<\/div>'
+    +lbl+'Mantenimiento<\/span>'+val+mant+'<\/span><\/div>'
     +'<\/div><\/div>';
 }
 if(LAYERS.rpTierra) addRPLayer(RP_TIE,{color:'#e67e22',weight:2,opacity:0.8},'tie');
@@ -414,15 +409,15 @@ function _attachMarkerClick(isManual){
     var ll=userMarker.getLatLng();
     var btns=isManual
       ? '<div style="display:flex;gap:8px;margin-top:10px">'
-        +'<button onclick="enterManualMode()" style="flex:1;background:#2a3450;border:none;color:#e0e6f0;padding:6px 0;border-radius:7px;font-size:11px;cursor:pointer">📍 Mover<\/button>'
-        +'<button onclick="exitManualMode()" style="flex:1;background:#2a3450;border:none;color:#9aaac0;padding:6px 0;border-radius:7px;font-size:11px;cursor:pointer">🧭 GPS real<\/button>'
+        +'<button onclick="enterManualMode()" style="flex:1;background:#1e1e1e;border:none;color:#e0e0e0;padding:6px 0;border-radius:7px;font-size:11px;cursor:pointer">📍 Mover<\/button>'
+        +'<button onclick="exitManualMode()" style="flex:1;background:#1e1e1e;border:none;color:#888;padding:6px 0;border-radius:7px;font-size:11px;cursor:pointer">🧭 GPS real<\/button>'
         +'<\/div>'
-      : '<button onclick="enterManualMode()" style="margin-top:10px;width:100%;background:#2a3450;border:none;color:#e0e6f0;padding:6px 0;border-radius:7px;font-size:11px;cursor:pointer">📍 Mover ubicación<\/button>';
+      : '<button onclick="enterManualMode()" style="margin-top:10px;width:100%;background:#1e1e1e;border:none;color:#e0e0e0;padding:6px 0;border-radius:7px;font-size:11px;cursor:pointer">📍 Mover ubicación<\/button>';
     L.popup({closeButton:true,maxWidth:220,className:'dark-popup'})
       .setLatLng(ll)
-      .setContent('<div style="background:#1e2436;border-radius:8px;padding:10px 14px">'
-        +'<div style="font-size:10px;color:#7a8aaa;text-transform:uppercase;letter-spacing:1px">'+(isManual?'Ubicación manual':'Tu ubicación')+'<\/div>'
-        +'<div style="font-size:12px;color:#e0e6f0;margin-top:4px">'+ll.lat.toFixed(5)+', '+ll.lng.toFixed(5)+'<\/div>'
+      .setContent('<div style="background:#111;border-radius:8px;padding:10px 14px">'
+        +'<div style="font-size:10px;color:#666;text-transform:uppercase;letter-spacing:1px">'+(isManual?'Ubicación manual':'Tu ubicación')+'<\/div>'
+        +'<div style="font-size:12px;color:#e0e0e0;margin-top:4px">'+ll.lat.toFixed(5)+', '+ll.lng.toFixed(5)+'<\/div>'
         +btns+'<\/div>')
       .openOn(map);
   });
@@ -576,30 +571,24 @@ function addCCData(cc,zona,gj){
       var nomenclatura=CC_NOMBRES[parseInt(p.CC,10)]||'';
       var nc=p.Nc||'';
       var baseStyle={color:zColor,weight:j==='PRIMARIA'?2.5:j==='SECUNDARIA'?1.8:1.2,opacity:0.85};
+      var kmCC=calcLineKm(f);
+      var rowCC='<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #1e1e1e">';
+      var lblCC='<span style="font-size:10px;color:#666;width:90px">';
+      var valCC='<span style="font-size:12px;color:#e0e0e0;font-weight:600">';
       l.bindPopup(
-        '<div style="background:#1e2436;border-radius:10px;overflow:hidden;font-family:sans-serif;min-width:210px;max-width:250px">'
+        '<div style="background:#111;border-radius:10px;overflow:hidden;font-family:sans-serif;min-width:210px;max-width:250px">'
         +'<div style="background:'+zColor+';padding:10px 14px">'
-        +'<div style="font-size:10px;color:rgba(255,255,255,0.75);text-transform:uppercase;letter-spacing:1px">Red bajo Convenio CC<\/div>'
+        +'<div style="font-size:10px;color:rgba(255,255,255,0.7);text-transform:uppercase;letter-spacing:1px">Red bajo Convenio CC<\/div>'
         +'<div style="font-size:20px;font-weight:900;color:#fff;margin-top:2px">CC N° '+ccNum+'<\/div>'
-        +(nomenclatura?'<div style="font-size:11px;color:rgba(255,255,255,0.7);margin-top:2px">'+nomenclatura+'<\/div>':'')
+        +(nomenclatura?'<div style="font-size:11px;color:rgba(255,255,255,0.65);margin-top:2px">'+nomenclatura+'<\/div>':'')
         +'<\/div>'
         +'<div style="padding:10px 14px">'
-        +'<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #2a3045">'
-        +'<span style="font-size:10px;color:#7a8aaa;width:90px">'+vialLabel+'<\/span>'
-        +'<span style="font-size:12px;color:#e0e6f0;font-weight:600">'+vialNum+'<\/span>'
-        +'<\/div>'
-        +(nc?'<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #2a3045">'
-        +'<span style="font-size:10px;color:#7a8aaa;width:90px">Nomenclatura<\/span>'
-        +'<span style="font-size:11px;color:#e0e6f0;font-weight:600;font-family:monospace">'+nc+'<\/span>'
-        +'<\/div>':'')
-        +'<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #2a3045">'
-        +'<span style="font-size:10px;color:#7a8aaa;width:90px">Jerarquía<\/span>'
-        +'<span style="font-size:12px;color:#e0e6f0;font-weight:600">'+jLabel+'<\/span>'
-        +'<\/div>'
+        +(kmCC?rowCC+lblCC+'Longitud<\/span><span style="font-size:12px;color:#F5C300;font-weight:700">'+kmCC+' km<\/span><\/div>':'')
+        +rowCC+lblCC+vialLabel+'<\/span>'+valCC+vialNum+'<\/span><\/div>'
+        +(nc?rowCC+lblCC+'Nomenclatura<\/span><span style="font-size:11px;color:#e0e0e0;font-weight:600;font-family:monospace">'+nc+'<\/span><\/div>':'')
+        +rowCC+lblCC+'Jerarqu\u00eda<\/span>'+valCC+jLabel+'<\/span><\/div>'
         +'<div style="display:flex;align-items:center;gap:8px;padding:5px 0">'
-        +'<span style="font-size:10px;color:#7a8aaa;width:90px">Mantenimiento<\/span>'
-        +'<span style="font-size:12px;color:#e0e6f0;font-weight:600">'+mn+'<\/span>'
-        +'<\/div>'
+        +lblCC+'Mantenimiento<\/span>'+valCC+mn+'<\/span><\/div>'
         +'<\/div>'
         +'<\/div>',
         {className:'dark-popup',closeButton:true,maxWidth:260}
@@ -636,20 +625,21 @@ function addDVPLayer(zona,gj){
       var p=f.properties||{};
       var nc=p.Nc||'';
       var zonaLabel=DVP_ZONA_LABEL[zona]||zona;
+      var kmDVP=calcLineKm(f);
+      var rowDVP='<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #1e1e1e">';
+      var lblDVP='<span style="font-size:10px;color:#666;width:90px">';
+      var valDVP='<span style="font-size:12px;color:#e0e0e0;font-weight:600">';
       l.bindPopup(
-        '<div style="background:#1e2436;border-radius:10px;overflow:hidden;font-family:sans-serif;min-width:210px;max-width:250px">'
+        '<div style="background:#111;border-radius:10px;overflow:hidden;font-family:sans-serif;min-width:210px;max-width:250px">'
         +'<div style="background:#6d28d9;padding:10px 14px">'
-        +'<div style="font-size:10px;color:rgba(255,255,255,0.75);text-transform:uppercase;letter-spacing:1px">Tramo Vialidad · '+zonaLabel+'<\/div>'
+        +'<div style="font-size:10px;color:rgba(255,255,255,0.7);text-transform:uppercase;letter-spacing:1px">Tramo Vialidad · '+zonaLabel+'<\/div>'
         +'<div style="font-size:16px;font-weight:900;color:#fff;margin-top:2px">Red Vial Provincial<\/div>'
         +'<\/div>'
         +'<div style="padding:10px 14px">'
-        +(nc?'<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #2a3045">'
-        +'<span style="font-size:10px;color:#7a8aaa;width:90px">Identificación<\/span>'
-        +'<span style="font-size:11px;color:#e0e6f0;font-weight:600;font-family:monospace">'+nc+'<\/span>'
-        +'<\/div>':'')
+        +(kmDVP?rowDVP+lblDVP+'Longitud<\/span><span style="font-size:12px;color:#F5C300;font-weight:700">'+kmDVP+' km<\/span><\/div>':'')
+        +(nc?rowDVP+lblDVP+'Identificación<\/span><span style="font-size:11px;color:#e0e0e0;font-weight:600;font-family:monospace">'+nc+'<\/span><\/div>':'')
         +'<div style="display:flex;align-items:center;gap:8px;padding:5px 0">'
-        +'<span style="font-size:10px;color:#7a8aaa;width:90px">Mantenimiento<\/span>'
-        +'<span style="font-size:12px;color:#e0e6f0;font-weight:600">DVP<\/span>'
+        +lblDVP+'Mantenimiento<\/span>'+valDVP+'DVP<\/span>'
         +'<\/div>'
         +'<\/div><\/div>',
         {className:'dark-popup',closeButton:true,maxWidth:250}
@@ -670,6 +660,17 @@ function haversineM(lat1,lon1,lat2,lon2){
   var dp=(lat2-lat1)*Math.PI/180,dl=(lon2-lon1)*Math.PI/180;
   var a=Math.sin(dp/2)*Math.sin(dp/2)+Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)*Math.sin(dl/2);
   return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+function calcLineKm(f){
+  var geom=f&&f.geometry;
+  if(!geom||!geom.coordinates)return null;
+  var lines=geom.type==='MultiLineString'?geom.coordinates:[geom.coordinates];
+  var total=0;
+  lines.forEach(function(line){
+    for(var i=1;i<line.length;i++)
+      total+=haversineM(line[i-1][1],line[i-1][0],line[i][1],line[i][0]);
+  });
+  return total>0?(total/1000).toFixed(2):null;
 }
 
 function MinHeap(){this.h=[];}
@@ -786,7 +787,7 @@ function showRouteToast(msg){
   if(_routeToast)map.removeLayer(_routeToast);
   _routeToast=L.popup({closeButton:false,className:'dark-popup',maxWidth:220})
     .setLatLng(map.getCenter())
-    .setContent('<div style="background:#1e2436;border-radius:8px;padding:10px 14px;text-align:center;color:#e0e6f0;font-size:13px">'+msg+'<\/div>')
+    .setContent('<div style="background:#111;border-radius:8px;padding:10px 14px;text-align:center;color:#e0e0e0;font-size:13px">'+msg+'<\/div>')
     .openOn(map);
 }
 function hideRouteToast(){if(_routeToast){map.closePopup(_routeToast);_routeToast=null;}}
@@ -795,12 +796,12 @@ function hideRouteToast(){if(_routeToast){map.closePopup(_routeToast);_routeToas
 function _showRoutePopup(sedeLat,sedeLng,nombre,km,mins,tag){
   L.popup({closeButton:true,maxWidth:260})
     .setLatLng([sedeLat,sedeLng])
-    .setContent('<div style="background:#1e2436;border-radius:8px;padding:12px 16px">'
-      +'<div style="font-size:10px;color:#7a8aaa;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Cómo llegar · '+nombre+'<\/div>'
+    .setContent('<div style="background:#111;border-radius:8px;padding:12px 16px">'
+      +'<div style="font-size:10px;color:#666;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Cómo llegar · '+nombre+'<\/div>'
       +'<div style="font-size:20px;font-weight:900;color:#00d4ff;margin-bottom:2px">'+km+' km<\/div>'
-      +'<div style="font-size:12px;color:#9aaac0">≈ '+mins+' min<\/div>'
-      +(tag?'<div style="font-size:10px;color:#7a8aaa;margin-top:5px">'+tag+'<\/div>':'')
-      +'<button onclick="clearRoute()" style="margin-top:10px;background:#2a3450;border:none;color:#9aaac0;padding:6px 14px;border-radius:7px;font-size:11px;cursor:pointer">✕ Limpiar ruta<\/button>'
+      +'<div style="font-size:12px;color:#888">≈ '+mins+' min<\/div>'
+      +(tag?'<div style="font-size:10px;color:#666;margin-top:5px">'+tag+'<\/div>':'')
+      +'<button onclick="clearRoute()" style="margin-top:10px;background:#1e1e1e;border:none;color:#888;padding:6px 14px;border-radius:7px;font-size:11px;cursor:pointer">✕ Limpiar ruta<\/button>'
       +'<\/div>')
     .openOn(map);
 }
@@ -944,15 +945,15 @@ function addRelevMarker(id,lat,lng,estado,tipo,ccAsociado,fecha,obs){
   var m=L.marker([lat,lng],{icon:_relevDivIcon(tipo,c),zIndexOffset:600});
   var d=new Date(fecha);
   var fechaStr=d.toLocaleDateString('es-AR')+' '+d.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
-  var tipoTxt=(tipo&&tipo!=='Ninguna')?'<div style="font-size:11px;color:#b0bec5;margin-bottom:3px">Tipo: '+escHtml(tipo)+'<\/div>':'';
-  var ccTxt=ccAsociado?'<div style="font-size:11px;color:#b0bec5;margin-bottom:3px">'+escHtml(ccAsociado)+'<\/div>':'';
-  var obsTxt=obs?'<div style="font-size:11px;color:#cdd4de;border-top:1px solid #2a3450;padding-top:5px;margin-top:5px">'+escHtml(obs)+'<\/div>':'';
+  var tipoTxt=(tipo&&tipo!=='Ninguna')?'<div style="font-size:11px;color:#999;margin-bottom:3px">Tipo: '+escHtml(tipo)+'<\/div>':'';
+  var ccTxt=ccAsociado?'<div style="font-size:11px;color:#999;margin-bottom:3px">'+escHtml(ccAsociado)+'<\/div>':'';
+  var obsTxt=obs?'<div style="font-size:11px;color:#ccc;border-top:1px solid #1e1e1e;padding-top:5px;margin-top:5px">'+escHtml(obs)+'<\/div>':'';
   m.bindPopup(
-    '<div style="background:#1e2436;border-radius:10px;padding:12px 14px;min-width:180px">'
-    +'<div style="font-size:10px;color:#7a8aaa;text-transform:uppercase;letter-spacing:1px">Relevamiento<\/div>'
+    '<div style="background:#111;border-radius:10px;padding:12px 14px;min-width:180px">'
+    +'<div style="font-size:10px;color:#666;text-transform:uppercase;letter-spacing:1px">Relevamiento<\/div>'
     +'<div style="font-size:15px;font-weight:900;color:'+c+';margin:3px 0">'+estado+'<\/div>'
     +tipoTxt+ccTxt
-    +'<div style="font-size:10px;color:#7a8aaa;margin-bottom:8px">'+fechaStr+'<\/div>'
+    +'<div style="font-size:10px;color:#666;margin-bottom:8px">'+fechaStr+'<\/div>'
     +obsTxt
     +'<button class="rdel-btn" data-rid="'+id+'" '
     +'style="margin-top:8px;width:100%;background:rgba(192,57,43,0.15);border:1px solid rgba(192,57,43,0.5);color:#e74c3c;'
@@ -983,12 +984,12 @@ function addLinealLine(id,latlngs,empresa,ruta,fecha){
   var d=new Date(fecha);
   var fechaStr=d.toLocaleDateString('es-AR')+' '+d.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
   line.bindPopup(
-    '<div style="background:#1e2436;border-radius:10px;padding:12px 14px;min-width:180px">'
+    '<div style="background:#111;border-radius:10px;padding:12px 14px;min-width:180px">'
     +'<div style="font-size:10px;color:#e67e22;text-transform:uppercase;letter-spacing:1px;font-weight:700">Tramo lineal<\/div>'
-    +(ruta?'<div style="font-size:13px;font-weight:800;color:#e0e6f0;margin:3px 0">'+ruta+'<\/div>':'')
-    +(empresa?'<div style="font-size:11px;color:#b0bec5;margin-bottom:3px">Empresa: '+empresa+'<\/div>':'')
-    +'<div style="font-size:10px;color:#7a8aaa;margin-bottom:8px">'+fechaStr+'<\/div>'
-    +'<div style="font-size:10px;color:#7a8aaa">'+pts.length+' puntos capturados<\/div>'
+    +(ruta?'<div style="font-size:13px;font-weight:800;color:#e0e0e0;margin:3px 0">'+ruta+'<\/div>':'')
+    +(empresa?'<div style="font-size:11px;color:#999;margin-bottom:3px">Empresa: '+empresa+'<\/div>':'')
+    +'<div style="font-size:10px;color:#666;margin-bottom:8px">'+fechaStr+'<\/div>'
+    +'<div style="font-size:10px;color:#666">'+pts.length+' puntos capturados<\/div>'
     +'<\/div>',
     {closeButton:true,maxWidth:260}
   );
@@ -1115,7 +1116,7 @@ function _updateMeasure(){
     var p1=_mPts[i-1],p2=_mPts[i],d=_segDist(p1,p2);total+=d;
     _mLines.push(L.polyline([[p1.lat,p1.lng],[p2.lat,p2.lng]],{color:'#F5C300',weight:2.5,opacity:0.9,dashArray:'8 5'}).addTo(map));
     var icon=L.divIcon({className:'',
-      html:'<div style="background:#1e2436;color:#F5C300;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;border:1px solid rgba(245,195,0,0.4);white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,.5)">'+_fmtDist(d)+'</div>',
+      html:'<div style="background:#111;color:#F5C300;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;border:1px solid rgba(245,195,0,0.4);white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,.5)">'+_fmtDist(d)+'</div>',
       iconAnchor:[0,8]});
     _mLabels.push(L.marker([(p1.lat+p2.lat)/2,(p1.lng+p2.lng)/2],{icon:icon,interactive:false,zIndexOffset:1000}).addTo(map));
   }
