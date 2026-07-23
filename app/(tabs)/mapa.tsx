@@ -1194,7 +1194,7 @@ export default function MapaScreen() {
   const styles = useMemo(() => makeStyles(C, DRAWER_WIDTH), [C, DRAWER_WIDTH]);
   // Lazy — GEO_BUNDLE is only accessed after the map tab is first opened
   const CC_NAMES = useMemo<Record<number, string>>(() => Object.fromEntries(
-    (GEO_BUNDLE.sedes as any[]).map((s: any) => [Number(s.numero), s.nombre || s.localidad || ''])
+    (GEO_BUNDLE.sedes as unknown as any[]).map((s: any) => [Number(s.numero), s.nombre || s.localidad || ''])
   ), []);
   const drawerAnim = useRef(new Animated.Value(-DRAWER_WIDTH)).current;
   // Ref para la orientación actual — leído dentro del listener del Magnetómetro
@@ -1931,7 +1931,7 @@ export default function MapaScreen() {
 function makeStyles(C: ColorPalette, DRAWER_WIDTH: number) { return StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },
 
-  overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.55)', zIndex: 10 },
+  overlay: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(0,0,0,0.55)', zIndex: 10 },
 
   drawer: {
     position: 'absolute', top: 0, left: 0, width: DRAWER_WIDTH, height: '100%',
