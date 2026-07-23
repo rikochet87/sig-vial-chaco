@@ -1743,10 +1743,10 @@ function makeStyles(Colors: ColorPalette) { return StyleSheet.create({
   metodoCardTitle: { fontSize: 14, fontWeight: '800', color: Colors.textPrimary, marginBottom: 4 },
   metodoCardDesc: { fontSize: 12, color: Colors.textSecondary, lineHeight: 17, marginBottom: 10 },
   metodoCardBtn: {
-    backgroundColor: '#1a4a7a', borderRadius: 7, paddingVertical: 8, paddingHorizontal: 12, alignSelf: 'flex-start',
+    backgroundColor: Colors.accent, borderRadius: 7, paddingVertical: 8, paddingHorizontal: 12, alignSelf: 'flex-start',
   },
-  metodoCardBtnGps: { backgroundColor: '#27ae60' },
-  metodoCardBtnTxt: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  metodoCardBtnGps: { backgroundColor: Colors.accent },
+  metodoCardBtnTxt: { color: Colors.primary, fontSize: 13, fontWeight: '700' },
   metodoDivider: { height: 1, backgroundColor: Colors.border },
 
   // GPS Track — panel inline
