@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 
 // Íconos SVG geométricos/técnicos inline
 const ICONS = {
@@ -50,9 +50,14 @@ const ICONS = {
 
 const NAV_ITEMS = [
   { href: '/dashboard',               label: 'Dashboard',      icon: ICONS.dashboard,     exact: true },
-  { href: '/dashboard/relevamientos', label: 'Relevamientos',  icon: ICONS.relevamientos, exact: false },
   { href: '/dashboard/tecnicos',      label: 'Usuarios',       icon: ICONS.tecnicos,      exact: false },
   { href: '/dashboard/consorcios',    label: 'Consorcios',     icon: ICONS.consorcios,    exact: false },
+]
+
+// Sub-ítems de Relevamientos
+const REL_ITEMS = [
+  { id: 'lista',    label: 'Lista',            icon: '≡', href: '/dashboard/relevamientos'         },
+  { id: 'revision', label: 'Revisión de campo', icon: '⊕', href: '/dashboard/relevamientos/revision' },
 ]
 
 // Sub-herramientas — agregar nuevas acá
@@ -71,12 +76,14 @@ export default function Sidebar() {
   const [hoveredHref, setHoveredHref] = useState<string | null>(null)
   const [toolsOpen, setToolsOpen]     = useState(false)
   const [obrasOpen, setObrasOpen]     = useState(false)
+  const [relOpen,   setRelOpen]       = useState(false)
   const pathname = usePathname()
 
   // Auto-expandir acordeones
   useEffect(() => {
-    if (pathname.startsWith('/dashboard/herramientas')) setToolsOpen(true)
-    if (pathname.startsWith('/dashboard/obras'))        setObrasOpen(true)
+    if (pathname.startsWith('/dashboard/herramientas'))  setToolsOpen(true)
+    if (pathname.startsWith('/dashboard/obras'))         setObrasOpen(true)
+    if (pathname.startsWith('/dashboard/relevamientos')) setRelOpen(true)
   }, [pathname])
 
   const w = collapsed ? 48 : 220
@@ -94,6 +101,7 @@ export default function Sidebar() {
 
   const isToolsActive = pathname.startsWith('/dashboard/herramientas')
   const isObrasActive = pathname.startsWith('/dashboard/obras')
+  const isRelActive   = pathname.startsWith('/dashboard/relevamientos')
 
   return (
     <div style={{
@@ -151,6 +159,56 @@ export default function Sidebar() {
             </Link>
           )
         })}
+
+        {/* ── Relevamientos — acordeón ── */}
+        <button
+          onClick={() => setRelOpen(v => !v)}
+          onMouseEnter={() => setHoveredHref('relevamientos')}
+          onMouseLeave={() => setHoveredHref(null)}
+          style={{
+            ...linkBase,
+            width: '100%', border: 'none', cursor: 'pointer',
+            color: isRelActive ? '#F5C300' : hoveredHref === 'relevamientos' ? '#bbb' : '#555',
+            borderLeftColor: isRelActive ? '#F5C300' : hoveredHref === 'relevamientos' ? '#3a3a3a' : 'transparent',
+            background: isRelActive ? 'rgba(245,195,0,0.06)' : hoveredHref === 'relevamientos' ? 'rgba(255,255,255,0.025)' : 'transparent',
+          } as React.CSSProperties}
+        >
+          <span style={{ flexShrink: 0, opacity: isRelActive || hoveredHref === 'relevamientos' ? 0.9 : 0.6, color: isRelActive ? '#F5C300' : 'currentColor' }}>
+            {ICONS.relevamientos}
+          </span>
+          {!collapsed && (
+            <>
+              <span>Relevamientos</span>
+              <span style={{ marginLeft: 'auto', fontSize: 9, opacity: 0.5, transition: 'transform 0.15s', display: 'inline-block', transform: relOpen ? 'rotate(90deg)' : 'none' }}>▶</span>
+            </>
+          )}
+        </button>
+
+        {relOpen && !collapsed && (
+          <div style={{ borderLeft: '1px solid #1e1e1e', marginLeft: 24, marginTop: 2, marginBottom: 2 }}>
+            {REL_ITEMS.map(item => {
+              const isActive  = item.id === 'lista' ? pathname === item.href || (pathname.startsWith('/dashboard/relevamientos') && !pathname.startsWith('/dashboard/relevamientos/revision')) : pathname.startsWith(item.href)
+              const isHovered = hoveredHref === item.id
+              return (
+                <Link key={item.id} href={item.href}
+                  onMouseEnter={() => setHoveredHref(item.id)}
+                  onMouseLeave={() => setHoveredHref(null)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    padding: '7px 12px', textDecoration: 'none',
+                    fontSize: 11, fontFamily: '"DM Mono", ui-monospace, monospace',
+                    letterSpacing: 0.3, whiteSpace: 'nowrap',
+                    color: isActive ? '#F5C300' : isHovered ? '#bbb' : '#555',
+                    background: isHovered ? 'rgba(255,255,255,0.025)' : 'transparent',
+                    transition: 'color 0.15s, background 0.15s',
+                  }}>
+                  <span style={{ fontSize: 13, fontFamily: 'monospace' }}>{item.icon}</span>
+                  <span>{item.label}</span>
+                </Link>
+              )
+            })}
+          </div>
+        )}
 
         {/* Separador */}
         <div style={{ margin: '8px 16px', borderTop: '1px solid #1e1e1e' }} />

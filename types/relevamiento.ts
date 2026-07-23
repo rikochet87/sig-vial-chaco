@@ -94,12 +94,22 @@ export interface AutoDeteccion {
 
 // ── Relevamiento ─────────────────────────────────────────────────────────────
 
+// ── Punto topográfico enriquecido ─────────────────────────────────────────────
+export interface PuntoTrack {
+  lat:   number;
+  lng:   number;
+  alt?:  number;   // altitud (m snm)
+  acc?:  number;   // precisión GPS (m)
+  ts?:   number;   // timestamp Unix ms
+  prog?: number;   // progresiva desde PK 0+000 (m)
+}
+
 export interface Relevamiento {
   id: string;
   fecha: string;
   syncStatus?: 'pendiente' | 'sincronizado' | 'error';
   coords: { lat: number; lng: number };
-  coordsLinea?: { lat: number; lng: number }[]; // para features lineales (Lineal)
+  coordsLinea?: PuntoTrack[]; // para features lineales (Lineal)
   autoDeteccion?: AutoDeteccion;
   /** Zona del técnico logueado — tiene prioridad sobre autoDeteccion.zona al sincronizar */
   tecnicoZona?: string;
