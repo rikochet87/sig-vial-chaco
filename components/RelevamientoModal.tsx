@@ -382,7 +382,7 @@ function TubosForm({ data, onChange }: {
 
 // ── Formulario Lineal ─────────────────────────────────────────────────────────
 
-type LatLngPunto = { lat: number; lng: number };
+type LatLngPunto = { lat: number; lng: number; alt?: number; acc?: number; ts?: number; prog?: number };
 
 const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 const ZONAS_LINEAL = ['ZI', 'ZII', 'ZIII', 'ZIV', 'ZV'];
@@ -409,6 +409,16 @@ function totalMetros(pts: LatLngPunto[]): number {
   return d;
 }
 
+// ── Helpers topográficos ──────────────────────────────────────────────────────
+function fmtPK(m: number): string {
+  const km = Math.floor(m / 1000);
+  const rm = Math.round(m % 1000);
+  return `PK ${km}+${String(rm).padStart(3, '0')}`;
+}
+function fmtDist(m: number): string {
+  return m >= 1000 ? `${(m / 1000).toFixed(3)} km` : `${Math.round(m)} m`;
+}
+
 // ── Panel GPS Track compartido ─────────────────────────────────────────────────
 function GPSTrackPanel({
   puntos, onCoordsChange, onRequestDraw, label, hideGPS,
@@ -420,24 +430,35 @@ function GPSTrackPanel({
   hideGPS?: boolean;
 }) {
   const s = useS();
-  const [trackPhase,    setTrackPhase]    = useState<'idle'|'recording'>('idle');
+  const [trackPhase,    setTrackPhase]    = useState<'idle'|'recording'|'done'>('idle');
   const [trackPts,      setTrackPts]      = useState<LatLngPunto[]>([]);
-  const [trackAccuracy, setTrackAccuracy] = useState<number | null>(null);
-  const [intervaloM,    setIntervaloM]    = useState<number>(50);    // metros entre puntos
-  const [skipped,       setSkipped]       = useState(0);             // pts descartados por baja precisión
-  const trackSubRef  = useRef<any>(null);
-  const trackPtsRef  = useRef<LatLngPunto[]>([]);
-  const skippedRef   = useRef(0);
+  const [lastAcc,       setLastAcc]       = useState<number | null>(null);
+  const [lastAlt,       setLastAlt]       = useState<number | null>(null);
+  const [lastSegM,      setLastSegM]      = useState<number>(0);
+  const [skipped,       setSkipped]       = useState(0);
+  const [intervaloM,    setIntervaloM]    = useState<number>(10);
+  const trackSubRef = useRef<any>(null);
+  const trackPtsRef = useRef<LatLngPunto[]>([]);
+  const skippedRef  = useRef(0);
 
   const INTERVALOS = [
-    { label: '50 m',  value: 50   },
-    { label: '100 m', value: 100  },
-    { label: '250 m', value: 250  },
-    { label: '500 m', value: 500  },
-    { label: '1 km',  value: 1000 },
-    { label: '5 km',  value: 5000 },
+    { label: '3 m',   value: 3   },
+    { label: '5 m',   value: 5   },
+    { label: '10 m',  value: 10  },
+    { label: '20 m',  value: 20  },
+    { label: '50 m',  value: 50  },
+    { label: '100 m', value: 100 },
   ];
-  const MAX_ACCURACY_M = 50; // descartar punto si la precisión GPS es peor que esto
+  const MAX_ACC = 30; // descartar si precisión GPS peor que 30 m
+  const RTK_THRESHOLD = 0.5; // m — por debajo de esta precisión se considera RTK
+
+  // ¿El track completo fue capturado con precisión RTK (< 0.5 m)?
+  const trackIsRTK = useMemo(
+    () => puntos.length > 0 && puntos.every(p => p.acc != null && p.acc < RTK_THRESHOLD),
+    [puntos]
+  );
+  // ¿La lectura actual de precisión es RTK? (para HUD durante grabación)
+  const liveIsRTK = lastAcc !== null && lastAcc < RTK_THRESHOLD;
 
   const startTrack = async () => {
     if (!Location) { Alert.alert('GPS no disponible', 'expo-location no está instalado.'); return; }
@@ -445,22 +466,35 @@ function GPSTrackPanel({
     if (status !== 'granted') { Alert.alert('Permiso denegado', 'Se necesita GPS para grabar el track.'); return; }
     trackPtsRef.current = [];
     skippedRef.current  = 0;
-    setTrackPts([]);
-    setSkipped(0);
-    setTrackAccuracy(null);
+    setTrackPts([]); setSkipped(0); setLastAcc(null); setLastAlt(null); setLastSegM(0);
     setTrackPhase('recording');
     trackSubRef.current = await Location.watchPositionAsync(
-      { accuracy: Location.Accuracy.BestForNavigation, distanceInterval: intervaloM, timeInterval: 3000 },
+      { accuracy: Location.Accuracy.BestForNavigation, distanceInterval: intervaloM, timeInterval: 2000 },
       (loc: any) => {
         const acc = loc.coords.accuracy ?? null;
-        setTrackAccuracy(acc);
-        // Filtro de precisión: descartar puntos con GPS impreciso
-        if (acc !== null && acc > MAX_ACCURACY_M) {
-          skippedRef.current++;
-          setSkipped(skippedRef.current);
-          return;
+        const alt = loc.coords.altitude ?? null;
+        setLastAcc(acc); setLastAlt(alt);
+        if (acc !== null && acc > MAX_ACC) {
+          skippedRef.current++; setSkipped(skippedRef.current); return;
         }
-        const next = [...trackPtsRef.current, { lat: loc.coords.latitude, lng: loc.coords.longitude }];
+        const prev = trackPtsRef.current;
+        // Calcular progresiva acumulada
+        let prog = 0;
+        if (prev.length > 0) {
+          const lastProg = prev[prev.length - 1].prog ?? 0;
+          const seg = haversine(prev[prev.length - 1], { lat: loc.coords.latitude, lng: loc.coords.longitude });
+          prog = lastProg + seg;
+          setLastSegM(seg);
+        }
+        const pt: LatLngPunto = {
+          lat:  loc.coords.latitude,
+          lng:  loc.coords.longitude,
+          alt:  alt ?? undefined,
+          acc:  acc ?? undefined,
+          ts:   loc.timestamp ?? Date.now(),
+          prog,
+        };
+        const next = [...prev, pt];
         trackPtsRef.current = next;
         setTrackPts(next);
       }
@@ -468,66 +502,149 @@ function GPSTrackPanel({
   };
 
   const stopTrack = () => {
-    trackSubRef.current?.remove();
-    trackSubRef.current = null;
-    setTrackPhase('idle');
+    trackSubRef.current?.remove(); trackSubRef.current = null;
     const pts = trackPtsRef.current;
-    if (pts.length >= 2) {
-      onCoordsChange(pts);
-    } else {
-      Alert.alert('Track muy corto', 'Se necesitan al menos 2 puntos GPS para definir el tramo.');
-    }
+    if (pts.length >= 2) { setTrackPhase('done'); setTrackPts(pts); onCoordsChange(pts); }
+    else { setTrackPhase('idle'); Alert.alert('Track muy corto', 'Se necesitan al menos 2 puntos GPS.'); }
   };
 
   const cancelTrack = () => {
-    trackSubRef.current?.remove();
-    trackSubRef.current = null;
-    trackPtsRef.current = [];
-    setTrackPhase('idle');
-    setTrackPts([]);
+    trackSubRef.current?.remove(); trackSubRef.current = null;
+    trackPtsRef.current = []; setTrackPhase('idle'); setTrackPts([]);
   };
 
-  const metros = trackPts.length >= 2 ? totalMetros(trackPts) : 0;
+  const resetTrack = () => { setTrackPhase('idle'); setTrackPts([]); onCoordsChange([]); };
+
+  const longTotal = trackPts.length >= 2 ? (trackPts[trackPts.length - 1].prog ?? totalMetros(trackPts)) : 0;
+  const accColor  = lastAcc === null ? '#888' : lastAcc < 8 ? '#27ae60' : lastAcc < 20 ? '#F5C300' : '#e74c3c';
+  const accLabel  = lastAcc === null ? '—' : lastAcc < 8 ? 'EXCELENTE' : lastAcc < 20 ? 'BUENA' : lastAcc < MAX_ACC ? 'REGULAR' : '⚠ DESCARTANDO';
 
   return (
     <FGroup label={label ?? 'Tramo'}>
-      {puntos.length >= 2 ? (
+
+      {/* ── TRAMO DEFINIDO (resumen post-grabación) ── */}
+      {puntos.length >= 2 && trackPhase !== 'recording' ? (
         <View style={s.tramoOk}>
-          <Text style={s.tramoOkTitle}>✓ Tramo definido — {puntos.length} puntos</Text>
-          <Text style={s.tramoOkPt}>▶ Inicio: {puntos[0].lat.toFixed(5)}, {puntos[0].lng.toFixed(5)}</Text>
-          <Text style={s.tramoOkPt}>⏹ Final:  {puntos[puntos.length-1].lat.toFixed(5)}, {puntos[puntos.length-1].lng.toFixed(5)}</Text>
+          {/* Cabecera técnica */}
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+            <Text style={[s.tramoOkTitle, { fontSize: 13 }]}>✓ Tramo relevado</Text>
+            <TouchableOpacity onPress={resetTrack}
+              style={{ paddingHorizontal: 8, paddingVertical: 2, borderWidth: 1, borderColor: '#444', borderRadius: 3 }}>
+              <Text style={{ fontSize: 10, color: '#888', fontFamily: 'monospace' }}>↺ Regravar</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Métricas principales */}
+          <View style={{ flexDirection: 'row', gap: 10, marginBottom: 8 }}>
+            {[
+              { lbl: 'LONGITUD', val: fmtDist(puntos[puntos.length-1].prog ?? totalMetros(puntos)) },
+              { lbl: 'PUNTOS',   val: String(puntos.length) },
+              { lbl: 'INTERVALO', val: `${intervaloM} m` },
+            ].map(({ lbl, val }) => (
+              <View key={lbl} style={{ flex: 1, backgroundColor: '#111', borderRadius: 3, padding: 6, borderWidth: 1, borderColor: '#1e1e1e' }}>
+                <Text style={{ fontSize: 8, color: '#555', fontFamily: 'monospace', letterSpacing: 0.8 }}>{lbl}</Text>
+                <Text style={{ fontSize: 14, color: '#F5C300', fontFamily: 'monospace', fontWeight: '700', marginTop: 1 }}>{val}</Text>
+              </View>
+            ))}
+          </View>
+
+          {/* Tabla de progresivas — máx 8 filas visibles */}
+          <Text style={{ fontSize: 9, color: '#555', fontFamily: 'monospace', letterSpacing: 1, marginBottom: 4, textTransform: 'uppercase' }}>
+            Progresivas del tramo
+          </Text>
+          <View style={{ borderWidth: 1, borderColor: '#1e1e1e', borderRadius: 3, overflow: 'hidden' }}>
+            {/* Header */}
+            <View style={{ flexDirection: 'row', backgroundColor: '#0e0e0e', paddingVertical: 3, paddingHorizontal: 6 }}>
+              {['PK', 'Latitud', 'Longitud', trackIsRTK ? 'Alt (m)' : 'Alt ref.', '±Acc'].map(h => (
+                <Text key={h} style={{ flex: h === 'PK' ? 1.4 : 1, fontSize: 8, color: '#555', fontFamily: 'monospace', textTransform: 'uppercase' }}>{h}</Text>
+              ))}
+            </View>
+            {/* Filas: primer, último y muestra cada N */}
+            {(() => {
+              const step = Math.max(1, Math.floor(puntos.length / 6));
+              const idxs = Array.from(new Set([
+                0,
+                ...Array.from({ length: 5 }, (_, i) => Math.min((i + 1) * step, puntos.length - 1)),
+                puntos.length - 1,
+              ])).sort((a, b) => a - b);
+              return idxs.map((i, ri) => {
+                const pt = puntos[i];
+                const prog = pt.prog ?? 0;
+                return (
+                  <View key={i} style={{ flexDirection: 'row', paddingVertical: 3, paddingHorizontal: 6,
+                    backgroundColor: ri % 2 === 0 ? '#080808' : '#0a0a0a',
+                    borderTopWidth: 1, borderTopColor: '#111' }}>
+                    <Text style={{ flex: 1.4, fontSize: 9, color: i === 0 || i === puntos.length - 1 ? '#F5C300' : '#888', fontFamily: 'monospace', fontWeight: i === 0 || i === puntos.length - 1 ? '700' : '400' }}>
+                      {fmtPK(prog)}
+                    </Text>
+                    <Text style={{ flex: 1, fontSize: 9, color: '#666', fontFamily: 'monospace' }}>{pt.lat.toFixed(5)}</Text>
+                    <Text style={{ flex: 1, fontSize: 9, color: '#666', fontFamily: 'monospace' }}>{pt.lng.toFixed(5)}</Text>
+                    <Text style={{ flex: 1, fontSize: 9, color: '#555', fontFamily: 'monospace' }}>
+                      {pt.alt != null ? pt.alt.toFixed(1) : '—'}
+                    </Text>
+                    <Text style={{ flex: 1, fontSize: 9, color: pt.acc != null && pt.acc < 8 ? '#27ae60' : pt.acc != null && pt.acc < 20 ? '#F5C300' : '#e74c3c', fontFamily: 'monospace' }}>
+                      {pt.acc != null ? `±${Math.round(pt.acc)}` : '—'}
+                    </Text>
+                  </View>
+                );
+              });
+            })()}
+          </View>
         </View>
+
+      /* ── GRABANDO ── */
       ) : trackPhase === 'recording' ? (
         <View style={s.trackPanel}>
-          <View style={s.trackPanelHeader}>
-            <View style={s.trackDot} />
-            <Text style={s.trackPanelTitle}>Grabando track GPS…</Text>
+          {/* Título animado */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+            <View style={[s.trackDot, { width: 8, height: 8, borderRadius: 4, backgroundColor: '#e74c3c' }]} />
+            <Text style={{ fontSize: 11, color: '#ccc', fontFamily: 'monospace', fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase' }}>
+              Grabando track GPS
+            </Text>
           </View>
-          <Text style={s.trackStat}>
-            {trackPts.length} punto{trackPts.length !== 1 ? 's' : ''} registrado{trackPts.length !== 1 ? 's' : ''}
-            {metros > 0 ? `  ·  ≈ ${metros >= 1000 ? (metros/1000).toFixed(2)+' km' : Math.round(metros)+' m'}` : ''}
-          </Text>
-          {trackAccuracy !== null && (
-            <Text style={[
-              s.trackAccuracy,
-              trackAccuracy < 15 ? s.trackAccuracyExcellent :
-              trackAccuracy < 50 ? s.trackAccuracyGood :
-                                   s.trackAccuracyPoor,
-            ]}>
-              ⊕ Precisión GPS: ±{trackAccuracy < 1 ? trackAccuracy.toFixed(2) : Math.round(trackAccuracy)} m
-              {trackAccuracy > MAX_ACCURACY_M ? '  ⚠ punto descartado' : ''}
+
+          {/* HUD técnico */}
+          <View style={{ backgroundColor: '#080808', borderWidth: 1, borderColor: '#1e1e1e', borderRadius: 4, padding: 10, marginBottom: 8 }}>
+            {/* Progresiva principal */}
+            <Text style={{ fontSize: 24, color: '#F5C300', fontFamily: 'monospace', fontWeight: '700', letterSpacing: 1, marginBottom: 2 }}>
+              {trackPts.length > 0 ? fmtPK(longTotal) : 'PK 0+000'}
             </Text>
-          )}
-          {skipped > 0 && (
-            <Text style={{ fontSize: 10, color: '#e67e22', marginBottom: 2 }}>
-              ⚠ {skipped} punto{skipped !== 1 ? 's' : ''} descartado{skipped !== 1 ? 's' : ''} por baja precisión GPS
+            <Text style={{ fontSize: 11, color: '#555', fontFamily: 'monospace', marginBottom: 8 }}>
+              {fmtDist(longTotal)}  ·  {trackPts.length} pts  {skipped > 0 ? `  ·  ⚠ ${skipped} desc.` : ''}
             </Text>
-          )}
-          {trackPts.length > 0 && (
-            <Text style={s.trackCoord}>
-              Última pos.: {trackPts[trackPts.length-1].lat.toFixed(5)}, {trackPts[trackPts.length-1].lng.toFixed(5)}
-            </Text>
-          )}
+
+            {/* Grid de métricas */}
+            <View style={{ flexDirection: 'row', gap: 6 }}>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 8, color: '#444', fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: 0.8 }}>Últ. segmento</Text>
+                <Text style={{ fontSize: 13, color: '#888', fontFamily: 'monospace', fontWeight: '700' }}>
+                  {lastSegM > 0 ? `${Math.round(lastSegM)} m` : '—'}
+                </Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 8, color: '#444', fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: 0.8 }}>
+                  {liveIsRTK ? 'Altitud' : 'Altitud ref.'}
+                </Text>
+                <Text style={{ fontSize: 13, color: '#888', fontFamily: 'monospace', fontWeight: '700' }}>
+                  {lastAlt != null ? `${lastAlt.toFixed(0)} m` : '—'}
+                </Text>
+              </View>
+              <View style={{ flex: 1.5 }}>
+                <Text style={{ fontSize: 8, color: '#444', fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: 0.8 }}>⊕ Precisión GPS</Text>
+                <Text style={{ fontSize: 13, fontFamily: 'monospace', fontWeight: '700', color: accColor }}>
+                  {lastAcc != null ? `±${Math.round(lastAcc)} m` : '—'} {lastAcc != null ? `· ${accLabel}` : ''}
+                </Text>
+              </View>
+            </View>
+
+            {/* Última posición */}
+            {trackPts.length > 0 && (
+              <Text style={{ fontSize: 9, color: '#333', fontFamily: 'monospace', marginTop: 6 }}>
+                {trackPts[trackPts.length-1].lat.toFixed(6)},  {trackPts[trackPts.length-1].lng.toFixed(6)}
+              </Text>
+            )}
+          </View>
+
           <View style={s.trackPanelBtns}>
             <TouchableOpacity style={[s.trackPanelBtn, s.trackBtnStop]} onPress={stopTrack}>
               <Text style={s.trackPanelBtnTxt}>■  FIN — guardar tramo</Text>
@@ -537,6 +654,8 @@ function GPSTrackPanel({
             </TouchableOpacity>
           </View>
         </View>
+
+      /* ── IDLE: selección de método ── */
       ) : (
         <View style={s.metodoCards}>
           {onRequestDraw && (
@@ -562,28 +681,31 @@ function GPSTrackPanel({
               <View style={s.metodoCardBody}>
                 <Text style={s.metodoCardTitle}>GPS Track</Text>
                 <Text style={s.metodoCardDesc}>
-                  Grabá el recorrido automáticamente mientras conducís. El GPS registra un punto cada vez que avanzás la distancia elegida.
+                  Registra un punto GPS cada vez que avanzás la distancia configurada. Incluye altitud, precisión y progresivas.
                 </Text>
-                {/* Selector de intervalo */}
-                <Text style={{ fontSize: 10, color: '#888', marginTop: 6, marginBottom: 4 }}>
-                  Intervalo entre puntos:
+                <Text style={{ fontSize: 10, color: '#666', marginTop: 8, marginBottom: 4, fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: 0.8 }}>
+                  Intervalo entre puntos
                 </Text>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginBottom: 8 }}>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginBottom: 10 }}>
                   {INTERVALOS.map(op => (
-                    <TouchableOpacity
-                      key={op.value}
-                      onPress={() => setIntervaloM(op.value)}
+                    <TouchableOpacity key={op.value} onPress={() => setIntervaloM(op.value)}
                       style={{
-                        paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4,
-                        backgroundColor: intervaloM === op.value ? '#F5C300' : '#2a2a2a',
-                        borderWidth: 1, borderColor: intervaloM === op.value ? '#F5C300' : '#444',
+                        paddingHorizontal: 10, paddingVertical: 5, borderRadius: 3,
+                        backgroundColor: intervaloM === op.value ? '#F5C300' : '#151515',
+                        borderWidth: 1, borderColor: intervaloM === op.value ? '#F5C300' : '#2a2a2a',
                       }}>
-                      <Text style={{ fontSize: 11, fontWeight: '700', color: intervaloM === op.value ? '#111' : '#aaa' }}>
+                      <Text style={{ fontSize: 12, fontWeight: '700', fontFamily: 'monospace',
+                        color: intervaloM === op.value ? '#111' : '#666' }}>
                         {op.label}
                       </Text>
                     </TouchableOpacity>
                   ))}
                 </View>
+                <Text style={{ fontSize: 9, color: '#444', fontFamily: 'monospace', marginBottom: 8 }}>
+                  {intervaloM <= 5  ? 'Alta densidad — peatonal / bicicleta' :
+                   intervaloM <= 20 ? 'Densidad media — a paso de vehículo lento' :
+                                      'Densidad baja — rutas largas'}
+                </Text>
                 <TouchableOpacity style={[s.metodoCardBtn, s.metodoCardBtnGps]} onPress={startTrack}>
                   <Text style={s.metodoCardBtnTxt}>▶ Iniciar grabación</Text>
                 </TouchableOpacity>
