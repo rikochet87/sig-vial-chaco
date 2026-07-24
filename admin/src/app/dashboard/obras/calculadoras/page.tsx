@@ -842,11 +842,8 @@ function CalcDesbosque({ paramsRef }: { paramsRef?: React.MutableRefObject<Param
         </span>
       </div>
 
-      {view === 'jornales' ? (
-        /* ════════════════════════════════════════════════════════
-           JORNALES Y COEFICIENTES (Ae-7)
-        ════════════════════════════════════════════════════════ */
-        <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: 8, overflowY: 'auto' }}>
+      {/* Jornales ── siempre montado, oculto con display:none para preservar estado del mapa */}
+        <div style={{ flex: 1, minHeight: 0, display: view === 'jornales' ? 'flex' : 'none', flexDirection: 'column', gap: 8, overflowY: 'auto' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
 
           {/* Left: I) Mano de Obra */}
@@ -1110,11 +1107,8 @@ function CalcDesbosque({ paramsRef }: { paramsRef?: React.MutableRefObject<Param
           </div>
         </div>
 
-      ) : view === 'presupuesto' ? (
-        /* ════════════════════════════════════════════════════════
-           PRESUPUESTO (Ae-10)
-        ════════════════════════════════════════════════════════ */
-        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {/* Presupuesto ── siempre montado */}
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: view === 'presupuesto' ? 'flex' : 'none', flexDirection: 'column', gap: 10 }}>
 
           {/* Precios de referencia por tipo */}
           <div style={{ ...panel, flexShrink: 0 }}>
@@ -1226,11 +1220,8 @@ function CalcDesbosque({ paramsRef }: { paramsRef?: React.MutableRefObject<Param
           </div>
         </div>
 
-      ) : (
-        /* ════════════════════════════════════════════════════════
-           CÓMPUTO (vista principal)
-        ════════════════════════════════════════════════════════ */
-        <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: '210px 1fr 160px', gap: 10 }}>
+      {/* Cómputo ── siempre montado (contiene InlineMapDraw — no desmontar) */}
+        <div style={{ flex: 1, minHeight: 0, display: view === 'computo' ? 'grid' : 'none', gridTemplateColumns: '210px 1fr 160px', gap: 10 }}>
 
           {/* ── Panel izquierdo: entradas por lado y tipo ── */}
           <div style={{ ...panel, overflowY: 'auto' }}>
@@ -1330,7 +1321,6 @@ function CalcDesbosque({ paramsRef }: { paramsRef?: React.MutableRefObject<Param
             <Res label="Costo total"   value={fmtM(CostoTotal)}                unit="" accent />
           </div>
         </div>
-      )}
     </div>
   )
 }
