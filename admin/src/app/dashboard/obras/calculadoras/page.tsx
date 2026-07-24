@@ -633,12 +633,8 @@ interface MonteEntry { id: string; ha: number; monte: MonteKey; fromMap?: boolea
 
 function CalcDesbosque({ paramsRef }: { paramsRef?: React.MutableRefObject<Params> }) {
   // ── Geometría — múltiples superficies por tipo en cada lado ──────────────
-  const [entriesIzq, setEntriesIzq] = useState<MonteEntry[]>([
-    { id: 'izq-0', ha: 1.0, monte: 'semitupido' }
-  ])
-  const [entriesDer, setEntriesDer] = useState<MonteEntry[]>([
-    { id: 'der-0', ha: 1.0, monte: 'semitupido' }
-  ])
+  const [entriesIzq, setEntriesIzq] = useState<MonteEntry[]>([])
+  const [entriesDer, setEntriesDer] = useState<MonteEntry[]>([])
 
   // ── VIII) Coeficiente Resumen ─────────────────────────────────
   const [ggPct,  setGgPct]  = useState(15)
