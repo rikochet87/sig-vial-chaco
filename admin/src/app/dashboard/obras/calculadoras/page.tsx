@@ -1245,10 +1245,18 @@ function CalcDesbosque({ paramsRef }: { paramsRef?: React.MutableRefObject<Param
             {/* Mapa Leaflet */}
             <InlineMapDraw
               color={color}
-              onConfirm={(side, monteKey, area_ha) => {
-                const ne: MonteEntry = { id: `${side}-${Date.now()}`, ha: area_ha, monte: monteKey, fromMap: true }
+              onConfirm={(id, side, monteKey, area_ha) => {
+                const ne: MonteEntry = { id, ha: area_ha, monte: monteKey, fromMap: true }
                 if (side === 'izq') setEntriesIzq(prev => [...prev, ne])
                 else               setEntriesDer(prev => [...prev, ne])
+              }}
+              onDelete={(id) => {
+                setEntriesIzq(prev => prev.filter(e => e.id !== id))
+                setEntriesDer(prev => prev.filter(e => e.id !== id))
+              }}
+              onUpdate={(id, area_ha) => {
+                setEntriesIzq(prev => prev.map(e => e.id === id ? { ...e, ha: area_ha } : e))
+                setEntriesDer(prev => prev.map(e => e.id === id ? { ...e, ha: area_ha } : e))
               }}
             />
             {/* Tabla desglose por tipo */}

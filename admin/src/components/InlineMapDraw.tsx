@@ -34,15 +34,28 @@ function polygonAreaHa(pts: LatLng[]): number {
   return Math.abs(area * R * R / 2) / 10000
 }
 
+// ── Tipos internos ────────────────────────────────────────────────────────────
+interface ConfirmedPoly {
+  id: string
+  side: 'izq' | 'der'
+  monte: MonteKey
+  area_ha: number
+  pts: LatLng[]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  layer: any
+}
+
 // ── Props ─────────────────────────────────────────────────────────────────────
 interface Props {
   color: string
-  onConfirm: (side: 'izq' | 'der', monte: MonteKey, area_ha: number) => void
+  onConfirm: (id: string, side: 'izq' | 'der', monte: MonteKey, area_ha: number) => void
+  onDelete:  (id: string) => void
+  onUpdate?: (id: string, area_ha: number) => void
   onCancel?: () => void
 }
 
 // ── Componente ────────────────────────────────────────────────────────────────
-export default function InlineMapDraw({ color, onConfirm, onCancel }: Props) {
+export default function InlineMapDraw({ color, onConfirm, onDelete, onUpdate, onCancel }: Props) {
   const [side,       setSide]       = useState<'izq' | 'der'>('izq')
   const [monte,      setMonte]      = useState<MonteKey>('semitupido')
   const [drawing,    setDrawing]    = useState(false)
@@ -50,9 +63,11 @@ export default function InlineMapDraw({ color, onConfirm, onCancel }: Props) {
   const [polyHUD,    setPolyHUD]    = useState<{
     vertices: number; perimM: number; areaHa: number; lastSegM: number
   } | null>(null)
-  const [hudUnit,  setHudUnit]  = useState<'ha' | 'm2' | 'km2'>('ha')
-  const [mapReady, setMapReady] = useState(false)
-  const [basemap,  setBasemap]  = useState<'osm' | 'sat'>('osm')
+  const [hudUnit,     setHudUnit]     = useState<'ha' | 'm2' | 'km2'>('ha')
+  const [mapReady,    setMapReady]    = useState(false)
+  const [basemap,     setBasemap]     = useState<'osm' | 'sat'>('osm')
+  const [editingId,   setEditingId]   = useState<string | null>(null)
+  const [hasPolygons, setHasPolygons] = useState(false)
 
   const mapDivRef    = useRef<HTMLDivElement>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -66,6 +81,30 @@ export default function InlineMapDraw({ color, onConfirm, onCancel }: Props) {
   const osmLayerRef  = useRef<any>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const satLayerRef  = useRef<any>(null)
+  const confirmedRef = useRef<ConfirmedPoly[]>([])
+  const editLayersRef = useRef<{
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    markers: any[]; livePoly: any; origId: string; origPts: LatLng[]
+  } | null>(null)
+
+  // ── Inyectar CSS dark para popups / tooltips Leaflet ─────────────────────
+  useEffect(() => {
+    const style = document.createElement('style')
+    style.id = 'desbosque-map-styles'
+    style.textContent = `
+      .desb-popup .leaflet-popup-content-wrapper {
+        background: #111; border: 1px solid #222; border-radius: 4px;
+        box-shadow: 0 4px 16px #000a; padding: 0;
+      }
+      .desb-popup .leaflet-popup-content { margin: 0; }
+      .desb-popup .leaflet-popup-tip-container { display: none; }
+      .desb-label { background: transparent !important; border: none !important;
+        box-shadow: none !important; padding: 0 !important; }
+      .desb-label .leaflet-tooltip-content { padding: 0; }
+    `
+    if (!document.getElementById('desbosque-map-styles')) document.head.appendChild(style)
+    return () => { document.getElementById('desbosque-map-styles')?.remove() }
+  }, [])
 
   // ── Inicializar mapa ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -118,6 +157,198 @@ export default function InlineMapDraw({ color, onConfirm, onCancel }: Props) {
     else                   { map.removeLayer(sat); osm.addTo(map) }
   }, [basemap])
 
+  // ── Callbacks globales para botones dentro de popups Leaflet ─────────────
+  useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(window as any).__desbDelete = (id: string) => {
+      const map = mapRef.current
+      const idx = confirmedRef.current.findIndex(p => p.id === id)
+      if (idx >= 0 && map) {
+        map.closePopup()
+        map.removeLayer(confirmedRef.current[idx].layer)
+        confirmedRef.current.splice(idx, 1)
+        if (confirmedRef.current.length === 0) setHasPolygons(false)
+      }
+      onDelete(id)
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(window as any).__desbEdit = (id: string) => {
+      mapRef.current?.closePopup()
+      startEditById(id)
+    }
+    return () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      delete (window as any).__desbDelete
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      delete (window as any).__desbEdit
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onDelete])
+
+  // ── Agregar polígono confirmado al mapa ───────────────────────────────────
+  const addConfirmedLayer = useCallback((
+    id: string, side: 'izq' | 'der', monte: MonteKey, area_ha: number, pts: LatLng[]
+  ) => {
+    const map = mapRef.current; const Lf = LfRef.current
+    if (!map || !Lf) return
+    const monteOpt  = MONTE_OPTS.find(o => o.value === monte)!
+    const sideColor = side === 'izq' ? '#66bb6a' : '#42a5f5'
+    const sideLbl   = side === 'izq' ? '← Izq.' : 'Der. →'
+    const vol       = Math.round(area_ha * monteOpt.factor).toLocaleString('es-AR')
+
+    const layer = Lf.polygon(pts as [number, number][], {
+      color: sideColor, fillColor: sideColor,
+      fillOpacity: 0.18, weight: 2, dashArray: '5 4', opacity: 0.9,
+    }).addTo(map)
+
+    // Tooltip permanente en el centroide
+    layer.bindTooltip(
+      `<span style="font-family:monospace;font-size:9px;color:${sideColor};white-space:nowrap">${sideLbl}</span>`,
+      { permanent: true, direction: 'center', className: 'desb-label' }
+    )
+
+    // Popup con acciones
+    layer.bindPopup(`
+      <div style="font-family:monospace;font-size:11px;color:#ccc;padding:10px 14px;min-width:180px">
+        <div style="color:${sideColor};font-weight:700;font-size:12px;margin-bottom:2px">${sideLbl}</div>
+        <div style="color:#555;font-size:9px;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">${monteOpt.label}</div>
+        <div style="color:#aaa;margin-bottom:10px">
+          <span style="font-weight:700;font-size:13px">${area_ha.toFixed(4)} ha</span>
+          <span style="color:#555;margin-left:6px;font-size:9px">~${vol} m³ arb.</span>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button onclick="window.__desbEdit('${id}')"
+            style="flex:1;background:#0a160a;border:1px solid #2a4a2a;color:#6d6;padding:5px 8px;cursor:pointer;font-family:monospace;font-size:10px;border-radius:2px">
+            ✎ Editar
+          </button>
+          <button onclick="window.__desbDelete('${id}')"
+            style="flex:1;background:#160a0a;border:1px solid #4a2a2a;color:#d66;padding:5px 8px;cursor:pointer;font-family:monospace;font-size:10px;border-radius:2px">
+            × Eliminar
+          </button>
+        </div>
+      </div>
+    `, { className: 'desb-popup', maxWidth: 240 })
+
+    confirmedRef.current.push({ id, side, monte, area_ha, pts, layer })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // ── Usar polígono dibujado → confirmar y resetear ─────────────────────────
+  const handleUse = useCallback(() => {
+    if (!polyResult) return
+    const id = `poly-${Date.now()}`
+
+    // Limpiar preview temporal
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    previewRef.current.forEach((l: any) => mapRef.current?.removeLayer(l))
+    previewRef.current = []
+
+    // Agregar polígono permanente al mapa
+    addConfirmedLayer(id, side, monte, polyResult.area_ha, polyResult.pts)
+    setHasPolygons(true)
+
+    // Notificar parent
+    onConfirm(id, side, monte, polyResult.area_ha)
+
+    // Reset → listo para siguiente dibujo
+    setPolyResult(null)
+    setPolyHUD(null)
+  }, [polyResult, side, monte, addConfirmedLayer, onConfirm])
+
+  // ── Modo edición de vértices ──────────────────────────────────────────────
+  const startEditById = useCallback((id: string) => {
+    const map = mapRef.current; const Lf = LfRef.current
+    if (!map || !Lf) return
+    const confirmed = confirmedRef.current.find(p => p.id === id)
+    if (!confirmed) return
+
+    // Ocultar polígono original
+    map.removeLayer(confirmed.layer)
+
+    const pts = confirmed.pts.map(p => [...p] as LatLng) // copia mutable
+
+    // Icono de vértice draggable
+    const vIcon = (isFirst: boolean) => Lf.divIcon({
+      html: `<div style="width:${isFirst ? 12 : 10}px;height:${isFirst ? 12 : 10}px;border-radius:50%;background:${isFirst ? '#fff' : '#ccc'};border:2px solid ${color};box-shadow:0 0 5px #000;cursor:grab"></div>`,
+      className: '',
+      iconSize:   [isFirst ? 12 : 10, isFirst ? 12 : 10],
+      iconAnchor: [isFirst ? 6  : 5,  isFirst ? 6  : 5 ],
+    })
+
+    // Polígono live mientras se edita
+    const livePoly = Lf.polygon(pts as [number, number][], {
+      color, fillColor: color, fillOpacity: 0.3, weight: 2, dashArray: '4 4',
+    }).addTo(map)
+
+    // Marcadores draggables en cada vértice
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const markers: any[] = pts.map((pt, i) => {
+      const m = Lf.marker(pt as [number, number], {
+        draggable: true,
+        icon: vIcon(i === 0),
+        zIndexOffset: 1000,
+      }).addTo(map)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      m.on('drag', (ev: any) => {
+        pts[i] = [ev.latlng.lat, ev.latlng.lng]
+        livePoly.setLatLngs(pts as [number, number][])
+      })
+      return m
+    })
+
+    editLayersRef.current = { markers, livePoly, origId: id, origPts: confirmed.pts }
+    setEditingId(id)
+  }, [color])
+
+  // ── Confirmar edición ──────────────────────────────────────────────────────
+  const confirmEdit = useCallback(() => {
+    const map = mapRef.current; const Lf = LfRef.current
+    if (!map || !Lf || !editLayersRef.current) return
+    const { markers, livePoly, origId } = editLayersRef.current
+
+    // Nuevos puntos desde posición actual de los marcadores
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const newPts: LatLng[] = markers.map((m: any) => {
+      const ll = m.getLatLng(); return [ll.lat, ll.lng]
+    })
+    const newArea = polygonAreaHa(newPts)
+
+    // Limpiar capas de edición
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    markers.forEach((m: any) => map.removeLayer(m))
+    map.removeLayer(livePoly)
+    editLayersRef.current = null
+
+    // Actualizar confirmedRef y recrear polígono
+    const idx = confirmedRef.current.findIndex(p => p.id === origId)
+    if (idx >= 0) {
+      const old = confirmedRef.current[idx]
+      confirmedRef.current.splice(idx, 1)
+      addConfirmedLayer(old.id, old.side, old.monte, newArea, newPts)
+    }
+
+    if (onUpdate) onUpdate(origId, newArea)
+    setEditingId(null)
+  }, [addConfirmedLayer, onUpdate])
+
+  // ── Cancelar edición ──────────────────────────────────────────────────────
+  const cancelEdit = useCallback(() => {
+    const map = mapRef.current
+    if (!map || !editLayersRef.current) return
+    const { markers, livePoly, origId } = editLayersRef.current
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    markers.forEach((m: any) => map.removeLayer(m))
+    map.removeLayer(livePoly)
+    editLayersRef.current = null
+
+    // Restaurar polígono original
+    const confirmed = confirmedRef.current.find(p => p.id === origId)
+    if (confirmed) map.addLayer(confirmed.layer)
+
+    setEditingId(null)
+  }, [])
+
   // ── Iniciar dibujo de polígono ────────────────────────────────────────────
   const startDraw = useCallback(() => {
     const map = mapRef.current; const Lf = LfRef.current
@@ -128,8 +359,6 @@ export default function InlineMapDraw({ color, onConfirm, onCancel }: Props) {
     map.getContainer().style.cursor = 'crosshair'
 
     const pts: LatLng[] = []
-
-    // Capas persistentes (se actualizan via setLatLngs — sin remove+recreate)
     const committedLine = Lf.polyline([], { color, weight: 2.5, opacity: 0.95 }).addTo(map)
     const previewSeg    = Lf.polyline([], { color, weight: 1.5, dashArray: '8 5', opacity: 0.55 }).addTo(map)
     const closeSeg      = Lf.polyline([], { color, weight: 1,   dashArray: '3 8', opacity: 0.25 }).addTo(map)
@@ -145,7 +374,6 @@ export default function InlineMapDraw({ color, onConfirm, onCancel }: Props) {
       map.removeLayer(committedLine)
       map.removeLayer(previewSeg)
       map.removeLayer(closeSeg)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       if (snapRing) { map.removeLayer(snapRing); snapRing = null }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       vmList.forEach((m: any) => map.removeLayer(m)); vmList.length = 0
@@ -158,15 +386,11 @@ export default function InlineMapDraw({ color, onConfirm, onCancel }: Props) {
       committedLine.setLatLngs(pts.length >= 2 ? pts as [number, number][] : [])
       if (cursor && pts.length >= 1) {
         previewSeg.setLatLngs([[pts[pts.length - 1], cursor] as [number, number][]])
-      } else {
-        previewSeg.setLatLngs([])
-      }
+      } else { previewSeg.setLatLngs([]) }
       if (cursor && pts.length >= 3) {
         closeSeg.setLatLngs([[cursor, pts[0]] as [number, number][]])
         closeSeg.setStyle({ opacity: snapping ? 0.85 : 0.22 })
-      } else {
-        closeSeg.setLatLngs([])
-      }
+      } else { closeSeg.setLatLngs([]) }
       if (snapRing) { map.removeLayer(snapRing); snapRing = null }
       if (snapping && pts.length >= 3) {
         snapRing = Lf.circleMarker(pts[0] as [number, number], {
@@ -224,7 +448,7 @@ export default function InlineMapDraw({ color, onConfirm, onCancel }: Props) {
       cleanup(); setDrawing(false)
       const area_ha = polygonAreaHa(pts)
       const poly = Lf.polygon(pts as [number, number][], {
-        color, fillColor: color, fillOpacity: 0.4, weight: 2, opacity: 0.9,
+        color, fillColor: color, fillOpacity: 0.35, weight: 2, opacity: 0.9,
       }).addTo(map)
       previewRef.current = [poly]
       setPolyResult({ area_ha, pts })
@@ -254,15 +478,16 @@ export default function InlineMapDraw({ color, onConfirm, onCancel }: Props) {
 
   // ── Estilos base ─────────────────────────────────────────────────────────
   const mono: React.CSSProperties = { fontFamily: 'monospace' }
-  const toolBtn = (active?: boolean): React.CSSProperties => ({
+  const toolBtn = (active?: boolean, danger?: boolean): React.CSSProperties => ({
     padding: '4px 10px', fontSize: 10, ...mono, cursor: 'pointer', borderRadius: 2,
-    border: `1px solid ${active ? color + '99' : '#252525'}`,
-    background: active ? `${color}1a` : '#0c0c0c',
-    color: active ? color : '#555',
+    border: `1px solid ${danger ? '#4a2a2a' : active ? color + '99' : '#252525'}`,
+    background: danger ? '#160a0a' : active ? `${color}1a` : '#0c0c0c',
+    color: danger ? '#d66' : active ? color : '#555',
   })
 
   const hudArea = polyHUD ? polyHUD.areaHa : polyResult?.area_ha ?? 0
   const showHUD = !!(polyHUD || polyResult)
+  const editingConf = editingId ? confirmedRef.current.find(p => p.id === editingId) : null
 
   // ─────────────────────────────────────────────────────────────────────────
   return (
@@ -273,71 +498,99 @@ export default function InlineMapDraw({ color, onConfirm, onCancel }: Props) {
         display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px',
         background: '#080808', borderBottom: '1px solid #1a1a1a', flexShrink: 0, flexWrap: 'wrap',
       }}>
-        {/* Lado */}
-        <span style={{ fontSize: 9, color: '#444', ...mono, textTransform: 'uppercase', letterSpacing: 0.8 }}>Lado</span>
-        {(['izq', 'der'] as const).map(s => (
-          <button key={s} disabled={drawing} onClick={() => setSide(s)} style={toolBtn(side === s)}>
-            {s === 'izq' ? '← Izq.' : 'Der. →'}
-          </button>
-        ))}
-
-        <div style={{ width: 1, height: 14, background: '#1e1e1e', margin: '0 2px' }} />
-
-        {/* Monte */}
-        <span style={{ fontSize: 9, color: '#444', ...mono, textTransform: 'uppercase', letterSpacing: 0.8 }}>Monte</span>
-        <select value={monte} disabled={drawing} onChange={e => setMonte(e.target.value as MonteKey)}
-          style={{ background: '#0a0a0a', border: '1px solid #222', color: '#888', ...mono, fontSize: 9, padding: '3px 6px', outline: 'none', borderRadius: 2 }}>
-          {MONTE_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-        </select>
-
-        <div style={{ flex: 1 }} />
-
-        {/* Controles de dibujo */}
-        {!drawing && !polyResult && mapReady && (
-          <button onClick={startDraw} style={{
-            ...toolBtn(), color, borderColor: `${color}66`,
-            background: `${color}15`, padding: '5px 16px', fontSize: 11, fontWeight: 700, letterSpacing: 0.5,
-          }}>
-            ◎ Dibujar polígono
-          </button>
-        )}
-        {drawing && (
+        {editingId ? (
+          /* ── Toolbar modo edición de vértices ── */
           <>
-            <span style={{ fontSize: 9, color: `${color}cc`, ...mono }}>
-              ● Clic para agregar vértice · Clic derecho para cerrar
+            <span style={{ fontSize: 9, color: '#555', ...mono, textTransform: 'uppercase', letterSpacing: 0.8 }}>
+              Editando vértices
             </span>
-            <button onClick={cancelDraw} style={{ ...toolBtn(), color: '#555' }}>✕ Cancelar</button>
-          </>
-        )}
-        {polyResult && (
-          <>
-            <span style={{ fontSize: 10, color: '#888', ...mono }}>
-              {polyResult.area_ha.toFixed(4)} ha · ~{Math.round(polyResult.area_ha * monteOpt.factor).toLocaleString('es-AR')} m³ arb.
+            {editingConf && (
+              <span style={{ fontSize: 10, color: '#888', ...mono }}>
+                — {editingConf.side === 'izq' ? '← Izq.' : 'Der. →'} · {MONTE_OPTS.find(o => o.value === editingConf.monte)?.label.split(' ')[0]}
+              </span>
+            )}
+            <span style={{ fontSize: 9, color: '#444', ...mono }}>
+              Arrastrá los vértices para ajustar · los cambios se calculan al guardar
             </span>
-            <button onClick={cancelDraw} style={{ ...toolBtn(), color: '#555' }}>↺ Redibujar</button>
-            <button onClick={() => onConfirm(side, monte, polyResult.area_ha)} style={{
-              ...toolBtn(true), padding: '5px 16px', fontSize: 11, fontWeight: 700,
-            }}>
-              ✓ Usar → Lado {side.toUpperCase()}
+            <div style={{ flex: 1 }} />
+            <button onClick={cancelEdit}  style={{ ...toolBtn(), color: '#666' }}>✕ Cancelar</button>
+            <button onClick={confirmEdit} style={{ ...toolBtn(true), padding: '5px 16px', fontSize: 11, fontWeight: 700 }}>
+              ✓ Guardar edición
             </button>
           </>
-        )}
+        ) : (
+          /* ── Toolbar normal ── */
+          <>
+            {/* Lado */}
+            <span style={{ fontSize: 9, color: '#444', ...mono, textTransform: 'uppercase', letterSpacing: 0.8 }}>Lado</span>
+            {(['izq', 'der'] as const).map(s => (
+              <button key={s} disabled={drawing} onClick={() => setSide(s)} style={toolBtn(side === s)}>
+                {s === 'izq' ? '← Izq.' : 'Der. →'}
+              </button>
+            ))}
 
-        <div style={{ flex: 1 }} />
-        {/* Toggle capa base */}
-        <div style={{ display: 'flex', gap: 2 }}>
-          <button onClick={() => setBasemap('osm')} style={{ ...toolBtn(basemap === 'osm'), fontSize: 9 }}>OSM</button>
-          <button onClick={() => setBasemap('sat')} style={{ ...toolBtn(basemap === 'sat'), fontSize: 9 }}>Satélite</button>
-        </div>
-        {onCancel && <button onClick={onCancel} style={{ ...toolBtn(), color: '#444', fontSize: 9 }}>✕ Cerrar mapa</button>}
+            <div style={{ width: 1, height: 14, background: '#1e1e1e', margin: '0 2px' }} />
+
+            {/* Monte */}
+            <span style={{ fontSize: 9, color: '#444', ...mono, textTransform: 'uppercase', letterSpacing: 0.8 }}>Monte</span>
+            <select value={monte} disabled={drawing} onChange={e => setMonte(e.target.value as MonteKey)}
+              style={{ background: '#0a0a0a', border: '1px solid #222', color: '#888', ...mono, fontSize: 9, padding: '3px 6px', outline: 'none', borderRadius: 2 }}>
+              {MONTE_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+
+            <div style={{ flex: 1 }} />
+
+            {/* Controles de dibujo */}
+            {!drawing && !polyResult && mapReady && (
+              <button onClick={startDraw} style={{
+                ...toolBtn(), color, borderColor: `${color}66`,
+                background: `${color}15`, padding: '5px 16px', fontSize: 11, fontWeight: 700, letterSpacing: 0.5,
+              }}>
+                ◎ Dibujar polígono
+              </button>
+            )}
+            {drawing && (
+              <>
+                <span style={{ fontSize: 9, color: `${color}cc`, ...mono }}>
+                  ● Clic para agregar vértice · Clic derecho para cerrar
+                </span>
+                <button onClick={cancelDraw} style={{ ...toolBtn(), color: '#555' }}>✕ Cancelar</button>
+              </>
+            )}
+            {polyResult && (
+              <>
+                <span style={{ fontSize: 10, color: '#888', ...mono }}>
+                  {polyResult.area_ha.toFixed(4)} ha · ~{Math.round(polyResult.area_ha * monteOpt.factor).toLocaleString('es-AR')} m³ arb.
+                </span>
+                <button onClick={cancelDraw} style={{ ...toolBtn(), color: '#555' }}>↺ Redibujar</button>
+                <button onClick={handleUse} style={{
+                  ...toolBtn(true), padding: '5px 16px', fontSize: 11, fontWeight: 700,
+                }}>
+                  ✓ Usar → Lado {side.toUpperCase()}
+                </button>
+              </>
+            )}
+
+            <div style={{ flex: 1 }} />
+
+            {/* Toggle capa base */}
+            <div style={{ display: 'flex', gap: 2 }}>
+              <button onClick={() => setBasemap('osm')} style={{ ...toolBtn(basemap === 'osm'), fontSize: 9 }}>OSM</button>
+              <button onClick={() => setBasemap('sat')} style={{ ...toolBtn(basemap === 'sat'), fontSize: 9 }}>Satélite</button>
+            </div>
+            {onCancel && (
+              <button onClick={onCancel} style={{ ...toolBtn(), color: '#444', fontSize: 9 }}>✕ Cerrar</button>
+            )}
+          </>
+        )}
       </div>
 
       {/* ── Mapa ── */}
       <div style={{ position: 'relative', flex: 1, minHeight: 0 }}>
         <div ref={mapDivRef} style={{ width: '100%', height: '100%' }} />
 
-        {/* HUD en tiempo real */}
-        {showHUD && (
+        {/* HUD en tiempo real (solo durante dibujo o pre-confirm) */}
+        {showHUD && !editingId && (
           <div style={{
             position: 'absolute', bottom: 12, left: 12, zIndex: 999,
             background: '#0a0a0aee', border: `1px solid ${color}55`,
@@ -382,8 +635,21 @@ export default function InlineMapDraw({ color, onConfirm, onCancel }: Props) {
           </div>
         )}
 
+        {/* Hint modo edición */}
+        {editingId && (
+          <div style={{
+            position: 'absolute', bottom: 12, left: 12, zIndex: 999,
+            background: '#0a0a0aee', border: `1px solid ${color}44`,
+            borderRadius: 4, padding: '8px 12px', ...mono, fontSize: 10, color: '#555',
+          }}>
+            <div style={{ color, marginBottom: 3, fontWeight: 700 }}>Modo edición</div>
+            <div>Arrastrá los círculos blancos para mover vértices.</div>
+            <div style={{ color: '#444', marginTop: 2 }}>Presioná "Guardar edición" para confirmar los cambios.</div>
+          </div>
+        )}
+
         {/* Instrucciones iniciales */}
-        {!drawing && !polyResult && mapReady && (
+        {!drawing && !polyResult && !editingId && !hasPolygons && mapReady && (
           <div style={{
             position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
             zIndex: 998, textAlign: 'center', pointerEvents: 'none',
@@ -394,6 +660,19 @@ export default function InlineMapDraw({ color, onConfirm, onCancel }: Props) {
             </div>
           </div>
         )}
+
+        {/* Hint para polígonos existentes */}
+        {!drawing && !polyResult && !editingId && hasPolygons && mapReady && (
+          <div style={{
+            position: 'absolute', bottom: 12, right: 12, zIndex: 998,
+            background: '#0a0a0acc', border: `1px solid #1e1e1e`,
+            borderRadius: 3, padding: '5px 10px', ...mono, fontSize: 9, color: '#444',
+            pointerEvents: 'none',
+          }}>
+            Clic sobre un polígono para editar o eliminar
+          </div>
+        )}
+
         {!mapReady && (
           <div style={{
             position: 'absolute', inset: 0, zIndex: 997,
