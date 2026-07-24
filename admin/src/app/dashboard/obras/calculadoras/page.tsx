@@ -57,17 +57,17 @@ function Inp({ label, unit, value, onChange, step = 0.1, min = 0 }: {
 function Res({ label, value, unit, accent }: { label: string; value: string; unit: string; accent?: boolean }) {
   return (
     <div style={{ marginBottom: 6, paddingBottom: 6, borderBottom: '1px solid #141414' }}>
-      <div style={{ fontSize: 9, color: '#444', textTransform: 'uppercase', letterSpacing: 0.8, fontFamily: 'monospace' }}>{label}</div>
+      <div style={{ fontSize: 10, color: '#444', textTransform: 'uppercase', letterSpacing: 0.8, fontFamily: 'monospace' }}>{label}</div>
       <div style={{ marginTop: 1 }}>
-        <span style={{ fontSize: accent ? 15 : 12, fontWeight: 700, color: accent ? '#F5C300' : '#bbb', fontFamily: 'monospace' }}>{value}</span>
-        <span style={{ fontSize: 9, color: '#444', marginLeft: 3, fontFamily: 'monospace' }}>{unit}</span>
+        <span style={{ fontSize: accent ? 16 : 13, fontWeight: 700, color: accent ? '#F5C300' : '#bbb', fontFamily: 'monospace' }}>{value}</span>
+        <span style={{ fontSize: 10, color: '#444', marginLeft: 3, fontFamily: 'monospace' }}>{unit}</span>
       </div>
     </div>
   )
 }
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
-  return <div style={{ fontSize: 13, color: '#666', fontFamily: 'monospace', marginBottom: 6 }}>{children}</div>
+  return <div style={{ fontSize: 14, color: '#666', fontFamily: 'monospace', marginBottom: 6 }}>{children}</div>
 }
 
 // Pipeline de pasos
@@ -779,11 +779,11 @@ function CalcDesbosque({ paramsRef }: { paramsRef?: React.MutableRefObject<Param
   ]
 
   // ── Shared styles ─────────────────────────────────────────────
-  const TH: React.CSSProperties = { padding: '4px 6px', fontSize: 10, color: '#666', fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: 0.4, borderBottom: '1px solid #222', fontWeight: 500, whiteSpace: 'nowrap' }
+  const TH: React.CSSProperties = { padding: '4px 6px', fontSize: 11, color: '#666', fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: 0.4, borderBottom: '1px solid #222', fontWeight: 500, whiteSpace: 'nowrap' }
   const TD: React.CSSProperties = { padding: '2px 4px' }
   const TDr: React.CSSProperties = { padding: '2px 4px', textAlign: 'right' as const }
-  const cellInp = (w: number): React.CSSProperties => ({ width: w, background: '#080808', border: '1px solid #1e1e1e', color: '#ccc', fontFamily: 'monospace', fontSize: 10, padding: '2px 4px', outline: 'none', textAlign: 'right' as const, boxSizing: 'border-box' as const })
-  const labelInp: React.CSSProperties = { width: '100%', background: 'transparent', border: 'none', color: '#888', fontFamily: 'monospace', fontSize: 10, outline: 'none', padding: '2px 0' }
+  const cellInp = (w: number): React.CSSProperties => ({ width: w, background: '#080808', border: '1px solid #1e1e1e', color: '#ccc', fontFamily: 'monospace', fontSize: 11, padding: '2px 4px', outline: 'none', textAlign: 'right' as const, boxSizing: 'border-box' as const })
+  const labelInp: React.CSSProperties = { width: '100%', background: 'transparent', border: 'none', color: '#888', fontFamily: 'monospace', fontSize: 11, outline: 'none', padding: '2px 0' }
   const addBtn: React.CSSProperties = { marginTop: 5, fontSize: 9, color: '#555', background: 'transparent', border: '1px solid #252525', cursor: 'pointer', fontFamily: 'monospace', padding: '2px 7px' }
   const rmBtn:  React.CSSProperties = { fontSize: 11, color: '#444', background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: 'monospace', padding: '0 3px', lineHeight: 1 }
 
@@ -814,9 +814,9 @@ function CalcDesbosque({ paramsRef }: { paramsRef?: React.MutableRefObject<Param
               style={{ fontSize: 13, color: '#333', background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: 'monospace', padding: '0 2px', lineHeight: 1 }}>×</button>
           </div>
         ))}
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#555', fontFamily: 'monospace', marginTop: 1, marginBottom: 3 }}>
-          <span>Subtotal {side === 'izq' ? 'izq.' : 'der.'}</span>
-          <span style={{ color: subtotal > 0 ? '#888' : '#333' }}>{subtotal.toFixed(4)} ha</span>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#666', fontFamily: 'monospace', marginTop: 3, marginBottom: 3, borderTop: '1px solid #1a1a1a', paddingTop: 4 }}>
+          <span>Subtotal {side === 'izq' ? 'Izq.' : 'Der.'}</span>
+          <span style={{ color: subtotal > 0 ? color : '#333', fontWeight: subtotal > 0 ? 700 : 400 }}>{subtotal.toFixed(3)} ha</span>
         </div>
         <button style={{ ...addBtn, marginTop: 2 }} onClick={() => addEntry(side)}>+ agregar</button>
       </>
@@ -832,7 +832,7 @@ function CalcDesbosque({ paramsRef }: { paramsRef?: React.MutableRefObject<Param
           const labels: Record<string, string> = { computo: 'Cómputo', jornales: 'Jornales y Coeficientes', presupuesto: 'Presupuesto' }
           return (
             <button key={v} onClick={() => setView(v)}
-              style={{ padding: '3px 12px', fontSize: 10, fontFamily: 'monospace', cursor: 'pointer',
+              style={{ padding: '3px 12px', fontSize: 11, fontFamily: 'monospace', cursor: 'pointer',
                 border: 'none', borderBottom: `2px solid ${view === v ? color : 'transparent'}`,
                 background: 'transparent', color: view === v ? color : '#444',
                 letterSpacing: 0.5, marginBottom: -5 }}>
@@ -944,9 +944,12 @@ function CalcDesbosque({ paramsRef }: { paramsRef?: React.MutableRefObject<Param
                   {eqRows.map(r => (
                     <tr key={r.id}>
                       <td style={TD}><input value={r.label} onChange={e => setEqLabel(r.id, e.target.value)} style={labelInp} /></td>
-                      <td style={TDr}><input type="number" min={0} step={1000000} value={r.capUnit}
-                        onChange={e => { const v=parseFloat(e.target.value); if(!isNaN(v)&&v>=0) setEqNum(r.id,'capUnit',v) }}
-                        style={cellInp(80)} /></td>
+                      <td style={TDr}>
+                        <input type="number" min={0} step={1000000} value={r.capUnit}
+                          onChange={e => { const v=parseFloat(e.target.value); if(!isNaN(v)&&v>=0) setEqNum(r.id,'capUnit',v) }}
+                          style={cellInp(96)} />
+                        <div style={{ fontSize: 8, color: '#555', fontFamily: 'monospace', textAlign: 'right' }}>${fmt(r.capUnit)}</div>
+                      </td>
                       <td style={TDr}><input type="number" min={0} step={1} value={r.hp}
                         onChange={e => { const v=parseFloat(e.target.value); if(!isNaN(v)&&v>=0) setEqNum(r.id,'hp',v) }}
                         style={cellInp(38)} /></td>
@@ -1120,13 +1123,13 @@ function CalcDesbosque({ paramsRef }: { paramsRef?: React.MutableRefObject<Param
           {/* Precios de referencia por tipo */}
           <div style={{ ...panel, flexShrink: 0 }}>
             <SectionTitle>Precios de Referencia por Tipo de Monte</SectionTitle>
-            <div style={{ fontSize: 9, color: '#333', fontFamily: 'monospace', marginBottom: 6 }}>incluye ejec. + mat. + transp.int. × CR</div>
+            <div style={{ fontSize: 10, color: '#444', fontFamily: 'monospace', marginBottom: 6 }}>incluye ejec. + mat. + transp.int. × CR</div>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' as const }}>
               {Object.entries(MONTE).map(([k, v]) => (
                 <div key={k} style={{ background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: 3, padding: '6px 12px', minWidth: 130 }}>
-                  <div style={{ fontSize: 9, color: '#444', textTransform: 'uppercase' as const, fontFamily: 'monospace' }}>{v.label} — {v.desc}</div>
-                  <div style={{ color: color, fontWeight: 700, fontFamily: 'monospace', fontSize: 14, marginTop: 3 }}>${fmt(Math.round(precioHaPorTipo[k]))}/Ha</div>
-                  <div style={{ fontSize: 9, color: '#333', fontFamily: 'monospace' }}>{v.rendimientoDia} Ha/día · {(haByType[k]??0).toFixed(2)} Ha total</div>
+                  <div style={{ fontSize: 10, color: '#555', textTransform: 'uppercase' as const, fontFamily: 'monospace' }}>{v.label} — {v.desc}</div>
+                  <div style={{ color: color, fontWeight: 700, fontFamily: 'monospace', fontSize: 15, marginTop: 3 }}>${fmt(Math.round(precioHaPorTipo[k]))}/Ha</div>
+                  <div style={{ fontSize: 10, color: '#444', fontFamily: 'monospace' }}>{v.rendimientoDia} Ha/día · {(haByType[k]??0).toFixed(2)} Ha total</div>
                 </div>
               ))}
             </div>
@@ -1239,22 +1242,6 @@ function CalcDesbosque({ paramsRef }: { paramsRef?: React.MutableRefObject<Param
             {renderSide('izq', entriesIzq)}
             {renderSide('der', entriesDer)}
 
-            <div style={secLabel}>Coeficiente Resumen</div>
-            <div style={{ background: '#080808', border: '1px solid #1a1a1a', borderRadius: 3, padding: '8px 10px' }}>
-              {crFields.map(({ key, val, set, step }) => (
-                <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
-                  <span style={{ fontSize: 9, color: '#777', fontFamily: 'monospace', width: 28, flexShrink: 0 }}>{key}</span>
-                  <input type="number" min={0} step={step} value={val}
-                    onChange={e => { const v=parseFloat(e.target.value); if(!isNaN(v)&&v>=0) set(v) }}
-                    style={{ flex: 1, background: '#0a0a0a', border: '1px solid #1e1e1e', color: '#e0e0e0', fontFamily: 'monospace', fontSize: 13, padding: '3px 6px', outline: 'none', minWidth: 0 }} />
-                  <span style={{ fontSize: 9, color: '#555', fontFamily: 'monospace' }}>%</span>
-                </div>
-              ))}
-              <div style={{ borderTop: '1px solid #1a1a1a', marginTop: 4, paddingTop: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: 9, color: '#777', fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: 0.5 }}>CR adoptado</span>
-                <span style={{ fontSize: 15, fontWeight: 700, color: color, fontFamily: 'monospace' }}>{CR.toFixed(4)}</span>
-              </div>
-            </div>
           </div>
 
           {/* ── Panel central: mapa siempre visible ── */}
@@ -1400,7 +1387,8 @@ export default function CalculadorasPage() {
         ))}
       </div>
 
-      {/* Barra precio + botón Dibujar */}
+      {/* Barra precio + botón Dibujar — oculto para Desbosque (usa su propio mapa inline) */}
+      {tab !== 'desbosque' && (
       <div style={{
         display: 'flex', alignItems: 'center', gap: 10,
         padding: '8px 0 10px', borderBottom: '1px solid #141414', flexShrink: 0,
@@ -1426,20 +1414,19 @@ export default function CalculadorasPage() {
           </span>
         )}
         <div style={{ flex: 1 }} />
-        {tab !== 'desbosque' && (
-          <button
-            onClick={handleDraw}
-            style={{
-              padding: '7px 18px', fontSize: 11, fontFamily: 'monospace',
-              fontWeight: 700, letterSpacing: 0.8, cursor: 'pointer',
-              border: `1px solid ${color}`, background: `${color}22`,
-              color: color, transition: 'background 0.15s',
-            }}
-          >
-            Dibujar en mapa →
-          </button>
-        )}
+        <button
+          onClick={handleDraw}
+          style={{
+            padding: '7px 18px', fontSize: 11, fontFamily: 'monospace',
+            fontWeight: 700, letterSpacing: 0.8, cursor: 'pointer',
+            border: `1px solid ${color}`, background: `${color}22`,
+            color: color, transition: 'background 0.15s',
+          }}
+        >
+          Dibujar en mapa →
+        </button>
       </div>
+      )}
 
       {/* Calculadora activa */}
       <div style={{ flex: 1, minHeight: 0, borderLeft: `2px solid ${color}44`, paddingLeft: 14, marginTop: 10 }}>
