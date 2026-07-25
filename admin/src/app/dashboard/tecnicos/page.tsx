@@ -1,6 +1,7 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import DeleteTecnicoButton from './DeleteTecnicoButton'
+import EditTecnicoButton from './EditTecnicoButton'
 import type { Profile } from '@/types'
 
 export default async function TecnicosPage() {
@@ -63,7 +64,8 @@ export default async function TecnicosPage() {
                     {p.rol === 'tecnico' ? 'Técnico' : p.rol === 'admin' ? 'Admin' : 'Usuario'}
                   </span>
                 </td>
-                <td style={{ padding: '12px 16px' }}>
+                <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
+                  <EditTecnicoButton id={p.id} nombre={p.nombre} zona={p.zona} rol={p.rol} />
                   <DeleteTecnicoButton id={p.id} nombre={p.nombre} />
                 </td>
               </tr>
