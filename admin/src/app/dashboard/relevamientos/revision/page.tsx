@@ -16,7 +16,7 @@ interface Relevamiento {
   ruta_tramo: string
   cc_asociado?: string | null
   zona?: string | null
-  tipo: TipoRel | null   // puede ser null en filas antiguas de la BD
+  tipo: string | null   // puede ser null, minúscula ('ripio') o capitalizada ('Lineal', 'Puente'...)
   coords_lat?: number | null
   coords_lng?: number | null
   coords_linea?: PuntoTrack[] | null
@@ -36,9 +36,19 @@ function parseLinea(raw: unknown): PuntoTrack[] | null {
   return null
 }
 
-/** Tipo efectivo: si tipo es null pero tiene coords_linea → ripio */
+/**
+ * Normaliza el campo `tipo` de Supabase.
+ * App antiguo: 'ripio' | 'puente' | ... (minúscula)
+ * App actual:  'Lineal' | 'Puente' | ... (TipoInfraestructura capitalizado)
+ * Fallback: coords_linea presente → 'ripio'.
+ */
 function efectiveTipo(r: Relevamiento): TipoRel {
-  if (r.tipo) return r.tipo
+  const t = r.tipo?.toLowerCase()
+  if (t === 'lineal' || t === 'ripio') return 'ripio'
+  if (t === 'puente')       return 'puente'
+  if (t === 'alcantarilla') return 'alcantarilla'
+  if (t === 'tubos')        return 'tubos'
+  if (t === 'otro' || t === 'outro') return 'otro'
   return parseLinea(r.coords_linea) !== null ? 'ripio' : 'otro'
 }
 
@@ -259,7 +269,7 @@ export default function RevisionCampoPage() {
               const isActive  = selected?.id === r.id
               const tipo      = efectiveTipo(r)
               const color     = TIPO_COLOR[tipo]
-              const linea     = tipo === 'ripio' ? parseLinea(r.coords_linea) : null
+              const linea     = parseLinea(r.coords_linea)
               const isLineal  = linea !== null
               const lon       = isLineal ? (linea![linea!.length - 1].prog ?? 0) : 0
               const nFotos    = (r.fotos ?? []).length
@@ -578,66 +588,51 @@ function LeafletRevisionMap({
     }
   }, [])
 
-  // ── Sincronizar capas estáticas (items + selectedId + isEditingRipio) ──
+  // ── Redibujar todas las capas estáticas desde cero ──────────────────
+  // Se limpia todo y se re-agrega en cada cambio (items / selectedId / isEditingRipio).
+  // Más simple y robusto que el patrón UPDATE/CREATE con Map de capas.
   useEffect(() => {
     const map = mapRef.current; const Lf = LfRef.current
     if (!map || !Lf || !mapReady) return
 
-    const existing = staticRef.current
-    const newIds = new Set(items.map(r => r.id))
-
-    // Eliminar capas de ítems que ya no están en la lista filtrada
-    existing.forEach((entry, id) => {
-      if (!newIds.has(id)) { map.removeLayer(entry.layer); existing.delete(id) }
+    // Limpiar capas anteriores
+    staticRef.current.forEach(entry => {
+      try { map.removeLayer(entry.layer) } catch { /* ignore */ }
     })
+    staticRef.current.clear()
 
     items.forEach(r => {
-      const isSel   = r.id === selectedId
-      const tipo    = efectiveTipo(r)
-      const color   = TIPO_COLOR[tipo]
-      const isLinear = parseLinea(r.coords_linea) !== null
-      // Ocultar la polyline estática del ripio seleccionado mientras se edita
-      const hideStatic = isSel && tipo === 'ripio' && isEditingRipio
+      const isSel      = r.id === selectedId
+      const tipo       = efectiveTipo(r)
+      const color      = TIPO_COLOR[tipo]
+      const pts        = parseLinea(r.coords_linea)
+      const isLinear   = pts !== null
+      const hideStatic = isSel && isLinear && isEditingRipio
 
-      const tooltipHtml = `
-        <div style="font-family:monospace;font-size:11px;color:#e0e0e0;background:#0e0e0e;padding:6px 8px;border:1px solid #333;border-radius:3px;line-height:1.5">
-          <b>${r.ruta_tramo || 'Sin nombre'}</b><br/>
-          ${TIPO_LABEL[tipo]} · ${r.fecha?.slice(0, 10) ?? '—'}<br/>
-          ${r.cc_asociado ?? ''} ${r.zona ? `· ${r.zona}` : ''}
-        </div>`
+      const tooltipHtml = [
+        `<div style="font-family:monospace;font-size:11px;color:#e0e0e0;background:#0e0e0e;`,
+        `padding:6px 8px;border:1px solid #333;border-radius:3px;line-height:1.5">`,
+        `<b>${r.ruta_tramo || 'Sin nombre'}</b><br/>`,
+        `${TIPO_LABEL[tipo]} · ${r.fecha?.slice(0, 10) ?? '—'}<br/>`,
+        `${r.cc_asociado ?? ''} ${r.zona ? `· ${r.zona}` : ''}`,
+        `</div>`,
+      ].join('')
 
-      if (existing.has(r.id)) {
-        // Actualizar estilo sin reconstruir la capa
-        const entry = existing.get(r.id)!
-        if (isLinear) {
-          entry.layer.setStyle({
-            color,
-            weight:  isSel ? 4 : 2,
-            opacity: hideStatic ? 0 : (isSel ? 1 : 0.55),
+      if (isLinear && pts) {
+        try {
+          const latlngs = pts
+            .filter(p => typeof p.lat === 'number' && typeof p.lng === 'number')
+            .map(p => [p.lat, p.lng] as [number, number])
+          if (latlngs.length < 2) return
+          const line = Lf.polyline(latlngs, {
+            color, weight: isSel ? 4 : 2.5,
+            opacity: hideStatic ? 0 : (isSel ? 1 : 0.7),
           })
-        } else {
-          const sz = isSel ? 15 : 10
-          entry.layer.setIcon(Lf.divIcon({
-            className: '',
-            html: `<div style="width:${sz}px;height:${sz}px;border-radius:50%;background:${color};border:${isSel ? '2.5px solid #fff' : '1.5px solid #0008'};box-shadow:0 1px 5px #0007;box-sizing:border-box"></div>`,
-            iconSize:   [sz, sz],
-            iconAnchor: [sz / 2, sz / 2],
-          }))
-        }
-        return
-      }
-
-      // Crear capa nueva
-      if (isLinear) {
-        const pts = parseLinea(r.coords_linea)!
-        const line = Lf.polyline(
-          pts.map(p => [p.lat, p.lng] as [number, number]),
-          { color, weight: isSel ? 4 : 2, opacity: hideStatic ? 0 : (isSel ? 1 : 0.55) },
-        )
-        line.bindTooltip(tooltipHtml, { sticky: true })
-        line.on('click', () => onSelectRef.current(r))
-        line.addTo(map)
-        existing.set(r.id, { tipo, layer: line })
+          line.bindTooltip(tooltipHtml, { sticky: true })
+          line.on('click', () => onSelectRef.current(r))
+          line.addTo(map)
+          staticRef.current.set(r.id, { tipo, layer: line })
+        } catch (e) { console.error('[map] polyline error', r.id, e) }
 
       } else if (r.coords_lat != null && r.coords_lng != null) {
         const sz = isSel ? 15 : 10
@@ -652,7 +647,7 @@ function LeafletRevisionMap({
         marker.bindTooltip(tooltipHtml)
         marker.on('click', () => onSelectRef.current(r))
         marker.addTo(map)
-        existing.set(r.id, { tipo, layer: marker })
+        staticRef.current.set(r.id, { tipo, layer: marker })
       }
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
