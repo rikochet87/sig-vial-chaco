@@ -204,6 +204,15 @@ export default function RevisionCampoPage() {
     setDirty(true)
   }, [])
 
+  const handleInsertVertex = useCallback((afterIdx: number, lat: number, lng: number) => {
+    setEditPts(prev => {
+      const pts = [...prev]
+      pts.splice(afterIdx + 1, 0, { lat, lng, prog: 0 })
+      return recalcProgs(pts)
+    })
+    setDirty(true)
+  }, [])
+
   const saveTrack = async () => {
     if (!selected || !dirty) return
     setSaving(true)
@@ -397,6 +406,7 @@ export default function RevisionCampoPage() {
                 onSelectItem={selectItem}
                 onVertexMove={handleVertexMove}
                 onDeleteVertex={handleDeleteVertex}
+                onInsertVertex={handleInsertVertex}
               />
               {!selected && (
                 <div style={{ position: 'absolute', bottom: 20, left: '50%', transform: 'translateX(-50%)', zIndex: 500, pointerEvents: 'none', textAlign: 'center' }}>
@@ -562,13 +572,14 @@ export default function RevisionCampoPage() {
 // sobre la selección activa (usa L.marker, no circleMarker).
 
 interface MapProps {
-  items:           Relevamiento[]
-  selectedId:      string | null
-  editPts:         PuntoTrack[]
-  isEditingRipio:  boolean
-  onSelectItem:    (r: Relevamiento) => void
-  onVertexMove:    (idx: number, lat: number, lng: number) => void
-  onDeleteVertex:  (idx: number) => void
+  items:            Relevamiento[]
+  selectedId:       string | null
+  editPts:          PuntoTrack[]
+  isEditingRipio:   boolean
+  onSelectItem:     (r: Relevamiento) => void
+  onVertexMove:     (idx: number, lat: number, lng: number) => void
+  onDeleteVertex:   (idx: number) => void
+  onInsertVertex:   (afterIdx: number, lat: number, lng: number) => void
 }
 
 function LeafletRevisionMap({
@@ -579,24 +590,31 @@ function LeafletRevisionMap({
   onSelectItem,
   onVertexMove,
   onDeleteVertex,
+  onInsertVertex,
 }: MapProps) {
   const divRef       = useRef<HTMLDivElement>(null)
   const mapRef       = useRef<any>(null)
   const LfRef        = useRef<any>(null)
   const [mapReady,   setMapReady]   = useState(false)
 
-  // Capa estática por item  id → layer
+  // Capas estáticas id → layer
   const staticRef    = useRef<Map<string, { tipo: string; layer: any }>>(new Map())
-  // Capas de edición de vértices (solo ripio seleccionado)
+  // Capas de edición (polyline + vértices + midpoints + PKs + rubber band)
   const editRef      = useRef<{ line: any; markers: any[]; pks: any[] }>({ line: null, markers: [], pks: [] })
+  // Rubber band lines (se actualizan en mousemove)
+  const rubberRef    = useRef<{ prev: any; next: any }>({ prev: null, next: null })
+  // Índice del vértice activo (grip caliente)
+  const activeVtxRef = useRef<number | null>(null)
 
   // Refs para callbacks (evitar closures obsoletas)
   const onSelectRef      = useRef(onSelectItem)
   const onVertexMoveRef  = useRef(onVertexMove)
   const onDeleteRef      = useRef(onDeleteVertex)
-  useEffect(() => { onSelectRef.current     = onSelectItem  }, [onSelectItem])
-  useEffect(() => { onVertexMoveRef.current = onVertexMove  }, [onVertexMove])
+  const onInsertRef      = useRef(onInsertVertex)
+  useEffect(() => { onSelectRef.current     = onSelectItem   }, [onSelectItem])
+  useEffect(() => { onVertexMoveRef.current = onVertexMove   }, [onVertexMove])
   useEffect(() => { onDeleteRef.current     = onDeleteVertex }, [onDeleteVertex])
+  useEffect(() => { onInsertRef.current     = onInsertVertex }, [onInsertVertex])
 
   // ── Inicializar mapa ──────────────────────────────────────────────
   useEffect(() => {
@@ -692,7 +710,7 @@ function LeafletRevisionMap({
     const entry = staticRef.current.get(selectedId)
     if (!entry) return
     // zoom solo si es marcador puntual (no polyline)
-    if (!['ripio'].includes(entry.tipo)) {
+    if (!['lineal', 'ripio'].includes(entry.tipo)) {
       try {
         const ll = entry.layer.getLatLng()
         map.setView(ll, Math.max(map.getZoom(), 14), { animate: true })
@@ -700,69 +718,174 @@ function LeafletRevisionMap({
     }
   }, [selectedId, mapReady])
 
-  // ── Capas de edición de vértices (ripio seleccionado) ─────────────
+  // ── Edición de vértices — modelo AutoCAD (grip click-to-activate / click-to-place) ───
   useEffect(() => {
     const map = mapRef.current; const Lf = LfRef.current
     if (!map || !Lf || !mapReady) return
 
-    // Limpiar capas anteriores
+    // ── Limpiar sesión anterior ───────────────────────────────────────
     const { line, markers, pks } = editRef.current
-    if (line) map.removeLayer(line)
-    markers.forEach(m => map.removeLayer(m))
-    pks.forEach(l => map.removeLayer(l))
+    if (line)    map.removeLayer(line)
+    markers.forEach(m => { try { map.removeLayer(m) } catch { /**/ } })
+    pks.forEach(l => { try { map.removeLayer(l) } catch { /**/ } })
     editRef.current = { line: null, markers: [], pks: [] }
+
+    if (rubberRef.current.prev) { map.removeLayer(rubberRef.current.prev); rubberRef.current.prev = null }
+    if (rubberRef.current.next) { map.removeLayer(rubberRef.current.next); rubberRef.current.next = null }
+
+    activeVtxRef.current = null
+    map.getContainer().style.cursor = ''
 
     if (editPts.length < 2) return
 
-    // Polyline de edición
-    const newLine = Lf.polyline(
+    // ── Helpers de icono ─────────────────────────────────────────────
+    const makeVtxIcon = (i: number, hot: boolean) => {
+      const isFirst = i === 0, isLast = i === editPts.length - 1
+      const pt = editPts[i]
+      const col = hot
+        ? '#ff3333'
+        : isFirst ? '#27ae60'
+        : isLast  ? '#e74c3c'
+        : (pt.acc != null && pt.acc > 20) ? '#e67e22' : '#F5C300'
+      const sz  = hot ? 14 : isFirst || isLast ? 12 : 9
+      const shape = hot
+        ? `border-radius:2px;transform:rotate(45deg);box-shadow:0 0 8px #ff333388`
+        : `border-radius:50%;box-shadow:0 1px 4px #0009`
+      return Lf.divIcon({
+        className: '',
+        html: `<div style="width:${sz}px;height:${sz}px;background:${col};border:2px solid ${hot?'#fff':'#111'};box-sizing:border-box;cursor:${hot?'crosshair':'pointer'};${shape}"></div>`,
+        iconSize: [sz, sz], iconAnchor: [sz / 2, sz / 2],
+      })
+    }
+
+    const makeMidIcon = (hovered = false) => {
+      const sz = 8
+      return Lf.divIcon({
+        className: '',
+        html: `<div style="width:${sz}px;height:${sz}px;background:${hovered?'#aaa':'#555'};border:1px solid ${hovered?'#ccc':'#333'};box-sizing:border-box;cursor:copy;transform:rotate(45deg);box-shadow:0 1px 3px #0007"></div>`,
+        iconSize: [sz, sz], iconAnchor: [sz / 2, sz / 2],
+      })
+    }
+
+    // ── Polyline de edición ──────────────────────────────────────────
+    const editLine = Lf.polyline(
       editPts.map(p => [p.lat, p.lng] as [number, number]),
-      { color: '#F5C300', weight: 3, opacity: 1 },
+      { color: '#F5C300', weight: 2.5, opacity: 1 },
     ).addTo(map)
 
-    // Marcadores de vértice draggables — usa L.marker + divIcon (NO circleMarker)
-    const newMarkers: any[] = editPts.map((pt, i) => {
-      const isFirst = i === 0, isLast = i === editPts.length - 1
-      const vColor  = isFirst ? '#27ae60' : isLast ? '#e74c3c' : (pt.acc != null && pt.acc > 20) ? '#e67e22' : '#F5C300'
-      const sz      = isFirst || isLast ? 13 : 8
+    // ── Rubber band (líneas punteadas que siguen el cursor) ──────────
+    const rbPrev = Lf.polyline([], { color: '#F5C300', weight: 1.5, opacity: 0.7, dashArray: '5 5' }).addTo(map)
+    const rbNext = Lf.polyline([], { color: '#F5C300', weight: 1.5, opacity: 0.7, dashArray: '5 5' }).addTo(map)
+    rubberRef.current = { prev: rbPrev, next: rbNext }
 
-      const marker = Lf.marker([pt.lat, pt.lng] as [number, number], {
-        icon: Lf.divIcon({
-          className: '',
-          html: `<div style="width:${sz}px;height:${sz}px;border-radius:50%;background:${vColor};border:2px solid #000;box-shadow:0 1px 4px #0008;box-sizing:border-box;cursor:grab"></div>`,
-          iconSize:   [sz, sz],
-          iconAnchor: [sz / 2, sz / 2],
-        }),
-        draggable: true,
-        zIndexOffset: 500,
+    // ── Deactivate grip ──────────────────────────────────────────────
+    const deactivate = (vtxMarkers: any[]) => {
+      const prev = activeVtxRef.current
+      if (prev !== null && vtxMarkers[prev]) {
+        vtxMarkers[prev].setIcon(makeVtxIcon(prev, false))
+      }
+      activeVtxRef.current = null
+      rbPrev.setLatLngs([]); rbNext.setLatLngs([])
+      map.getContainer().style.cursor = ''
+    }
+
+    // ── Marcadores de vértice ────────────────────────────────────────
+    const vtxMarkers: any[] = editPts.map((pt, i) => {
+      const m = Lf.marker([pt.lat, pt.lng] as [number, number], {
+        icon: makeVtxIcon(i, false),
+        zIndexOffset: 600,
       })
 
-      marker.bindTooltip(
-        `<div style="font-family:monospace;font-size:11px;color:#e0e0e0;background:#0e0e0e;padding:6px 8px;border:1px solid #333;border-radius:3px;line-height:1.6">
+      m.bindTooltip(
+        `<div style="font-family:monospace;font-size:11px;color:#e0e0e0;background:#0e0e0e;padding:5px 8px;border:1px solid #333;border-radius:3px;line-height:1.6">
           <b>${fmtPK(pt.prog ?? 0)}</b><br/>
-          ${pt.lat.toFixed(6)}, ${pt.lng.toFixed(6)}<br/>
-          ${pt.alt != null ? `Alt: ${pt.alt.toFixed(0)} m<br/>` : ''}
-          ${pt.acc != null ? `±${Math.round(pt.acc)} m` : ''}
+          ${pt.lat.toFixed(6)}, ${pt.lng.toFixed(6)}
+          ${pt.acc != null ? `<br/>±${Math.round(pt.acc)} m GPS` : ''}
         </div>`,
-        { permanent: false, direction: 'top', offset: [0, -sz / 2] },
+        { direction: 'top', offset: [0, -6] },
       )
 
-      // Drag en tiempo real → actualizar polyline visualmente
-      marker.on('drag', (e: any) => {
-        const lls = editRef.current.markers.map((m, j) => j === i ? e.latlng : m.getLatLng())
-        newLine.setLatLngs(lls)
+      m.on('click', (e: any) => {
+        Lf.DomEvent.stop(e)
+        const prev = activeVtxRef.current
+        deactivate(vtxMarkers)           // siempre apagar el anterior
+        if (prev === i) return           // clic en el mismo → solo desactivar
+        // Activar nuevo grip
+        activeVtxRef.current = i
+        m.setIcon(makeVtxIcon(i, true))
+        map.getContainer().style.cursor = 'crosshair'
       })
-      marker.on('dragend', (e: any) => {
-        const ll = e.target.getLatLng()
-        onVertexMoveRef.current(i, ll.lat, ll.lng)
-      })
-      marker.on('contextmenu', () => onDeleteRef.current(i))
 
-      marker.addTo(map)
-      return marker
+      // Tecla Del mientras el cursor está sobre el vértice (alternativa rápida)
+      m.on('contextmenu', (e: any) => {
+        Lf.DomEvent.stop(e)
+        deactivate(vtxMarkers)
+        onDeleteRef.current(i)
+      })
+
+      m.addTo(map)
+      return m
     })
 
-    // Etiquetas PK
+    // ── Midpoints (diamante gris) — clic inserta vértice ────────────
+    const midMarkers: any[] = []
+    for (let i = 0; i < editPts.length - 1; i++) {
+      const a = editPts[i], b = editPts[i + 1]
+      const midLat = (a.lat + b.lat) / 2, midLng = (a.lng + b.lng) / 2
+      const mid = Lf.marker([midLat, midLng] as [number, number], {
+        icon: makeMidIcon(false),
+        zIndexOffset: 500,
+      })
+      mid.on('mouseover', () => mid.setIcon(makeMidIcon(true)))
+      mid.on('mouseout',  () => mid.setIcon(makeMidIcon(false)))
+      mid.on('click', (e: any) => {
+        Lf.DomEvent.stop(e)
+        deactivate(vtxMarkers)
+        onInsertRef.current(i, midLat, midLng)
+      })
+      mid.bindTooltip('<div style="font-family:monospace;font-size:10px;color:#aaa;background:#0e0e0e;padding:3px 7px;border:1px solid #333;border-radius:3px">+ Insertar vértice</div>', { direction: 'top' })
+      mid.addTo(map)
+      midMarkers.push(mid)
+    }
+
+    // ── Map click — mover grip activo ────────────────────────────────
+    const handleMapClick = (e: any) => {
+      const idx = activeVtxRef.current
+      if (idx === null) return
+      Lf.DomEvent.stop(e)
+      deactivate(vtxMarkers)
+      onVertexMoveRef.current(idx, e.latlng.lat, e.latlng.lng)
+    }
+
+    // ── Mousemove — actualizar rubber band ───────────────────────────
+    const handleMouseMove = (e: any) => {
+      const idx = activeVtxRef.current
+      if (idx === null) return
+      const c = e.latlng
+      rbPrev.setLatLngs(idx > 0
+        ? [[editPts[idx - 1].lat, editPts[idx - 1].lng], [c.lat, c.lng]]
+        : [])
+      rbNext.setLatLngs(idx < editPts.length - 1
+        ? [[c.lat, c.lng], [editPts[idx + 1].lat, editPts[idx + 1].lng]]
+        : [])
+    }
+
+    // ── Teclado: ESC cancela grip, Del elimina vértice activo ────────
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        deactivate(vtxMarkers)
+      } else if ((e.key === 'Delete' || e.key === 'Backspace') && activeVtxRef.current !== null) {
+        const idx = activeVtxRef.current
+        deactivate(vtxMarkers)
+        onDeleteRef.current(idx)
+      }
+    }
+
+    map.on('click',     handleMapClick)
+    map.on('mousemove', handleMouseMove)
+    window.addEventListener('keydown', handleKeyDown)
+
+    // ── Etiquetas PK ─────────────────────────────────────────────────
     const step   = Math.max(1, Math.floor(editPts.length / 8))
     const pkIdxs = Array.from(new Set([
       0,
@@ -781,10 +904,14 @@ function LeafletRevisionMap({
       }).addTo(map)
     })
 
-    editRef.current = { line: newLine, markers: newMarkers, pks: newPks }
+    editRef.current = { line: editLine, markers: [...vtxMarkers, ...midMarkers], pks: newPks }
+    map.fitBounds(editLine.getBounds(), { padding: [30, 30], animate: true })
 
-    // Zoom al track editado
-    map.fitBounds(newLine.getBounds(), { padding: [30, 30], animate: true })
+    return () => {
+      map.off('click',     handleMapClick)
+      map.off('mousemove', handleMouseMove)
+      window.removeEventListener('keydown', handleKeyDown)
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editPts, mapReady])
 
