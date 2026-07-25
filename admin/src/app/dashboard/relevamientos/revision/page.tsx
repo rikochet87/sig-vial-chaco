@@ -122,6 +122,7 @@ export default function RevisionCampoPage() {
   const [saving,   setSaving]   = useState(false)
   const [msg,      setMsg]      = useState<string | null>(null)
   const [lightbox, setLightbox] = useState<string | null>(null)
+  const [hovPK,    setHovPK]    = useState<number | null>(null)
 
   // Filtros
   const [fSearch, setFSearch] = useState('')
@@ -449,16 +450,27 @@ export default function RevisionCampoPage() {
                   <div style={{ flex: 1, overflowY: 'auto' }}>
                     {editPts.map((pt, i) => {
                       const isFirst = i === 0, isLast = i === editPts.length - 1
-                      const hi = isFirst || isLast
+                      const hi  = isFirst || isLast
+                      const hov = hovPK === i
                       return (
-                        <div key={i} style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr 0.7fr 0.7fr 0.5fr', padding: '4px 8px', borderBottom: '1px solid #111', background: hi ? '#0f0f0f' : i % 2 === 0 ? '#080808' : '#0a0a0a', alignItems: 'center' }}>
-                          <span style={{ fontSize: 9, color: hi ? '#F5C300' : '#777', fontWeight: hi ? 700 : 400 }}>{fmtPK(pt.prog ?? 0)}</span>
-                          <span style={{ fontSize: 8, color: '#555' }}>{pt.lat.toFixed(5)}</span>
-                          <span style={{ fontSize: 8, color: '#555' }}>{pt.lng.toFixed(5)}</span>
-                          <span style={{ fontSize: 9, color: '#555' }}>{pt.alt != null ? pt.alt.toFixed(0) : '—'}</span>
-                          <span style={{ fontSize: 9, color: accColor(pt.acc) }}>{pt.acc != null ? `±${Math.round(pt.acc)}` : '—'}</span>
+                        <div key={i}
+                          onMouseEnter={() => setHovPK(i)}
+                          onMouseLeave={() => setHovPK(null)}
+                          style={{
+                            display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr 0.7fr 0.7fr 0.5fr',
+                            padding: '4px 8px', borderBottom: '1px solid #111', alignItems: 'center',
+                            background: hov ? '#1c1a0a' : hi ? '#0f0f0f' : i % 2 === 0 ? '#080808' : '#0a0a0a',
+                            transition: 'background 0.08s',
+                          }}>
+                          <span style={{ fontSize: 9, fontWeight: hi ? 700 : 400, color: hov ? '#F5C300' : hi ? '#c9a200' : '#666' }}>
+                            {fmtPK(pt.prog ?? 0)}
+                          </span>
+                          <span style={{ fontSize: 8, color: hov ? '#bbb' : '#555' }}>{pt.lat.toFixed(5)}</span>
+                          <span style={{ fontSize: 8, color: hov ? '#bbb' : '#555' }}>{pt.lng.toFixed(5)}</span>
+                          <span style={{ fontSize: 9, color: hov ? '#aaa' : '#555' }}>{pt.alt != null ? pt.alt.toFixed(0) : '—'}</span>
+                          <span style={{ fontSize: 9, color: hov ? accColor(pt.acc) : '#444' }}>{pt.acc != null ? `±${Math.round(pt.acc)}` : '—'}</span>
                           <button onClick={() => handleDeleteVertex(i)}
-                            style={{ fontSize: 11, color: '#2a2a2a', background: 'transparent', border: 'none', cursor: 'pointer', padding: 0, lineHeight: 1, ...MONO }}
+                            style={{ fontSize: 12, color: hov ? '#e74c3c' : '#222', background: 'transparent', border: 'none', cursor: 'pointer', padding: 0, lineHeight: 1, transition: 'color 0.1s', ...MONO }}
                             title="Eliminar punto">×</button>
                         </div>
                       )
