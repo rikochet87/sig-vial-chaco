@@ -8,7 +8,7 @@ interface PuntoTrack {
   lat: number; lng: number; alt?: number; acc?: number; ts?: number; prog?: number
 }
 
-type TipoRel = 'puente' | 'alcantarilla' | 'tubos' | 'ripio' | 'otro'
+type TipoRel = 'puente' | 'alcantarilla' | 'tubos' | 'lineal' | 'otro'
 
 interface Relevamiento {
   id: string
@@ -44,17 +44,26 @@ function parseLinea(raw: unknown): PuntoTrack[] | null {
  */
 function efectiveTipo(r: Relevamiento): TipoRel {
   const t = r.tipo?.toLowerCase()
-  if (t === 'lineal' || t === 'ripio') return 'ripio'
+  // 'Lineal' (app actual) y 'ripio' (app antiguo) → ambos son lineal
+  if (t === 'lineal' || t === 'ripio') return 'lineal'
   if (t === 'puente')       return 'puente'
   if (t === 'alcantarilla') return 'alcantarilla'
   if (t === 'tubos')        return 'tubos'
   if (t === 'otro' || t === 'outro') return 'otro'
-  return parseLinea(r.coords_linea) !== null ? 'ripio' : 'otro'
+  return parseLinea(r.coords_linea) !== null ? 'lineal' : 'otro'
+}
+
+/** Devuelve el subtipo del lineal (Ripio / Tramo / Canal) o 'Lineal' si no está en BD */
+function subtipoLineal(r: Relevamiento): string {
+  const de = r.datos_especificos
+  if (!de) return 'Lineal'
+  const d = (de['lineal'] ?? de['ripio']) as Record<string, unknown> | null | undefined
+  return (d?.subtipo as string) ?? 'Lineal'
 }
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 const TIPO_COLOR: Record<TipoRel, string> = {
-  ripio:        '#F5C300',
+  lineal:       '#F5C300',
   puente:       '#3498db',
   alcantarilla: '#27ae60',
   tubos:        '#e67e22',
@@ -62,14 +71,14 @@ const TIPO_COLOR: Record<TipoRel, string> = {
 }
 
 const TIPO_LABEL: Record<TipoRel, string> = {
-  ripio:        'Ripio',
+  lineal:       'Lineal',
   puente:       'Puente',
   alcantarilla: 'Alcantarilla',
   tubos:        'Tubos',
   otro:         'Otro',
 }
 
-const TODOS_TIPOS: TipoRel[] = ['ripio', 'puente', 'alcantarilla', 'tubos', 'otro']
+const TODOS_TIPOS: TipoRel[] = ['lineal', 'puente', 'alcantarilla', 'tubos', 'otro']
 
 // ─── Helpers topográficos ─────────────────────────────────────────────────────
 function haversine(a: PuntoTrack, b: PuntoTrack): number {
@@ -173,7 +182,7 @@ export default function RevisionCampoPage() {
   const selectItem = useCallback((r: Relevamiento) => {
     setSelected(r)
     const linea = parseLinea(r.coords_linea)
-    if (efectiveTipo(r) === 'ripio' && linea !== null) {
+    if (efectiveTipo(r) === 'lineal' && linea !== null) {
       setEditPts(recalcProgs(linea))
     } else {
       setEditPts([])
@@ -213,11 +222,15 @@ export default function RevisionCampoPage() {
   const selColor   = TIPO_COLOR[selTipo]
   const fotos      = selected?.fotos ?? []
   const datosActivos = selected
-    ? (selected.datos_especificos?.[selTipo] as Record<string, unknown> | null | undefined) ?? null
+    ? ((selTipo === 'lineal'
+        // para lineales buscar 'lineal' primero (app actual), luego 'ripio' (app antiguo)
+        ? (selected.datos_especificos?.['lineal'] ?? selected.datos_especificos?.['ripio'])
+        : selected.datos_especificos?.[selTipo]
+      ) as Record<string, unknown> | null | undefined) ?? null
     : null
 
-  // Estado "editando track ripio" — sólo cambia al seleccionar, no en cada dragend
-  const isEditingRipio = selTipo === 'ripio' && editPts.length >= 2
+  // Estado "editando track lineal" — sólo cambia al seleccionar, no en cada dragend
+  const isEditingRipio = selTipo === 'lineal' && editPts.length >= 2
 
   return (
     <>
@@ -305,7 +318,7 @@ export default function RevisionCampoPage() {
                       {r.ruta_tramo || 'Sin nombre'}
                     </span>
                     <span style={{ fontSize: 9, color: color, padding: '1px 5px', border: `1px solid ${color}44`, borderRadius: 2, flexShrink: 0, marginLeft: 4 }}>
-                      {TIPO_LABEL[tipo]}
+                      {tipo === 'lineal' ? subtipoLineal(r) : TIPO_LABEL[tipo]}
                     </span>
                   </div>
                   <div style={{ fontSize: 9, color: '#555' }}>
@@ -334,7 +347,7 @@ export default function RevisionCampoPage() {
           {selected && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 14px', borderBottom: '1px solid #1a1a1a', flexShrink: 0, background: '#0a0a0a' }}>
               <span style={{ fontSize: 9, color: selColor, border: `1px solid ${selColor}44`, padding: '2px 7px', borderRadius: 2, flexShrink: 0 }}>
-                {TIPO_LABEL[selTipo]}
+                {selTipo === 'lineal' && selected ? subtipoLineal(selected) : TIPO_LABEL[selTipo]}
               </span>
               <div style={{ overflow: 'hidden' }}>
                 <div style={{ fontSize: 9, color: '#444', letterSpacing: 1, textTransform: 'uppercase' }}>
@@ -345,7 +358,7 @@ export default function RevisionCampoPage() {
                 </div>
               </div>
               <div style={{ flex: 1 }} />
-              {selTipo === 'ripio' && editPts.length >= 2 && (
+              {selTipo === 'lineal' && editPts.length >= 2 && (
                 <>
                   <div style={{ textAlign: 'right' }}>
                     <div style={{ fontSize: 8, color: '#444', textTransform: 'uppercase', letterSpacing: 0.8 }}>Longitud</div>
@@ -392,7 +405,7 @@ export default function RevisionCampoPage() {
                   </div>
                 </div>
               )}
-              {selTipo === 'ripio' && editPts.length >= 2 && (
+              {selTipo === 'lineal' && editPts.length >= 2 && (
                 <div style={{ position: 'absolute', bottom: 10, left: 10, zIndex: 1000, background: '#0e0e0ecc', border: '1px solid #1e1e1e', borderRadius: 4, padding: '6px 10px', fontSize: 9, color: '#666', backdropFilter: 'blur(4px)' }}>
                   Arrastrá un vértice para corregirlo · Clic derecho → eliminar
                 </div>
@@ -406,7 +419,7 @@ export default function RevisionCampoPage() {
               flexDirection: 'column', overflow: 'hidden',
               background: '#0e0e0e', borderLeft: '1px solid #1a1a1a',
             }}>
-              {selTipo === 'ripio' ? (
+              {selTipo === 'lineal' ? (
 
                 /* ── Planilla topográfica (ripio) ── */
                 <>
