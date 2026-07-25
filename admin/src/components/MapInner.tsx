@@ -2032,7 +2032,7 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
           <div style={{ fontSize: 9, color: '#555', letterSpacing: 1.4, textTransform: 'uppercase', marginBottom: 8 }}>
             ◫ Medir distancia
           </div>
-          <div style={{ fontSize: measurePts.length >= 2 ? 22 : 13, fontWeight: 700, textAlign: 'center', marginBottom: 10, minHeight: 28,
+          <div style={{ fontSize: measurePts.length >= 2 ? 22 : 13, fontWeight: 700, textAlign: 'center', marginBottom: measurePts.length >= 1 ? 4 : 10, minHeight: 28,
             color: measurePts.length >= 2 ? '#F5C300' : '#444' }}>
             {measurePts.length === 0
               ? 'Clic en el mapa para comenzar'
@@ -2041,6 +2041,11 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
               : fmtDist(totalDist(measurePts))
             }
           </div>
+          {measurePts.length >= 1 && (
+            <div style={{ fontSize: 9, color: 'rgba(245,195,0,0.35)', textAlign: 'center', marginBottom: 8, letterSpacing: 0.5, fontFamily: 'monospace' }}>
+              ◈ Arrastrá los puntos para moverlos
+            </div>
+          )}
           <div style={{ display: 'flex', gap: 6 }}>
             <button onClick={() => setMeasurePts(prev => prev.slice(0, -1))} disabled={measurePts.length === 0}
               style={{ flex: 1, background: '#0a0a0a', border: '1px solid #222', color: '#888', borderRadius: 3, padding: '7px 4px', fontSize: 11, fontFamily: 'monospace', cursor: 'pointer', opacity: measurePts.length === 0 ? 0.35 : 1 }}>↩ Deshacer</button>
@@ -2080,7 +2085,7 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
           <div style={{ fontSize: 9, color: '#555', letterSpacing: 1.4, textTransform: 'uppercase', marginBottom: 8 }}>
             ⬡ Medir área
           </div>
-          <div style={{ fontSize: areaPts.length >= 3 ? 22 : 13, fontWeight: 700, textAlign: 'center', marginBottom: 8, minHeight: 28,
+          <div style={{ fontSize: areaPts.length >= 3 ? 22 : 13, fontWeight: 700, textAlign: 'center', marginBottom: areaPts.length >= 1 ? 4 : 8, minHeight: 28,
             color: areaPts.length >= 3 ? '#ce93d8' : '#444' }}>
             {areaPts.length < 3
               ? (areaPts.length === 0 ? 'Clic en el mapa para comenzar'
@@ -2089,6 +2094,11 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
               : fmtArea(polygonAreaM2(areaPts))
             }
           </div>
+          {areaPts.length >= 1 && (
+            <div style={{ fontSize: 9, color: 'rgba(206,147,216,0.35)', textAlign: 'center', marginBottom: 6, letterSpacing: 0.5, fontFamily: 'monospace' }}>
+              ◈ Arrastrá los vértices para editar
+            </div>
+          )}
           {areaPts.length >= 3 && (() => {
             const m2 = polygonAreaM2(areaPts)
             return (
