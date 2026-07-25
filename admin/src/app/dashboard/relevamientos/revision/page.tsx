@@ -24,10 +24,22 @@ interface Relevamiento {
   datos_especificos?: Record<string, unknown> | null
 }
 
+/** Parsea coords_linea aunque venga como string JSON (Supabase puede devolver text) */
+function parseLinea(raw: unknown): PuntoTrack[] | null {
+  if (Array.isArray(raw) && raw.length >= 2) return raw as PuntoTrack[]
+  if (typeof raw === 'string' && raw.length > 2) {
+    try {
+      const parsed = JSON.parse(raw)
+      if (Array.isArray(parsed) && parsed.length >= 2) return parsed as PuntoTrack[]
+    } catch { /* ignore */ }
+  }
+  return null
+}
+
 /** Tipo efectivo: si tipo es null pero tiene coords_linea → ripio */
 function efectiveTipo(r: Relevamiento): TipoRel {
   if (r.tipo) return r.tipo
-  return (Array.isArray(r.coords_linea) && r.coords_linea.length >= 2) ? 'ripio' : 'otro'
+  return parseLinea(r.coords_linea) !== null ? 'ripio' : 'otro'
 }
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
@@ -131,8 +143,9 @@ export default function RevisionCampoPage() {
 
   const selectItem = useCallback((r: Relevamiento) => {
     setSelected(r)
-    if (efectiveTipo(r) === 'ripio' && Array.isArray(r.coords_linea) && r.coords_linea.length >= 2) {
-      setEditPts(recalcProgs(r.coords_linea))
+    const linea = parseLinea(r.coords_linea)
+    if (efectiveTipo(r) === 'ripio' && linea !== null) {
+      setEditPts(recalcProgs(linea))
     } else {
       setEditPts([])
     }
@@ -246,8 +259,9 @@ export default function RevisionCampoPage() {
               const isActive  = selected?.id === r.id
               const tipo      = efectiveTipo(r)
               const color     = TIPO_COLOR[tipo]
-              const isLineal  = tipo === 'ripio' && Array.isArray(r.coords_linea) && r.coords_linea.length >= 2
-              const lon       = isLineal ? (r.coords_linea![r.coords_linea!.length - 1].prog ?? 0) : 0
+              const linea     = tipo === 'ripio' ? parseLinea(r.coords_linea) : null
+              const isLineal  = linea !== null
+              const lon       = isLineal ? (linea![linea!.length - 1].prog ?? 0) : 0
               const nFotos    = (r.fotos ?? []).length
               return (
                 <button key={r.id} onClick={() => selectItem(r)}
@@ -270,7 +284,7 @@ export default function RevisionCampoPage() {
                   </div>
                   {isLineal && (
                     <div style={{ fontSize: 10, color: isActive ? '#aaa' : '#444', marginTop: 2 }}>
-                      {fmtDist(lon)} · {r.coords_linea!.length} pts
+                      {fmtDist(lon)} · {linea!.length} pts
                     </div>
                   )}
                   {nFotos > 0 && (
@@ -581,7 +595,7 @@ function LeafletRevisionMap({
       const isSel   = r.id === selectedId
       const tipo    = efectiveTipo(r)
       const color   = TIPO_COLOR[tipo]
-      const isLinear = Array.isArray(r.coords_linea) && r.coords_linea.length >= 2
+      const isLinear = parseLinea(r.coords_linea) !== null
       // Ocultar la polyline estática del ripio seleccionado mientras se edita
       const hideStatic = isSel && tipo === 'ripio' && isEditingRipio
 
@@ -615,7 +629,7 @@ function LeafletRevisionMap({
 
       // Crear capa nueva
       if (isLinear) {
-        const pts = r.coords_linea as PuntoTrack[]
+        const pts = parseLinea(r.coords_linea)!
         const line = Lf.polyline(
           pts.map(p => [p.lat, p.lng] as [number, number]),
           { color, weight: isSel ? 4 : 2, opacity: hideStatic ? 0 : (isSel ? 1 : 0.55) },
