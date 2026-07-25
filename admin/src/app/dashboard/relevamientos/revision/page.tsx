@@ -16,12 +16,18 @@ interface Relevamiento {
   ruta_tramo: string
   cc_asociado?: string | null
   zona?: string | null
-  tipo: TipoRel
+  tipo: TipoRel | null   // puede ser null en filas antiguas de la BD
   coords_lat?: number | null
   coords_lng?: number | null
   coords_linea?: PuntoTrack[] | null
   fotos?: string[] | null
   datos_especificos?: Record<string, unknown> | null
+}
+
+/** Tipo efectivo: si tipo es null pero tiene coords_linea → ripio */
+function efectiveTipo(r: Relevamiento): TipoRel {
+  if (r.tipo) return r.tipo
+  return (Array.isArray(r.coords_linea) && r.coords_linea.length >= 2) ? 'ripio' : 'otro'
 }
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
@@ -125,7 +131,7 @@ export default function RevisionCampoPage() {
 
   const selectItem = useCallback((r: Relevamiento) => {
     setSelected(r)
-    if (r.tipo === 'ripio' && Array.isArray(r.coords_linea) && r.coords_linea.length >= 2) {
+    if (efectiveTipo(r) === 'ripio' && Array.isArray(r.coords_linea) && r.coords_linea.length >= 2) {
       setEditPts(recalcProgs(r.coords_linea))
     } else {
       setEditPts([])
@@ -161,14 +167,15 @@ export default function RevisionCampoPage() {
   }
 
   const longTotal  = editPts.length >= 2 ? (editPts[editPts.length - 1].prog ?? 0) : 0
-  const selColor   = selected ? TIPO_COLOR[selected.tipo] : '#F5C300'
+  const selTipo    = selected ? efectiveTipo(selected) : 'otro'
+  const selColor   = TIPO_COLOR[selTipo]
   const fotos      = selected?.fotos ?? []
   const datosActivos = selected
-    ? (selected.datos_especificos?.[selected.tipo] as Record<string, unknown> | null | undefined) ?? null
+    ? (selected.datos_especificos?.[selTipo] as Record<string, unknown> | null | undefined) ?? null
     : null
 
   // Estado "editando track ripio" — sólo cambia al seleccionar, no en cada dragend
-  const isEditingRipio = selected?.tipo === 'ripio' && editPts.length >= 2
+  const isEditingRipio = selTipo === 'ripio' && editPts.length >= 2
 
   return (
     <>
@@ -237,8 +244,9 @@ export default function RevisionCampoPage() {
               <div style={{ padding: 20, fontSize: 11, color: '#444' }}>Sin resultados.</div>
             ) : filtered.map(r => {
               const isActive  = selected?.id === r.id
-              const color     = TIPO_COLOR[r.tipo]
-              const isLineal  = r.tipo === 'ripio' && Array.isArray(r.coords_linea) && r.coords_linea.length >= 2
+              const tipo      = efectiveTipo(r)
+              const color     = TIPO_COLOR[tipo]
+              const isLineal  = tipo === 'ripio' && Array.isArray(r.coords_linea) && r.coords_linea.length >= 2
               const lon       = isLineal ? (r.coords_linea![r.coords_linea!.length - 1].prog ?? 0) : 0
               const nFotos    = (r.fotos ?? []).length
               return (
@@ -254,7 +262,7 @@ export default function RevisionCampoPage() {
                       {r.ruta_tramo || 'Sin nombre'}
                     </span>
                     <span style={{ fontSize: 9, color: color, padding: '1px 5px', border: `1px solid ${color}44`, borderRadius: 2, flexShrink: 0, marginLeft: 4 }}>
-                      {TIPO_LABEL[r.tipo]}
+                      {TIPO_LABEL[tipo]}
                     </span>
                   </div>
                   <div style={{ fontSize: 9, color: '#555' }}>
@@ -283,7 +291,7 @@ export default function RevisionCampoPage() {
           {selected && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 14px', borderBottom: '1px solid #1a1a1a', flexShrink: 0, background: '#0a0a0a' }}>
               <span style={{ fontSize: 9, color: selColor, border: `1px solid ${selColor}44`, padding: '2px 7px', borderRadius: 2, flexShrink: 0 }}>
-                {TIPO_LABEL[selected.tipo]}
+                {TIPO_LABEL[selTipo]}
               </span>
               <div style={{ overflow: 'hidden' }}>
                 <div style={{ fontSize: 9, color: '#444', letterSpacing: 1, textTransform: 'uppercase' }}>
@@ -294,7 +302,7 @@ export default function RevisionCampoPage() {
                 </div>
               </div>
               <div style={{ flex: 1 }} />
-              {selected.tipo === 'ripio' && editPts.length >= 2 && (
+              {selTipo === 'ripio' && editPts.length >= 2 && (
                 <>
                   <div style={{ textAlign: 'right' }}>
                     <div style={{ fontSize: 8, color: '#444', textTransform: 'uppercase', letterSpacing: 0.8 }}>Longitud</div>
@@ -341,7 +349,7 @@ export default function RevisionCampoPage() {
                   </div>
                 </div>
               )}
-              {selected?.tipo === 'ripio' && editPts.length >= 2 && (
+              {selTipo === 'ripio' && editPts.length >= 2 && (
                 <div style={{ position: 'absolute', bottom: 10, left: 10, zIndex: 1000, background: '#0e0e0ecc', border: '1px solid #1e1e1e', borderRadius: 4, padding: '6px 10px', fontSize: 9, color: '#666', backdropFilter: 'blur(4px)' }}>
                   Arrastrá un vértice para corregirlo · Clic derecho → eliminar
                 </div>
@@ -355,7 +363,7 @@ export default function RevisionCampoPage() {
               flexDirection: 'column', overflow: 'hidden',
               background: '#0e0e0e', borderLeft: '1px solid #1a1a1a',
             }}>
-              {selected?.tipo === 'ripio' ? (
+              {selTipo === 'ripio' ? (
 
                 /* ── Planilla topográfica (ripio) ── */
                 <>
@@ -394,7 +402,7 @@ export default function RevisionCampoPage() {
                   {/* Footer */}
                   <div style={{ borderTop: '1px solid #1a1a1a', padding: '8px 12px', flexShrink: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ fontSize: 9, color: '#444' }}>
-                      {selected.fecha?.slice(0, 10)} · {fmtTs(editPts[0]?.ts)} → {fmtTs(editPts[editPts.length - 1]?.ts)}
+                      {selected?.fecha?.slice(0, 10)} · {fmtTs(editPts[0]?.ts)} → {fmtTs(editPts[editPts.length - 1]?.ts)}
                     </span>
                     {dirty && (
                       <span style={{ fontSize: 9, color: '#F5C300', border: '1px solid #F5C30044', padding: '2px 6px', borderRadius: 2 }}>● Modificado</span>
@@ -571,21 +579,23 @@ function LeafletRevisionMap({
 
     items.forEach(r => {
       const isSel   = r.id === selectedId
-      const color   = TIPO_COLOR[r.tipo] ?? '#888'
+      const tipo    = efectiveTipo(r)
+      const color   = TIPO_COLOR[tipo]
+      const isLinear = Array.isArray(r.coords_linea) && r.coords_linea.length >= 2
       // Ocultar la polyline estática del ripio seleccionado mientras se edita
-      const hideStatic = isSel && r.tipo === 'ripio' && isEditingRipio
+      const hideStatic = isSel && tipo === 'ripio' && isEditingRipio
 
       const tooltipHtml = `
         <div style="font-family:monospace;font-size:11px;color:#e0e0e0;background:#0e0e0e;padding:6px 8px;border:1px solid #333;border-radius:3px;line-height:1.5">
           <b>${r.ruta_tramo || 'Sin nombre'}</b><br/>
-          ${TIPO_LABEL[r.tipo]} · ${r.fecha?.slice(0, 10) ?? '—'}<br/>
+          ${TIPO_LABEL[tipo]} · ${r.fecha?.slice(0, 10) ?? '—'}<br/>
           ${r.cc_asociado ?? ''} ${r.zona ? `· ${r.zona}` : ''}
         </div>`
 
       if (existing.has(r.id)) {
         // Actualizar estilo sin reconstruir la capa
         const entry = existing.get(r.id)!
-        if (r.tipo === 'ripio') {
+        if (isLinear) {
           entry.layer.setStyle({
             color,
             weight:  isSel ? 4 : 2,
@@ -604,7 +614,7 @@ function LeafletRevisionMap({
       }
 
       // Crear capa nueva
-      if (r.tipo === 'ripio' && Array.isArray(r.coords_linea) && r.coords_linea.length >= 2) {
+      if (isLinear) {
         const pts = r.coords_linea as PuntoTrack[]
         const line = Lf.polyline(
           pts.map(p => [p.lat, p.lng] as [number, number]),
@@ -613,7 +623,7 @@ function LeafletRevisionMap({
         line.bindTooltip(tooltipHtml, { sticky: true })
         line.on('click', () => onSelectRef.current(r))
         line.addTo(map)
-        existing.set(r.id, { tipo: r.tipo, layer: line })
+        existing.set(r.id, { tipo, layer: line })
 
       } else if (r.coords_lat != null && r.coords_lng != null) {
         const sz = isSel ? 15 : 10
@@ -628,7 +638,7 @@ function LeafletRevisionMap({
         marker.bindTooltip(tooltipHtml)
         marker.on('click', () => onSelectRef.current(r))
         marker.addTo(map)
-        existing.set(r.id, { tipo: r.tipo, layer: marker })
+        existing.set(r.id, { tipo, layer: marker })
       }
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -640,7 +650,8 @@ function LeafletRevisionMap({
     if (!map || !selectedId || !mapReady) return
     const entry = staticRef.current.get(selectedId)
     if (!entry) return
-    if (entry.tipo !== 'ripio') {
+    // zoom solo si es marcador puntual (no polyline)
+    if (!['ripio'].includes(entry.tipo)) {
       try {
         const ll = entry.layer.getLatLng()
         map.setView(ll, Math.max(map.getZoom(), 14), { animate: true })
