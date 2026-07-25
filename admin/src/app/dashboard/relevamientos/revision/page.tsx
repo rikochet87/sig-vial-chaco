@@ -127,7 +127,26 @@ export default function RevisionCampoPage() {
       .select('id,fecha,ruta_tramo,cc_asociado,zona,tipo,coords_lat,coords_lng,coords_linea,fotos,datos_especificos')
       .order('fecha', { ascending: false })
       .then(({ data }) => {
-        setAll((data ?? []) as Relevamiento[])
+        const rows = (data ?? []) as Relevamiento[]
+        // ── DEBUG diagnóstico — borrar cuando funcione ──────────────────────
+        const lineal = rows.find(r => {
+          const t = r.tipo?.toLowerCase()
+          return t === 'lineal' || t === 'ripio'
+        })
+        if (lineal) {
+          const cl: unknown = lineal.coords_linea
+          console.log('[debug] primer lineal encontrado:', {
+            tipo: lineal.tipo,
+            coords_linea_tipo: typeof cl,
+            es_array: Array.isArray(cl),
+            largo: Array.isArray(cl) ? cl.length : typeof cl === 'string' ? (cl as string).length : 'N/A',
+            primer_punto: Array.isArray(cl) ? cl[0] : typeof cl === 'string' ? (cl as string).slice(0, 80) : cl,
+          })
+        } else {
+          console.log('[debug] NO se encontraron items lineales. tipos presentes:', [...new Set(rows.map(r => r.tipo))])
+        }
+        // ────────────────────────────────────────────────────────────────────
+        setAll(rows)
         setLoading(false)
       })
   }, [])
@@ -143,7 +162,7 @@ export default function RevisionCampoPage() {
   const filtered = useMemo(() => {
     const q = fSearch.toLowerCase()
     return all.filter(r => {
-      if (fTipo && r.tipo !== fTipo) return false
+      if (fTipo && efectiveTipo(r) !== fTipo) return false
       if (fZona && r.zona !== fZona) return false
       if (fCC   && !(r.cc_asociado?.toLowerCase().includes(fCC.toLowerCase()))) return false
       if (q     && !(r.ruta_tramo?.toLowerCase().includes(q) || r.cc_asociado?.toLowerCase().includes(q))) return false
