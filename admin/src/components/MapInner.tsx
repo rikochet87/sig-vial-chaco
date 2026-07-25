@@ -742,6 +742,24 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
   const cClickRef         = useRef<((e: import('leaflet').LeafletMouseEvent) => void) | null>(null)
   const circleHasCenterRef = useRef(false)
 
+  // ── Drag-edit refs: medir distancia ──
+  const mVtxRef      = useRef<import('leaflet').Marker[]>([])
+  const mSegRef      = useRef<import('leaflet').Polyline[]>([])
+  const mLblRef      = useRef<import('leaflet').Marker[]>([])
+  const mPtsMutable  = useRef<{lat:number;lng:number}[]>([])
+  // ── Drag-edit refs: medir área ──
+  const aVtxRef        = useRef<import('leaflet').Marker[]>([])
+  const aPolyLayerRef  = useRef<import('leaflet').Polyline | null>(null)
+  const aPtsMutable    = useRef<{lat:number;lng:number}[]>([])
+  // ── Drag-edit refs: círculo ──
+  const cCircleShapeRef = useRef<import('leaflet').Circle | null>(null)
+  const cLineRef        = useRef<import('leaflet').Polyline | null>(null)
+  const cPtsMutable     = useRef<{lat:number;lng:number}[]>([])
+
+  // ── Círculo: input de radio manual ──
+  const [circleRadiusInput, setCircleRadiusInput] = useState('')
+  const [circleRadiusUnit,  setCircleRadiusUnit]  = useState<'m'|'km'>('m')
+
   // ── Toolbar flotante magnética ──────────────────────────────────────────────
   const toolbarRef    = useRef<HTMLDivElement>(null)
   const tbPosRef      = useRef({ x: 10, y: 44 })
@@ -909,25 +927,72 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
     const map = mapRef.current
     if (!map || !mapReady) return
     mLayersRef.current.forEach(l => map.removeLayer(l)); mLayersRef.current = []
+    mVtxRef.current = []; mSegRef.current = []; mLblRef.current = []
+    mPtsMutable.current = [...measurePts]
     if (measurePts.length === 0) return
     import('leaflet').then(L => {
+      const pts = mPtsMutable.current
+      const n = pts.length
       const newLayers: import('leaflet').Layer[] = []
-      const n = measurePts.length
-      measurePts.forEach((p, i) => {
-        const fc = i === 0 ? '#27ae60' : (i === n-1 && n > 1) ? '#F5C300' : '#fff'
-        newLayers.push(L.circleMarker([p.lat, p.lng],
-          { radius: 6, color: '#111', weight: 2, fillColor: fc, fillOpacity: 1 }
-        ).addTo(map))
-      })
-      for (let i = 1; i < n; i++) {
-        const p1 = measurePts[i-1], p2 = measurePts[i], d = haversine(p1, p2)
-        newLayers.push(L.polyline([[p1.lat, p1.lng],[p2.lat, p2.lng]],
-          { color: '#F5C300', weight: 2.5, opacity: 0.9, dashArray: '8 5' }
-        ).addTo(map))
-        const icon = L.divIcon({ className: '', iconAnchor: [0, 8],
-          html: `<div style="background:#1e2436;color:#F5C300;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;border:1px solid rgba(245,195,0,.4);white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,.5)">${fmtDist(d)}</div>` })
-        newLayers.push(L.marker([(p1.lat+p2.lat)/2,(p1.lng+p2.lng)/2], { icon, interactive: false, zIndexOffset: 1000 }).addTo(map))
+
+      const makeVtxIcon = (i: number) => {
+        const fc = i === 0 ? '#27ae60' : (i === n - 1 && n > 1) ? '#F5C300' : '#e0e0e0'
+        return L.divIcon({
+          className: '',
+          html: `<div style="width:14px;height:14px;border-radius:50%;background:${fc};border:2px solid #111;cursor:grab;box-shadow:0 2px 4px rgba(0,0,0,.6)"></div>`,
+          iconSize: [14, 14], iconAnchor: [7, 7],
+        })
       }
+      const makeLblIcon = (d: number) => L.divIcon({
+        className: '', iconAnchor: [0, 8],
+        html: `<div style="background:#1e2436;color:#F5C300;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;border:1px solid rgba(245,195,0,.4);white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,.5)">${fmtDist(d)}</div>`,
+      })
+
+      // Crear segmentos y etiquetas primero (z-order debajo de los vértices)
+      for (let i = 1; i < n; i++) {
+        const p1 = pts[i-1], p2 = pts[i], d = haversine(p1, p2)
+        const seg = L.polyline([[p1.lat, p1.lng],[p2.lat, p2.lng]],
+          { color: '#F5C300', weight: 2.5, opacity: 0.9, dashArray: '8 5' }).addTo(map)
+        mSegRef.current[i-1] = seg
+        newLayers.push(seg)
+        const lbl = L.marker([(p1.lat+p2.lat)/2,(p1.lng+p2.lng)/2],
+          { icon: makeLblIcon(d), interactive: false, zIndexOffset: 1000 }).addTo(map)
+        mLblRef.current[i-1] = lbl
+        newLayers.push(lbl)
+      }
+
+      // Crear marcadores de vértice arrastrables
+      pts.forEach((p, i) => {
+        const vtx = L.marker([p.lat, p.lng], {
+          icon: makeVtxIcon(i), draggable: true, zIndexOffset: 500,
+        })
+        vtx.on('drag', () => {
+          const ll = vtx.getLatLng()
+          pts[i] = { lat: ll.lat, lng: ll.lng }
+          if (i > 0 && mSegRef.current[i-1]) {
+            const p1 = pts[i-1], p2 = pts[i]
+            mSegRef.current[i-1].setLatLngs([[p1.lat, p1.lng],[p2.lat, p2.lng]])
+            const lbl = mLblRef.current[i-1]
+            if (lbl) {
+              lbl.setLatLng([(p1.lat+p2.lat)/2,(p1.lng+p2.lng)/2])
+              lbl.setIcon(makeLblIcon(haversine(p1, p2)))
+            }
+          }
+          if (i < pts.length - 1 && mSegRef.current[i]) {
+            const p1 = pts[i], p2 = pts[i+1]
+            mSegRef.current[i].setLatLngs([[p1.lat, p1.lng],[p2.lat, p2.lng]])
+            const lbl = mLblRef.current[i]
+            if (lbl) {
+              lbl.setLatLng([(p1.lat+p2.lat)/2,(p1.lng+p2.lng)/2])
+              lbl.setIcon(makeLblIcon(haversine(p1, p2)))
+            }
+          }
+        })
+        vtx.on('dragend', () => setMeasurePts([...pts]))
+        vtx.addTo(map)
+        mVtxRef.current[i] = vtx
+        newLayers.push(vtx)
+      })
       mLayersRef.current = newLayers
     })
   }, [measurePts, mapReady])
@@ -959,22 +1024,47 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
     const map = mapRef.current
     if (!map || !mapReady) return
     aLayersRef.current.forEach(l => map.removeLayer(l)); aLayersRef.current = []
+    aVtxRef.current = []
+    aPtsMutable.current = [...areaPts]
     if (areaPts.length === 0) return
     import('leaflet').then(L => {
+      const pts = aPtsMutable.current
+      const n = pts.length
       const newLayers: import('leaflet').Layer[] = []
-      areaPts.forEach((p, i) => {
-        const fc = i === 0 ? '#27ae60' : '#fff'
-        newLayers.push(L.circleMarker([p.lat, p.lng], { radius: 5, color: '#111', weight: 2, fillColor: fc, fillOpacity: 1 }).addTo(map))
+
+      const makeVtxIcon = (i: number) => L.divIcon({
+        className: '',
+        html: `<div style="width:14px;height:14px;border-radius:50%;background:${i === 0 ? '#27ae60' : '#e0e0e0'};border:2px solid #111;cursor:grab;box-shadow:0 2px 4px rgba(0,0,0,.6)"></div>`,
+        iconSize: [14, 14], iconAnchor: [7, 7],
       })
-      if (areaPts.length >= 3) {
-        newLayers.push(L.polygon(areaPts.map(p => [p.lat, p.lng] as [number,number]), {
-          color: '#9C27B0', weight: 2, fillColor: '#9C27B0', fillOpacity: 0.14, dashArray: '7 4',
-        }).addTo(map))
-      } else if (areaPts.length >= 2) {
-        newLayers.push(L.polyline(areaPts.map(p => [p.lat, p.lng] as [number,number]), {
-          color: '#9C27B0', weight: 2, dashArray: '7 4', opacity: 0.9,
-        }).addTo(map))
-      }
+
+      // Crear polígono/polilínea primero (z-order debajo de vértices)
+      // Castear a Polyline para poder llamar setLatLngs desde el closure de drag
+      const polyLayer = (n >= 3
+        ? L.polygon(pts.map(p => [p.lat, p.lng] as [number,number]), {
+            color: '#9C27B0', weight: 2, fillColor: '#9C27B0', fillOpacity: 0.14, dashArray: '7 4',
+          }).addTo(map)
+        : L.polyline(pts.map(p => [p.lat, p.lng] as [number,number]), {
+            color: '#9C27B0', weight: 2, dashArray: '7 4', opacity: 0.9,
+          }).addTo(map)
+      ) as unknown as import('leaflet').Polyline
+      newLayers.push(polyLayer)
+
+      // Crear marcadores de vértice arrastrables
+      pts.forEach((p, i) => {
+        const vtx = L.marker([p.lat, p.lng], {
+          icon: makeVtxIcon(i), draggable: true, zIndexOffset: 500,
+        })
+        vtx.on('drag', () => {
+          const ll = vtx.getLatLng()
+          pts[i] = { lat: ll.lat, lng: ll.lng }
+          polyLayer.setLatLngs(pts.map(p2 => [p2.lat, p2.lng] as [number,number]))
+        })
+        vtx.on('dragend', () => setAreaPts([...pts]))
+        vtx.addTo(map)
+        aVtxRef.current[i] = vtx
+        newLayers.push(vtx)
+      })
       aLayersRef.current = newLayers
     })
   }, [areaPts, mapReady])
@@ -1014,29 +1104,75 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
     return () => { if (cClickRef.current) map.off('click', cClickRef.current) }
   }, [circleActive, mapReady])
 
+  // ── Círculo: sincronizar input de radio cuando cambian las coords ──────────
+  useEffect(() => {
+    if (circlePts.length < 2) return
+    const r = haversine(circlePts[0], circlePts[1])
+    setCircleRadiusInput(circleRadiusUnit === 'm' ? Math.round(r).toString() : (r / 1000).toFixed(3))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [circlePts])
+
   // ── Círculo: redibujar cuando cambian circlePts ───────────────────────────
   useEffect(() => {
     const map = mapRef.current
     if (!map || !mapReady) return
     cLayersRef.current.forEach(l => map.removeLayer(l)); cLayersRef.current = []
+    cCircleShapeRef.current = null; cLineRef.current = null
+    cPtsMutable.current = [...circlePts]
     if (circlePts.length === 0) return
     import('leaflet').then(L => {
+      const pts = cPtsMutable.current
       const newLayers: import('leaflet').Layer[] = []
-      const center = circlePts[0]
-      newLayers.push(L.circleMarker([center.lat, center.lng], {
-        radius: 7, color: '#111', weight: 2, fillColor: '#e67e22', fillOpacity: 1,
-      }).addTo(map))
-      if (circlePts.length >= 2) {
-        const r = haversine(center, circlePts[1])
-        newLayers.push(L.circle([center.lat, center.lng], {
+
+      const centerIcon = L.divIcon({
+        className: '',
+        html: `<div style="width:16px;height:16px;border-radius:50%;background:#e67e22;border:2px solid #fff;cursor:grab;box-shadow:0 2px 6px rgba(0,0,0,.6)"></div>`,
+        iconSize: [16, 16], iconAnchor: [8, 8],
+      })
+      const centerMk = L.marker([pts[0].lat, pts[0].lng], { icon: centerIcon, draggable: true, zIndexOffset: 600 })
+      centerMk.on('drag', () => {
+        const ll = centerMk.getLatLng()
+        pts[0] = { lat: ll.lat, lng: ll.lng }
+        if (pts.length >= 2) {
+          cCircleShapeRef.current?.setLatLng([ll.lat, ll.lng])
+          cLineRef.current?.setLatLngs([[ll.lat, ll.lng],[pts[1].lat, pts[1].lng]])
+        }
+      })
+      centerMk.on('dragend', () => setCirclePts([...pts]))
+      centerMk.addTo(map)
+      newLayers.push(centerMk)
+
+      if (pts.length >= 2) {
+        const r = haversine(pts[0], pts[1])
+
+        const circle = L.circle([pts[0].lat, pts[0].lng], {
           radius: r, color: '#e67e22', weight: 2, fillColor: '#e67e22', fillOpacity: 0.12,
-        }).addTo(map))
-        newLayers.push(L.polyline([[center.lat, center.lng],[circlePts[1].lat, circlePts[1].lng]], {
+        }).addTo(map)
+        cCircleShapeRef.current = circle
+        newLayers.push(circle)
+
+        const line = L.polyline([[pts[0].lat, pts[0].lng],[pts[1].lat, pts[1].lng]], {
           color: '#e67e22', weight: 1.5, dashArray: '6 4',
-        }).addTo(map))
-        newLayers.push(L.circleMarker([circlePts[1].lat, circlePts[1].lng], {
-          radius: 5, color: '#111', weight: 2, fillColor: '#fff', fillOpacity: 1,
-        }).addTo(map))
+        }).addTo(map)
+        cLineRef.current = line
+        newLayers.push(line)
+
+        const radiusIcon = L.divIcon({
+          className: '',
+          html: `<div style="width:14px;height:14px;border-radius:50%;background:#fff;border:2px solid #e67e22;cursor:grab;box-shadow:0 2px 4px rgba(0,0,0,.5)"></div>`,
+          iconSize: [14, 14], iconAnchor: [7, 7],
+        })
+        const radiusMk = L.marker([pts[1].lat, pts[1].lng], { icon: radiusIcon, draggable: true, zIndexOffset: 500 })
+        radiusMk.on('drag', () => {
+          const ll = radiusMk.getLatLng()
+          pts[1] = { lat: ll.lat, lng: ll.lng }
+          const newR = haversine(pts[0], pts[1])
+          cCircleShapeRef.current?.setRadius(newR)
+          cLineRef.current?.setLatLngs([[pts[0].lat, pts[0].lng],[ll.lat, ll.lng]])
+        })
+        radiusMk.on('dragend', () => setCirclePts([...pts]))
+        radiusMk.addTo(map)
+        newLayers.push(radiusMk)
       }
       cLayersRef.current = newLayers
     })
@@ -2003,12 +2139,12 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
             fontFamily: 'monospace', cursor: 'grab',
           }}>
           <div style={{ fontSize: 9, color: '#555', letterSpacing: 1.4, textTransform: 'uppercase', marginBottom: 8 }}>
-            ◯ Círculo — {circlePts.length === 0 ? '1° clic: centro' : circlePts.length === 1 ? '2° clic: punto de radio' : '3° clic: nuevo centro'}
+            ◯ Círculo — {circlePts.length === 0 ? '1° clic: centro' : circlePts.length === 1 ? '2° clic: punto de radio' : 'arrastrá centro o radio'}
           </div>
           {circlePts.length >= 2 ? (() => {
             const r = haversine(circlePts[0], circlePts[1])
             const area = circleAreaM2(r)
-            return (
+            return (<>
               <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
                 {([
                   ['Radio',    fmtRadius(r)],
@@ -2023,7 +2159,50 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
                   </div>
                 ))}
               </div>
-            )
+              {/* Input de radio manual */}
+              <div style={{ display: 'flex', gap: 5, marginBottom: 8, alignItems: 'center' }}
+                onMouseDown={e => e.stopPropagation()}>
+                <span style={{ fontSize: 10, color: '#555', minWidth: 36, fontFamily: 'monospace' }}>Radio</span>
+                <input
+                  type="number" min="1"
+                  step={circleRadiusUnit === 'm' ? '1' : '0.001'}
+                  value={circleRadiusInput}
+                  onChange={e => setCircleRadiusInput(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      const val = parseFloat(circleRadiusInput)
+                      if (!isNaN(val) && val > 0 && circlePts.length >= 1) {
+                        const rM = circleRadiusUnit === 'km' ? val * 1000 : val
+                        const c = circlePts[0]
+                        const mPerLng = 111320 * Math.cos(c.lat * Math.PI / 180)
+                        setCirclePts([c, { lat: c.lat, lng: c.lng + rM / mPerLng }])
+                      }
+                    }
+                  }}
+                  onBlur={() => {
+                    const val = parseFloat(circleRadiusInput)
+                    if (!isNaN(val) && val > 0 && circlePts.length >= 1) {
+                      const rM = circleRadiusUnit === 'km' ? val * 1000 : val
+                      const c = circlePts[0]
+                      const mPerLng = 111320 * Math.cos(c.lat * Math.PI / 180)
+                      setCirclePts([c, { lat: c.lat, lng: c.lng + rM / mPerLng }])
+                    }
+                  }}
+                  style={{ flex: 1, background: '#050505', border: '1px solid #333', borderRadius: 3, padding: '4px 7px', color: '#f0a060', fontSize: 12, outline: 'none', fontFamily: 'monospace' }}
+                />
+                <button
+                  onClick={() => {
+                    const rM = circlePts.length >= 2 ? haversine(circlePts[0], circlePts[1]) : 0
+                    const newUnit = circleRadiusUnit === 'm' ? 'km' : 'm'
+                    setCircleRadiusUnit(newUnit)
+                    setCircleRadiusInput(newUnit === 'm' ? Math.round(rM).toString() : (rM / 1000).toFixed(3))
+                  }}
+                  style={{ background: '#0a0a0a', border: '1px solid #333', color: '#888', borderRadius: 3, padding: '4px 8px', fontSize: 11, cursor: 'pointer', fontFamily: 'monospace', flexShrink: 0 }}
+                >
+                  {circleRadiusUnit}
+                </button>
+              </div>
+            </>)
           })() : (
             <div style={{ color: '#444', fontSize: 13, textAlign: 'center', marginBottom: 8, minHeight: 28 }}>
               {circlePts.length === 0 ? 'Clic en el mapa para fijar el centro' : 'Ahora clic para definir el radio'}
