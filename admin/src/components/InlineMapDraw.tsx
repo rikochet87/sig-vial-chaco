@@ -34,6 +34,9 @@ function polygonAreaHa(pts: LatLng[]): number {
   return Math.abs(area * R * R / 2) / 10000
 }
 
+// ── Layer control ─────────────────────────────────────────────────────────────
+type LayerKey = 'rp' | 'cc' | 'zonas' | 'sedes'
+
 // ── Tipos internos ────────────────────────────────────────────────────────────
 interface ConfirmedPoly {
   id: string
@@ -48,9 +51,9 @@ interface ConfirmedPoly {
 // ── Props ─────────────────────────────────────────────────────────────────────
 interface Props {
   color: string
-  onConfirm: (id: string, side: 'izq' | 'der', monte: MonteKey, area_ha: number) => void
+  onConfirm: (id: string, side: 'izq' | 'der', monte: MonteKey, area_ha: number, pts: [number,number][]) => void
   onDelete:  (id: string) => void
-  onUpdate?: (id: string, area_ha: number) => void
+  onUpdate?: (id: string, area_ha: number, pts: [number,number][]) => void
   onCancel?: () => void
 }
 
@@ -86,6 +89,20 @@ export default function InlineMapDraw({ color, onConfirm, onDelete, onUpdate, on
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     markers: any[]; livePoly: any; origId: string; origPts: LatLng[]
   } | null>(null)
+
+  // ── Layer control refs ────────────────────────────────────────────────────
+  const [layerVis,     setLayerVis]     = useState<Record<LayerKey, boolean>>({ rp: false, cc: false, zonas: false, sedes: false })
+  const [layerLoading, setLayerLoading] = useState<Record<LayerKey, boolean>>({ rp: false, cc: false, zonas: false, sedes: false })
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const rpLayerRef    = useRef<any>(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const ccLayerRef    = useRef<any>(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const zonasLayerRef = useRef<any>(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const sedesLayerRef = useRef<any>(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const geoCacheRef   = useRef<Record<string, any>>({})
 
   // ── Inyectar CSS dark para popups / tooltips Leaflet ─────────────────────
   useEffect(() => {
@@ -248,7 +265,7 @@ export default function InlineMapDraw({ color, onConfirm, onDelete, onUpdate, on
     setHasPolygons(true)
 
     // Notificar parent
-    onConfirm(id, side, monte, polyResult.area_ha)
+    onConfirm(id, side, monte, polyResult.area_ha, polyResult.pts as [number,number][])
 
     // Reset → listo para siguiente dibujo
     setPolyResult(null)
@@ -327,7 +344,7 @@ export default function InlineMapDraw({ color, onConfirm, onDelete, onUpdate, on
       addConfirmedLayer(old.id, old.side, old.monte, newArea, newPts)
     }
 
-    if (onUpdate) onUpdate(origId, newArea)
+    if (onUpdate) onUpdate(origId, newArea, newPts as [number,number][])
     setEditingId(null)
   }, [addConfirmedLayer, onUpdate])
 
@@ -466,6 +483,116 @@ export default function InlineMapDraw({ color, onConfirm, onDelete, onUpdate, on
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     previewRef.current.forEach((l: any) => mapRef.current?.removeLayer(l)); previewRef.current = []
   }, [])
+
+  // ── Toggle de capas GeoJSON ───────────────────────────────────────────────
+  const toggleLayer = useCallback(async (key: LayerKey) => {
+    const map = mapRef.current; const Lf = LfRef.current
+    if (!map || !Lf) return
+
+    const refMap: Record<LayerKey, React.MutableRefObject<unknown>> = {
+      rp: rpLayerRef, cc: ccLayerRef, zonas: zonasLayerRef, sedes: sedesLayerRef,
+    }
+    const layerRef = refMap[key]
+
+    if (layerRef.current) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      map.removeLayer(layerRef.current as any)
+      layerRef.current = null
+      setLayerVis(prev => ({ ...prev, [key]: false }))
+      return
+    }
+
+    setLayerLoading(prev => ({ ...prev, [key]: true }))
+    try {
+      if (key === 'rp') {
+        if (!geoCacheRef.current.rp) {
+          const res = await fetch('/geo/geo_rp.json')
+          geoCacheRef.current.rp = await res.json()
+        }
+        const data = geoCacheRef.current.rp
+        const RP_CLR: Record<string, string> = {
+          rpPavimentada: '#1565c0', rpMejorada: '#f9a825', rpEnObra: '#e53935', rpTierra: '#9e9e9e',
+        }
+        const group = Lf.layerGroup()
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        Object.entries(data).forEach(([k, v]: [string, any]) => {
+          Lf.geoJSON(v, {
+            style: { color: RP_CLR[k] ?? '#888', weight: k === 'rpPavimentada' ? 2.5 : 1.5, opacity: 0.8, fillOpacity: 0 },
+          }).addTo(group)
+        })
+        group.addTo(map)
+        rpLayerRef.current = group
+
+      } else if (key === 'cc') {
+        if (!geoCacheRef.current.cc) {
+          const res = await fetch('/geo/geo_cc.json')
+          geoCacheRef.current.cc = await res.json()
+        }
+        const data = geoCacheRef.current.cc
+        const group = Lf.layerGroup()
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        Object.values(data).forEach((v: any) => {
+          if (v && v.type === 'FeatureCollection') {
+            Lf.geoJSON(v, { style: { color: '#F5C300', weight: 1, opacity: 0.55, fillOpacity: 0 } }).addTo(group)
+          }
+        })
+        group.addTo(map)
+        ccLayerRef.current = group
+
+      } else if (key === 'zonas') {
+        if (!geoCacheRef.current.bundle) {
+          const res = await fetch('/geo/geo_bundle.json')
+          geoCacheRef.current.bundle = await res.json()
+        }
+        const bundle = geoCacheRef.current.bundle
+        const ZONA_CLR: Record<string, string> = {
+          ZI: '#e74c3c', ZII: '#e67e22', ZIII: '#2ecc71', ZIV: '#3498db', ZV: '#9b59b6',
+        }
+        const group = Lf.layerGroup()
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        Object.entries(bundle.limites_zonas as Record<string, any>).forEach(([z, gj]) => {
+          const c = ZONA_CLR[z] ?? '#888'
+          Lf.geoJSON(gj, {
+            style: { color: c, weight: 2, opacity: 0.7, fillOpacity: 0.04 },
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            onEachFeature: (_: any, layer: any) => {
+              layer.bindTooltip(
+                `<span style="font-family:monospace;font-size:9px;color:${c}">${z}</span>`,
+                { permanent: true, direction: 'center', className: 'desb-label' }
+              )
+            },
+          }).addTo(group)
+        })
+        group.addTo(map)
+        zonasLayerRef.current = group
+
+      } else if (key === 'sedes') {
+        if (!geoCacheRef.current.bundle) {
+          const res = await fetch('/geo/geo_bundle.json')
+          geoCacheRef.current.bundle = await res.json()
+        }
+        const bundle = geoCacheRef.current.bundle
+        const group = Lf.layerGroup()
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ;(bundle.sedes as any[]).forEach((s: any) => {
+          Lf.circleMarker([s.lat, s.lng] as [number, number], {
+            radius: 4, color: '#F5C300', fillColor: '#F5C300', fillOpacity: 0.8, weight: 1,
+          }).bindTooltip(
+            `<span style="font-family:monospace;font-size:9px;color:#F5C300">CC Nº${s.numero}</span>`,
+            { direction: 'top', className: 'desb-label' }
+          ).addTo(group)
+        })
+        group.addTo(map)
+        sedesLayerRef.current = group
+      }
+
+      setLayerVis(prev => ({ ...prev, [key]: true }))
+    } catch (err) {
+      console.error('Error cargando capa', key, err)
+    } finally {
+      setLayerLoading(prev => ({ ...prev, [key]: false }))
+    }
+  }, []) // stable: reads refs, not state
 
   // ── Helpers de formato ────────────────────────────────────────────────────
   const monteOpt = MONTE_OPTS.find(o => o.value === monte)!
@@ -664,12 +791,50 @@ export default function InlineMapDraw({ color, onConfirm, onDelete, onUpdate, on
         {/* Hint para polígonos existentes */}
         {!drawing && !polyResult && !editingId && hasPolygons && mapReady && (
           <div style={{
-            position: 'absolute', bottom: 12, right: 12, zIndex: 998,
+            position: 'absolute', bottom: 12, right: 120, zIndex: 998,
             background: '#0a0a0acc', border: `1px solid #1e1e1e`,
             borderRadius: 3, padding: '5px 10px', ...mono, fontSize: 9, color: '#444',
             pointerEvents: 'none',
           }}>
             Clic sobre un polígono para editar o eliminar
+          </div>
+        )}
+
+        {/* Layer control panel */}
+        {mapReady && (
+          <div style={{
+            position: 'absolute', top: 10, right: 10, zIndex: 999,
+            background: '#0d0d0dee', border: '1px solid #252525',
+            borderRadius: 4, padding: '6px 10px', ...mono,
+          }}>
+            <div style={{ fontSize: 8, color: '#444', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 5 }}>
+              Capas
+            </div>
+            {([
+              { key: 'rp'    as LayerKey, label: 'Rutas RP',  dot: '#1976d2' },
+              { key: 'cc'    as LayerKey, label: 'Red CC',    dot: '#F5C300' },
+              { key: 'zonas' as LayerKey, label: 'Zonas',     dot: '#9b59b6' },
+              { key: 'sedes' as LayerKey, label: 'Sedes CC',  dot: '#F5C300' },
+            ] as const).map(({ key, label, dot }) => (
+              <button key={key}
+                onClick={() => void toggleLayer(key)}
+                disabled={layerLoading[key]}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer',
+                  background: 'transparent', border: 'none', padding: '2px 0',
+                  width: '100%', textAlign: 'left',
+                  opacity: layerLoading[key] ? 0.4 : 1,
+                }}>
+                <span style={{
+                  width: 9, height: 9, borderRadius: 2, flexShrink: 0, display: 'inline-block',
+                  background: layerVis[key] ? dot : 'transparent',
+                  border: `1px solid ${layerVis[key] ? dot : '#333'}`,
+                }} />
+                <span style={{ fontSize: 9, color: layerVis[key] ? '#ccc' : '#444', ...mono }}>
+                  {layerLoading[key] ? '…' : label}
+                </span>
+              </button>
+            ))}
           </div>
         )}
 

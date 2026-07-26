@@ -629,7 +629,7 @@ const EQ_DEFAULTS: EqRow[] = [
 ]
 interface PresRow { id: string; num: number; desc: string; unit: string; cant: number; precioUnit: number }
 type MonteKey = 'ralo' | 'semitupido' | 'tupido'
-interface MonteEntry { id: string; ha: number; monte: MonteKey; fromMap?: boolean }
+interface MonteEntry { id: string; ha: number; monte: MonteKey; fromMap?: boolean; pts?: [number,number][] }
 
 function CalcDesbosque({ paramsRef }: { paramsRef?: React.MutableRefObject<Params> }) {
   // ── Geometría — múltiples superficies por tipo en cada lado ──────────────
@@ -759,6 +759,250 @@ function CalcDesbosque({ paramsRef }: { paramsRef?: React.MutableRefObject<Param
     { key: 'IVA', val: ivaPct, set: (v: number) => setIvaPct(v), step: 1   },
   ]
 
+  // ── Generar PDF ───────────────────────────────────────────────────────────
+  const generatePdf = async () => {
+    const { jsPDF } = await import('jspdf')
+    const autoTable  = (await import('jspdf-autotable')).default
+
+    const doc  = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+    const W    = 210, M = 14, CW = W - 2 * M
+    const date = new Date().toLocaleDateString('es-AR', { day: '2-digit', month: 'long', year: 'numeric' })
+
+    // ── Encabezado ──
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(13)
+    doc.setTextColor(30, 30, 30)
+    doc.text('INFORME TÉCNICO DE OBRA', M, 18)
+    doc.setFontSize(9)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(100, 100, 100)
+    doc.text('Desbosque, Destronque y Limpieza de Banquinas', M, 24)
+    doc.text(`Fecha: ${date}`, M, 29)
+    doc.text(`CR: ${CR.toFixed(4)}   ·   Total ha: ${Sup_ha.toFixed(4)}   ·   Vol. arbóreo: ${fmt(VolArb)} m³`, M, 34)
+    doc.setDrawColor(200, 200, 200)
+    doc.line(M, 37, W - M, 37)
+
+    // ── I. Cómputo de cantidades ──
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(10)
+    doc.setTextColor(30, 30, 30)
+    doc.text('I.  Cómputo de Cantidades', M, 44)
+
+    const computoBody = Object.entries(MONTE).map(([k, v]) => {
+      const haIzq = entriesIzq.filter(e => e.monte === k).reduce((s, e) => s + (e.ha || 0), 0)
+      const haDer = entriesDer.filter(e => e.monte === k).reduce((s, e) => s + (e.ha || 0), 0)
+      const ha    = haIzq + haDer
+      const dias  = v.rendimientoDia > 0 ? (ha / v.rendimientoDia) : 0
+      return [
+        v.label,
+        haIzq > 0 ? haIzq.toFixed(4) : '—',
+        haDer > 0 ? haDer.toFixed(4) : '—',
+        ha    > 0 ? ha.toFixed(4)    : '—',
+        String(v.rendimientoDia),
+        ha > 0 ? `$${fmt(Math.round(precioHaPorTipo[k]))}` : '—',
+        ha > 0 ? dias.toFixed(1) : '—',
+        ha > 0 ? fmtM(costoByType[k]) : '—',
+      ]
+    })
+
+    autoTable(doc, {
+      startY: 47,
+      margin: { left: M, right: M },
+      head: [['Tipo de Monte', 'Ha Izq.', 'Ha Der.', 'Total Ha', 'rend.', '$/Ha', 'Días', 'Subtotal']],
+      body: computoBody,
+      foot: [['TOTAL', Sup_ha_izq.toFixed(4), Sup_ha_der.toFixed(4), Sup_ha.toFixed(4), '', '', diasTrab.toFixed(1), fmtM(CostoTotal)]],
+      styles:           { fontSize: 8, cellPadding: { top: 2, bottom: 2, left: 3, right: 3 } },
+      headStyles:       { fillColor: [30, 30, 30], textColor: [200, 200, 200], fontStyle: 'bold', fontSize: 7 },
+      footStyles:       { fillColor: [20, 20, 20], textColor: [180, 180, 180], fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [248, 248, 248] },
+      columnStyles: {
+        0: { cellWidth: 36 },
+        1: { halign: 'right' as const },
+        2: { halign: 'right' as const },
+        3: { halign: 'right' as const, fontStyle: 'bold' as const },
+        4: { halign: 'right' as const },
+        5: { halign: 'right' as const },
+        6: { halign: 'right' as const },
+        7: { halign: 'right' as const, fontStyle: 'bold' as const },
+      },
+    })
+
+    // ── Cuadro resumen ──
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let y = (doc as any).lastAutoTable.finalY + 6
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(8)
+    doc.setTextColor(80, 80, 80)
+    const resumen = [
+      ['Total ha',      `${Sup_ha.toFixed(4)} ha`],
+      ['Vol. arbóreo',  `${fmt(VolArb)} m³`],
+      ['Días trabajo',  `${diasTrab.toFixed(1)} días`],
+      ['CR adoptado',   CR.toFixed(4)],
+      ['Costo total',   fmtM(CostoTotal)],
+    ]
+    const bw = CW / resumen.length
+    resumen.forEach(([lbl, val], i) => {
+      const x = M + i * bw
+      doc.setFillColor(14, 14, 14)
+      doc.rect(x, y, bw - 2, 14, 'F')
+      doc.setTextColor(100, 100, 100)
+      doc.setFontSize(6.5)
+      doc.text(String(lbl).toUpperCase(), x + 2, y + 5)
+      doc.setTextColor(220, 220, 220)
+      doc.setFontSize(9)
+      doc.setFont('helvetica', 'bold')
+      doc.text(String(val), x + 2, y + 11)
+      doc.setFont('helvetica', 'normal')
+    })
+    y += 20
+
+    // ── Línea separadora ──
+    doc.setDrawColor(200, 200, 200)
+    doc.line(M, y, W - M, y)
+    y += 6
+
+    // ── II. Presupuesto Ae-10 ──
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(10)
+    doc.setTextColor(30, 30, 30)
+    doc.text('II.  Presupuesto — Ae-10', M, y)
+    y += 4
+
+    autoTable(doc, {
+      startY: y,
+      margin: { left: M, right: M },
+      head: [['N°', 'Designación', 'UN', 'Cant.', '$/Ha', 'Total']],
+      body: presRows.map(r => [
+        String(r.num),
+        r.desc,
+        r.unit,
+        r.cant.toFixed(4),
+        `$${fmt(r.precioUnit)}`,
+        `$${fmt(Math.round(r.cant * r.precioUnit))}`,
+      ]),
+      foot: [['', 'TOTAL OBRA', '', '', '', `$${fmt(Math.round(presTotal))}`]],
+      styles:           { fontSize: 7.5, fontFamily: 'monospace', cellPadding: { top: 2, bottom: 2, left: 3, right: 3 } },
+      headStyles:       { fillColor: [30, 30, 30], textColor: [200, 200, 200], fontStyle: 'bold', fontSize: 7 },
+      footStyles:       { fillColor: [20, 20, 20], textColor: [200, 200, 200], fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [248, 248, 248] },
+      columnStyles: {
+        0: { cellWidth: 10, halign: 'center' as const },
+        1: { cellWidth: 88 },
+        2: { cellWidth: 14, halign: 'center' as const },
+        3: { halign: 'right' as const },
+        4: { halign: 'right' as const },
+        5: { halign: 'right' as const, fontStyle: 'bold' as const },
+      },
+    })
+
+    // ── Financiamiento ──
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    y = (doc as any).lastAutoTable.finalY + 5
+    doc.setFontSize(7.5)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(100, 100, 100)
+    doc.text(`Financiamiento: Org. financiador ${dvpPct}% — $${fmt(Math.round(aporteDVP))}     Consorcio ${(100-dvpPct).toFixed(0)}% — $${fmt(Math.round(aporteCC))}`, M, y)
+    y += 8
+
+    // ── III. Plano de obra (sketch de polígonos) ──
+    const allPtsFlat = [...entriesIzq, ...entriesDer].flatMap(e => e.pts ?? [])
+    if (allPtsFlat.length >= 3) {
+      doc.setDrawColor(200, 200, 200)
+      doc.line(M, y, W - M, y)
+      y += 6
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(10)
+      doc.setTextColor(30, 30, 30)
+      doc.text('III.  Plano esquemático de la obra', M, y)
+      y += 4
+
+      // Build canvas sketch
+      const SW = 600, SH = 360
+      const canvas = document.createElement('canvas')
+      canvas.width = SW; canvas.height = SH
+      const ctx = canvas.getContext('2d')!
+
+      const lats = allPtsFlat.map(p => p[0]), lngs = allPtsFlat.map(p => p[1])
+      const minLat = Math.min(...lats), maxLat = Math.max(...lats)
+      const minLng = Math.min(...lngs), maxLng = Math.max(...lngs)
+      const padF = 0.15
+      const dLat = (maxLat - minLat) || 0.001, dLng = (maxLng - minLng) || 0.001
+      const padLat = dLat * padF, padLng = dLng * padF
+      const toX = (lng: number) => ((lng - minLng + padLng) / (dLng + 2 * padLng)) * SW
+      const toY = (lat: number) => SH - ((lat - minLat + padLat) / (dLat + 2 * padLat)) * SH
+
+      // Background
+      ctx.fillStyle = '#f5f5f5'
+      ctx.fillRect(0, 0, SW, SH)
+
+      // Grid
+      ctx.strokeStyle = '#e0e0e0'; ctx.lineWidth = 0.5
+      for (let i = 0; i <= 8; i++) {
+        const x = i * SW / 8; ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, SH); ctx.stroke()
+      }
+      for (let i = 0; i <= 5; i++) {
+        const yy = i * SH / 5; ctx.beginPath(); ctx.moveTo(0, yy); ctx.lineTo(SW, yy); ctx.stroke()
+      }
+
+      // Draw polygons
+      const izqIds = new Set(entriesIzq.map(e => e.id))
+      ;[...entriesIzq, ...entriesDer].forEach(e => {
+        if (!e.pts?.length) return
+        const isIzq = izqIds.has(e.id)
+        const fillCol   = isIzq ? 'rgba(76,175,80,0.35)'  : 'rgba(33,150,243,0.35)'
+        const strokeCol = isIzq ? '#2e7d32' : '#1565c0'
+
+        ctx.beginPath()
+        e.pts.forEach(([lat, lng], i) => {
+          const px = toX(lng), py = toY(lat)
+          i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py)
+        })
+        ctx.closePath()
+        ctx.fillStyle = fillCol; ctx.fill()
+        ctx.strokeStyle = strokeCol; ctx.lineWidth = 1.5; ctx.stroke()
+
+        // Area label at centroid
+        const cLat = e.pts.reduce((s, p) => s + p[0], 0) / e.pts.length
+        const cLng = e.pts.reduce((s, p) => s + p[1], 0) / e.pts.length
+        ctx.fillStyle = strokeCol
+        ctx.font = 'bold 12px monospace'
+        ctx.textAlign = 'center'
+        ctx.fillText(`${e.ha.toFixed(2)} ha`, toX(cLng), toY(cLat))
+        ctx.font = '10px monospace'
+        ctx.fillStyle = '#555'
+        ctx.fillText(`(${isIzq ? 'Izq' : 'Der'} · ${MONTE[e.monte].label})`, toX(cLng), toY(cLat) + 14)
+      })
+
+      // Legend
+      const leg = [
+        { col: '#4caf50', label: 'Lado izquierdo' },
+        { col: '#2196f3', label: 'Lado derecho'   },
+      ]
+      ctx.font = '11px monospace'
+      leg.forEach(({ col, label }, i) => {
+        ctx.fillStyle = col
+        ctx.fillRect(8, SH - 28 + i * 14, 12, 10)
+        ctx.fillStyle = '#333'
+        ctx.textAlign = 'left'
+        ctx.fillText(label, 24, SH - 20 + i * 14)
+      })
+
+      // North arrow (simple)
+      ctx.strokeStyle = '#333'; ctx.lineWidth = 1.5
+      ctx.beginPath(); ctx.moveTo(SW - 18, SH - 40); ctx.lineTo(SW - 18, SH - 20); ctx.stroke()
+      ctx.beginPath(); ctx.moveTo(SW - 22, SH - 36); ctx.lineTo(SW - 18, SH - 44); ctx.lineTo(SW - 14, SH - 36); ctx.stroke()
+      ctx.fillStyle = '#333'; ctx.font = 'bold 10px monospace'; ctx.textAlign = 'center'
+      ctx.fillText('N', SW - 18, SH - 10)
+
+      const imgData = canvas.toDataURL('image/png')
+      const imgH    = (CW * SH) / SW
+      if (y + imgH + 5 > 280) { doc.addPage(); y = 15 }
+      doc.addImage(imgData, 'PNG', M, y, CW, imgH)
+    }
+
+    doc.save(`informe-desbosque-${new Date().toISOString().slice(0, 10)}.pdf`)
+  }
+
   const W_SVG = 420, H_SVG = 185
   const cx = W_SVG / 2, roadW_px = 80, roadY = 30, roadH = 120
   const totalClearW_px = 240
@@ -840,6 +1084,19 @@ function CalcDesbosque({ paramsRef }: { paramsRef?: React.MutableRefObject<Param
         <span style={{ fontSize: 9, color: '#555', fontFamily: 'monospace', paddingRight: 4 }}>
           Eq: <span style={{ color: '#777' }}>${fmt(Math.round(cEquipos))}</span>/d · MO: <span style={{ color: '#777' }}>${fmt(Math.round(cMO))}</span>/d · Total: <span style={{ color: color }}>${fmt(Math.round(costoDiario))}</span>/d
         </span>
+        <button
+          onClick={() => void generatePdf()}
+          disabled={Sup_ha === 0}
+          title={Sup_ha === 0 ? 'Dibujá al menos un polígono para generar el informe' : 'Generar informe PDF'}
+          style={{
+            padding: '4px 12px', fontSize: 10, fontFamily: 'monospace', cursor: Sup_ha > 0 ? 'pointer' : 'not-allowed',
+            border: `1px solid ${Sup_ha > 0 ? color + '88' : '#222'}`,
+            background: Sup_ha > 0 ? `${color}18` : '#0a0a0a',
+            color: Sup_ha > 0 ? color : '#333', borderRadius: 3, letterSpacing: 0.5,
+            marginLeft: 6, opacity: Sup_ha > 0 ? 1 : 0.5,
+          }}>
+          ↓ Informe PDF
+        </button>
       </div>
 
       {/* Jornales ── siempre montado, oculto con display:none para preservar estado del mapa */}
@@ -1236,8 +1493,8 @@ function CalcDesbosque({ paramsRef }: { paramsRef?: React.MutableRefObject<Param
             {/* Mapa Leaflet */}
             <InlineMapDraw
               color={color}
-              onConfirm={(id, side, monteKey, area_ha) => {
-                const ne: MonteEntry = { id, ha: area_ha, monte: monteKey, fromMap: true }
+              onConfirm={(id, side, monteKey, area_ha, pts) => {
+                const ne: MonteEntry = { id, ha: area_ha, monte: monteKey, fromMap: true, pts }
                 if (side === 'izq') setEntriesIzq(prev => [...prev, ne])
                 else               setEntriesDer(prev => [...prev, ne])
               }}
@@ -1245,9 +1502,9 @@ function CalcDesbosque({ paramsRef }: { paramsRef?: React.MutableRefObject<Param
                 setEntriesIzq(prev => prev.filter(e => e.id !== id))
                 setEntriesDer(prev => prev.filter(e => e.id !== id))
               }}
-              onUpdate={(id, area_ha) => {
-                setEntriesIzq(prev => prev.map(e => e.id === id ? { ...e, ha: area_ha } : e))
-                setEntriesDer(prev => prev.map(e => e.id === id ? { ...e, ha: area_ha } : e))
+              onUpdate={(id, area_ha, pts) => {
+                setEntriesIzq(prev => prev.map(e => e.id === id ? { ...e, ha: area_ha, pts } : e))
+                setEntriesDer(prev => prev.map(e => e.id === id ? { ...e, ha: area_ha, pts } : e))
               }}
             />
             {/* Tabla desglose por tipo */}
