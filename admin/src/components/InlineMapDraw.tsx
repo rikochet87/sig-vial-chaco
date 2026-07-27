@@ -35,7 +35,27 @@ function polygonAreaHa(pts: LatLng[]): number {
 }
 
 // ── Layer control ─────────────────────────────────────────────────────────────
-type LayerKey = 'rp' | 'cc' | 'zonas' | 'sedes'
+const LAYER_KEYS = ['zonas','sedes','rpPavimentada','rpMejorada','rpEnObra','rpTierra','ccZI','ccZII','ccZIII','ccZIV','ccZV'] as const
+type LayerKey = typeof LAYER_KEYS[number]
+
+const LAYER_LABELS: Record<LayerKey, string> = {
+  zonas: 'Zonas', sedes: 'Sedes CC',
+  rpPavimentada: 'RP Pavim.', rpMejorada: 'RP Mejor.', rpEnObra: 'RP En Obra', rpTierra: 'RP Tierra',
+  ccZI: 'Z I', ccZII: 'Z II', ccZIII: 'Z III', ccZIV: 'Z IV', ccZV: 'Z V',
+}
+const LAYER_COLORS: Record<LayerKey, string> = {
+  zonas: '#6baed6', sedes: '#F5C300',
+  rpPavimentada: '#e74c3c', rpMejorada: '#e67e22', rpEnObra: '#f1c40f', rpTierra: '#95a5a6',
+  ccZI: '#1565C0', ccZII: '#BF360C', ccZIII: '#E65100', ccZIV: '#6A1B9A', ccZV: '#00695C',
+}
+const LAYER_DEFAULTS: Record<LayerKey, boolean> = {
+  zonas: false, sedes: false,
+  rpPavimentada: false, rpMejorada: false, rpEnObra: false, rpTierra: false,
+  ccZI: false, ccZII: false, ccZIII: false, ccZIV: false, ccZV: false,
+}
+const ZONE_CLR: Record<string, string> = {
+  ZI: '#e74c3c', ZII: '#e67e22', ZIII: '#2ecc71', ZIV: '#3498db', ZV: '#9b59b6',
+}
 
 // ── Tipos internos ────────────────────────────────────────────────────────────
 interface ConfirmedPoly {
@@ -90,19 +110,14 @@ export default function InlineMapDraw({ color, onConfirm, onDelete, onUpdate, on
     markers: any[]; livePoly: any; origId: string; origPts: LatLng[]
   } | null>(null)
 
-  // ── Layer control refs ────────────────────────────────────────────────────
-  const [layerVis,     setLayerVis]     = useState<Record<LayerKey, boolean>>({ rp: false, cc: false, zonas: false, sedes: false })
-  const [layerLoading, setLayerLoading] = useState<Record<LayerKey, boolean>>({ rp: false, cc: false, zonas: false, sedes: false })
+  // ── Layer control ────────────────────────────────────────────────────────
+  const [layerVis,       setLayerVis]       = useState<Record<LayerKey, boolean>>(LAYER_DEFAULTS)
+  const [layerLoading,   setLayerLoading]   = useState<Record<LayerKey, boolean>>(LAYER_DEFAULTS)
+  const [layerPanelOpen, setLayerPanelOpen] = useState(false)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const rpLayerRef    = useRef<any>(null)
+  const layerRefsMap = useRef<Map<LayerKey, any>>(new Map())
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const ccLayerRef    = useRef<any>(null)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const zonasLayerRef = useRef<any>(null)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const sedesLayerRef = useRef<any>(null)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const geoCacheRef   = useRef<Record<string, any>>({})
+  const geoCacheRef  = useRef<Record<string, any>>({})
 
   // ── Inyectar CSS dark para popups / tooltips Leaflet ─────────────────────
   useEffect(() => {
@@ -489,103 +504,109 @@ export default function InlineMapDraw({ color, onConfirm, onDelete, onUpdate, on
     const map = mapRef.current; const Lf = LfRef.current
     if (!map || !Lf) return
 
-    const refMap: Record<LayerKey, React.MutableRefObject<unknown>> = {
-      rp: rpLayerRef, cc: ccLayerRef, zonas: zonasLayerRef, sedes: sedesLayerRef,
-    }
-    const layerRef = refMap[key]
-
-    if (layerRef.current) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      map.removeLayer(layerRef.current as any)
-      layerRef.current = null
+    // Si ya existe → remover
+    if (layerRefsMap.current.has(key)) {
+      map.removeLayer(layerRefsMap.current.get(key))
+      layerRefsMap.current.delete(key)
       setLayerVis(prev => ({ ...prev, [key]: false }))
       return
     }
 
     setLayerLoading(prev => ({ ...prev, [key]: true }))
     try {
-      if (key === 'rp') {
-        if (!geoCacheRef.current.rp) {
-          const res = await fetch('/geo/geo_rp.json')
-          geoCacheRef.current.rp = await res.json()
-        }
-        const data = geoCacheRef.current.rp
-        const RP_CLR: Record<string, string> = {
-          rpPavimentada: '#1565c0', rpMejorada: '#f9a825', rpEnObra: '#e53935', rpTierra: '#9e9e9e',
-        }
-        const group = Lf.layerGroup()
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        Object.entries(data).forEach(([k, v]: [string, any]) => {
-          Lf.geoJSON(v, {
-            style: { color: RP_CLR[k] ?? '#888', weight: k === 'rpPavimentada' ? 2.5 : 1.5, opacity: 0.8, fillOpacity: 0 },
-          }).addTo(group)
-        })
-        group.addTo(map)
-        rpLayerRef.current = group
+      let group = Lf.layerGroup()
 
-      } else if (key === 'cc') {
-        if (!geoCacheRef.current.cc) {
-          const res = await fetch('/geo/geo_cc.json')
-          geoCacheRef.current.cc = await res.json()
-        }
-        const data = geoCacheRef.current.cc
-        const group = Lf.layerGroup()
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        Object.values(data).forEach((v: any) => {
-          if (v && v.type === 'FeatureCollection') {
-            Lf.geoJSON(v, { style: { color: '#F5C300', weight: 1, opacity: 0.55, fillOpacity: 0 } }).addTo(group)
-          }
-        })
-        group.addTo(map)
-        ccLayerRef.current = group
-
-      } else if (key === 'zonas') {
+      // ── Base: zonas ──────────────────────────────────────────────────────
+      if (key === 'zonas') {
         if (!geoCacheRef.current.bundle) {
-          const res = await fetch('/geo/geo_bundle.json')
-          geoCacheRef.current.bundle = await res.json()
+          geoCacheRef.current.bundle = await fetch('/geo/geo_bundle.json').then(r => r.json())
         }
-        const bundle = geoCacheRef.current.bundle
-        const ZONA_CLR: Record<string, string> = {
-          ZI: '#e74c3c', ZII: '#e67e22', ZIII: '#2ecc71', ZIV: '#3498db', ZV: '#9b59b6',
-        }
-        const group = Lf.layerGroup()
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        Object.entries(bundle.limites_zonas as Record<string, any>).forEach(([z, gj]) => {
-          const c = ZONA_CLR[z] ?? '#888'
+        Object.entries(geoCacheRef.current.bundle.limites_zonas as Record<string, any>).forEach(([z, gj]) => {
+          const c = ZONE_CLR[z] ?? '#888'
           Lf.geoJSON(gj, {
-            style: { color: c, weight: 2, opacity: 0.7, fillOpacity: 0.04 },
+            style: { color: c, weight: 2, opacity: 0.7, fillOpacity: 0.04, fillColor: c },
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             onEachFeature: (_: any, layer: any) => {
               layer.bindTooltip(
-                `<span style="font-family:monospace;font-size:9px;color:${c}">${z}</span>`,
+                `<span style="font-family:monospace;font-size:9px;color:${c}">Zona ${z}</span>`,
                 { permanent: true, direction: 'center', className: 'desb-label' }
               )
             },
           }).addTo(group)
         })
-        group.addTo(map)
-        zonasLayerRef.current = group
 
+      // ── Base: sedes ──────────────────────────────────────────────────────
       } else if (key === 'sedes') {
         if (!geoCacheRef.current.bundle) {
-          const res = await fetch('/geo/geo_bundle.json')
-          geoCacheRef.current.bundle = await res.json()
+          geoCacheRef.current.bundle = await fetch('/geo/geo_bundle.json').then(r => r.json())
         }
-        const bundle = geoCacheRef.current.bundle
-        const group = Lf.layerGroup()
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ;(bundle.sedes as any[]).forEach((s: any) => {
-          Lf.circleMarker([s.lat, s.lng] as [number, number], {
-            radius: 4, color: '#F5C300', fillColor: '#F5C300', fillOpacity: 0.8, weight: 1,
-          }).bindTooltip(
-            `<span style="font-family:monospace;font-size:9px;color:#F5C300">CC Nº${s.numero}</span>`,
-            { direction: 'top', className: 'desb-label' }
-          ).addTo(group)
+        ;(geoCacheRef.current.bundle.sedes as any[]).forEach((s: any) => {
+          const c = s.color || '#F5C300'
+          const icon = Lf.divIcon({
+            className: '',
+            html: `<div style="width:16px;height:16px;border-radius:50%;background:${c};border:2px solid #111;display:flex;align-items:center;justify-content:center;font-size:6px;font-weight:800;color:#111;box-shadow:0 2px 5px rgba(0,0,0,.7)">${s.numero}</div>`,
+            iconSize: [16, 16], iconAnchor: [8, 8],
+          })
+          Lf.marker([s.lat, s.lng] as [number, number], { icon })
+            .bindTooltip(
+              `<b style="color:${c}">Sede ${s.numero}</b> · ${s.nombre}<br><span style="color:#aaa">${s.localidad} · ${s.zona}</span>`,
+              { direction: 'top', className: 'desb-label' }
+            ).addTo(group)
         })
-        group.addTo(map)
-        sedesLayerRef.current = group
+
+      // ── Rutas Provinciales ───────────────────────────────────────────────
+      } else if (key.startsWith('rp')) {
+        if (!geoCacheRef.current.rp) {
+          geoCacheRef.current.rp = await fetch('/geo/geo_rp.json').then(r => r.json())
+        }
+        const rpData = geoCacheRef.current.rp[key]
+        if (rpData) {
+          const c  = LAYER_COLORS[key]
+          const wt = key === 'rpPavimentada' ? 2.5 : key === 'rpMejorada' ? 2 : 1.5
+          Lf.geoJSON(rpData, {
+            style: { color: c, weight: wt, opacity: 0.85, fillOpacity: 0 },
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            onEachFeature(feature: any, layer: any) {
+              const p = feature.properties ?? {}
+              const num  = p.Nombre || p.nombre || p.Numero || ''
+              const zona = p.Zona || p.zona || ''
+              layer.bindTooltip(
+                `<b style="color:${c}">RP${num ? ' N°' + num : ''}</b> · ${LAYER_LABELS[key]}${zona ? ' · Zona ' + zona : ''}`,
+                { sticky: true, direction: 'top' }
+              )
+            },
+          }).addTo(group)
+        }
+
+      // ── Red CC por zona ──────────────────────────────────────────────────
+      } else if (key.startsWith('cc')) {
+        if (!geoCacheRef.current.cc) {
+          geoCacheRef.current.cc = await fetch('/geo/geo_cc.json').then(r => r.json())
+        }
+        const zona   = key.slice(2) // 'ccZI' → 'ZI'
+        const ccData = geoCacheRef.current.cc[zona]
+        const c      = LAYER_COLORS[key]
+        if (ccData) {
+          Lf.geoJSON(ccData, {
+            style: { color: c, weight: 1.5, opacity: 0.85, fillOpacity: 0 },
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            onEachFeature(feature: any, layer: any) {
+              const p = feature.properties ?? {}
+              const ccNum = p.CC || p.cc || ''
+              const nm    = p.Nm || p.nm || p.Nombre || ''
+              layer.bindTooltip(
+                `<b style="color:${c}">CC ${ccNum}</b> · Zona ${zona}${nm ? '<br>' + nm : ''}`,
+                { sticky: true, direction: 'top' }
+              )
+            },
+          }).addTo(group)
+        }
       }
 
+      group.addTo(map)
+      layerRefsMap.current.set(key, group)
       setLayerVis(prev => ({ ...prev, [key]: true }))
     } catch (err) {
       console.error('Error cargando capa', key, err)
@@ -791,7 +812,7 @@ export default function InlineMapDraw({ color, onConfirm, onDelete, onUpdate, on
         {/* Hint para polígonos existentes */}
         {!drawing && !polyResult && !editingId && hasPolygons && mapReady && (
           <div style={{
-            position: 'absolute', bottom: 12, right: 120, zIndex: 998,
+            position: 'absolute', bottom: 12, right: 12, zIndex: 998,
             background: '#0a0a0acc', border: `1px solid #1e1e1e`,
             borderRadius: 3, padding: '5px 10px', ...mono, fontSize: 9, color: '#444',
             pointerEvents: 'none',
@@ -802,39 +823,73 @@ export default function InlineMapDraw({ color, onConfirm, onDelete, onUpdate, on
 
         {/* Layer control panel */}
         {mapReady && (
-          <div style={{
-            position: 'absolute', top: 10, right: 10, zIndex: 999,
-            background: '#0d0d0dee', border: '1px solid #252525',
-            borderRadius: 4, padding: '6px 10px', ...mono,
-          }}>
-            <div style={{ fontSize: 8, color: '#444', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 5 }}>
-              Capas
-            </div>
-            {([
-              { key: 'rp'    as LayerKey, label: 'Rutas RP',  dot: '#1976d2' },
-              { key: 'cc'    as LayerKey, label: 'Red CC',    dot: '#F5C300' },
-              { key: 'zonas' as LayerKey, label: 'Zonas',     dot: '#9b59b6' },
-              { key: 'sedes' as LayerKey, label: 'Sedes CC',  dot: '#F5C300' },
-            ] as const).map(({ key, label, dot }) => (
-              <button key={key}
-                onClick={() => void toggleLayer(key)}
-                disabled={layerLoading[key]}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer',
-                  background: 'transparent', border: 'none', padding: '2px 0',
-                  width: '100%', textAlign: 'left',
-                  opacity: layerLoading[key] ? 0.4 : 1,
-                }}>
-                <span style={{
-                  width: 9, height: 9, borderRadius: 2, flexShrink: 0, display: 'inline-block',
-                  background: layerVis[key] ? dot : 'transparent',
-                  border: `1px solid ${layerVis[key] ? dot : '#333'}`,
-                }} />
-                <span style={{ fontSize: 9, color: layerVis[key] ? '#ccc' : '#444', ...mono }}>
-                  {layerLoading[key] ? '…' : label}
-                </span>
-              </button>
-            ))}
+          <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 999, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
+            <button
+              onClick={() => setLayerPanelOpen(v => !v)}
+              style={{
+                background: `rgba(10,10,10,0.88)`, border: `1px solid ${layerPanelOpen ? '#F5C300' : '#252525'}`,
+                color: layerPanelOpen ? '#F5C300' : '#666', ...mono, fontSize: 9,
+                padding: '4px 9px', cursor: 'pointer', letterSpacing: 0.8, textTransform: 'uppercase',
+              }}
+            >
+              ⊞ Capas {Object.values(layerVis).filter(Boolean).length > 0 ? `(${Object.values(layerVis).filter(Boolean).length})` : ''}
+            </button>
+            {layerPanelOpen && (
+              <div style={{
+                background: 'rgba(10,10,10,0.94)', border: '1px solid #1e1e1e',
+                padding: '8px 10px', minWidth: 148, maxHeight: 320, overflowY: 'auto',
+              }}>
+                {/* Base */}
+                <div style={{ fontSize: 8, color: '#444', letterSpacing: 1.2, ...mono, textTransform: 'uppercase', marginBottom: 5 }}>Base</div>
+                {(['zonas','sedes'] as LayerKey[]).map(k => (
+                  <label key={k} style={{
+                    display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer',
+                    marginBottom: 5, fontSize: 10, ...mono,
+                    color: layerVis[k] ? LAYER_COLORS[k] : '#444',
+                    opacity: layerLoading[k] ? 0.5 : 1,
+                  }}>
+                    <input type="checkbox" checked={layerVis[k]} disabled={layerLoading[k]}
+                      onChange={() => void toggleLayer(k)}
+                      style={{ accentColor: LAYER_COLORS[k], width: 11, height: 11, flexShrink: 0, cursor: 'pointer' }} />
+                    {layerLoading[k] ? '…' : LAYER_LABELS[k]}
+                  </label>
+                ))}
+
+                {/* Rutas Prov. */}
+                <div style={{ fontSize: 8, color: '#444', letterSpacing: 1.2, ...mono, textTransform: 'uppercase', marginTop: 8, marginBottom: 5, borderTop: '1px solid #1a1a1a', paddingTop: 6 }}>Rutas Prov.</div>
+                {(['rpPavimentada','rpMejorada','rpEnObra','rpTierra'] as LayerKey[]).map(k => (
+                  <label key={k} style={{
+                    display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer',
+                    marginBottom: 5, fontSize: 10, ...mono,
+                    color: layerVis[k] ? LAYER_COLORS[k] : '#444',
+                    opacity: layerLoading[k] ? 0.5 : 1,
+                  }}>
+                    <input type="checkbox" checked={layerVis[k]} disabled={layerLoading[k]}
+                      onChange={() => void toggleLayer(k)}
+                      style={{ accentColor: LAYER_COLORS[k], width: 11, height: 11, flexShrink: 0, cursor: 'pointer' }} />
+                    <span style={{ display: 'inline-block', width: 14, height: 2, background: LAYER_COLORS[k], flexShrink: 0 }} />
+                    {layerLoading[k] ? '…' : LAYER_LABELS[k]}
+                  </label>
+                ))}
+
+                {/* Red CC */}
+                <div style={{ fontSize: 8, color: '#444', letterSpacing: 1.2, ...mono, textTransform: 'uppercase', marginTop: 8, marginBottom: 5, borderTop: '1px solid #1a1a1a', paddingTop: 6 }}>Red CC</div>
+                {(['ccZI','ccZII','ccZIII','ccZIV','ccZV'] as LayerKey[]).map(k => (
+                  <label key={k} style={{
+                    display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer',
+                    marginBottom: 5, fontSize: 10, ...mono,
+                    color: layerVis[k] ? LAYER_COLORS[k] : '#444',
+                    opacity: layerLoading[k] ? 0.5 : 1,
+                  }}>
+                    <input type="checkbox" checked={layerVis[k]} disabled={layerLoading[k]}
+                      onChange={() => void toggleLayer(k)}
+                      style={{ accentColor: LAYER_COLORS[k], width: 11, height: 11, flexShrink: 0, cursor: 'pointer' }} />
+                    <span style={{ display: 'inline-block', width: 14, height: 2, background: LAYER_COLORS[k], flexShrink: 0 }} />
+                    {layerLoading[k] ? '…' : LAYER_LABELS[k]}
+                  </label>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
