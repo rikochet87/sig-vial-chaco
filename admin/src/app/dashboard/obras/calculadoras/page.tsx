@@ -5,19 +5,19 @@ import { setObraTransfer, saveReturnTab, consumeReturnTab } from '@/lib/obraTran
 import InlineMapDraw from '@/components/InlineMapDraw'
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
-type Tab    = 'terraplen' | 'excavacion' | 'ripio' | 'canal' | 'desmalezado' | 'desbosque'
+type Tab    = 'terraplen' | 'excavacion' | 'ripio' | 'canal' | 'limpieza'
 type Params = Record<string, number | string>
 
 // ── Colores por tipo ──────────────────────────────────────────────────────────
 const CLR: Record<Tab, string> = {
   terraplen: '#8D6E63', excavacion: '#FF7043', ripio: '#90A4AE', canal: '#29B6F6',
-  desmalezado: '#66BB6A', desbosque: '#795548',
+  limpieza: '#66BB6A',
 }
 
 // Unidades de precio por tipo (para mostrar en el input)
 const UNIDADES: Record<Tab, string> = {
   terraplen: '$/t', excavacion: '$/t', ripio: '$/t', canal: '$/t',
-  desmalezado: '$/ha', desbosque: '$/ha',
+  limpieza: '$/ha',
 }
 
 // ── Estilos base ──────────────────────────────────────────────────────────────
@@ -498,106 +498,260 @@ function CalcCanal({ paramsRef }: { paramsRef?: React.MutableRefObject<Params> }
 }
 
 // ── DESMALEZADO DE BANQUINAS ──────────────────────────────────────────────────
+const CLR_DESM = '#66BB6A'
+interface DesmEntry { id: string; ha: number; side: 'izq' | 'der'; pts?: [number,number][] }
+
 function CalcDesmalezado({ paramsRef }: { paramsRef?: React.MutableRefObject<Params> }) {
-  const [L, setL]         = useState(1000)
-  const [Ab, setAb]       = useState(3.0)
+  const [method, setMethod] = useState<'formula' | 'mapa'>('formula')
+  const [view,   setView]   = useState<'computo' | 'jornales' | 'presupuesto'>('computo')
+
+  // Fórmula
+  const [L,     setL]     = useState(1000)
+  const [Ab,    setAb]    = useState(3.0)
   const [lados, setLados] = useState(2)
+
+  // Mapa/drone
+  const [mapEntries, setMapEntries] = useState<DesmEntry[]>([])
+
+  const color   = CLR_DESM
+  const Sup_m2  = L * Ab * lados
+  const formulaHa = Sup_m2 / 10000
+  const mapaHa    = mapEntries.reduce((s, e) => s + e.ha, 0)
+  const Sup_ha    = method === 'formula' ? formulaHa : mapaHa
+  const fmt     = (n: number) => Math.round(n).toLocaleString('es-AR')
 
   useEffect(() => {
     if (paramsRef) paramsRef.current = { Ab, lados }
   }, [paramsRef, Ab, lados])
-
-  const Sup_m2 = L * Ab * lados
-  const Sup_ha = Sup_m2 / 10000
-  const fmt    = (n: number) => Math.round(n).toLocaleString('es-AR')
-  const color  = CLR.desmalezado
 
   const W_SVG = 420, H_SVG = 180
   const cx = W_SVG / 2
   const roadW_px = 130, bankW_px = 66
   const roadY = 28, roadH = 122
 
+  const subTabs = [
+    { id: 'computo'     as const, label: 'Cómputo' },
+    { id: 'jornales'    as const, label: 'Jornales y Coef. ↻' },
+    { id: 'presupuesto' as const, label: 'Presupuesto ↻' },
+  ]
+
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr 148px', gap: 10, height: '100%' }}>
-      <div style={panel}>
-        <SectionTitle>Geometría</SectionTitle>
-        <Inp label="Longitud"       unit="m" value={L}   onChange={setL}   step={100} />
-        <Inp label="Ancho banquina" unit="m" value={Ab}  onChange={setAb}  step={0.5} min={0.5} />
-        <div>
-          <span style={lbl}>Cantidad de lados</span>
-          <div style={{ display: 'flex', gap: 6 }}>
-            {[1, 2].map(l => (
-              <button key={l} onClick={() => setLados(l)}
-                style={{ flex: 1, padding: '6px 4px', fontSize: 13, fontFamily: 'monospace',
-                  cursor: 'pointer', borderRadius: 3,
-                  border: `1px solid ${lados === l ? color : '#222'}`,
-                  background: lados === l ? `${color}22` : '#080808',
-                  color: lados === l ? color : '#555' }}>
-                {l} lado{l > 1 ? 's' : ''}
-              </button>
-            ))}
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+
+      {/* Sub-tab bar + method toggle */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexShrink: 0, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 2 }}>
+          {subTabs.map(st => (
+            <button key={st.id} onClick={() => setView(st.id)}
+              style={{
+                padding: '4px 12px', fontSize: 10, fontFamily: 'monospace', cursor: 'pointer',
+                border: `1px solid ${view === st.id ? color + '88' : '#1e1e1e'}`,
+                background: view === st.id ? `${color}18` : '#0a0a0a',
+                color: view === st.id ? color : '#555', borderRadius: 2,
+              }}>
+              {st.label}
+            </button>
+          ))}
+        </div>
+
+        {view === 'computo' && (
+          <>
+            <div style={{ width: 1, height: 16, background: '#222' }} />
+            <div style={{ display: 'flex', gap: 2 }}>
+              {([
+                { id: 'formula' as const, label: '∑ Fórmula lineal' },
+                { id: 'mapa'    as const, label: '◈ Polígono / Drone' },
+              ]).map(m => (
+                <button key={m.id} onClick={() => setMethod(m.id)}
+                  style={{
+                    padding: '4px 10px', fontSize: 9, fontFamily: 'monospace', cursor: 'pointer',
+                    border: `1px solid ${method === m.id ? color + '66' : '#1a1a1a'}`,
+                    background: method === m.id ? `${color}15` : '#080808',
+                    color: method === m.id ? color : '#444', borderRadius: 2,
+                  }}>
+                  {m.label}
+                </button>
+              ))}
+            </div>
+            <div style={{ flex: 1 }} />
+            <div style={{ fontFamily: 'monospace', fontSize: 11 }}>
+              <span style={{ color: '#555' }}>Sup. total</span>
+              <span style={{ color, fontWeight: 700, marginLeft: 8, fontSize: 13 }}>{Sup_ha.toFixed(4)} ha</span>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Content */}
+      <div style={{ flex: 1, minHeight: 0 }}>
+
+        {/* ── Cómputo — Fórmula ── */}
+        {view === 'computo' && method === 'formula' && (
+          <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr 148px', gap: 10, height: '100%' }}>
+            <div style={panel}>
+              <SectionTitle>Geometría</SectionTitle>
+              <Inp label="Longitud"       unit="m" value={L}   onChange={setL}   step={100} />
+              <Inp label="Ancho banquina" unit="m" value={Ab}  onChange={setAb}  step={0.5} min={0.5} />
+              <div>
+                <span style={lbl}>Cantidad de lados</span>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  {[1, 2].map(l => (
+                    <button key={l} onClick={() => setLados(l)}
+                      style={{ flex: 1, padding: '6px 4px', fontSize: 13, fontFamily: 'monospace',
+                        cursor: 'pointer', borderRadius: 3,
+                        border: `1px solid ${lados === l ? color : '#222'}`,
+                        background: lados === l ? `${color}22` : '#080808',
+                        color: lados === l ? color : '#555' }}>
+                      {l} lado{l > 1 ? 's' : ''}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div style={{ marginTop: 12, padding: '8px', background: '#0a0a0a', borderRadius: 4,
+                fontSize: 9, color: '#555', fontFamily: 'monospace', lineHeight: 1.6 }}>
+                Área total: {fmt(Sup_m2)} m²<br/>= {Sup_ha.toFixed(4)} ha
+              </div>
+            </div>
+
+            <div style={{ ...panel, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
+              <SectionTitle>Vista en planta — Desmalezado de banquinas</SectionTitle>
+              <svg viewBox={`0 0 ${W_SVG} ${H_SVG}`} style={{ width: '100%', height: 'auto' }}>
+                <rect x={0} y={0} width={W_SVG} height={H_SVG} fill="#0a0a0a" />
+                <rect x={cx - roadW_px/2 - bankW_px} y={roadY} width={bankW_px} height={roadH}
+                  fill={lados === 2 ? `${color}30` : '#0d0d0d'}
+                  stroke={lados === 2 ? color : '#1a1a1a'} strokeWidth={lados === 2 ? 1.5 : 0.8}
+                  strokeDasharray={lados === 2 ? '' : '4 4'} />
+                {lados === 2 && (
+                  <text x={cx - roadW_px/2 - bankW_px/2} y={roadY + roadH/2 + 4}
+                    textAnchor="middle" fontSize={9} fill={color} fontFamily="monospace">BANQ.</text>
+                )}
+                <rect x={cx - roadW_px/2} y={roadY} width={roadW_px} height={roadH}
+                  fill="#161616" stroke="#2a2a2a" strokeWidth={1} />
+                <line x1={cx} y1={roadY} x2={cx} y2={roadY + roadH}
+                  stroke="#222" strokeWidth={1} strokeDasharray="8 6" />
+                <text x={cx} y={roadY + roadH/2 + 4} textAnchor="middle"
+                  fontSize={9} fill="#333" fontFamily="monospace">CALZADA</text>
+                <rect x={cx + roadW_px/2} y={roadY} width={bankW_px} height={roadH}
+                  fill={`${color}30`} stroke={color} strokeWidth={1.5} />
+                <text x={cx + roadW_px/2 + bankW_px/2} y={roadY + roadH/2 + 4}
+                  textAnchor="middle" fontSize={9} fill={color} fontFamily="monospace">BANQ.</text>
+                {lados === 2 && Array.from({ length: 8 }, (_, i) => (
+                  <line key={i} x1={cx - roadW_px/2 - bankW_px + i*10} y1={roadY}
+                    x2={cx - roadW_px/2 - bankW_px + i*10 + roadH} y2={roadY + roadH}
+                    stroke={`${color}18`} strokeWidth={1.5} />
+                ))}
+                {Array.from({ length: 8 }, (_, i) => (
+                  <line key={i} x1={cx + roadW_px/2 + i*10} y1={roadY}
+                    x2={cx + roadW_px/2 + i*10 + roadH} y2={roadY + roadH}
+                    stroke={`${color}18`} strokeWidth={1.5} />
+                ))}
+                <DimLine x1={cx + roadW_px/2} y1={roadY - 14} x2={cx + roadW_px/2 + bankW_px} y2={roadY - 14}
+                  label={`Ab = ${Ab.toFixed(1)} m`} textX={cx + roadW_px/2 + bankW_px/2} textY={roadY - 18} />
+                <text x={cx} y={H_SVG - 8} textAnchor="middle" fontSize={10} fill={color} fontFamily="monospace">
+                  Sup = {fmt(Sup_m2)} m² = {Sup_ha.toFixed(2)} ha
+                </text>
+              </svg>
+              <Pipeline color={color} steps={[
+                { label: 'Superficie', formula: 'S = L · Ab · lados',
+                  sub: `${L}·${Ab}·${lados}`, result: `${fmt(Sup_m2)} m²` },
+                { label: 'Hectáreas', formula: 'ha = S / 10.000',
+                  sub: `${fmt(Sup_m2)}/10000`, result: `${Sup_ha.toFixed(4)} ha`, accent: true },
+              ]} />
+            </div>
+
+            <div style={panel}>
+              <SectionTitle>Cómputo</SectionTitle>
+              <Res label="Superficie total" value={fmt(Sup_m2)}       unit="m²" />
+              <Res label="Hectáreas"        value={Sup_ha.toFixed(4)} unit="ha" accent />
+              <div style={{ marginTop: 8, fontSize: 11, color: '#666', fontFamily: 'monospace', lineHeight: 1.8 }}>
+                {(Sup_ha / (L / 1000)).toFixed(2)} ha/km<br />
+                {lados} lado{lados > 1 ? 's' : ''} · {Ab} m c/u
+              </div>
+            </div>
           </div>
-        </div>
-        <div style={{ marginTop: 12, padding: '8px', background: '#0a0a0a', borderRadius: 4,
-          fontSize: 9, color: '#333', fontFamily: 'monospace', lineHeight: 1.6 }}>
-          Área total: {fmt(Sup_m2)} m²<br/>= {Sup_ha.toFixed(4)} ha
-        </div>
-      </div>
+        )}
 
-      <div style={{ ...panel, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
-        <SectionTitle>Vista en planta — Desmalezado de banquinas</SectionTitle>
-        <svg viewBox={`0 0 ${W_SVG} ${H_SVG}`} style={{ width: '100%', height: 'auto' }}>
-          <rect x={0} y={0} width={W_SVG} height={H_SVG} fill="#0a0a0a" />
-          <rect x={cx - roadW_px/2 - bankW_px} y={roadY} width={bankW_px} height={roadH}
-            fill={lados === 2 ? `${color}30` : '#0d0d0d'}
-            stroke={lados === 2 ? color : '#1a1a1a'} strokeWidth={lados === 2 ? 1.5 : 0.8}
-            strokeDasharray={lados === 2 ? '' : '4 4'} />
-          {lados === 2 && (
-            <text x={cx - roadW_px/2 - bankW_px/2} y={roadY + roadH/2 + 4}
-              textAnchor="middle" fontSize={9} fill={color} fontFamily="monospace">BANQ.</text>
-          )}
-          <rect x={cx - roadW_px/2} y={roadY} width={roadW_px} height={roadH}
-            fill="#161616" stroke="#2a2a2a" strokeWidth={1} />
-          <line x1={cx} y1={roadY} x2={cx} y2={roadY + roadH}
-            stroke="#222" strokeWidth={1} strokeDasharray="8 6" />
-          <text x={cx} y={roadY + roadH/2 + 4} textAnchor="middle"
-            fontSize={9} fill="#333" fontFamily="monospace">CALZADA</text>
-          <rect x={cx + roadW_px/2} y={roadY} width={bankW_px} height={roadH}
-            fill={`${color}30`} stroke={color} strokeWidth={1.5} />
-          <text x={cx + roadW_px/2 + bankW_px/2} y={roadY + roadH/2 + 4}
-            textAnchor="middle" fontSize={9} fill={color} fontFamily="monospace">BANQ.</text>
-          {lados === 2 && Array.from({ length: 8 }, (_, i) => (
-            <line key={i} x1={cx - roadW_px/2 - bankW_px + i*10} y1={roadY}
-              x2={cx - roadW_px/2 - bankW_px + i*10 + roadH} y2={roadY + roadH}
-              stroke={`${color}18`} strokeWidth={1.5} />
-          ))}
-          {Array.from({ length: 8 }, (_, i) => (
-            <line key={i} x1={cx + roadW_px/2 + i*10} y1={roadY}
-              x2={cx + roadW_px/2 + i*10 + roadH} y2={roadY + roadH}
-              stroke={`${color}18`} strokeWidth={1.5} />
-          ))}
-          <DimLine x1={cx + roadW_px/2} y1={roadY - 14} x2={cx + roadW_px/2 + bankW_px} y2={roadY - 14}
-            label={`Ab = ${Ab.toFixed(1)} m`} textX={cx + roadW_px/2 + bankW_px/2} textY={roadY - 18} />
-          <text x={cx} y={H_SVG - 8} textAnchor="middle" fontSize={10} fill={color} fontFamily="monospace">
-            Sup = {fmt(Sup_m2)} m² = {Sup_ha.toFixed(2)} ha
-          </text>
-        </svg>
-        <Pipeline color={color} steps={[
-          { label: 'Superficie', formula: 'S = L · Ab · lados',
-            sub: `${L}·${Ab}·${lados}`, result: `${fmt(Sup_m2)} m²` },
-          { label: 'Hectáreas',  formula: 'ha = S / 10.000',
-            sub: `${fmt(Sup_m2)}/10000`, result: `${Sup_ha.toFixed(4)} ha`, accent: true },
-        ]} />
-      </div>
+        {/* ── Cómputo — Mapa/Drone ── */}
+        {view === 'computo' && method === 'mapa' && (
+          <div style={{ display: 'flex', gap: 10, height: '100%', minHeight: 0 }}>
+            <div style={{ flex: 1, minHeight: 0 }}>
+              <InlineMapDraw
+                color={color}
+                onConfirm={(id, side, _monte, area_ha, pts) => {
+                  setMapEntries(prev => [...prev, { id, ha: area_ha, side, pts }])
+                }}
+                onDelete={id => setMapEntries(prev => prev.filter(e => e.id !== id))}
+                onUpdate={(id, area_ha, pts) => {
+                  setMapEntries(prev => prev.map(e => e.id === id ? { ...e, ha: area_ha, pts } : e))
+                }}
+              />
+            </div>
 
-      <div style={panel}>
-        <SectionTitle>Cómputo</SectionTitle>
-        <Res label="Superficie total" value={fmt(Sup_m2)}        unit="m²" />
-        <Res label="Hectáreas"        value={Sup_ha.toFixed(4)}  unit="ha" accent />
-        <div style={{ marginTop: 8, fontSize: 11, color: '#333', fontFamily: 'monospace', lineHeight: 1.8 }}>
-          {(Sup_ha / (L / 1000)).toFixed(2)} ha/km<br />
-          {lados} lado{lados > 1 ? 's' : ''} · {Ab} m c/u
-        </div>
+            {/* Tabla de superficies */}
+            <div style={{ ...panel, width: 180, flexShrink: 0, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
+              <SectionTitle>Superficies</SectionTitle>
+              {mapEntries.length === 0 ? (
+                <div style={{ fontSize: 9, color: '#444', fontFamily: 'monospace', lineHeight: 1.8, marginTop: 4 }}>
+                  Dibujá polígonos en el mapa para agregar superficies.<br /><br />
+                  <span style={{ color: '#333' }}>Ideal para relevamiento con drone (mayor exactitud).</span>
+                </div>
+              ) : (
+                <>
+                  {(['izq', 'der'] as const).map(side => {
+                    const entries = mapEntries.filter(e => e.side === side)
+                    if (!entries.length) return null
+                    const sideColor = side === 'izq' ? '#66bb6a' : '#42a5f5'
+                    const sideLbl   = side === 'izq' ? '← Izq.' : 'Der. →'
+                    return (
+                      <div key={side} style={{ marginBottom: 10 }}>
+                        <div style={{ fontSize: 8, color: sideColor, letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 4 }}>{sideLbl}</div>
+                        {entries.map((e, i) => (
+                          <div key={e.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, fontFamily: 'monospace', marginBottom: 3 }}>
+                            <span style={{ color: '#555' }}>Sup. {i + 1}</span>
+                            <span style={{ color: '#aaa' }}>{e.ha.toFixed(4)} ha</span>
+                          </div>
+                        ))}
+                      </div>
+                    )
+                  })}
+                  <div style={{ borderTop: '1px solid #1e1e1e', marginTop: 4, paddingTop: 8 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontFamily: 'monospace', fontWeight: 700 }}>
+                      <span style={{ color: '#777' }}>Total</span>
+                      <span style={{ color }}>{Sup_ha.toFixed(4)} ha</span>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── Jornales — placeholder ── */}
+        {view === 'jornales' && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+            <div style={{ textAlign: 'center', fontFamily: 'monospace' }}>
+              <div style={{ fontSize: 28, color: '#222', marginBottom: 14 }}>↻</div>
+              <div style={{ fontSize: 12, color: '#555' }}>Análisis de precio — en desarrollo</div>
+              <div style={{ fontSize: 9, color: '#333', marginTop: 6, lineHeight: 1.8 }}>
+                Ae-7: Jornales, Equipos y Coeficientes<br />para Desmalezado de Banquinas
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Presupuesto — placeholder ── */}
+        {view === 'presupuesto' && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+            <div style={{ textAlign: 'center', fontFamily: 'monospace' }}>
+              <div style={{ fontSize: 28, color: '#222', marginBottom: 14 }}>↻</div>
+              <div style={{ fontSize: 12, color: '#555' }}>Presupuesto — en desarrollo</div>
+              <div style={{ fontSize: 9, color: '#333', marginTop: 6, lineHeight: 1.8 }}>
+                Ae-10: Tabla de presupuesto y financiamiento<br />para Desmalezado de Banquinas
+              </div>
+            </div>
+          </div>
+        )}
+
       </div>
     </div>
   )
@@ -722,7 +876,7 @@ function CalcDesbosque({ paramsRef }: { paramsRef?: React.MutableRefObject<Param
 
   const fmt  = (n: number) => Math.round(n).toLocaleString('es-AR')
   const fmtM = (n: number) => n >= 1e6 ? `$${(n / 1e6).toFixed(3).replace('.', ',')}M` : `$${fmt(n)}`
-  const color = CLR.desbosque
+  const color = '#795548'
 
   // ── Entry CRUD ────────────────────────────────────────────────
   const updEntry = (side: 'izq' | 'der', id: string, field: keyof MonteEntry, val: string | number | boolean) => {
@@ -1582,14 +1736,53 @@ function CalcDesbosque({ paramsRef }: { paramsRef?: React.MutableRefObject<Param
   )
 }
 
+// ── LIMPIEZA VIAL (Desmalezado + Desbosque, selector unificado) ───────────────
+function CalcLimpiezaVial({ paramsRef }: { paramsRef?: React.MutableRefObject<Params> }) {
+  const [tipo, setTipo] = useState<'desmalezado' | 'desbosque'>('desmalezado')
+  const colorDesm = '#66BB6A'
+  const colorDesb = '#795548'
+  const activeColor = tipo === 'desmalezado' ? colorDesm : colorDesb
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+
+      {/* Selector de tipo */}
+      <div style={{ display: 'flex', gap: 0, marginBottom: 12, flexShrink: 0, alignSelf: 'flex-start' }}>
+        {([
+          { id: 'desmalezado' as const, label: '≈  Desmalezado de Banquinas',       c: colorDesm },
+          { id: 'desbosque'   as const, label: '※  Desbosque · Destronque · Limpieza', c: colorDesb },
+        ]).map((t, i) => (
+          <button key={t.id} onClick={() => setTipo(t.id)}
+            style={{
+              padding: '7px 18px', fontSize: 11, fontFamily: 'monospace', cursor: 'pointer',
+              border: `1px solid ${tipo === t.id ? t.c : '#1e1e1e'}`,
+              borderLeft: i === 1 ? 'none' : undefined,
+              background: tipo === t.id ? `${t.c}1a` : '#080808',
+              color: tipo === t.id ? t.c : '#444',
+              fontWeight: tipo === t.id ? 700 : 400,
+              letterSpacing: 0.5, transition: 'all 0.15s',
+            }}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Contenido */}
+      <div style={{ flex: 1, minHeight: 0, borderLeft: `2px solid ${activeColor}33`, paddingLeft: 14 }}>
+        {tipo === 'desmalezado' && <CalcDesmalezado paramsRef={paramsRef} />}
+        {tipo === 'desbosque'   && <CalcDesbosque   paramsRef={paramsRef} />}
+      </div>
+    </div>
+  )
+}
+
 // ── PÁGINA PRINCIPAL ──────────────────────────────────────────────────────────
 const TABS: { id: Tab; label: string; icon: string }[] = [
-  { id: 'terraplen',   label: 'Terraplén',    icon: '▲' },
-  { id: 'excavacion',  label: 'Excavación',   icon: '▼' },
-  { id: 'ripio',       label: 'Ripio',        icon: '≡' },
-  { id: 'canal',       label: 'Canal',        icon: '⌣' },
-  { id: 'desmalezado', label: 'Desmalezado',  icon: '≈' },
-  { id: 'desbosque',   label: 'Desbosque',    icon: '※' },
+  { id: 'terraplen',  label: 'Terraplén',     icon: '▲' },
+  { id: 'excavacion', label: 'Excavación',    icon: '▼' },
+  { id: 'ripio',      label: 'Ripio',         icon: '≡' },
+  { id: 'canal',      label: 'Canal',         icon: '⌣' },
+  { id: 'limpieza',   label: 'Limpieza Vial', icon: '≈' },
 ]
 
 export default function CalculadorasPage() {
@@ -1638,8 +1831,8 @@ export default function CalculadorasPage() {
         ))}
       </div>
 
-      {/* Barra precio + botón Dibujar — oculto para Desbosque (usa su propio mapa inline) */}
-      {tab !== 'desbosque' && (
+      {/* Barra precio + botón Dibujar — oculto para Limpieza (usa mapa inline propio) */}
+      {tab !== 'limpieza' && (
       <div style={{
         display: 'flex', alignItems: 'center', gap: 10,
         padding: '8px 0 10px', borderBottom: '1px solid #141414', flexShrink: 0,
@@ -1680,13 +1873,15 @@ export default function CalculadorasPage() {
       )}
 
       {/* Calculadora activa */}
-      <div style={{ flex: 1, minHeight: 0, borderLeft: `2px solid ${color}44`, paddingLeft: 14, marginTop: 10 }}>
-        {tab === 'terraplen'   && <CalcTerraplen   paramsRef={paramsRef} />}
-        {tab === 'excavacion'  && <CalcExcavacion  paramsRef={paramsRef} />}
-        {tab === 'ripio'       && <CalcRipio       paramsRef={paramsRef} />}
-        {tab === 'canal'       && <CalcCanal       paramsRef={paramsRef} />}
-        {tab === 'desmalezado' && <CalcDesmalezado paramsRef={paramsRef} />}
-        {tab === 'desbosque'   && <CalcDesbosque   paramsRef={paramsRef} />}
+      <div style={{
+        flex: 1, minHeight: 0, marginTop: 10,
+        ...(tab !== 'limpieza' ? { borderLeft: `2px solid ${color}44`, paddingLeft: 14 } : {}),
+      }}>
+        {tab === 'terraplen'  && <CalcTerraplen  paramsRef={paramsRef} />}
+        {tab === 'excavacion' && <CalcExcavacion paramsRef={paramsRef} />}
+        {tab === 'ripio'      && <CalcRipio      paramsRef={paramsRef} />}
+        {tab === 'canal'      && <CalcCanal      paramsRef={paramsRef} />}
+        {tab === 'limpieza'   && <CalcLimpiezaVial paramsRef={paramsRef} />}
       </div>
     </div>
   )

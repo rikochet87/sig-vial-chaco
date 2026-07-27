@@ -3,7 +3,7 @@
 // hacia Planta dentro de la misma sesión de navegación (sin Zustand).
 // Se limpia después de ser leído para evitar stale data.
 
-export type ObraType = 'terraplen' | 'excavacion' | 'ripio' | 'desmalezado' | 'desbosque' | 'canal'
+export type ObraType = 'terraplen' | 'excavacion' | 'ripio' | 'canal' | 'limpieza'
 
 export interface ObraTransferData {
   type: ObraType

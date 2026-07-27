@@ -38,7 +38,7 @@ const BASE_LAYER_DEFAULTS: Record<BaseLayerKey, boolean> = {
 }
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
-type ObraType = 'terraplen' | 'excavacion' | 'ripio' | 'desmalezado' | 'desbosque' | 'canal'
+type ObraType = 'terraplen' | 'excavacion' | 'ripio' | 'canal' | 'limpieza'
 type LatLng   = [number, number]
 type Params   = Record<string, number | string>
 
@@ -46,25 +46,23 @@ const OBRA_TYPES: { id: ObraType; label: string; color: string }[] = [
   { id: 'terraplen',   label: 'Terraplén',   color: '#8D6E63' },
   { id: 'excavacion',  label: 'Excavación',  color: '#FF7043' },
   { id: 'ripio',       label: 'Ripio',       color: '#90A4AE' },
-  { id: 'desmalezado', label: 'Desmalezado', color: '#66BB6A' },
-  { id: 'desbosque',   label: 'Desbosque',   color: '#795548' },
-  { id: 'canal',       label: 'Canal',       color: '#29B6F6' },
+  { id: 'limpieza', label: 'Limpieza Vial', color: '#66BB6A' },
+  { id: 'canal',    label: 'Canal',         color: '#29B6F6' },
 ]
 
 // Unidades de precio por defecto por tipo
 const UNIDADES_DEFAULT: Record<ObraType, string> = {
   terraplen: '$/t', excavacion: '$/t', ripio: '$/t', canal: '$/t',
-  desmalezado: '$/ha', desbosque: '$/ha',
+  limpieza: '$/ha',
 }
 
 // ── Params defaults ───────────────────────────────────────────────────────────
 const DEFAULTS: Record<ObraType, Params> = {
-  terraplen:   { H: 1.5,  Bc: 4.0, m: 1.5, rho: 1.80, Fe: 20, Fc: 90 },
-  excavacion:  { H: 2.0,  Bf: 3.0, m: 1.0, rho: 1.80, Fe: 25 },
-  ripio:       { An: 6.0, E: 0.15, rho: 2.10 },
-  desmalezado: { Ab: 5.0, lados: 2 },
-  desbosque:   { Ad: 15.0, monte: 'semitupido' },
-  canal:       { H: 1.5,  Bf: 2.0, m: 1.0, rho: 1.80, Fe: 25 },
+  terraplen:  { H: 1.5,  Bc: 4.0, m: 1.5, rho: 1.80, Fe: 20, Fc: 90 },
+  excavacion: { H: 2.0,  Bf: 3.0, m: 1.0, rho: 1.80, Fe: 25 },
+  ripio:      { An: 6.0, E: 0.15, rho: 2.10 },
+  limpieza:   { Ab: 5.0, lados: 2 },
+  canal:      { H: 1.5,  Bf: 2.0, m: 1.0, rho: 1.80, Fe: 25 },
 }
 
 // ── Buffer halfWidth desde parámetros geométricos ─────────────────────────────
@@ -74,8 +72,7 @@ function getHalfWidth(type: ObraType, p: Params): number {
     case 'excavacion':
     case 'canal':       return ((p.Bf as number) + 2 * (p.H as number) * (p.m as number)) / 2
     case 'ripio':       return (p.An as number) / 2
-    case 'desmalezado': return p.Ab as number
-    case 'desbosque':   return (p.Ad as number) / 2
+    case 'limpieza': return p.Ab as number
   }
 }
 
@@ -122,24 +119,16 @@ function calcResults(type: ObraType, p: Params, L: number): Result[] {
         { label: 'Camiones 20t',   value: `~${Math.ceil(W / 20).toLocaleString('es-AR')}` },
       ]
     }
-    case 'desmalezado': {
-      const Ab = p.Ab as number, lados = p.lados as number
+    case 'limpieza': {
+      const Ab = p.Ab as number, lados = (p.lados as number) ?? 2
       const m2 = L * Ab * lados, ha = m2 / 10000
       return [
         { label: 'Superficie', value: `${ha.toFixed(2)} ha`, accent: true, numericValue: ha },
         { label: 'en m²',      value: `${fmt(m2)} m²` },
       ]
     }
-    case 'desbosque': {
-      const Ad = p.Ad as number, monte = p.monte as string
-      const FACTOR: Record<string, number> = { ralo: 50, semitupido: 150, tupido: 400 }
-      const ha = L * Ad / 10000, Vm3 = ha * (FACTOR[monte] ?? 150)
-      return [
-        { label: 'Superficie',   value: `${ha.toFixed(2)} ha`, accent: true, numericValue: ha },
-        { label: 'Vol. arbóreo', value: `${fmt(Vm3)} m³` },
-      ]
-    }
   }
+  return []
 }
 
 // ── Geometría ─────────────────────────────────────────────────────────────────
@@ -279,7 +268,7 @@ function ParamsForm({ type, p, onChange }: {
     case 'excavacion':
     case 'canal':     return <>{n('H', type==='canal'?'Profundidad (m)':'Prof. corte (m)')} {n('Bf','Ancho fondo (m)')} {n('m','Talud H:V', 0.5)} {n('rho','Densidad (t/m³)', 0.05)} {n('Fe','Esponjamiento (%)', 1)}</>
     case 'ripio':     return <>{n('An','Ancho (m)')} {n('E','Espesor (m)', 0.01)} {n('rho','Densidad (t/m³)', 0.05)}</>
-    case 'desmalezado': return (
+    case 'limpieza': return (
       <>
         {n('Ab', 'Ancho banquina (m)')}
         <label style={{ display: 'block' }}>
@@ -291,20 +280,8 @@ function ParamsForm({ type, p, onChange }: {
         </label>
       </>
     )
-    case 'desbosque': return (
-      <>
-        {n('Ad', 'Ancho afectado (m)')}
-        <label style={{ display: 'block' }}>
-          <span style={lblS}>Tipo de monte</span>
-          <select value={p.monte as string} onChange={e => onChange('monte', e.target.value)} style={{ ...inpS, fontSize: 12 }}>
-            <option value="ralo">Ralo — &lt;40% · 50 m³/ha</option>
-            <option value="semitupido">Semi-tupido — 40-70% · 150 m³/ha</option>
-            <option value="tupido">Tupido — &gt;70% · 400 m³/ha</option>
-          </select>
-        </label>
-      </>
-    )
   }
+  return null
 }
 
 // ── Página principal ──────────────────────────────────────────────────────────
@@ -347,12 +324,11 @@ export default function PlantaPage() {
   const [refPolygons, setRefPolygons] = useState<{ side: string; pts: LatLng[] }[]>([])
 
   const [allParams, setAllParams] = useState<Record<ObraType, Params>>({
-    terraplen:   { ...DEFAULTS.terraplen   },
-    excavacion:  { ...DEFAULTS.excavacion  },
-    ripio:       { ...DEFAULTS.ripio       },
-    desmalezado: { ...DEFAULTS.desmalezado },
-    desbosque:   { ...DEFAULTS.desbosque   },
-    canal:       { ...DEFAULTS.canal       },
+    terraplen:  { ...DEFAULTS.terraplen  },
+    excavacion: { ...DEFAULTS.excavacion },
+    ripio:      { ...DEFAULTS.ripio      },
+    limpieza:   { ...DEFAULTS.limpieza   },
+    canal:      { ...DEFAULTS.canal      },
   })
 
   // ── Capas base ─────────────────────────────────────────────────────────────
