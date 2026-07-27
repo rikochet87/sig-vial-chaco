@@ -502,8 +502,9 @@ const CLR_DESM = '#66BB6A'
 interface DesmEntry { id: string; ha: number; side: 'izq' | 'der'; pts?: [number,number][] }
 
 function CalcDesmalezado({ paramsRef }: { paramsRef?: React.MutableRefObject<Params> }) {
-  const [method, setMethod] = useState<'formula' | 'mapa'>('formula')
-  const [view,   setView]   = useState<'computo' | 'jornales' | 'presupuesto'>('computo')
+  const [method,        setMethod]        = useState<'formula' | 'mapa'>('formula')
+  const [view,          setView]          = useState<'computo' | 'jornales' | 'presupuesto'>('computo')
+  const [mapaActivated, setMapaActivated] = useState(false)  // lazy-mount: nunca desmontar InlineMapDraw
 
   // Fórmula
   const [L,     setL]     = useState(1000)
@@ -562,7 +563,7 @@ function CalcDesmalezado({ paramsRef }: { paramsRef?: React.MutableRefObject<Par
                 { id: 'formula' as const, label: '∑ Fórmula lineal' },
                 { id: 'mapa'    as const, label: '◈ Polígono / Drone' },
               ]).map(m => (
-                <button key={m.id} onClick={() => setMethod(m.id)}
+                <button key={m.id} onClick={() => { if (m.id === 'mapa') setMapaActivated(true); setMethod(m.id) }}
                   style={{
                     padding: '4px 10px', fontSize: 9, fontFamily: 'monospace', cursor: 'pointer',
                     border: `1px solid ${method === m.id ? color + '66' : '#1a1a1a'}`,
@@ -671,9 +672,9 @@ function CalcDesmalezado({ paramsRef }: { paramsRef?: React.MutableRefObject<Par
           </div>
         )}
 
-        {/* ── Cómputo — Mapa/Drone ── */}
-        {view === 'computo' && method === 'mapa' && (
-          <div style={{ display: 'flex', gap: 10, height: '100%', minHeight: 0 }}>
+        {/* ── Cómputo — Mapa/Drone ── lazy-mount: nunca desmontar una vez activado */}
+        {mapaActivated && (
+          <div style={{ display: view === 'computo' && method === 'mapa' ? 'flex' : 'none', gap: 10, height: '100%', minHeight: 0 }}>
 
             {/* Panel izquierdo: superficie por lado */}
             <div style={{ ...panel, width: 200, flexShrink: 0, overflowY: 'auto' }}>

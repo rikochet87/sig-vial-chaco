@@ -233,6 +233,19 @@ export default function InlineMapDraw({ color, hideMonte = false, onConfirm, onD
     }
   }, [])
 
+  // ── Llamar invalidateSize cuando el contenedor vuelve a ser visible ─────────
+  // (fix para display:none → display:flex, e.g. al cambiar de sub-tab)
+  useEffect(() => {
+    if (!mapReady) return
+    const el = mapDivRef.current
+    if (!el) return
+    const ro = new ResizeObserver(() => {
+      if (mapRef.current) mapRef.current.invalidateSize({ animate: false })
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [mapReady])
+
   // ── Cambio de capa base ───────────────────────────────────────────────────
   useEffect(() => {
     const map = mapRef.current
