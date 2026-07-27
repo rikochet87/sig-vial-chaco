@@ -1198,7 +1198,7 @@ function CalcDesbosque({ paramsRef }: { paramsRef?: React.MutableRefObject<Param
                         <input type="number" min={0} step={1000000} value={r.capUnit}
                           onChange={e => { const v=parseFloat(e.target.value); if(!isNaN(v)&&v>=0) setEqNum(r.id,'capUnit',v) }}
                           style={cellInp(96)} />
-                        <div style={{ fontSize: 8, color: '#555', fontFamily: 'monospace', textAlign: 'right' }}>${fmt(r.capUnit)}</div>
+                        <div style={{ fontSize: 10, color: '#888', fontFamily: 'monospace', textAlign: 'right' }}>${fmt(r.capUnit)}</div>
                       </td>
                       <td style={TDr}><input type="number" min={0} step={1} value={r.hp}
                         onChange={e => { const v=parseFloat(e.target.value); if(!isNaN(v)&&v>=0) setEqNum(r.id,'hp',v) }}
@@ -1234,14 +1234,14 @@ function CalcDesbosque({ paramsRef }: { paramsRef?: React.MutableRefObject<Param
                   <input type="number" min={0} step={0.0001} value={amortCoef}
                     onChange={e => { const v=parseFloat(e.target.value); if(!isNaN(v)&&v>0) setAmortCoef(v) }}
                     style={{ ...inpStyle, fontSize: 12 }} />
-                  <span style={{ fontSize: 8, color: '#2a2a2a', fontFamily: 'monospace' }}>= 8/10000 + tasa·8/(2·hs/año)</span>
+                  <span style={{ fontSize: 9, color: '#555', fontFamily: 'monospace' }}>= 8/10000 + tasa·8/(2·hs/año)</span>
                 </label>
                 <label style={{ display: 'block' }}>
                   <span style={lbl}>Repuestos coef/día</span>
                   <input type="number" min={0} step={0.00001} value={repCoef}
                     onChange={e => { const v=parseFloat(e.target.value); if(!isNaN(v)&&v>=0) setRepCoef(v) }}
                     style={{ ...inpStyle, fontSize: 12 }} />
-                  <span style={{ fontSize: 8, color: '#2a2a2a', fontFamily: 'monospace' }}>= amort_dep × 70%</span>
+                  <span style={{ fontSize: 9, color: '#555', fontFamily: 'monospace' }}>= amort_dep × 70%</span>
                 </label>
               </div>
 
@@ -1274,25 +1274,25 @@ function CalcDesbosque({ paramsRef }: { paramsRef?: React.MutableRefObject<Param
               </div>
 
               {/* Resumen equipos */}
-              <div style={{ marginTop: 10, background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: 3, padding: '7px 10px', fontSize: 9, fontFamily: 'monospace', lineHeight: 1.9 }}>
+              <div style={{ marginTop: 10, background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: 3, padding: '7px 10px', fontSize: 10, fontFamily: 'monospace', lineHeight: 2 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#333' }}>Comb/HP·día</span>
-                  <span style={{ color: '#555' }}>${fmt(Math.round(combPerHpD))}</span>
+                  <span style={{ color: '#666' }}>Comb/HP·día</span>
+                  <span style={{ color: '#999' }}>${fmt(Math.round(combPerHpD))}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#333' }}>Amortización</span>
-                  <span style={{ color: '#555' }}>${fmt(Math.round(amortD))}/día</span>
+                  <span style={{ color: '#666' }}>Amortización</span>
+                  <span style={{ color: '#999' }}>${fmt(Math.round(amortD))}/día</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#333' }}>Repuestos</span>
-                  <span style={{ color: '#555' }}>${fmt(Math.round(repD))}/día</span>
+                  <span style={{ color: '#666' }}>Repuestos</span>
+                  <span style={{ color: '#999' }}>${fmt(Math.round(repD))}/día</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#333' }}>Combustibles</span>
-                  <span style={{ color: '#555' }}>${fmt(Math.round(combD))}/día</span>
+                  <span style={{ color: '#666' }}>Combustibles</span>
+                  <span style={{ color: '#999' }}>${fmt(Math.round(combD))}/día</span>
                 </div>
                 <div style={{ borderTop: '1px solid #1a1a1a', marginTop: 4, paddingTop: 5, display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#555', textTransform: 'uppercase', letterSpacing: 0.5 }}>Subtotal equipos</span>
+                  <span style={{ color: '#888', textTransform: 'uppercase', letterSpacing: 0.5 }}>Subtotal equipos</span>
                   <span style={{ color: color, fontWeight: 700, fontSize: 12 }}>${fmt(Math.round(cEquipos))}/día</span>
                 </div>
               </div>
