@@ -674,7 +674,7 @@ function CalcDesmalezado({ paramsRef }: { paramsRef?: React.MutableRefObject<Par
         {/* ── Cómputo — Mapa/Drone ── */}
         {view === 'computo' && method === 'mapa' && (
           <div style={{ display: 'flex', gap: 10, height: '100%', minHeight: 0 }}>
-            <div style={{ flex: 1, minHeight: 0 }}>
+            <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
               <InlineMapDraw
                 color={color}
                 onConfirm={(id, side, _monte, area_ha, pts) => {
