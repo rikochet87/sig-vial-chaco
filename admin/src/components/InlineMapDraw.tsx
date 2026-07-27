@@ -57,6 +57,58 @@ const ZONE_CLR: Record<string, string> = {
   ZI: '#e74c3c', ZII: '#e67e22', ZIII: '#2ecc71', ZIV: '#3498db', ZV: '#9b59b6',
 }
 
+// ── Parsers de archivos drone ──────────────────────────────────────────────────
+function parseKMLPolygons(text: string): LatLng[][] {
+  const parser = new DOMParser()
+  const doc = parser.parseFromString(text, 'text/xml')
+  const rings: LatLng[][] = []
+  const polygons = Array.from(doc.getElementsByTagName('Polygon'))
+  for (const polygon of polygons) {
+    const outerEls = polygon.getElementsByTagName('outerBoundaryIs')
+    const scope    = outerEls.length > 0 ? outerEls[0] : polygon
+    const coordEls = scope.getElementsByTagName('coordinates')
+    if (!coordEls.length) continue
+    const raw  = coordEls[0].textContent?.trim() ?? ''
+    const pts: LatLng[] = raw.split(/\s+/).filter(Boolean).flatMap(token => {
+      const parts = token.split(',').map(Number)
+      if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1]))
+        return [[parts[1], parts[0]] as LatLng]  // KML: lon,lat → lat,lng
+      return []
+    })
+    if (pts.length >= 3) rings.push(pts)
+  }
+  return rings
+}
+
+function parseGeoJSONPolygons(text: string): LatLng[][] {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const data: any = JSON.parse(text)
+  const rings: LatLng[][] = []
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const processGeom = (geom: any) => {
+    if (!geom) return
+    if (geom.type === 'Polygon') {
+      const pts: LatLng[] = (geom.coordinates[0] ?? []).map(([lng, lat]: number[]) => [lat, lng] as LatLng)
+      if (pts.length >= 3) rings.push(pts)
+    } else if (geom.type === 'MultiPolygon') {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      geom.coordinates.forEach((poly: any) => {
+        const pts: LatLng[] = (poly[0] ?? []).map(([lng, lat]: number[]) => [lat, lng] as LatLng)
+        if (pts.length >= 3) rings.push(pts)
+      })
+    }
+  }
+  if (data.type === 'FeatureCollection') {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(data.features ?? []).forEach((f: any) => processGeom(f.geometry))
+  } else if (data.type === 'Feature') {
+    processGeom(data.geometry)
+  } else {
+    processGeom(data)
+  }
+  return rings
+}
+
 // ── Tipos internos ────────────────────────────────────────────────────────────
 interface ConfirmedPoly {
   id: string
@@ -93,6 +145,7 @@ export default function InlineMapDraw({ color, onConfirm, onDelete, onUpdate, on
   const [hasPolygons, setHasPolygons] = useState(false)
 
   const mapDivRef    = useRef<HTMLDivElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mapRef       = useRef<any>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -499,6 +552,64 @@ export default function InlineMapDraw({ color, onConfirm, onDelete, onUpdate, on
     previewRef.current.forEach((l: any) => mapRef.current?.removeLayer(l)); previewRef.current = []
   }, [])
 
+  // ── Importar KML / GeoJSON desde archivo ──────────────────────────────────
+  const handleImportFile = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    e.target.value = ''  // reset para permitir reimportar el mismo archivo
+
+    const reader = new FileReader()
+    reader.onload = () => {
+      const text = reader.result as string
+      let polygons: LatLng[][] = []
+      try {
+        if (file.name.toLowerCase().endsWith('.kml'))
+          polygons = parseKMLPolygons(text)
+        else
+          polygons = parseGeoJSONPolygons(text)
+      } catch (err) {
+        console.error('Error parseando archivo:', err)
+        return
+      }
+      if (polygons.length === 0) return
+
+      const map = mapRef.current; const Lf = LfRef.current
+      if (!map || !Lf) return
+
+      // Limpiar estado de dibujo previo
+      drawStateRef.current?.cleanup()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      previewRef.current.forEach((l: any) => map.removeLayer(l))
+      previewRef.current = []
+      setDrawing(false); setPolyResult(null); setPolyHUD(null)
+
+      if (polygons.length === 1) {
+        // Un polígono → flujo de preview igual que al dibujar
+        const pts     = polygons[0]
+        const area_ha = polygonAreaHa(pts)
+        const poly    = Lf.polygon(pts as [number, number][], {
+          color, fillColor: color, fillOpacity: 0.35, weight: 2, opacity: 0.9,
+        }).addTo(map)
+        previewRef.current = [poly]
+        setPolyResult({ area_ha, pts })
+        map.fitBounds(poly.getBounds(), { padding: [40, 40] })
+      } else {
+        // Múltiples polígonos → confirmar todos con el lado/monte actuales
+        const allPts: LatLng[] = []
+        polygons.forEach(pts => {
+          const area_ha = polygonAreaHa(pts)
+          const id      = `poly-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+          addConfirmedLayer(id, side, monte, area_ha, pts)
+          onConfirm(id, side, monte, area_ha, pts as [number, number][])
+          allPts.push(...pts)
+        })
+        setHasPolygons(true)
+        if (allPts.length) map.fitBounds(Lf.latLngBounds(allPts as [number, number][]), { padding: [40, 40] })
+      }
+    }
+    reader.readAsText(file)
+  }, [color, side, monte, addConfirmedLayer, onConfirm])
+
   // ── Toggle de capas GeoJSON ───────────────────────────────────────────────
   const toggleLayer = useCallback(async (key: LayerKey) => {
     const map = mapRef.current; const Lf = LfRef.current
@@ -690,12 +801,19 @@ export default function InlineMapDraw({ color, onConfirm, onDelete, onUpdate, on
 
             {/* Controles de dibujo */}
             {!drawing && !polyResult && mapReady && (
-              <button onClick={startDraw} style={{
-                ...toolBtn(), color, borderColor: `${color}66`,
-                background: `${color}15`, padding: '5px 16px', fontSize: 11, fontWeight: 700, letterSpacing: 0.5,
-              }}>
-                ◎ Dibujar polígono
-              </button>
+              <>
+                <button onClick={startDraw} style={{
+                  ...toolBtn(), color, borderColor: `${color}66`,
+                  background: `${color}15`, padding: '5px 16px', fontSize: 11, fontWeight: 700, letterSpacing: 0.5,
+                }}>
+                  ◎ Dibujar polígono
+                </button>
+                <button onClick={() => fileInputRef.current?.click()} style={{
+                  ...toolBtn(), fontSize: 10, padding: '4px 10px', color: '#888', borderColor: '#2a2a2a',
+                }}>
+                  ↑ Importar KML / GeoJSON
+                </button>
+              </>
             )}
             {drawing && (
               <>
@@ -903,6 +1021,15 @@ export default function InlineMapDraw({ color, onConfirm, onDelete, onUpdate, on
           </div>
         )}
       </div>
+
+      {/* Input oculto para importar KML/GeoJSON */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".kml,.geojson,.json"
+        style={{ display: 'none' }}
+        onChange={handleImportFile}
+      />
     </div>
   )
 }
