@@ -1302,7 +1302,7 @@ function CalcDesbosque({ paramsRef }: { paramsRef?: React.MutableRefObject<Param
 
           {/* ═══ RESUMEN (Ae-9) ═══════════════════════════════ */}
           <div style={{ background: '#0e0e0e', border: '1px solid #1e1e1e', borderRadius: 6, padding: '10px 14px', flexShrink: 0 }}>
-            <div style={{ fontSize: 11, color: '#444', textTransform: 'uppercase', letterSpacing: 0.8, fontFamily: 'monospace', marginBottom: 8 }}>Resumen — Ae-9</div>
+            <div style={{ fontSize: 11, color: '#777', textTransform: 'uppercase', letterSpacing: 0.8, fontFamily: 'monospace', marginBottom: 8 }}>Resumen — Ae-9</div>
             <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 10 }}>
               <thead>
                 <tr>
@@ -1323,15 +1323,15 @@ function CalcDesbosque({ paramsRef }: { paramsRef?: React.MutableRefObject<Param
                   const costoDir = ejecHa + materiales + transpInt
                   const pHa = costoDir * CR
                   return (
-                    <tr key={k} style={{ opacity: ha > 0 ? 1 : 0.3 }}>
-                      <td style={{ ...TD, fontFamily: 'monospace', fontSize: 10, color: ha > 0 ? '#888' : '#333' }}>{v.label}</td>
-                      <td style={{ ...TD, textAlign: 'right', fontFamily: 'monospace', fontSize: 10, color: ha > 0 ? '#aaa' : '#333' }}>{ha.toFixed(4)}</td>
-                      <td style={{ ...TD, textAlign: 'right', fontFamily: 'monospace', fontSize: 10, color: '#555' }}>{v.rendimientoDia}</td>
-                      <td style={{ ...TD, textAlign: 'right', fontFamily: 'monospace', fontSize: 10, color: '#555' }}>${fmt(Math.round(ejecHa))}</td>
-                      <td style={{ ...TD, textAlign: 'right', fontFamily: 'monospace', fontSize: 10, color: '#444' }}>${fmt(Math.round(materiales + transpInt))}</td>
-                      <td style={{ ...TD, textAlign: 'right', fontFamily: 'monospace', fontSize: 10, color: '#444' }}>×{CR.toFixed(2)}</td>
-                      <td style={{ ...TD, textAlign: 'right', fontFamily: 'monospace', fontSize: 10, color: ha > 0 ? color : '#333' }}>${fmt(Math.round(pHa))}</td>
-                      <td style={{ ...TD, textAlign: 'right', fontFamily: 'monospace', fontSize: 10, color: ha > 0 ? '#aaa' : '#222' }}>{ha > 0 ? fmtM(ha * pHa) : '—'}</td>
+                    <tr key={k} style={{ opacity: ha > 0 ? 1 : 0.5 }}>
+                      <td style={{ ...TD, fontFamily: 'monospace', fontSize: 10, color: ha > 0 ? '#ccc' : '#777' }}>{v.label}</td>
+                      <td style={{ ...TD, textAlign: 'right', fontFamily: 'monospace', fontSize: 10, color: ha > 0 ? '#ddd' : '#666' }}>{ha.toFixed(4)}</td>
+                      <td style={{ ...TD, textAlign: 'right', fontFamily: 'monospace', fontSize: 10, color: '#888' }}>{v.rendimientoDia}</td>
+                      <td style={{ ...TD, textAlign: 'right', fontFamily: 'monospace', fontSize: 10, color: '#999' }}>${fmt(Math.round(ejecHa))}</td>
+                      <td style={{ ...TD, textAlign: 'right', fontFamily: 'monospace', fontSize: 10, color: '#777' }}>${fmt(Math.round(materiales + transpInt))}</td>
+                      <td style={{ ...TD, textAlign: 'right', fontFamily: 'monospace', fontSize: 10, color: '#777' }}>×{CR.toFixed(2)}</td>
+                      <td style={{ ...TD, textAlign: 'right', fontFamily: 'monospace', fontSize: 10, color: ha > 0 ? color : '#555' }}>${fmt(Math.round(pHa))}</td>
+                      <td style={{ ...TD, textAlign: 'right', fontFamily: 'monospace', fontSize: 10, color: ha > 0 ? '#ccc' : '#555' }}>{ha > 0 ? fmtM(ha * pHa) : '—'}</td>
                     </tr>
                   )
                 })}
@@ -1339,23 +1339,23 @@ function CalcDesbosque({ paramsRef }: { paramsRef?: React.MutableRefObject<Param
               <tfoot>
                 <tr>
                   <td style={{ ...TH, borderTop: '1px solid #1a1a1a', paddingTop: 5 }}>Total</td>
-                  <td style={{ ...TH, textAlign: 'right', borderTop: '1px solid #1a1a1a', paddingTop: 5, color: '#777' }}>{Sup_ha.toFixed(4)}</td>
+                  <td style={{ ...TH, textAlign: 'right', borderTop: '1px solid #1a1a1a', paddingTop: 5, color: '#aaa' }}>{Sup_ha.toFixed(4)}</td>
                   <td colSpan={5} style={{ borderTop: '1px solid #1a1a1a' }}></td>
                   <td style={{ ...TH, textAlign: 'right', borderTop: '1px solid #1a1a1a', paddingTop: 5, color: color, fontSize: 12 }}>{fmtM(CostoTotal)}</td>
                 </tr>
               </tfoot>
             </table>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', alignItems: 'center', gap: '5px 14px', fontFamily: 'monospace', fontSize: 11, marginBottom: 10 }}>
-              <span style={{ color: '#555' }}>II) Materiales</span>
+              <span style={{ color: '#888' }}>II) Materiales</span>
               <input type="number" min={0} step={1000} value={materiales}
                 onChange={e => { const v=parseFloat(e.target.value); if(!isNaN(v)&&v>=0) setMateriales(v) }}
                 style={{ background: '#0a0a0a', border: '1px solid #222', color: '#e0e0e0', fontFamily: 'monospace', fontSize: 11, padding: '2px 6px', textAlign: 'right' as const, outline: 'none', width: 120 }} />
-              <span style={{ color: '#333', fontSize: 9 }}>/Ha</span>
-              <span style={{ color: '#555' }}>III) Transp. Interno</span>
+              <span style={{ color: '#666', fontSize: 9 }}>/Ha</span>
+              <span style={{ color: '#888' }}>III) Transp. Interno</span>
               <input type="number" min={0} step={1000} value={transpInt}
                 onChange={e => { const v=parseFloat(e.target.value); if(!isNaN(v)&&v>=0) setTranspInt(v) }}
                 style={{ background: '#0a0a0a', border: '1px solid #222', color: '#e0e0e0', fontFamily: 'monospace', fontSize: 11, padding: '2px 6px', textAlign: 'right' as const, outline: 'none', width: 120 }} />
-              <span style={{ color: '#333', fontSize: 9 }}>/Ha</span>
+              <span style={{ color: '#666', fontSize: 9 }}>/Ha</span>
             </div>
             <div style={{ padding: '8px 14px', background: `${color}15`, border: `1px solid ${color}55`, borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ fontSize: 10, color: color, fontFamily: 'monospace', textTransform: 'uppercase' as const, letterSpacing: 1 }}>Costo Total Adoptado</span>
