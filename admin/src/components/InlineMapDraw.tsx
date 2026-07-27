@@ -123,6 +123,7 @@ interface ConfirmedPoly {
 // ── Props ─────────────────────────────────────────────────────────────────────
 interface Props {
   color: string
+  hideMonte?: boolean   // oculta el selector de tipo de monte (p.ej. en Desmalezado)
   onConfirm: (id: string, side: 'izq' | 'der', monte: MonteKey, area_ha: number, pts: [number,number][]) => void
   onDelete:  (id: string) => void
   onUpdate?: (id: string, area_ha: number, pts: [number,number][]) => void
@@ -130,7 +131,7 @@ interface Props {
 }
 
 // ── Componente ────────────────────────────────────────────────────────────────
-export default function InlineMapDraw({ color, onConfirm, onDelete, onUpdate, onCancel }: Props) {
+export default function InlineMapDraw({ color, hideMonte = false, onConfirm, onDelete, onUpdate, onCancel }: Props) {
   const [side,       setSide]       = useState<'izq' | 'der'>('izq')
   const [monte,      setMonte]      = useState<MonteKey>('semitupido')
   const [drawing,    setDrawing]    = useState(false)
@@ -296,10 +297,10 @@ export default function InlineMapDraw({ color, onConfirm, onDelete, onUpdate, on
     layer.bindPopup(`
       <div style="font-family:monospace;font-size:11px;color:#ccc;padding:10px 14px;min-width:180px">
         <div style="color:${sideColor};font-weight:700;font-size:12px;margin-bottom:2px">${sideLbl}</div>
-        <div style="color:#555;font-size:9px;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">${monteOpt.label}</div>
+        ${!hideMonte ? `<div style="color:#555;font-size:9px;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">${monteOpt.label}</div>` : ''}
         <div style="color:#aaa;margin-bottom:10px">
           <span style="font-weight:700;font-size:13px">${area_ha.toFixed(4)} ha</span>
-          <span style="color:#555;margin-left:6px;font-size:9px">~${vol} m³ arb.</span>
+          ${!hideMonte ? `<span style="color:#555;margin-left:6px;font-size:9px">~${vol} m³ arb.</span>` : ''}
         </div>
         <div style="display:flex;gap:6px">
           <button onclick="window.__desbEdit('${id}')"
@@ -316,7 +317,7 @@ export default function InlineMapDraw({ color, onConfirm, onDelete, onUpdate, on
 
     confirmedRef.current.push({ id, side, monte, area_ha, pts, layer })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [hideMonte])
 
   // ── Usar polígono dibujado → confirmar y resetear ─────────────────────────
   const handleUse = useCallback(() => {
@@ -788,14 +789,17 @@ export default function InlineMapDraw({ color, onConfirm, onDelete, onUpdate, on
               </button>
             ))}
 
-            <div style={{ width: 1, height: 14, background: '#1e1e1e', margin: '0 2px' }} />
-
-            {/* Monte */}
-            <span style={{ fontSize: 9, color: '#444', ...mono, textTransform: 'uppercase', letterSpacing: 0.8 }}>Monte</span>
-            <select value={monte} disabled={drawing} onChange={e => setMonte(e.target.value as MonteKey)}
-              style={{ background: '#0a0a0a', border: '1px solid #222', color: '#888', ...mono, fontSize: 9, padding: '3px 6px', outline: 'none', borderRadius: 2 }}>
-              {MONTE_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
+            {!hideMonte && (
+              <>
+                <div style={{ width: 1, height: 14, background: '#1e1e1e', margin: '0 2px' }} />
+                {/* Monte */}
+                <span style={{ fontSize: 9, color: '#444', ...mono, textTransform: 'uppercase', letterSpacing: 0.8 }}>Monte</span>
+                <select value={monte} disabled={drawing} onChange={e => setMonte(e.target.value as MonteKey)}
+                  style={{ background: '#0a0a0a', border: '1px solid #222', color: '#888', ...mono, fontSize: 9, padding: '3px 6px', outline: 'none', borderRadius: 2 }}>
+                  {MONTE_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </>
+            )}
 
             <div style={{ flex: 1 }} />
 
@@ -826,7 +830,7 @@ export default function InlineMapDraw({ color, onConfirm, onDelete, onUpdate, on
             {polyResult && (
               <>
                 <span style={{ fontSize: 10, color: '#888', ...mono }}>
-                  {polyResult.area_ha.toFixed(4)} ha · ~{Math.round(polyResult.area_ha * monteOpt.factor).toLocaleString('es-AR')} m³ arb.
+                  {polyResult.area_ha.toFixed(4)} ha{!hideMonte ? ` · ~${Math.round(polyResult.area_ha * monteOpt.factor).toLocaleString('es-AR')} m³ arb.` : ''}
                 </span>
                 <button onClick={cancelDraw} style={{ ...toolBtn(), color: '#555' }}>↺ Redibujar</button>
                 <button onClick={handleUse} style={{
@@ -894,10 +898,12 @@ export default function InlineMapDraw({ color, onConfirm, onDelete, onUpdate, on
                 </select>
               </div>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16 }}>
-              <span style={{ color: '#444' }}>Vol. arb. ({monteOpt.value})</span>
-              <span style={{ color: '#666' }}>~{Math.round(hudArea * monteOpt.factor).toLocaleString('es-AR')} m³</span>
-            </div>
+            {!hideMonte && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16 }}>
+                <span style={{ color: '#444' }}>Vol. arb. ({monteOpt.value})</span>
+                <span style={{ color: '#666' }}>~{Math.round(hudArea * monteOpt.factor).toLocaleString('es-AR')} m³</span>
+              </div>
+            )}
           </div>
         )}
 

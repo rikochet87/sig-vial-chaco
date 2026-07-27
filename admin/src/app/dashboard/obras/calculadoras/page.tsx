@@ -674,9 +674,60 @@ function CalcDesmalezado({ paramsRef }: { paramsRef?: React.MutableRefObject<Par
         {/* ── Cómputo — Mapa/Drone ── */}
         {view === 'computo' && method === 'mapa' && (
           <div style={{ display: 'flex', gap: 10, height: '100%', minHeight: 0 }}>
+
+            {/* Panel izquierdo: superficie por lado */}
+            <div style={{ ...panel, width: 200, flexShrink: 0, overflowY: 'auto' }}>
+              <SectionTitle>Superficie por lado</SectionTitle>
+              {mapEntries.length === 0 && (
+                <div style={{ fontSize: 9, color: '#333', fontFamily: 'monospace', lineHeight: 1.8, marginTop: 4 }}>
+                  Dibujá polígonos en el mapa para agregar superficies.
+                  <br /><br />
+                  <span style={{ color: '#2a2a2a' }}>Ideal para relevamiento con drone (mayor exactitud).</span>
+                </div>
+              )}
+              {(['izq', 'der'] as const).map(s => {
+                const entries  = mapEntries.filter(e => e.side === s)
+                const sColor   = s === 'izq' ? '#66bb6a' : '#42a5f5'
+                const sLbl     = s === 'izq' ? 'LADO IZQUIERDO' : 'LADO DERECHO'
+                const subtotal = entries.reduce((acc, e) => acc + e.ha, 0)
+                return (
+                  <div key={s} style={{ marginBottom: 14 }}>
+                    <div style={{ fontSize: 8, color: sColor, letterSpacing: 1, textTransform: 'uppercase',
+                      fontFamily: 'monospace', marginBottom: 6 }}>{sLbl}</div>
+                    {entries.length === 0
+                      ? <div style={{ fontSize: 9, color: '#2a2a2a', fontFamily: 'monospace' }}>Sin polígonos</div>
+                      : entries.map((e, i) => (
+                          <div key={e.id} style={{ display: 'flex', justifyContent: 'space-between',
+                            fontSize: 10, fontFamily: 'monospace', marginBottom: 3 }}>
+                            <span style={{ color: '#555' }}>Sup. {i + 1}</span>
+                            <span style={{ color: '#aaa' }}>{e.ha.toFixed(4)} ha</span>
+                          </div>
+                        ))
+                    }
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11,
+                      fontFamily: 'monospace', marginTop: 5, paddingTop: 5, borderTop: '1px solid #1a1a1a' }}>
+                      <span style={{ color: '#555' }}>Subtotal {s === 'izq' ? 'Izq.' : 'Der.'}</span>
+                      <span style={{ color: sColor, fontWeight: 700 }}>{subtotal.toFixed(4)} ha</span>
+                    </div>
+                  </div>
+                )
+              })}
+              {mapEntries.length > 0 && (
+                <div style={{ borderTop: '1px solid #252525', paddingTop: 8, marginTop: 4 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between',
+                    fontSize: 12, fontFamily: 'monospace', fontWeight: 700 }}>
+                    <span style={{ color: '#777' }}>Total</span>
+                    <span style={{ color }}>{Sup_ha.toFixed(4)} ha</span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Mapa */}
             <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
               <InlineMapDraw
                 color={color}
+                hideMonte={true}
                 onConfirm={(id, side, _monte, area_ha, pts) => {
                   setMapEntries(prev => [...prev, { id, ha: area_ha, side, pts }])
                 }}
@@ -685,43 +736,6 @@ function CalcDesmalezado({ paramsRef }: { paramsRef?: React.MutableRefObject<Par
                   setMapEntries(prev => prev.map(e => e.id === id ? { ...e, ha: area_ha, pts } : e))
                 }}
               />
-            </div>
-
-            {/* Tabla de superficies */}
-            <div style={{ ...panel, width: 180, flexShrink: 0, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
-              <SectionTitle>Superficies</SectionTitle>
-              {mapEntries.length === 0 ? (
-                <div style={{ fontSize: 9, color: '#444', fontFamily: 'monospace', lineHeight: 1.8, marginTop: 4 }}>
-                  Dibujá polígonos en el mapa para agregar superficies.<br /><br />
-                  <span style={{ color: '#333' }}>Ideal para relevamiento con drone (mayor exactitud).</span>
-                </div>
-              ) : (
-                <>
-                  {(['izq', 'der'] as const).map(side => {
-                    const entries = mapEntries.filter(e => e.side === side)
-                    if (!entries.length) return null
-                    const sideColor = side === 'izq' ? '#66bb6a' : '#42a5f5'
-                    const sideLbl   = side === 'izq' ? '← Izq.' : 'Der. →'
-                    return (
-                      <div key={side} style={{ marginBottom: 10 }}>
-                        <div style={{ fontSize: 8, color: sideColor, letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 4 }}>{sideLbl}</div>
-                        {entries.map((e, i) => (
-                          <div key={e.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, fontFamily: 'monospace', marginBottom: 3 }}>
-                            <span style={{ color: '#555' }}>Sup. {i + 1}</span>
-                            <span style={{ color: '#aaa' }}>{e.ha.toFixed(4)} ha</span>
-                          </div>
-                        ))}
-                      </div>
-                    )
-                  })}
-                  <div style={{ borderTop: '1px solid #1e1e1e', marginTop: 4, paddingTop: 8 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontFamily: 'monospace', fontWeight: 700 }}>
-                      <span style={{ color: '#777' }}>Total</span>
-                      <span style={{ color }}>{Sup_ha.toFixed(4)} ha</span>
-                    </div>
-                  </div>
-                </>
-              )}
             </div>
           </div>
         )}
