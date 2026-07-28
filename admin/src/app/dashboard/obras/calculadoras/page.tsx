@@ -492,6 +492,8 @@ function CalcCanal({ paramsRef }: { paramsRef?: React.MutableRefObject<Params> }
 const CLR_DESM = '#66BB6A'
 interface DesmEntry    { id: string; ha: number; side: 'izq' | 'der'; pts?: [number,number][] }
 interface SegmentoDesm { id: string; ruta: string; lado: 'izq' | 'der'; desde: number; hasta: number; ancho: number }
+interface EquipoAP     { id: string; nombre: string; hp: number; valor: number }
+interface MORigAP      { id: string; cargo: string; n: number; tarifa: number; coef: number; hs: number }
 
 function CalcDesmalezado({ paramsRef }: { paramsRef?: React.MutableRefObject<Params> }) {
   const [method,        setMethod]        = useState<'formula' | 'progresivas' | 'mapa'>('formula')
@@ -513,6 +515,51 @@ function CalcDesmalezado({ paramsRef }: { paramsRef?: React.MutableRefObject<Par
 
   // Mapa/drone
   const [mapEntries, setMapEntries] = useState<DesmEntry[]>([])
+
+  // ── Análisis de Precio ──────────────────────────────────────────────────────
+  const [apEquipos,      setApEquipos]      = useState<EquipoAP[]>([
+    { id: 'tr', nombre: 'Tractor 120 HP',       hp: 120, valor: 120235050 },
+    { id: 'dm', nombre: 'Desmalezadora 4,20 m', hp: 0,   valor: 38125815  },
+    { id: 'mg', nombre: 'Motoguadaña 1 HP',     hp: 0,   valor: 500000    },
+  ])
+  const [apVidaHs,       setApVidaHs]       = useState(10000)
+  const [apHsDia,        setApHsDia]        = useState(8)
+  const [apHsAnio,       setApHsAnio]       = useState(2000)
+  const [apI,            setApI]            = useState(0.12)
+  const [apPctRep,       setApPctRep]       = useState(80)
+  const [apConsDiesel,   setApConsDiesel]   = useState(0.16)
+  const [apPrecioDiesel, setApPrecioDiesel] = useState(2121)
+  const [apConsNafta,    setApConsNafta]    = useState(1)
+  const [apPrecioNafta,  setApPrecioNafta]  = useState(2757)
+  const [apPctLub,       setApPctLub]       = useState(30)
+  const [apMO,           setApMO]           = useState<MORigAP[]>([
+    { id: 'oe', cargo: 'Oficial Esp.', n: 1, tarifa: 0, coef: 0, hs: 8 },
+    { id: 'ay', cargo: 'Ayudante',     n: 1, tarifa: 0, coef: 0, hs: 8 },
+  ])
+  const [apPctEqMen,     setApPctEqMen]     = useState(8)
+  const [apPctGG,        setApPctGG]        = useState(15)
+  const [apRendHa,       setApRendHa]       = useState(90)
+  const [apRendDias,     setApRendDias]     = useState(5)
+  const [apAdoptado,     setApAdoptado]     = useState(37848)
+
+  // ── Computed AP ──────────────────────────────────────────────────────────────
+  const apTotalV     = apEquipos.reduce((s, e) => s + e.valor, 0)
+  const apHPDiesel   = apEquipos.filter(e => e.hp > 1).reduce((s, e) => s + e.hp, 0)
+  const apAmort      = apTotalV * apHsDia / apVidaHs
+  const apInteres    = apTotalV * apI * apHsDia / (2 * apHsAnio)
+  const apAI         = apAmort + apInteres
+  const apRep        = apPctRep / 100 * apAmort
+  const apCombDiesel = apHPDiesel * apConsDiesel * apHsDia * apPrecioDiesel
+  const apCombNafta  = apConsNafta * apHsDia * apPrecioNafta
+  const apCombTotal  = apCombDiesel + apCombNafta
+  const apLub        = apPctLub / 100 * apCombTotal
+  const apMOTotal    = apMO.reduce((s, r) => s + r.n * r.tarifa * r.coef * r.hs, 0)
+  const apSubtotal   = apRep + apCombTotal + apLub + apMOTotal
+  const apEqMen      = apPctEqMen / 100 * apSubtotal
+  const apGG         = apPctGG  / 100 * apSubtotal
+  const apCDE        = apSubtotal + apEqMen + apGG
+  const apRendDiaHa  = apRendHa / apRendDias
+  const apCU         = apRendDiaHa > 0 ? apCDE / apRendDiaHa : 0
 
   const color      = CLR_DESM
   const Sup_m2     = L * Ab * lados
@@ -945,14 +992,235 @@ function CalcDesmalezado({ paramsRef }: { paramsRef?: React.MutableRefObject<Par
           </div>
         )}
 
-        {/* ── Jornales — placeholder ── */}
+        {/* ── Análisis de Precio ── */}
         {view === 'jornales' && (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-            <div style={{ textAlign: 'center', fontFamily: 'monospace' }}>
-              <div style={{ fontSize: 28, color: '#222', marginBottom: 14 }}>↻</div>
-              <div style={{ fontSize: 12, color: '#555' }}>Análisis de precio — en desarrollo</div>
-              <div style={{ fontSize: 9, color: '#333', marginTop: 6, lineHeight: 1.8 }}>
-                Ae-7: Jornales, Equipos y Coeficientes<br />para Desmalezado de Banquinas
+          <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: 10, height: '100%', minHeight: 0 }}>
+
+            {/* LEFT: Inputs */}
+            <div style={{ ...panel, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+
+              <SectionTitle>Equipos</SectionTitle>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10, ...mono }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid #1a1a1a' }}>
+                    <th style={th}>Equipo</th>
+                    <th style={{ ...th, textAlign: 'right', width: 36 }}>HP</th>
+                    <th style={{ ...th, textAlign: 'right', width: 88 }}>Valor $</th>
+                    <th style={{ width: 16 }} />
+                  </tr>
+                </thead>
+                <tbody>
+                  {apEquipos.map(eq => (
+                    <tr key={eq.id}>
+                      <td style={{ padding: '2px 2px' }}>
+                        <input value={eq.nombre}
+                          onChange={e => setApEquipos(p => p.map(x => x.id === eq.id ? {...x, nombre: e.target.value} : x))}
+                          style={{ background: 'none', border: 'none', color: '#999', ...mono, fontSize: 10, width: '100%', outline: 'none' }} />
+                      </td>
+                      <td style={{ padding: '2px 2px' }}>
+                        <input type="number" value={eq.hp}
+                          onChange={e => setApEquipos(p => p.map(x => x.id === eq.id ? {...x, hp: +e.target.value} : x))}
+                          style={{ background: 'none', border: '1px solid #1a1a1a', color: '#777', ...mono,
+                            fontSize: 10, width: 36, textAlign: 'right', padding: '1px 3px', outline: 'none' }} />
+                      </td>
+                      <td style={{ padding: '2px 2px' }}>
+                        <input type="number" value={eq.valor}
+                          onChange={e => setApEquipos(p => p.map(x => x.id === eq.id ? {...x, valor: +e.target.value} : x))}
+                          style={{ background: 'none', border: '1px solid #1a1a1a', color: '#777', ...mono,
+                            fontSize: 10, width: 88, textAlign: 'right', padding: '1px 3px', outline: 'none' }} />
+                      </td>
+                      <td>
+                        <button onClick={() => setApEquipos(p => p.filter(x => x.id !== eq.id))}
+                          style={{ background: 'none', border: 'none', color: '#2a2a2a', cursor: 'pointer', fontSize: 9 }}>✕</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
+                <button onClick={() => setApEquipos(p => [...p, { id: Math.random().toString(36).slice(2,6), nombre: 'Equipo nuevo', hp: 0, valor: 0 }])}
+                  style={{ fontSize: 9, ...mono, background: 'none', border: '1px solid #1a1a1a', color: '#444', cursor: 'pointer', borderRadius: 2, padding: '2px 8px' }}>
+                  + equipo
+                </button>
+                <span style={{ fontSize: 9, ...mono, color: '#444' }}>
+                  {apEquipos.reduce((s,e)=>s+e.hp,0)} HP · ${apTotalV.toLocaleString('es-AR')}
+                </span>
+              </div>
+
+              <SectionTitle>Vida útil y financiero</SectionTitle>
+              <Inp label="Vida útil"       unit="hs"  value={apVidaHs}       onChange={setApVidaHs}       step={500} />
+              <Inp label="Hs/día"                     value={apHsDia}        onChange={setApHsDia}        step={1} min={1} />
+              <Inp label="Hs/año"                     value={apHsAnio}       onChange={setApHsAnio}       step={100} />
+              <Inp label="Interés anual"   unit="%"   value={apI * 100}      onChange={v => setApI(v/100)} step={1} />
+              <Inp label="Reparaciones"    unit="% A" value={apPctRep}       onChange={setApPctRep}       step={5} />
+
+              <SectionTitle>Combustibles</SectionTitle>
+              <Inp label="Consumo diesel"  unit="L/HP/hs" value={apConsDiesel}   onChange={setApConsDiesel}   step={0.01} />
+              <Inp label="Precio diesel"   unit="$/L"     value={apPrecioDiesel} onChange={setApPrecioDiesel} step={100} />
+              <div style={secLabel}>Nafta / Mezcla</div>
+              <Inp label="Consumo nafta"   unit="L/hs"    value={apConsNafta}    onChange={setApConsNafta}    step={0.1} />
+              <Inp label="Precio nafta"    unit="$/L"     value={apPrecioNafta}  onChange={setApPrecioNafta}  step={100} />
+              <Inp label="Lubricantes"     unit="% comb"  value={apPctLub}       onChange={setApPctLub}       step={5} />
+
+              <SectionTitle>Mano de Obra</SectionTitle>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 9, ...mono }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid #1a1a1a' }}>
+                    <th style={th}>Cargo</th>
+                    <th style={{ ...th, textAlign: 'center', width: 20 }}>n</th>
+                    <th style={{ ...th, textAlign: 'right', width: 70 }}>$/h</th>
+                    <th style={{ ...th, textAlign: 'right', width: 46 }}>Coef.</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {apMO.map(row => (
+                    <tr key={row.id}>
+                      <td style={{ padding: '2px 2px' }}>
+                        <input value={row.cargo}
+                          onChange={e => setApMO(p => p.map(x => x.id === row.id ? {...x, cargo: e.target.value} : x))}
+                          style={{ background: 'none', border: 'none', color: '#777', ...mono, fontSize: 9, width: '100%', outline: 'none' }} />
+                      </td>
+                      <td><input type="number" value={row.n}
+                        onChange={e => setApMO(p => p.map(x => x.id === row.id ? {...x, n: +e.target.value} : x))}
+                        style={{ background: 'none', border: '1px solid #1a1a1a', color: '#666', ...mono, fontSize: 9, width: 20, textAlign: 'center', padding: 1, outline: 'none' }} /></td>
+                      <td><input type="number" value={row.tarifa}
+                        onChange={e => setApMO(p => p.map(x => x.id === row.id ? {...x, tarifa: +e.target.value} : x))}
+                        style={{ background: 'none', border: '1px solid #1a1a1a', color: '#666', ...mono, fontSize: 9, width: 70, textAlign: 'right', padding: '1px 2px', outline: 'none' }} /></td>
+                      <td><input type="number" value={row.coef}
+                        onChange={e => setApMO(p => p.map(x => x.id === row.id ? {...x, coef: +e.target.value} : x))}
+                        style={{ background: 'none', border: '1px solid #1a1a1a', color: '#666', ...mono, fontSize: 9, width: 46, textAlign: 'right', padding: '1px 2px', outline: 'none' }} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <button onClick={() => setApMO(p => [...p, { id: Math.random().toString(36).slice(2,6), cargo: 'Operario', n: 1, tarifa: 0, coef: 0, hs: 8 }])}
+                style={{ fontSize: 9, ...mono, background: 'none', border: '1px solid #1a1a1a', color: '#444', cursor: 'pointer', borderRadius: 2, padding: '2px 8px', marginTop: 4, alignSelf: 'flex-start' }}>
+                + cargo
+              </button>
+
+              <SectionTitle>Gastos</SectionTitle>
+              <Inp label="Equipos menores"  unit="%" value={apPctEqMen} onChange={setApPctEqMen} step={1} />
+              <Inp label="Gastos generales" unit="%" value={apPctGG}    onChange={setApPctGG}    step={1} />
+            </div>
+
+            {/* RIGHT: Breakdown + results */}
+            <div style={{ ...panel, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+              <SectionTitle>ANÁLISIS DE PRECIO — Desmalezado de Banquinas</SectionTitle>
+
+              {/* Equipos summary */}
+              <div style={{ marginBottom: 10, paddingBottom: 8, borderBottom: '1px solid #111' }}>
+                {apEquipos.map(eq => (
+                  <div key={eq.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, ...mono, marginBottom: 2 }}>
+                    <span style={{ color: '#555' }}>↳ {eq.nombre}{eq.hp > 0 ? ` (${eq.hp} HP)` : ''}</span>
+                    <span style={{ color: '#777' }}>$ {eq.valor.toLocaleString('es-AR')}</span>
+                  </div>
+                ))}
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, ...mono, borderTop: '1px solid #1a1a1a', paddingTop: 4, marginTop: 4 }}>
+                  <span style={{ color: '#555' }}>Total {apEquipos.reduce((s,e)=>s+e.hp,0)} HP</span>
+                  <span style={{ color: '#aaa', fontWeight: 700 }}>$ {apTotalV.toLocaleString('es-AR')}</span>
+                </div>
+                <div style={{ fontSize: 8, ...mono, color: '#333', marginTop: 3 }}>
+                  Vida útil: {apVidaHs.toLocaleString('es-AR')} hs · {Math.round(apVidaHs/apHsAnio)} años · V. Residual {0}%
+                </div>
+              </div>
+
+              {/* Cost rows */}
+              {[
+                { label: 'Amortización e Intereses',
+                  sub: `$ ${apTotalV.toLocaleString('es-AR')} × ${apHsDia}/${apVidaHs} + ${apHsDia}×${apI*100}%/(2×${apHsAnio})`,
+                  val: apAI, ref: true },
+                { label: `Reparación y Repuestos (${apPctRep}% amort.)`,
+                  sub: `${apPctRep}% × $ ${Math.round(apAmort).toLocaleString('es-AR')} $/d`,
+                  val: apRep },
+                { label: `Combustibles — Diesel (${apHPDiesel} HP × ${apConsDiesel} L/HP/hs)`,
+                  sub: `${apHPDiesel} × ${apConsDiesel} × ${apHsDia} hs × $ ${apPrecioDiesel.toLocaleString('es-AR')}/L`,
+                  val: apCombDiesel },
+                { label: `Combustibles — Nafta/Mezcla (${apConsNafta} L/hs)`,
+                  sub: `${apConsNafta} × ${apHsDia} hs × $ ${apPrecioNafta.toLocaleString('es-AR')}/L`,
+                  val: apCombNafta },
+                { label: `Lubricantes (${apPctLub}% de combustibles)`,
+                  sub: `${apPctLub}% × $ ${Math.round(apCombTotal).toLocaleString('es-AR')}`,
+                  val: apLub },
+                { label: 'Mano de Obra',
+                  sub: apMO.map(r => `${r.cargo}: ${r.n}×$${r.tarifa}×${r.coef}×${r.hs}hs`).join(' · '),
+                  val: apMOTotal },
+              ].map(({ label, sub, val, ref }) => (
+                <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+                  fontSize: 10, ...mono, marginBottom: 6, paddingBottom: 6, borderBottom: '1px solid #0d0d0d' }}>
+                  <div style={{ flex: 1, minWidth: 0, paddingRight: 12 }}>
+                    <div style={{ color: ref ? '#555' : '#777' }}>{label}</div>
+                    {sub && <div style={{ color: '#2a2a2a', fontSize: 8, marginTop: 1 }}>{sub}</div>}
+                  </div>
+                  <span style={{ color: val > 0 ? (ref ? '#555' : '#aaa') : '#2a2a2a', fontWeight: val > 0 ? 700 : 400, whiteSpace: 'nowrap' }}>
+                    $ {Math.round(val).toLocaleString('es-AR')} $/d
+                  </span>
+                </div>
+              ))}
+
+              {/* Subtotal */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, ...mono,
+                fontWeight: 700, paddingTop: 4, borderTop: '1px solid #222', marginBottom: 8 }}>
+                <span style={{ color: '#666' }}>Subtotal</span>
+                <span style={{ color: '#aaa' }}>$ {Math.round(apSubtotal).toLocaleString('es-AR')} $/d</span>
+              </div>
+
+              {[
+                { label: `Incidencia equipos menores (${apPctEqMen}%)`, val: apEqMen },
+                { label: `Gastos generales (${apPctGG}%)`,              val: apGG   },
+              ].map(({ label, val }) => (
+                <div key={label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, ...mono, marginBottom: 4 }}>
+                  <span style={{ color: '#555' }}>{label}</span>
+                  <span style={{ color: '#777' }}>$ {Math.round(val).toLocaleString('es-AR')} $/d</span>
+                </div>
+              ))}
+
+              {/* CDE */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, ...mono, fontWeight: 700,
+                marginTop: 8, paddingTop: 10, borderTop: `1px solid ${color}44`, marginBottom: 18 }}>
+                <span style={{ color: '#777' }}>COSTO DIARIO DEL EQUIPO</span>
+                <span style={{ color }}>$ {Math.round(apCDE).toLocaleString('es-AR')} $/d</span>
+              </div>
+
+              {/* Rendimiento */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 10, ...mono, color: '#555' }}>Rendimiento:</span>
+                <input type="number" value={apRendHa}  onChange={e => setApRendHa(+e.target.value)}
+                  style={{ width: 55, background: '#0a0a0a', border: '1px solid #222', color: '#ccc',
+                    ...mono, fontSize: 11, padding: '3px 6px', textAlign: 'right', outline: 'none' }} />
+                <span style={{ fontSize: 10, ...mono, color: '#444' }}>Ha en</span>
+                <input type="number" value={apRendDias} onChange={e => setApRendDias(+e.target.value)}
+                  style={{ width: 36, background: '#0a0a0a', border: '1px solid #222', color: '#ccc',
+                    ...mono, fontSize: 11, padding: '3px 6px', textAlign: 'right', outline: 'none' }} />
+                <span style={{ fontSize: 10, ...mono, color: '#444' }}>días =</span>
+                <span style={{ fontSize: 12, ...mono, color: '#888', fontWeight: 700 }}>
+                  {apRendDiaHa.toFixed(2)} Ha/d
+                </span>
+              </div>
+
+              {/* Costo unitario */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, ...mono, marginBottom: 6 }}>
+                <span style={{ color: '#666' }}>Costo unitario</span>
+                <span style={{ color: '#999' }}>$ {apCU.toFixed(2)} $/Ha</span>
+              </div>
+
+              {/* ADOPTADO */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                borderTop: `2px solid ${color}55`, paddingTop: 14, marginTop: 6 }}>
+                <span style={{ fontSize: 13, ...mono, fontWeight: 700, color: '#888' }}>ADOPTADO</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 11, ...mono, color: '#555' }}>$</span>
+                  <input type="number" value={apAdoptado} onChange={e => setApAdoptado(+e.target.value)}
+                    style={{ width: 110, background: '#0a0a0a', border: `1px solid ${color}55`, color,
+                      ...mono, fontSize: 20, fontWeight: 700, padding: '5px 8px',
+                      textAlign: 'right', outline: 'none', borderRadius: 2 }} />
+                  <span style={{ fontSize: 11, ...mono, color: '#666' }}>$/Ha</span>
+                  <button onClick={() => setApAdoptado(Math.round(apCU))}
+                    title="Sincronizar con costo calculado"
+                    style={{ fontSize: 9, ...mono, background: `${color}11`, border: `1px solid ${color}33`,
+                      color, cursor: 'pointer', padding: '4px 10px', borderRadius: 2 }}>
+                    ↺ Recalc.
+                  </button>
+                </div>
               </div>
             </div>
           </div>
