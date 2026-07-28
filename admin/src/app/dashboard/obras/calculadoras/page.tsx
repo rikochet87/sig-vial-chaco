@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { setObraTransfer, saveReturnTab, consumeReturnTab } from '@/lib/obraTransfer'
 import InlineMapDraw from '@/components/InlineMapDraw'
+import InlineLineDraw from '@/components/InlineLineDraw'
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 type Tab    = 'terraplen' | 'excavacion' | 'ripio' | 'canal' | 'limpieza'
@@ -312,6 +313,9 @@ function CalcRipio({ paramsRef }: { paramsRef?: React.MutableRefObject<Params> }
   const [E, setE]     = useState(0.15)
   const [rho, setRho] = useState(2.10)
 
+  const [method,        setMethod]        = useState<'formula' | 'mapa'>('formula')
+  const [mapaActivated, setMapaActivated] = useState(false)
+
   useEffect(() => {
     if (paramsRef) paramsRef.current = { An, E, rho }
   }, [paramsRef, An, E, rho])
@@ -327,55 +331,123 @@ function CalcRipio({ paramsRef }: { paramsRef?: React.MutableRefObject<Params> }
   const yBot = 150, yMid = yBot - subH, yTop = yMid - ripH
   const color = CLR.ripio
 
+  const METHODS = [
+    { id: 'formula' as const, label: 'Fórmula' },
+    { id: 'mapa'    as const, label: '↔ Trazado en mapa' },
+  ]
+
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr 148px', gap: 10, height: '100%' }}>
-      <div style={panel}>
-        <SectionTitle>Geometría</SectionTitle>
-        <Inp label="Longitud"      unit="m"   value={L}   onChange={setL}   step={100} />
-        <Inp label="Ancho"         unit="m"   value={An}  onChange={setAn}  step={0.5} />
-        <Inp label="Espesor"       unit="m"   value={E}   onChange={setE}   step={0.01} />
-        <div style={secLabel}>Material</div>
-        <Inp label="Densidad"      unit="t/m³" value={rho} onChange={setRho} step={0.05} min={1.5} />
-        <div style={{ marginTop: 16, padding: '8px', background: '#0a0a0a', borderRadius: 4, fontSize: 9, color: '#333', fontFamily: 'monospace', lineHeight: 1.6 }}>
-          Área de sección: {(An * E).toFixed(4)} m²<br/>
-          Volumen: {fmt(V)} m³
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: 8 }}>
+      {/* Method toggle */}
+      <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+        {METHODS.map(m => (
+          <button key={m.id} onClick={() => { if (m.id === 'mapa') setMapaActivated(true); setMethod(m.id) }}
+            style={{
+              padding: '5px 14px', fontSize: 11, fontFamily: 'monospace', cursor: 'pointer',
+              borderRadius: 3, border: `1px solid ${method === m.id ? `${color}99` : '#222'}`,
+              background: method === m.id ? `${color}1a` : '#080808',
+              color: method === m.id ? color : '#444',
+            }}>
+            {m.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Modo Fórmula ── */}
+      <div style={{ display: method === 'formula' ? 'grid' : 'none', gridTemplateColumns: '200px 1fr 148px', gap: 10, flex: 1, minHeight: 0 }}>
+        <div style={panel}>
+          <SectionTitle>Geometría</SectionTitle>
+          <Inp label="Longitud"  unit="m"    value={L}   onChange={setL}   step={100} />
+          <Inp label="Ancho"     unit="m"    value={An}  onChange={setAn}  step={0.5} />
+          <Inp label="Espesor"   unit="m"    value={E}   onChange={setE}   step={0.01} />
+          <div style={secLabel}>Material</div>
+          <Inp label="Densidad"  unit="t/m³" value={rho} onChange={setRho} step={0.05} min={1.5} />
+          <div style={{ marginTop: 16, padding: '8px', background: '#0a0a0a', borderRadius: 4, fontSize: 9, color: '#333', fontFamily: 'monospace', lineHeight: 1.6 }}>
+            Área de sección: {(An * E).toFixed(4)} m²<br/>
+            Volumen: {fmt(V)} m³
+          </div>
+        </div>
+
+        <div style={{ ...panel, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
+          <SectionTitle>Sección tipo — Capa granular (escala referencial)</SectionTitle>
+          <svg viewBox={`0 0 ${W_SVG} ${H_SVG}`} style={{ width: '100%', height: 'auto' }}>
+            {Array.from({ length: 8 }, (_, i) => (
+              <line key={i} x1={x0} y1={yMid + 4 + i*3.5} x2={x1} y2={yMid + 4 + i*3.5} stroke="#1a1a1a" strokeWidth={1} />
+            ))}
+            <rect x={x0} y={yMid} width={roadW} height={subH} fill="#0f0f0f" stroke="#222" strokeWidth={1} />
+            <rect x={x0} y={yTop} width={roadW} height={ripH} fill={`${color}22`} stroke={color} strokeWidth={1.5} />
+            <text x={cx} y={yMid + subH/2 + 4} textAnchor="middle" fontSize={9} fill="#333" fontFamily="monospace">SUBRASANTE</text>
+            <text x={cx} y={yTop + ripH/2 + 4} textAnchor="middle" fontSize={11} fill={color} fontFamily="monospace" fontWeight="bold">RIPIO · e = {E.toFixed(2)} m</text>
+            <DimLine x1={x0} y1={yTop - 14} x2={x1} y2={yTop - 14}
+              label={`A = ${An.toFixed(1)} m`} textX={cx} textY={yTop - 18} />
+            <DimLine x1={x1 + 14} y1={yTop} x2={x1 + 14} y2={yMid}
+              label={`e=${E.toFixed(2)}m`} textX={x1 + 28} textY={yTop + ripH/2}
+              rotate={`rotate(90,${x1+28},${yTop + ripH/2})`} />
+          </svg>
+          <Pipeline color={color} steps={[
+            { label: 'Volumen',   formula: 'V = L · A · e', sub: `${L}·${An}·${E}`,        result: `${V.toFixed(3)} m³` },
+            { label: 'Toneladas', formula: 'W = V · ρ',     sub: `${V.toFixed(3)}·${rho}`, result: `${fmt(W)} t`, accent: true },
+            { label: 'Por metro', formula: 'w = W / L',     sub: `${fmt(W)}/${L}`,         result: `${(W/L).toFixed(2)} t/m` },
+          ]} />
+        </div>
+
+        <div style={panel}>
+          <SectionTitle>Cómputo</SectionTitle>
+          <Res label="Volumen"    value={fmt(V)}   unit="m³" />
+          <Res label="Toneladas"  value={fmt(W)}   unit="t" accent />
+          <Res label="Longitud"   value={fmt(L)}   unit="m" />
+          <div style={{ marginTop: 8, fontSize: 11, color: '#333', fontFamily: 'monospace', lineHeight: 1.8 }}>
+            Camiones 15t: ~{Math.ceil(W/15).toLocaleString('es-AR')}<br/>
+            Camiones 20t: ~{Math.ceil(W/20).toLocaleString('es-AR')}<br/>
+            {Math.round(W/L * 10)/10} t/m lineal
+          </div>
         </div>
       </div>
 
-      <div style={{ ...panel, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
-        <SectionTitle>Sección tipo — Capa granular (escala referencial)</SectionTitle>
-        <svg viewBox={`0 0 ${W_SVG} ${H_SVG}`} style={{ width: '100%', height: 'auto' }}>
-          {Array.from({ length: 8 }, (_, i) => (
-            <line key={i} x1={x0} y1={yMid + 4 + i*3.5} x2={x1} y2={yMid + 4 + i*3.5} stroke="#1a1a1a" strokeWidth={1} />
-          ))}
-          <rect x={x0} y={yMid} width={roadW} height={subH} fill="#0f0f0f" stroke="#222" strokeWidth={1} />
-          <rect x={x0} y={yTop} width={roadW} height={ripH} fill={`${color}22`} stroke={color} strokeWidth={1.5} />
-          <text x={cx} y={yMid + subH/2 + 4} textAnchor="middle" fontSize={9} fill="#333" fontFamily="monospace">SUBRASANTE</text>
-          <text x={cx} y={yTop + ripH/2 + 4} textAnchor="middle" fontSize={11} fill={color} fontFamily="monospace" fontWeight="bold">RIPIO · e = {E.toFixed(2)} m</text>
-          <DimLine x1={x0} y1={yTop - 14} x2={x1} y2={yTop - 14}
-            label={`A = ${An.toFixed(1)} m`} textX={cx} textY={yTop - 18} />
-          <DimLine x1={x1 + 14} y1={yTop} x2={x1 + 14} y2={yMid}
-            label={`e=${E.toFixed(2)}m`} textX={x1 + 28} textY={yTop + ripH/2}
-            rotate={`rotate(90,${x1+28},${yTop + ripH/2})`} />
-        </svg>
-        <Pipeline color={color} steps={[
-          { label: 'Volumen',   formula: 'V = L · A · e', sub: `${L}·${An}·${E}`,        result: `${V.toFixed(3)} m³` },
-          { label: 'Toneladas', formula: 'W = V · ρ',     sub: `${V.toFixed(3)}·${rho}`, result: `${fmt(W)} t`, accent: true },
-          { label: 'Por metro', formula: 'w = W / L',     sub: `${fmt(W)}/${L}`,         result: `${(W/L).toFixed(2)} t/m` },
-        ]} />
-      </div>
+      {/* ── Modo Mapa (lazy-mount) ── */}
+      {mapaActivated && (
+        <div style={{ display: method === 'mapa' ? 'flex' : 'none', gap: 10, flex: 1, minHeight: 0 }}>
+          {/* Panel izquierdo */}
+          <div style={{ ...panel, width: 200, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 0 }}>
+            <SectionTitle>Dimensiones</SectionTitle>
+            <Inp label="Ancho"    unit="m"    value={An}  onChange={setAn}  step={0.5} />
+            <Inp label="Espesor"  unit="m"    value={E}   onChange={setE}   step={0.01} />
+            <div style={secLabel}>Material</div>
+            <Inp label="Densidad" unit="t/m³" value={rho} onChange={setRho} step={0.05} min={1.5} />
 
-      <div style={panel}>
-        <SectionTitle>Cómputo</SectionTitle>
-        <Res label="Volumen"    value={fmt(V)}   unit="m³" />
-        <Res label="Toneladas"  value={fmt(W)}   unit="t" accent />
-        <Res label="Longitud"   value={fmt(L)}   unit="m" />
-        <div style={{ marginTop: 8, fontSize: 11, color: '#333', fontFamily: 'monospace', lineHeight: 1.8 }}>
-          Camiones 15t: ~{Math.ceil(W/15).toLocaleString('es-AR')}<br/>
-          Camiones 20t: ~{Math.ceil(W/20).toLocaleString('es-AR')}<br/>
-          {Math.round(W/L * 10)/10} t/m lineal
+            <div style={{ marginTop: 16, borderTop: '1px solid #1a1a1a', paddingTop: 12 }}>
+              <div style={{ fontSize: 8, color: '#444', fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>
+                Longitud medida
+              </div>
+              <div style={{ fontFamily: 'monospace', fontSize: 20, fontWeight: 700, color: L > 0 ? color : '#333', marginBottom: 2 }}>
+                {fmt(L)} <span style={{ fontSize: 11, fontWeight: 400, color: '#444' }}>m</span>
+              </div>
+              {L >= 1000 && (
+                <div style={{ fontSize: 10, color: '#555', fontFamily: 'monospace' }}>
+                  {(L/1000).toFixed(3)} km
+                </div>
+              )}
+            </div>
+
+            <div style={{ marginTop: 'auto', borderTop: '1px solid #1a1a1a', paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <Res label="Volumen"   value={fmt(V)} unit="m³" />
+              <Res label="Toneladas" value={fmt(W)} unit="t" accent />
+              <div style={{ fontSize: 9, color: '#333', fontFamily: 'monospace', lineHeight: 1.7, marginTop: 4 }}>
+                Camiones 15t: ~{Math.ceil(W/15).toLocaleString('es-AR')}<br/>
+                Camiones 20t: ~{Math.ceil(W/20).toLocaleString('es-AR')}
+              </div>
+            </div>
+          </div>
+
+          {/* Mapa */}
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+            <InlineLineDraw
+              color={color}
+              onConfirm={(lengthM) => { setL(Math.round(lengthM)) }}
+            />
+          </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }
