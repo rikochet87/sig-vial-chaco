@@ -44,6 +44,46 @@ const th: React.CSSProperties = {
   textTransform: 'uppercase', letterSpacing: 0.8, textAlign: 'left', fontFamily: 'monospace',
 }
 
+// ── Pesos en letras ──────────────────────────────────────────────────────────
+function pesosEnLetras(n: number): string {
+  const u20 = ['','uno','dos','tres','cuatro','cinco','seis','siete','ocho','nueve',
+    'diez','once','doce','trece','catorce','quince','dieciséis','diecisiete','dieciocho','diecinueve']
+  const v20 = ['','veintiuno','veintidós','veintitrés','veinticuatro','veinticinco',
+    'veintiséis','veintisiete','veintiocho','veintinueve']
+  const dec = ['','','veinte','treinta','cuarenta','cincuenta','sesenta','setenta','ochenta','noventa']
+  const cen = ['','cien','doscientos','trescientos','cuatrocientos','quinientos',
+    'seiscientos','setecientos','ochocientos','novecientos']
+
+  function s100(n: number): string {
+    if (n <= 0) return ''
+    if (n < 20) return u20[n]
+    if (n < 30) return n === 20 ? 'veinte' : v20[n - 20]
+    const t = Math.floor(n/10), r = n%10
+    return dec[t] + (r ? ' y ' + u20[r] : '')
+  }
+  function s1000(n: number): string {
+    if (n <= 0) return ''
+    const h = Math.floor(n/100), r = n%100
+    if (n === 100) return 'cien'
+    return [h > 0 ? cen[h] : '', r > 0 ? s100(r) : ''].filter(Boolean).join(' ')
+  }
+
+  const int  = Math.floor(n)
+  const cts  = Math.round((n - int) * 100)
+  const mil  = Math.floor(int / 1000000)
+  const mile = Math.floor((int % 1000000) / 1000)
+  const rem  = int % 1000
+
+  const parts: string[] = []
+  if (mil  > 0) parts.push(mil  === 1 ? 'un millón'         : s1000(mil)  + ' millones')
+  if (mile > 0) parts.push(mile === 1 ? 'mil'               : s1000(mile) + ' mil')
+  if (rem  > 0) parts.push(s1000(rem))
+
+  const str = parts.join(' ') || 'cero'
+  const cap = str.charAt(0).toUpperCase() + str.slice(1)
+  return `Son pesos ${cap}${cts > 0 ? ` con ${cts}/100` : ''}.`
+}
+
 // ── Componentes base ──────────────────────────────────────────────────────────
 function Inp({ label, unit, value, onChange, step = 0.1, min = 0 }: {
   label: string; unit?: string; value: number
@@ -560,6 +600,36 @@ function CalcDesmalezado({ paramsRef }: { paramsRef?: React.MutableRefObject<Par
   const apCDE        = apSubtotal + apEqMen + apGG
   const apRendDiaHa  = apRendHa / apRendDias
   const apCU         = apRendDiaHa > 0 ? apCDE / apRendDiaHa : 0
+
+  // ── Cómputo derivados (deben estar antes del bloque presupuesto) ─────────────
+  const Sup_m2early  = L * Ab * lados
+  const formulaHaEarly = Sup_m2early / 10000
+  const progHaEarly  = segmentos.reduce((s, sg) => s + (sg.hasta - sg.desde) * sg.ancho / 10000, 0)
+  const mapaHaEarly  = mapEntries.reduce((s, e) => s + e.ha, 0)
+
+  // ── Presupuesto state ────────────────────────────────────────────────────────
+  const [prespPlazo,     setPrespPlazo]     = useState(6)
+  const [prespPctDVP,    setPrespPctDVP]    = useState(80)
+  const [prespDescTramo, setPrespDescTramo] = useState('Ruta Prov. Nº 1 y 3')
+
+  // Ha por lado para presupuesto (depende del método activo en Cómputo)
+  const haIzqPres = method === 'formula'
+    ? (lados === 2 ? formulaHaEarly / 2 : formulaHaEarly)
+    : method === 'progresivas'
+    ? segmentos.filter(s => s.lado === 'izq').reduce((a, s) => a + (s.hasta - s.desde) * s.ancho / 10000, 0)
+    : mapEntries.filter(e => e.side === 'izq').reduce((a, e) => a + e.ha, 0)
+  const haDerPres = method === 'formula'
+    ? (lados === 2 ? formulaHaEarly / 2 : 0)
+    : method === 'progresivas'
+    ? segmentos.filter(s => s.lado === 'der').reduce((a, s) => a + (s.hasta - s.desde) * s.ancho / 10000, 0)
+    : mapEntries.filter(e => e.side === 'der').reduce((a, e) => a + e.ha, 0)
+
+  const parcIzq      = haIzqPres * apAdoptado
+  const parcDer      = haDerPres * apAdoptado
+  const subtotalPres = parcIzq + parcDer
+  const totalPres    = subtotalPres * prespPlazo
+  const montoDVP     = totalPres * prespPctDVP / 100
+  const montoCCC     = totalPres * (100 - prespPctDVP) / 100
 
   const color      = CLR_DESM
   const Sup_m2     = L * Ab * lados
@@ -1226,15 +1296,206 @@ function CalcDesmalezado({ paramsRef }: { paramsRef?: React.MutableRefObject<Par
           </div>
         )}
 
-        {/* ── Presupuesto — placeholder ── */}
+        {/* ── Presupuesto ── */}
         {view === 'presupuesto' && (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-            <div style={{ textAlign: 'center', fontFamily: 'monospace' }}>
-              <div style={{ fontSize: 28, color: '#222', marginBottom: 14 }}>↻</div>
-              <div style={{ fontSize: 12, color: '#555' }}>Presupuesto — en desarrollo</div>
-              <div style={{ fontSize: 9, color: '#333', marginTop: 6, lineHeight: 1.8 }}>
-                Ae-10: Tabla de presupuesto y financiamiento<br />para Desmalezado de Banquinas
+          <div style={{ display: 'grid', gridTemplateColumns: '210px 1fr', gap: 10, height: '100%', minHeight: 0 }}>
+
+            {/* LEFT: settings */}
+            <div style={{ ...panel, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+              <SectionTitle>Datos del convenio</SectionTitle>
+              <div>
+                <span style={lbl}>Tramo / Descripción</span>
+                <input value={prespDescTramo} onChange={e => setPrespDescTramo(e.target.value)}
+                  style={{ width: '100%', boxSizing: 'border-box', background: '#0a0a0a', border: '1px solid #222',
+                    color: '#ccc', padding: '5px 8px', fontSize: 11, ...mono, borderRadius: 2, outline: 'none' }} />
               </div>
+              <Inp label="Plazo"         unit="meses" value={prespPlazo}  onChange={setPrespPlazo}  step={1} min={1} />
+              <Inp label="Aporte DVP"    unit="%"     value={prespPctDVP} onChange={setPrespPctDVP} step={5} min={0} />
+              <div style={{ marginTop: 12, padding: '8px', background: '#0a0a0a', borderRadius: 4, fontSize: 9, ...mono, color: '#444', lineHeight: 1.8 }}>
+                Aporte CCC: {100 - prespPctDVP}%<br/>
+                Precio unit.: ${apAdoptado.toLocaleString('es-AR')}/Ha
+              </div>
+
+              <SectionTitle>Origen de cantidades</SectionTitle>
+              <div style={{ fontSize: 9, ...mono, color: '#444', lineHeight: 1.9 }}>
+                {method === 'formula'     && `∑ Fórmula: ${formulaHa.toFixed(4)} ha\n(${lados} lado${lados>1?'s':''})`}
+                {method === 'progresivas' && `≡ Progresivas: ${segmentos.length} tramos\n${progHa.toFixed(4)} ha totales`}
+                {method === 'mapa'        && `◈ Drone: ${mapEntries.length} polígonos\n${mapaHa.toFixed(4)} ha totales`}
+                <br/>
+                <span style={{ color: '#333' }}>(editá en pestaña Cómputo)</span>
+              </div>
+
+              {subtotalPres > 0 && (
+                <div style={{ marginTop: 'auto', borderTop: `1px solid ${color}22`, paddingTop: 12 }}>
+                  <div style={{ fontSize: 8, ...mono, color: '#444', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Resumen</div>
+                  {[
+                    { label: 'Obra',    val: subtotalPres },
+                    { label: `DVP ${prespPctDVP}%`, val: montoDVP },
+                    { label: `CCC ${100-prespPctDVP}%`, val: montoCCC },
+                    { label: `Total (×${prespPlazo} m)`, val: totalPres, accent: true },
+                  ].map(({ label, val, accent }) => (
+                    <div key={label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, ...mono, marginBottom: 4 }}>
+                      <span style={{ color: accent ? color : '#555' }}>{label}</span>
+                      <span style={{ color: accent ? color : '#888', fontWeight: accent ? 700 : 400 }}>
+                        ${Math.round(val).toLocaleString('es-AR')}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* RIGHT: tabla presupuesto */}
+            <div style={{ ...panel, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+              <div style={{ fontSize: 14, ...mono, fontWeight: 700, color: '#999', textAlign: 'center',
+                letterSpacing: 2, textTransform: 'uppercase', marginBottom: 20, paddingBottom: 12,
+                borderBottom: '1px solid #1a1a1a' }}>
+                PRESUPUESTO
+              </div>
+
+              {/* Tabla */}
+              <table style={{ width: '100%', borderCollapse: 'collapse', ...mono, fontSize: 10 }}>
+                <thead>
+                  <tr style={{ borderBottom: '2px solid #222' }}>
+                    <th style={{ ...th, width: 36 }}>ÍTEM</th>
+                    <th style={th}>Designación Obras</th>
+                    <th style={{ ...th, textAlign: 'center', width: 36 }}>Uni.</th>
+                    <th style={{ ...th, textAlign: 'right', width: 72 }}>Cantidad</th>
+                    <th style={{ ...th, textAlign: 'right', width: 100 }}>Precio Unit.</th>
+                    <th style={{ ...th, textAlign: 'right', width: 110 }}>Parciales</th>
+                    <th style={{ ...th, textAlign: 'right', width: 110 }}>Totales</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {/* Item header */}
+                  <tr>
+                    <td style={{ padding: '10px 8px 2px', color: '#aaa', fontWeight: 700 }}>I</td>
+                    <td colSpan={6} style={{ padding: '10px 8px 2px', color: '#aaa', fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase' }}>
+                      Desmalezado de Banquina
+                    </td>
+                  </tr>
+                  <tr>
+                    <td />
+                    <td colSpan={6} style={{ padding: '2px 8px 8px 16px', color: '#666', fontSize: 9 }}>
+                      Tramo: {prespDescTramo}
+                    </td>
+                  </tr>
+
+                  {/* Lado Izquierdo */}
+                  {haIzqPres > 0 && (
+                    <tr style={{ background: '#080808' }}>
+                      <td />
+                      <td style={{ padding: '6px 8px 6px 20px', color: '#888' }}>Lado Izquierdo</td>
+                      <td style={{ padding: '6px 4px', textAlign: 'center', color: '#555' }}>Ha.</td>
+                      <td style={{ padding: '6px 4px', textAlign: 'right', color: '#aaa', fontWeight: 700 }}>
+                        {haIzqPres.toFixed(2)}
+                      </td>
+                      <td style={{ padding: '6px 4px', textAlign: 'right', color: '#777' }}>
+                        $ {apAdoptado.toLocaleString('es-AR')},00
+                      </td>
+                      <td style={{ padding: '6px 4px', textAlign: 'right', color: '#aaa' }}>
+                        $ {parcIzq.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                      </td>
+                      <td />
+                    </tr>
+                  )}
+
+                  {/* Lado Derecho */}
+                  {haDerPres > 0 && (
+                    <tr>
+                      <td />
+                      <td style={{ padding: '6px 8px 6px 20px', color: '#888' }}>Lado Derecho</td>
+                      <td style={{ padding: '6px 4px', textAlign: 'center', color: '#555' }}>Ha.</td>
+                      <td style={{ padding: '6px 4px', textAlign: 'right', color: '#aaa', fontWeight: 700 }}>
+                        {haDerPres.toFixed(2)}
+                      </td>
+                      <td style={{ padding: '6px 4px', textAlign: 'right', color: '#777' }}>
+                        $ {apAdoptado.toLocaleString('es-AR')},00
+                      </td>
+                      <td style={{ padding: '6px 4px', textAlign: 'right', color: '#aaa' }}>
+                        $ {parcDer.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                      </td>
+                      <td />
+                    </tr>
+                  )}
+
+                  {/* Subtotal obra */}
+                  <tr style={{ borderTop: '1px solid #1a1a1a' }}>
+                    <td colSpan={6} />
+                    <td style={{ padding: '6px 4px 16px', textAlign: 'right', color: '#bbb', fontWeight: 700, fontSize: 11 }}>
+                      $ {subtotalPres.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                    </td>
+                  </tr>
+
+                  {/* Fila financiamiento */}
+                  <tr style={{ borderTop: '1px solid #222' }}>
+                    <td />
+                    <td colSpan={3} style={{ padding: '8px 8px', color: '#666', fontSize: 10 }}>
+                      $ {subtotalPres.toLocaleString('es-AR', { minimumFractionDigits: 2 })} × {prespPlazo} meses
+                    </td>
+                    <td />
+                    <td style={{ padding: '8px 4px', textAlign: 'right', color: '#888' }}>
+                      $ {totalPres.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                    </td>
+                    <td />
+                  </tr>
+
+                  {/* DVP */}
+                  <tr>
+                    <td />
+                    <td style={{ padding: '4px 8px', color: '#555', fontSize: 10 }}>
+                      Aporte D.V.P. ···· {prespPctDVP}%
+                    </td>
+                    <td colSpan={3} />
+                    <td style={{ padding: '4px 4px', textAlign: 'right', color: '#777' }}>
+                      $ {montoDVP.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                    </td>
+                    <td />
+                  </tr>
+
+                  {/* CCC */}
+                  <tr>
+                    <td />
+                    <td style={{ padding: '4px 8px 12px', color: '#555', fontSize: 10 }}>
+                      Aporte C°C° ···· {100 - prespPctDVP}%
+                    </td>
+                    <td colSpan={3} />
+                    <td style={{ padding: '4px 4px 12px', textAlign: 'right', color: '#777', borderBottom: '1px solid #1a1a1a' }}>
+                      $ {montoCCC.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                    </td>
+                    <td />
+                  </tr>
+
+                  {/* TOTAL */}
+                  <tr style={{ borderTop: '2px solid #2a2a2a' }}>
+                    <td colSpan={5} style={{ padding: '10px 8px', textAlign: 'right', fontSize: 11, color: '#777', fontWeight: 700, letterSpacing: 1 }}>
+                      $
+                    </td>
+                    <td style={{ padding: '10px 4px', textAlign: 'right', color, fontWeight: 700, fontSize: 14 }}>
+                      $ {totalPres.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                    </td>
+                    <td />
+                  </tr>
+                </tbody>
+              </table>
+
+              {/* En letras */}
+              {totalPres > 0 && (
+                <div style={{ marginTop: 20, padding: '10px 14px', background: '#080808',
+                  border: '1px solid #1a1a1a', borderRadius: 3, fontSize: 10, ...mono, color: '#666',
+                  lineHeight: 1.6, fontStyle: 'italic' }}>
+                  {pesosEnLetras(totalPres)}
+                </div>
+              )}
+
+              {/* Vacío */}
+              {subtotalPres === 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  flex: 1, ...mono, fontSize: 10, color: '#2a2a2a', textAlign: 'center' }}>
+                  Completá el Cómputo y el Análisis de Precio<br />
+                  <span style={{ fontSize: 8, color: '#222', marginTop: 4 }}>para ver el presupuesto calculado</span>
+                </div>
+              )}
             </div>
           </div>
         )}

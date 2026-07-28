@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" width="1024" height="1024">
+<title>SIG Vial Chaco</title>
+<g transform="scale(1.505882)">
+
+<rect width="680" height="680" rx="116" fill="#0d0d0d"/>
+<rect x="14" y="14" width="652" height="652" rx="104" fill="none" stroke="#F5C300" stroke-width="15"/>
+
+<path d="M 316 668 Q 432 548 562 416" stroke="#F5C300" stroke-width="5.5" fill="none"/>
+<path d="M 484 668 Q 572 548 648 436" stroke="#F5C300" stroke-width="5.5" fill="none"/>
+<path d="M 400 668 Q 502 548 605 416" stroke="#F5C300" stroke-width="2.5" fill="none" stroke-dasharray="22,15"/>
+
+<path d="M 55 68 L 275 40 L 298 52 L 307 88 L 288 126 L 305 162 L 288 198 L 308 234 L 290 268 L 310 302 L 294 336 L 312 366 L 295 398 L 280 432 L 258 472 L 232 512 L 194 544 L 146 556 L 108 544 L 80 520 L 54 488 L 40 442 L 35 372 L 40 294 L 36 216 L 44 138 Z" fill="#F5C300"/>
+
+<g stroke="#0d0d0d" stroke-width="1.8" fill="none">
+  <line x1="90" y1="122" x2="164" y2="172"/>
+  <line x1="164" y1="172" x2="246" y2="132"/>
+  <line x1="246" y1="132" x2="224" y2="238"/>
+  <line x1="224" y1="238" x2="164" y2="172"/>
+  <line x1="164" y1="172" x2="124" y2="252"/>
+  <line x1="124" y1="252" x2="224" y2="238"/>
+  <line x1="124" y1="252" x2="98"  y2="348"/>
+  <line x1="98"  y1="348" x2="190" y2="332"/>
+  <line x1="190" y1="332" x2="224" y2="238"/>
+  <line x1="190" y1="332" x2="172" y2="428"/>
+  <line x1="172" y1="428" x2="98"  y2="348"/>
+  <line x1="172" y1="428" x2="124" y2="488"/>
+  <line x1="90"  y1="122" x2="60"  y2="240"/>
+  <line x1="60"  y1="240" x2="124" y2="252"/>
+  <line x1="60"  y1="240" x2="98"  y2="348"/>
+</g>
+<g fill="#0d0d0d">
+  <circle cx="90"  cy="122" r="7"/>
+  <circle cx="164" cy="172" r="7"/>
+  <circle cx="246" cy="132" r="7"/>
+  <circle cx="224" cy="238" r="7"/>
+  <circle cx="124" cy="252" r="7"/>
+  <circle cx="60"  cy="240" r="7"/>
+  <circle cx="98"  cy="348" r="7"/>
+  <circle cx="190" cy="332" r="7"/>
+  <circle cx="172" cy="428" r="7"/>
+  <circle cx="124" cy="488" r="7"/>
+</g>
+
+<text x="288" y="208" font-family="'Arial Black',Impact,Arial,sans-serif" font-weight="900" font-size="150" fill="#F5C300" letter-spacing="-6">SIG</text>
+
+<g transform="translate(524,118)">
+  <path d="M 0,-40 C -23,-40 -39,-25 -39,-5 C -39,17 0,56 0,56 C 0,56 39,17 39,-5 C 39,-25 23,-40 0,-40 Z" fill="#0d0d0d"/>
+  <circle cx="0" cy="-5" r="15" fill="#F5C300"/>
+</g>
+
+<text x="290" y="252" font-family="Arial,Helvetica,sans-serif" font-weight="400" font-size="14" fill="white" letter-spacing="2">SISTEMA DE INFORMACIÓN GEOGRÁFICA</text>
+
+<line x1="290" y1="278" x2="330" y2="278" stroke="#F5C300" stroke-width="2.5"/>
+<text x="344" y="290" font-family="'Arial Black',Arial,sans-serif" font-weight="900" font-size="34" fill="#F5C300" letter-spacing="7">CHACO</text>
+<line x1="580" y1="278" x2="620" y2="278" stroke="#F5C300" stroke-width="2.5"/>
+
+</g>
+</svg>
