@@ -59,7 +59,8 @@ function toSupabaseRow(r: Relevamiento, userId: string, fotosPublicas: string[])
   };
 }
 
-export async function syncOne(r: Relevamiento, userId: string): Promise<void> {
+/** Sincroniza un relevamiento y devuelve las URLs públicas de las fotos (para actualizar el registro local). */
+export async function syncOne(r: Relevamiento, userId: string): Promise<string[]> {
   // 1. Subir fotos locales a Storage y obtener URLs públicas
   const fotosPublicas = await Promise.all(
     (r.fotos ?? []).map((uri, i) => uploadFotoIfLocal(uri, r.id, i))
@@ -69,18 +70,19 @@ export async function syncOne(r: Relevamiento, userId: string): Promise<void> {
     .from('relevamientos')
     .upsert(toSupabaseRow(r, userId, fotosPublicas), { onConflict: 'id' });
   if (error) throw error;
+  return fotosPublicas;
 }
 
 export async function syncPendientes(
   relevamientos: Relevamiento[],
   userId: string,
-  onUpdate: (id: string, status: 'sincronizado' | 'error') => void,
+  onUpdate: (id: string, status: 'sincronizado' | 'error', fotosPublicas?: string[]) => void,
 ): Promise<void> {
   const pendientes = relevamientos.filter(r => r.syncStatus === 'pendiente');
   for (const r of pendientes) {
     try {
-      await syncOne(r, userId);
-      onUpdate(r.id, 'sincronizado');
+      const fotosPublicas = await syncOne(r, userId);
+      onUpdate(r.id, 'sincronizado', fotosPublicas);
     } catch {
       onUpdate(r.id, 'error');
     }

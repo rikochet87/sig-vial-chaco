@@ -63,6 +63,14 @@
       "expo-router",
       "expo-font",
       [
+        "expo-media-library",
+        {
+          "photosPermission": "La app necesita acceso a la galería para guardar fotos de relevamientos.",
+          "savePhotosPermission": "La app necesita permiso para guardar fotos en tu galería.",
+          "isAccessMediaLocationEnabled": true
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "backgroundColor": "#0d0d0d",

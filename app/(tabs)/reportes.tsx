@@ -1,8 +1,11 @@
 import { useState, useCallback, useMemo, createContext, useContext } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  ScrollView, Alert, Platform,
+  ScrollView, Alert, Platform, Image, Modal, useWindowDimensions,
 } from 'react-native';
+import * as Sharing from 'expo-sharing';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as FSNew from 'expo-file-system';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useColors } from '@/context/ThemeContext';
@@ -182,6 +185,85 @@ function SyncBadge({ status }: { status?: 'pendiente' | 'sincronizado' | 'error'
   return <Ionicons name="warning-outline" size={13} color="#e67e22" />;
 }
 
+// ── FotoStrip ─────────────────────────────────────────────────────────────────
+
+function FotoStrip({ fotos }: { fotos: string[] }) {
+  const [viewerUri, setViewerUri] = useState<string | null>(null);
+  const { width } = useWindowDimensions();
+  const Colors = useColors();
+
+  const compartirFoto = async (uri: string) => {
+    try {
+      // Si la foto es remota, descargar a caché primero
+      let localUri = uri;
+      if (uri.startsWith('http')) {
+        const ext = uri.split('?')[0].split('.').pop() ?? 'jpg';
+        const dest = FileSystem.cacheDirectory + `foto_${Date.now()}.${ext}`;
+        const res = await FSNew.downloadAsync(uri, dest);
+        localUri = res.uri;
+      }
+      const canShare = await Sharing.isAvailableAsync();
+      if (!canShare) { Alert.alert('No disponible', 'Compartir no está disponible en este dispositivo.'); return; }
+      await Sharing.shareAsync(localUri, { mimeType: 'image/jpeg' });
+    } catch (e) {
+      Alert.alert('Error', 'No se pudo compartir la foto.');
+    }
+  };
+
+  return (
+    <>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}
+        style={{ marginTop: 8, marginBottom: 4 }}
+        contentContainerStyle={{ gap: 6, paddingBottom: 4 }}>
+        {fotos.map((uri, i) => (
+          <TouchableOpacity key={i} onPress={() => setViewerUri(uri)}
+            onLongPress={() => compartirFoto(uri)}
+            activeOpacity={0.8}>
+            <Image
+              source={{ uri }}
+              style={{ width: 72, height: 72, backgroundColor: Colors.surface }}
+              resizeMode="cover"
+            />
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+      <Text style={{ fontSize: 9, color: Colors.textMuted, fontFamily: 'monospace',
+        marginBottom: 6, marginTop: 2 }}>
+        {fotos.length} foto{fotos.length !== 1 ? 's' : ''} · tocá para ver · mantener para compartir
+      </Text>
+
+      {/* Visor pantalla completa */}
+      <Modal visible={!!viewerUri} transparent animationType="fade"
+        onRequestClose={() => setViewerUri(null)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.96)',
+          justifyContent: 'center', alignItems: 'center' }}>
+          {viewerUri && (
+            <Image source={{ uri: viewerUri }}
+              style={{ width, height: width, maxHeight: '80%' }}
+              resizeMode="contain" />
+          )}
+          <View style={{ flexDirection: 'row', gap: 12, marginTop: 20 }}>
+            <TouchableOpacity
+              onPress={() => viewerUri && compartirFoto(viewerUri)}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 6,
+                backgroundColor: '#F5C300', paddingHorizontal: 20, paddingVertical: 10 }}>
+              <Ionicons name="download-outline" size={18} color="#000" />
+              <Text style={{ color: '#000', fontWeight: '700', fontFamily: 'monospace', fontSize: 13 }}>
+                Guardar en galería
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setViewerUri(null)}
+              style={{ paddingHorizontal: 20, paddingVertical: 10,
+                backgroundColor: '#222', borderWidth: 1, borderColor: '#444' }}>
+              <Text style={{ color: '#fff', fontFamily: 'monospace', fontSize: 13 }}>Cerrar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    </>
+  );
+}
+
 // ── Card ─────────────────────────────────────────────────────────────────────
 
 const TIPO_LABELS: Record<string, string> = {
@@ -281,10 +363,7 @@ function RelevamientoCard({
 
           {/* Fotos */}
           {item.fotos.length > 0 && (
-            <View style={styles.detailRow}>
-              <Ionicons name="camera-outline" size={13} color={Colors.textMuted} />
-              <Text style={styles.detailText}>{item.fotos.length} foto{item.fotos.length !== 1 ? 's' : ''}</Text>
-            </View>
+            <FotoStrip fotos={item.fotos} />
           )}
 
           <View style={styles.actions}>

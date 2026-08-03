@@ -42,13 +42,22 @@ export function useRelevamientos() {
 
   useEffect(() => { load(); }, [load]);
 
-  // Actualiza el syncStatus de un ítem en local sin disparar sync de nuevo
-  const _patchStatus = useCallback(async (id: string, status: Relevamiento['syncStatus']) => {
+  // Actualiza syncStatus y opcionalmente las fotos (URLs públicas post-sync) en el registro local
+  const _patchStatus = useCallback(async (
+    id: string,
+    status: Relevamiento['syncStatus'],
+    fotosPublicas?: string[],
+  ) => {
     const prev = listRef.current;
     const idx = prev.findIndex(r => r.id === id);
     if (idx === -1) return;
     const next = [...prev];
-    next[idx] = { ...next[idx], syncStatus: status };
+    next[idx] = {
+      ...next[idx],
+      syncStatus: status,
+      // Reemplazar file:// locales con URLs públicas de Supabase Storage
+      ...(fotosPublicas && fotosPublicas.length > 0 ? { fotos: fotosPublicas } : {}),
+    };
     listRef.current = next;
     setRelevamientos(next);
     try { await writeFile(next); } catch (_) {}
@@ -70,8 +79,8 @@ export function useRelevamientos() {
     const userId = await getUserId();
     if (userId) {
       try {
-        await syncOne(withPending, userId);
-        await _patchStatus(withPending.id, 'sincronizado');
+        const fotosPublicas = await syncOne(withPending, userId);
+        await _patchStatus(withPending.id, 'sincronizado', fotosPublicas);
       } catch {
         await _patchStatus(withPending.id, 'error');
       }
@@ -109,8 +118,8 @@ export function useRelevamientos() {
     const userId = await getUserId();
     if (userId) {
       try {
-        await syncOne(withPending, userId);
-        await _patchStatus(withPending.id, 'sincronizado');
+        const fotosPublicas = await syncOne(withPending, userId);
+        await _patchStatus(withPending.id, 'sincronizado', fotosPublicas);
       } catch {
         await _patchStatus(withPending.id, 'error');
       }
@@ -120,8 +129,8 @@ export function useRelevamientos() {
   const syncTodos = useCallback(async () => {
     const userId = await getUserId();
     if (!userId) return;
-    await syncPendientes(listRef.current, userId, (id, status) => {
-      _patchStatus(id, status);
+    await syncPendientes(listRef.current, userId, (id, status, fotosPublicas) => {
+      _patchStatus(id, status, fotosPublicas);
     });
   }, [_patchStatus]);
 
