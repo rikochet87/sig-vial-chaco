@@ -173,8 +173,8 @@ const PRJ = 'GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",SPHEROID["WGS_1984",637813
 export async function exportarSHP(items: Relevamiento[], filename?: string): Promise<void> {
   if (!items.length) return;
 
-  const puntuales = items.filter(r => r.tipo !== 'Ripio');
-  const ripios    = items.filter(r => r.tipo === 'Ripio' && (r.coordsLinea?.length ?? 0) >= 2);
+  const puntuales = items.filter(r => r.tipo !== 'Lineal');
+  const ripios    = items.filter(r => r.tipo === 'Lineal' && (r.coordsLinea?.length ?? 0) >= 2);
 
   const zip = new JSZip();
 
@@ -273,7 +273,7 @@ export async function exportarSHP(items: Relevamiento[], filename?: string): Pro
 
     const lines = ripios.map(r => r.coordsLinea!.map(p => ({ x: p.lng, y: p.lat })));
     const rows = ripios.map(r => {
-      const d = r.datosRipio;
+      const d = r.datosLineal;
       const an = parseFloat(d?.ancho ?? '') || 0;
       const lo = parseFloat(d?.longitud ?? '') || 0;
       const es = parseFloat(d?.espesor ?? '') || 0;

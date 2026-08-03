@@ -13,7 +13,7 @@ const ZONA_COLOR: Record<string, string> = Object.fromEntries(
 );
 
 // GEO_BUNDLE.sedes es la fuente de verdad para los km de red (valores QGIS)
-const GEO_SEDES = (GEO_BUNDLE.sedes as any[]);
+const GEO_SEDES = (GEO_BUNDLE.sedes as unknown as any[]);
 const geoKmMap = new Map<number, { redKm: number; redPrimaria: number; redSecundaria: number; redTerciaria: number }>(
   GEO_SEDES.map((s: any) => [
     Number(s.numero),

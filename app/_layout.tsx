@@ -6,7 +6,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider } from '@/context/ThemeContext';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
-import { View, Text, ScrollView } from 'react-native';
+import { View, Text, ScrollView, StyleSheet } from 'react-native';
 
 // Error Boundary: captura crashes de JS y muestra el error en pantalla
 // (solo para debug — remover antes de producción final)
@@ -54,20 +54,33 @@ function RouteGuard() {
     if (!isAuthenticated && !inLogin) {
       router.replace('/login');
     } else if (isAuthenticated && inLogin) {
-      router.replace('/(tabs)/');
+      router.replace('/');
     }
   }, [session, profile, loading, segments]);
 
   useEffect(() => {
     if (!loading) {
-      // Esperar a que la navegación complete antes de ocultar el splash
-      const t = setTimeout(() => SplashScreen.hideAsync(), 200);
+      // Dar tiempo suficiente para que la navegación complete antes de ocultar el splash
+      const t = setTimeout(() => SplashScreen.hideAsync(), 600);
       return () => clearTimeout(t);
     }
   }, [loading]);
 
+  // Mientras carga, overlay oscuro para evitar pantalla negra
+  if (loading) {
+    return <View style={styles.loadingOverlay} />;
+  }
+
   return null;
 }
+
+const styles = StyleSheet.create({
+  loadingOverlay: {
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: '#0d0d0d',
+    zIndex: 999,
+  },
+});
 
 export default function RootLayout() {
   return (

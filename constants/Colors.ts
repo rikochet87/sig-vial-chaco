@@ -139,6 +139,7 @@ export const THEME_LABELS: Record<ThemeName, string> = {
   original: 'Original',
   dark:     'Oscuro',
   light:    'Claro',
+  cad:      'CAD',
 };
 
 // Compatibilidad con imports existentes (Colors.xxx) — apunta al tema original por defecto.

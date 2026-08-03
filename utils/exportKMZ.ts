@@ -75,11 +75,11 @@ function buildDescription(r: Relevamiento): string {
     );
   }
 
-  if (r.datosRipio) {
-    const d = r.datosRipio;
-    const ancho = parseFloat(d.ancho) || 0;
-    const longitud = parseFloat(d.longitud) || 0;
-    const espesor = parseFloat(d.espesor) || 0;
+  if (r.datosLineal) {
+    const d = r.datosLineal;
+    const ancho = parseFloat(d.ancho ?? '') || 0;
+    const longitud = parseFloat(d.longitud ?? '') || 0;
+    const espesor = parseFloat(d.espesor ?? '') || 0;
     const toneladas = ancho > 0 && longitud > 0 && espesor > 0
       ? (ancho * longitud * espesor * 2.1).toFixed(2)
       : null;
@@ -110,7 +110,7 @@ function buildDescription(r: Relevamiento): string {
 }
 
 function buildGeometry(r: Relevamiento): string {
-  if (r.tipo === 'Ripio' && r.coordsLinea && r.coordsLinea.length >= 2) {
+  if (r.tipo === 'Lineal' && r.coordsLinea && r.coordsLinea.length >= 2) {
     const coords = r.coordsLinea.map(p => `${p.lng},${p.lat},0`).join(' ');
     return `<LineString><tessellate>1</tessellate><coordinates>${coords}</coordinates></LineString>`;
   }

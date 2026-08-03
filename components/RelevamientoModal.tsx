@@ -529,7 +529,7 @@ function GPSTrackPanel({
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
             <Text style={[s.tramoOkTitle, { fontSize: 13 }]}>✓ Tramo relevado</Text>
             <TouchableOpacity onPress={resetTrack}
-              style={{ paddingHorizontal: 8, paddingVertical: 2, borderWidth: 1, borderColor: '#444', borderRadius: 3 }}>
+              style={{ paddingHorizontal: 8, paddingVertical: 2, borderWidth: 1, borderColor: '#444', borderRadius: 0 }}>
               <Text style={{ fontSize: 10, color: '#888', fontFamily: 'monospace' }}>↺ Regravar</Text>
             </TouchableOpacity>
           </View>
@@ -541,7 +541,7 @@ function GPSTrackPanel({
               { lbl: 'PUNTOS',   val: String(puntos.length) },
               { lbl: 'INTERVALO', val: `${intervaloM} m` },
             ].map(({ lbl, val }) => (
-              <View key={lbl} style={{ flex: 1, backgroundColor: '#111', borderRadius: 3, padding: 6, borderWidth: 1, borderColor: '#1e1e1e' }}>
+              <View key={lbl} style={{ flex: 1, backgroundColor: '#111', borderRadius: 0, padding: 6, borderWidth: 1, borderColor: '#1e1e1e' }}>
                 <Text style={{ fontSize: 8, color: '#555', fontFamily: 'monospace', letterSpacing: 0.8 }}>{lbl}</Text>
                 <Text style={{ fontSize: 14, color: '#F5C300', fontFamily: 'monospace', fontWeight: '700', marginTop: 1 }}>{val}</Text>
               </View>
@@ -552,7 +552,7 @@ function GPSTrackPanel({
           <Text style={{ fontSize: 9, color: '#555', fontFamily: 'monospace', letterSpacing: 1, marginBottom: 4, textTransform: 'uppercase' }}>
             Progresivas del tramo
           </Text>
-          <View style={{ borderWidth: 1, borderColor: '#1e1e1e', borderRadius: 3, overflow: 'hidden' }}>
+          <View style={{ borderWidth: 1, borderColor: '#1e1e1e', borderRadius: 0, overflow: 'hidden' }}>
             {/* Header */}
             <View style={{ flexDirection: 'row', backgroundColor: '#0e0e0e', paddingVertical: 3, paddingHorizontal: 6 }}>
               {['PK', 'Latitud', 'Longitud', trackIsRTK ? 'Alt (m)' : 'Alt ref.', '±Acc'].map(h => (
@@ -604,7 +604,7 @@ function GPSTrackPanel({
           </View>
 
           {/* HUD técnico */}
-          <View style={{ backgroundColor: '#080808', borderWidth: 1, borderColor: '#1e1e1e', borderRadius: 4, padding: 10, marginBottom: 8 }}>
+          <View style={{ backgroundColor: '#080808', borderWidth: 1, borderColor: '#1e1e1e', borderRadius: 0, padding: 10, marginBottom: 8 }}>
             {/* Progresiva principal */}
             <Text style={{ fontSize: 24, color: '#F5C300', fontFamily: 'monospace', fontWeight: '700', letterSpacing: 1, marginBottom: 2 }}>
               {trackPts.length > 0 ? fmtPK(longTotal) : 'PK 0+000'}
@@ -690,7 +690,7 @@ function GPSTrackPanel({
                   {INTERVALOS.map(op => (
                     <TouchableOpacity key={op.value} onPress={() => setIntervaloM(op.value)}
                       style={{
-                        paddingHorizontal: 10, paddingVertical: 5, borderRadius: 3,
+                        paddingHorizontal: 10, paddingVertical: 5, borderRadius: 0,
                         backgroundColor: intervaloM === op.value ? '#F5C300' : '#151515',
                         borderWidth: 1, borderColor: intervaloM === op.value ? '#F5C300' : '#2a2a2a',
                       }}>
@@ -961,7 +961,7 @@ function CanalSubForm({ data, onChange }: { data: DatosLineal; onChange: (d: Dat
                     onPress={() => toggleObstruccion(tipo)}
                     style={{
                       paddingHorizontal: 14, paddingVertical: 8,
-                      borderRadius: 20, borderWidth: 1,
+                      borderRadius: 0, borderWidth: 1,
                       borderColor: sel ? '#F5C300' : '#333',
                       backgroundColor: sel ? 'rgba(245,195,0,0.15)' : 'transparent',
                     }}
@@ -1589,7 +1589,7 @@ function makeStyles(Colors: ColorPalette) { return StyleSheet.create({
   overlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.55)' },
   sheet: {
     backgroundColor: Colors.surface,
-    borderTopLeftRadius: 20, borderTopRightRadius: 20,
+    borderTopLeftRadius: 4, borderTopRightRadius: 4,
     maxHeight: '95%',
     paddingBottom: Platform.OS === 'ios' ? 34 : 16,
   },
@@ -1609,7 +1609,7 @@ function makeStyles(Colors: ColorPalette) { return StyleSheet.create({
 
   // GPS block
   gpsBlock: {
-    backgroundColor: Colors.background, borderRadius: 10,
+    backgroundColor: Colors.background, borderRadius: 0,
     padding: 10, marginBottom: 14,
     borderWidth: 1, borderColor: Colors.border,
   },
@@ -1617,7 +1617,7 @@ function makeStyles(Colors: ColorPalette) { return StyleSheet.create({
   gpsText: { fontSize: 12, color: Colors.textSecondary, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace' },
   autoRow: { flexDirection: 'row', gap: 6, marginBottom: 6 },
   autoChip: {
-    flex: 1, backgroundColor: Colors.surface, borderRadius: 7,
+    flex: 1, backgroundColor: Colors.surface, borderRadius: 0,
     paddingHorizontal: 8, paddingVertical: 5, alignItems: 'center',
     borderWidth: 1, borderColor: Colors.border,
   },
@@ -1631,7 +1631,7 @@ function makeStyles(Colors: ColorPalette) { return StyleSheet.create({
     textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6, marginTop: 2,
   },
   input: {
-    backgroundColor: Colors.background, borderRadius: 8,
+    backgroundColor: Colors.background, borderRadius: 0,
     paddingHorizontal: 12, paddingVertical: 9,
     fontSize: 14, color: Colors.textPrimary,
     borderWidth: 1, borderColor: Colors.border, marginBottom: 12,
@@ -1642,7 +1642,7 @@ function makeStyles(Colors: ColorPalette) { return StyleSheet.create({
   estadoRow: { flexDirection: 'row', gap: 8, marginBottom: 14 },
   estadoBtn: {
     flex: 1, paddingVertical: 9, alignItems: 'center',
-    borderRadius: 8, borderWidth: 1.5, borderColor: Colors.border,
+    borderRadius: 0, borderWidth: 1.5, borderColor: Colors.border,
     backgroundColor: Colors.background,
   },
   estadoBtnTxt: { fontSize: 12, fontWeight: '700', color: Colors.textSecondary, textAlign: 'center' },
@@ -1652,7 +1652,7 @@ function makeStyles(Colors: ColorPalette) { return StyleSheet.create({
   tipoRow: { flexDirection: 'row', gap: 7, marginBottom: 14 },
   tipoBtn: {
     flex: 1, alignItems: 'center', paddingVertical: 9,
-    borderRadius: 9, borderWidth: 1.5, borderColor: Colors.border,
+    borderRadius: 0, borderWidth: 1.5, borderColor: Colors.border,
     backgroundColor: Colors.background,
   },
   tipoBtnTag: { fontSize: 11, fontWeight: '900', color: Colors.textMuted, letterSpacing: 0.5 },
@@ -1661,7 +1661,7 @@ function makeStyles(Colors: ColorPalette) { return StyleSheet.create({
 
   // Sub-form
   subform: {
-    backgroundColor: Colors.background, borderRadius: 10,
+    backgroundColor: Colors.background, borderRadius: 0,
     padding: 12, marginBottom: 14,
     borderWidth: 1, borderColor: Colors.border,
   },
@@ -1674,7 +1674,7 @@ function makeStyles(Colors: ColorPalette) { return StyleSheet.create({
   fLabel: { fontSize: 11, color: Colors.textSecondary, fontWeight: '600', marginBottom: 4, marginTop: 6 },
   fInputWrap: { flexDirection: 'row', alignItems: 'center', marginBottom: 2 },
   fInput: {
-    flex: 1, backgroundColor: Colors.surface, borderRadius: 7,
+    flex: 1, backgroundColor: Colors.surface, borderRadius: 0,
     paddingHorizontal: 10, paddingVertical: 7,
     fontSize: 13, color: Colors.textPrimary,
     borderWidth: 1, borderColor: Colors.border,
@@ -1686,7 +1686,7 @@ function makeStyles(Colors: ColorPalette) { return StyleSheet.create({
   // Si/No buttons
   siNoRow: { flexDirection: 'row', gap: 8, marginBottom: 4 },
   siNoBtn: {
-    flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 8,
+    flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 0,
     borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.surface,
   },
   siNoBtnOn: { backgroundColor: Colors.accent, borderColor: Colors.accent },
@@ -1696,7 +1696,7 @@ function makeStyles(Colors: ColorPalette) { return StyleSheet.create({
   // Cantidad stepper (shared)
   cantidadRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4 },
   cantBtn: {
-    width: 36, height: 36, borderRadius: 18,
+    width: 36, height: 36, borderRadius: 0,
     backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border,
     alignItems: 'center', justifyContent: 'center',
   },
@@ -1708,7 +1708,7 @@ function makeStyles(Colors: ColorPalette) { return StyleSheet.create({
   fotosCount: { fontSize: 12, color: Colors.accent, fontWeight: '600' },
   fotoBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: Colors.background, borderRadius: 8,
+    backgroundColor: Colors.background, borderRadius: 0,
     paddingHorizontal: 14, paddingVertical: 10,
     borderWidth: 1, borderColor: Colors.border, borderStyle: 'dashed', marginBottom: 18,
   },
@@ -1717,13 +1717,13 @@ function makeStyles(Colors: ColorPalette) { return StyleSheet.create({
   // Save
   saveBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 8, paddingVertical: 14, borderRadius: 10, marginTop: 4,
+    gap: 8, paddingVertical: 14, borderRadius: 0, marginTop: 4,
   },
   saveBtnTxt: { fontSize: 15, fontWeight: '700', color: '#fff' },
 
   // Lineal — tramo definido
   tramoOk: {
-    backgroundColor: '#122a14', borderRadius: 9, padding: 12,
+    backgroundColor: '#122a14', borderRadius: 0, padding: 12,
     borderWidth: 1, borderColor: '#27ae60', marginBottom: 4,
   },
   tramoOkTitle: { fontSize: 13, fontWeight: '800', color: '#27ae60', marginBottom: 6 },
@@ -1735,7 +1735,7 @@ function makeStyles(Colors: ColorPalette) { return StyleSheet.create({
   metodoCards: { gap: 10 },
   metodoCard: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 10,
-    backgroundColor: Colors.surface, borderRadius: 10, padding: 12,
+    backgroundColor: Colors.surface, borderRadius: 0, padding: 12,
     borderWidth: 1, borderColor: Colors.border,
   },
   metodoCardIcon: { fontSize: 24, marginTop: 2 },
@@ -1743,7 +1743,7 @@ function makeStyles(Colors: ColorPalette) { return StyleSheet.create({
   metodoCardTitle: { fontSize: 14, fontWeight: '800', color: Colors.textPrimary, marginBottom: 4 },
   metodoCardDesc: { fontSize: 12, color: Colors.textSecondary, lineHeight: 17, marginBottom: 10 },
   metodoCardBtn: {
-    backgroundColor: Colors.accent, borderRadius: 7, paddingVertical: 8, paddingHorizontal: 12, alignSelf: 'flex-start',
+    backgroundColor: Colors.accent, borderRadius: 0, paddingVertical: 8, paddingHorizontal: 12, alignSelf: 'flex-start',
   },
   metodoCardBtnGps: { backgroundColor: Colors.accent },
   metodoCardBtnTxt: { color: Colors.primary, fontSize: 13, fontWeight: '700' },
@@ -1751,7 +1751,7 @@ function makeStyles(Colors: ColorPalette) { return StyleSheet.create({
 
   // GPS Track — panel inline
   trackPanel: {
-    backgroundColor: '#0d1f0d', borderRadius: 10, padding: 14,
+    backgroundColor: '#0d1f0d', borderRadius: 0, padding: 14,
     borderWidth: 1.5, borderColor: '#27ae60',
   },
   trackPanelHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
@@ -1765,14 +1765,14 @@ function makeStyles(Colors: ColorPalette) { return StyleSheet.create({
   trackCoord: { fontSize: 10, color: Colors.textMuted, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', marginBottom: 12 },
   trackPanelBtns: { gap: 8 },
   trackPanelBtn: {
-    borderRadius: 8, paddingVertical: 10, paddingHorizontal: 14, alignItems: 'center',
+    borderRadius: 0, paddingVertical: 10, paddingHorizontal: 14, alignItems: 'center',
   },
   trackBtnStop: { backgroundColor: '#e74c3c' },
   trackBtnCancelSm: { backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border },
   trackPanelBtnTxt: { color: '#fff', fontSize: 13, fontWeight: '700' },
   // Toneladas
   tonesBox: {
-    backgroundColor: '#1a2a1a', borderRadius: 8, padding: 12, marginTop: 8,
+    backgroundColor: '#1a2a1a', borderRadius: 0, padding: 12, marginTop: 8,
     borderWidth: 1, borderColor: '#27ae60', alignItems: 'center',
   },
   tonesLabel: { fontSize: 10, fontWeight: '700', color: '#27ae60', textTransform: 'uppercase', letterSpacing: 0.8 },
@@ -1782,7 +1782,7 @@ function makeStyles(Colors: ColorPalette) { return StyleSheet.create({
   dateRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 4, marginTop: 4, marginBottom: 8 },
   dateCol: { flex: 1, alignItems: 'center' },
   dateBtn: {
-    width: 30, height: 28, borderRadius: 7, alignItems: 'center', justifyContent: 'center',
+    width: 30, height: 28, borderRadius: 0, alignItems: 'center', justifyContent: 'center',
     backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border,
   },
   dateBtnTxt: { fontSize: 16, fontWeight: '700', color: Colors.textPrimary, lineHeight: 20 },

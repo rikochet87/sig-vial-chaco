@@ -52,7 +52,7 @@ function toSupabaseRow(r: Relevamiento, userId: string, fotosPublicas: string[])
       puente: r.datosPuente,
       alcantarilla: r.datosAlcantarilla,
       tubos: r.datosTubos,
-      ripio: r.datosRipio,
+      ripio: r.datosLineal,
       otro: r.datosOtro,
     },
     fecha: r.fecha,

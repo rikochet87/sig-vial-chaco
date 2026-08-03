@@ -27,7 +27,7 @@ export default function LoginScreen() {
     if (error) {
       Alert.alert('Error al ingresar', 'Credenciales incorrectas. Verificá tu email y contraseña.');
     } else {
-      router.replace('/(tabs)/');
+      router.replace('/');
     }
   };
 

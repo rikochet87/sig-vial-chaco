@@ -6,6 +6,7 @@ import {
   View, Text, StyleSheet, TouchableOpacity,
   ScrollView, Animated, useWindowDimensions, StatusBar, Platform, Alert,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { WebView } from 'react-native-webview';
 import { GEO_BUNDLE } from '@/constants/geoBundle';
 import { RP_BUNDLE } from '@/constants/geoBundleRP';
@@ -1899,7 +1900,7 @@ export default function MapaScreen() {
         style={[styles.btnGps, tracking && styles.btnGpsActive]}
         onPress={toggleGPS}
       >
-        <Text style={styles.btnGpsIcon}>{tracking ? '📍' : '🧭'}</Text>
+        <Ionicons name="location-sharp" size={24} color={tracking ? C.primary : C.white} />
       </TouchableOpacity>
 
       {/* ── MODAL RELEVAMIENTO ───────────────────────────────────────────── */}
@@ -1982,7 +1983,7 @@ function makeStyles(C: ColorPalette, DRAWER_WIDTH: number) { return StyleSheet.c
 
   btnHamburger: {
     position: 'absolute', top: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) + 2 : 38,
-    left: 12, width: 38, height: 38, backgroundColor: C.primary, borderRadius: 7,
+    left: 12, width: 38, height: 38, backgroundColor: C.primary, borderRadius: 2,
     alignItems: 'center', justifyContent: 'center', gap: 4, zIndex: 5, elevation: 6,
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.35, shadowRadius: 4,
     borderWidth: 1, borderColor: C.accent,
@@ -1991,7 +1992,7 @@ function makeStyles(C: ColorPalette, DRAWER_WIDTH: number) { return StyleSheet.c
 
   zoomGroup: {
     position: 'absolute', top: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) + 2 : 38,
-    right: 12, backgroundColor: C.primary, borderRadius: 7, overflow: 'hidden',
+    right: 12, backgroundColor: C.primary, borderRadius: 2, overflow: 'hidden',
     zIndex: 5, elevation: 6,
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.35, shadowRadius: 4,
     borderWidth: 1, borderColor: C.accent,
@@ -2002,7 +2003,7 @@ function makeStyles(C: ColorPalette, DRAWER_WIDTH: number) { return StyleSheet.c
 
   compassWidget: {
     position: 'absolute', bottom: 32, left: 12, width: 64, height: 64,
-    backgroundColor: 'rgba(0,0,0,0.65)', borderRadius: 32,
+    backgroundColor: 'rgba(0,0,0,0.65)', borderRadius: 2,
     alignItems: 'center', justifyContent: 'center',
     zIndex: 5, elevation: 6,
     borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.2)',
@@ -2013,49 +2014,45 @@ function makeStyles(C: ColorPalette, DRAWER_WIDTH: number) { return StyleSheet.c
 
   btnCompass: {
     position: 'absolute', bottom: 218, right: 12, width: 50, height: 50,
-    backgroundColor: C.primary, borderRadius: 25, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: C.primary, borderRadius: 2, alignItems: 'center', justifyContent: 'center',
     zIndex: 5, elevation: 6,
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.35, shadowRadius: 4,
-    borderWidth: 2, borderColor: C.primaryLight,
+    borderWidth: 1, borderColor: C.accent,
   },
   btnCompassActive: { backgroundColor: '#2196F3', borderColor: '#1565C0' },
   btnCompassIcon: { fontSize: 20 },
 
   btnMeasure: {
-    position: 'absolute', bottom: 32, left: 12, width: 50, height: 50,
-    backgroundColor: C.primary, borderRadius: 25, alignItems: 'center', justifyContent: 'center',
+    position: 'absolute', bottom: 32, left: 12, width: 46, height: 46,
+    backgroundColor: 'rgba(15,15,15,0.82)', borderRadius: 6, alignItems: 'center', justifyContent: 'center',
     zIndex: 5, elevation: 6,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.35, shadowRadius: 4,
-    borderWidth: 2, borderColor: C.primaryLight,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.55, shadowRadius: 6,
   },
-  btnMeasureActive: { backgroundColor: '#F5C300', borderColor: '#d4a800' },
+  btnMeasureActive: { backgroundColor: 'rgba(245,195,0,0.92)' },
   btnMeasureIcon: { fontSize: 22 },
 
   btnLineal: {
-    position: 'absolute', bottom: 156, right: 12, width: 50, height: 50,
-    backgroundColor: '#e67e22', borderRadius: 25, alignItems: 'center', justifyContent: 'center',
+    position: 'absolute', bottom: 156, right: 12, width: 46, height: 46,
+    backgroundColor: 'rgba(230,126,34,0.88)', borderRadius: 6, alignItems: 'center', justifyContent: 'center',
     zIndex: 5, elevation: 6,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.35, shadowRadius: 4,
-    borderWidth: 2, borderColor: '#d35400',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.55, shadowRadius: 6,
   },
   btnLinealIcon: { fontSize: 22 },
 
   btnRelevar: {
-    position: 'absolute', bottom: 94, right: 12, width: 50, height: 50,
-    backgroundColor: C.primary, borderRadius: 25, alignItems: 'center', justifyContent: 'center',
+    position: 'absolute', bottom: 94, right: 12, width: 46, height: 46,
+    backgroundColor: 'rgba(15,15,15,0.82)', borderRadius: 6, alignItems: 'center', justifyContent: 'center',
     zIndex: 5, elevation: 6,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.35, shadowRadius: 4,
-    borderWidth: 2, borderColor: C.accent,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.55, shadowRadius: 6,
   },
   btnRelevarIcon: { fontSize: 22 },
 
   btnGps: {
-    position: 'absolute', bottom: 32, right: 12, width: 50, height: 50,
-    backgroundColor: C.primary, borderRadius: 25, alignItems: 'center', justifyContent: 'center',
+    position: 'absolute', bottom: 32, right: 12, width: 46, height: 46,
+    backgroundColor: 'rgba(15,15,15,0.82)', borderRadius: 6, alignItems: 'center', justifyContent: 'center',
     zIndex: 5, elevation: 6,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.35, shadowRadius: 4,
-    borderWidth: 2, borderColor: C.primaryLight,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.55, shadowRadius: 6,
   },
-  btnGpsActive: { backgroundColor: C.accent, borderColor: C.accentDark },
+  btnGpsActive: { backgroundColor: 'rgba(245,195,0,0.92)' },
   btnGpsIcon: { fontSize: 22 },
 }); }

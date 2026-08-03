@@ -25,13 +25,13 @@ function buildGeoJSON(items: Relevamiento[]) {
     type: 'FeatureCollection',
     features: items.map(r => {
       // Ripio → LineString; el resto → Point
-      const geometry = r.tipo === 'Ripio' && r.coordsLinea && r.coordsLinea.length >= 2
+      const geometry = r.tipo === 'Lineal' && r.coordsLinea && r.coordsLinea.length >= 2
         ? { type: 'LineString', coordinates: r.coordsLinea.map(p => [p.lng, p.lat]) }
         : { type: 'Point', coordinates: [r.coords.lng, r.coords.lat] };
 
-      const ancho = parseFloat(r.datosRipio?.ancho ?? '') || 0;
-      const longitud = parseFloat(r.datosRipio?.longitud ?? '') || 0;
-      const espesor = parseFloat(r.datosRipio?.espesor ?? '') || 0;
+      const ancho = parseFloat(r.datosLineal?.ancho ?? '') || 0;
+      const longitud = parseFloat(r.datosLineal?.longitud ?? '') || 0;
+      const espesor = parseFloat(r.datosLineal?.espesor ?? '') || 0;
       const toneladas = ancho > 0 && longitud > 0 && espesor > 0
         ? parseFloat((ancho * longitud * espesor * 2.1).toFixed(2))
         : null;
@@ -55,7 +55,7 @@ function buildGeoJSON(items: Relevamiento[]) {
           ...(r.datosAlcantarilla ?? {}),
           ...(r.datosTubos ?? {}),
           descripcion_otro: r.datosOtro?.descripcion ?? '',
-          ...(r.datosRipio ?? {}),
+          ...(r.datosLineal ?? {}),
           toneladas_estimadas: toneladas,
           fotos: r.fotos.length,
         },
@@ -133,11 +133,11 @@ function SubFormDetail({ r }: { r: Relevamiento }) {
     return <FieldList items={[r.datosOtro.descripcion]} />;
   }
 
-  if (tipo === 'Ripio' && r.datosRipio) {
-    const d = r.datosRipio;
-    const ancho = parseFloat(d.ancho) || 0;
-    const longitud = parseFloat(d.longitud) || 0;
-    const espesor = parseFloat(d.espesor) || 0;
+  if (tipo === 'Lineal' && r.datosLineal) {
+    const d = r.datosLineal;
+    const ancho = parseFloat(d.ancho ?? '') || 0;
+    const longitud = parseFloat(d.longitud ?? '') || 0;
+    const espesor = parseFloat(d.espesor ?? '') || 0;
     const toneladas = ancho > 0 && longitud > 0 && espesor > 0
       ? (ancho * longitud * espesor * 2.1).toFixed(2)
       : null;
