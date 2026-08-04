@@ -1,15 +1,13 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
   FlatList, TextInput, ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useColors } from '@/context/ThemeContext';
 import type { ColorPalette } from '@/constants/Colors';
-import { GEO_BUNDLE } from '@/constants/geoBundle';
-
-const SEDES = GEO_BUNDLE.sedes as unknown as any[];
+import { useConsorcios } from '@/hooks/useConsorcios';
 
 const ZONAS = ['Todas', 'ZI', 'ZII', 'ZIII', 'ZIV', 'ZV'];
 const ZONA_LABELS: Record<string, string> = {
@@ -181,18 +179,21 @@ export default function RedVialScreen() {
   const c = useColors();
   const styles = useMemo(() => makeStyles(c), [c]);
 
+  const { consorcios, refresh } = useConsorcios();
+  useFocusEffect(useCallback(() => { refresh(); }, []));
+
   const [zonaFiltro, setZonaFiltro] = useState('Todas');
   const [search, setSearch] = useState('');
 
   const filtrados = useMemo(() => {
-    let list = SEDES;
+    let list = consorcios;
     if (zonaFiltro !== 'Todas') list = list.filter(x => x.zona === zonaFiltro);
     if (search.trim()) {
       const q = search.trim().toLowerCase();
       list = list.filter(x => x.nombre.toLowerCase().includes(q));
     }
     return list;
-  }, [zonaFiltro, search]);
+  }, [consorcios, zonaFiltro, search]);
 
   const sections = useMemo(() => {
     const zonasActivas = zonaFiltro === 'Todas'
