@@ -12,6 +12,7 @@ import { GEO_BUNDLE } from '@/constants/geoBundle';
 import { RP_BUNDLE } from '@/constants/geoBundleRP';
 import { GEO_BUNDLE_CC } from '@/constants/geoBundleCC';
 import { useRelevamientos } from '@/hooks/useRelevamientos';
+import { useConsorcios } from '@/hooks/useConsorcios';
 import RelevamientoModal from '@/components/RelevamientoModal';
 import { supabase } from '@/lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -64,10 +65,22 @@ type RelevLayers = {
 };
 const RELEV_TIPOS = ['Puente', 'Alcantarilla', 'Tubos', 'Lineal', 'Otro'] as const;
 
+type SedesAutoriadadesOverride = Record<number, {
+  presidente?: string; vicepresidente?: string;
+  secretario?: string; tesorero?: string;
+}>;
+
 // ── HTML Leaflet (mínimo UI, sin controles propios) ──────────────────────────
-function buildMapHtml(sedesZonas: SedesZonas, layers: Layers): string {
+function buildMapHtml(sedesZonas: SedesZonas, layers: Layers, sedesOverride?: SedesAutoriadadesOverride): string {
   // Serialized lazily — only runs when the map tab is first opened
-  const SEDES_JSON         = JSON.stringify(GEO_BUNDLE.sedes);
+  const rawSedes = GEO_BUNDLE.sedes as unknown as any[];
+  const mergedSedes = sedesOverride
+    ? rawSedes.map((s: any) => {
+        const ov = sedesOverride[Number(s.numero)];
+        return ov ? { ...s, ...ov } : s;
+      })
+    : rawSedes;
+  const SEDES_JSON         = JSON.stringify(mergedSedes);
   const LIMITES_ZONAS_JSON = JSON.stringify(GEO_BUNDLE.limites_zonas);
   const LIMITE_PROV_JSON   = JSON.stringify(GEO_BUNDLE.limite_provincial);
   const DEPTOS_JSON        = JSON.stringify(GEO_BUNDLE.departamentos);
@@ -1190,6 +1203,7 @@ function clearPickedPointMarker(){
 export default function MapaScreen() {
   const webviewRef = useRef<WebView>(null);
   const C = useColors();
+  const { consorcios } = useConsorcios();
   const { width, height } = useWindowDimensions();
   const DRAWER_WIDTH = useMemo(() => Math.min(width * 0.78, 300), [width]);
   const styles = useMemo(() => makeStyles(C, DRAWER_WIDTH), [C, DRAWER_WIDTH]);
@@ -1469,9 +1483,18 @@ export default function MapaScreen() {
     setCCState(s => ({ ...s }));
   }, []);
 
+  // Override de autoridades desde Supabase — se mezcla con los datos estáticos del geoBundle
+  const sedesOverride = useMemo<SedesAutoriadadesOverride>(() =>
+    Object.fromEntries(consorcios.map(c => [
+      Number(c.numero),
+      { presidente: c.presidente, vicepresidente: c.vicepresidente, secretario: c.secretario, tesorero: c.tesorero },
+    ])),
+    [consorcios]
+  );
+
   const mapHtml = useMemo(
-    () => buildMapHtml(sedesZonas, layers),
-    [sedesZonas, layers]
+    () => buildMapHtml(sedesZonas, layers, sedesOverride),
+    [sedesZonas, layers, sedesOverride]
   );
 
   const toggleZona = useCallback((zona: string) =>
