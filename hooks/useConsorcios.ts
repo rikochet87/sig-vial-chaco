@@ -33,8 +33,8 @@ const CONSORCIOS_INIT: ConsorcioDato[] = CONSORCIOS.map(c => {
 });
 
 // Map a Supabase row → ConsorcioDato
-// Los km SIEMPRE vienen de geoBundle (QGIS), nunca de Supabase
-// Los datos editables (autoridades, nombre) vienen de Supabase
+// Prioridad km: Supabase (si el admin lo editó) → geoBundle (QGIS) → local
+// Prioridad autoridades/nombre: Supabase → local
 function rowToConsorcioDato(row: Record<string, any>, localMap: Map<number, ConsorcioDato>): ConsorcioDato {
   const local = localMap.get(Number(row.numero));
   const geo   = geoKmMap.get(Number(row.numero));
@@ -46,11 +46,11 @@ function rowToConsorcioDato(row: Record<string, any>, localMap: Map<number, Cons
     color:        ZONA_COLOR[row.zona ?? ''] ?? local?.color ?? '#888',
     latitude:     local?.latitude   ?? 0,
     longitude:    local?.longitude  ?? 0,
-    // km siempre desde geoBundle
-    redKm:        geo?.redKm        ?? local?.redKm        ?? 0,
-    redPrimaria:  geo?.redPrimaria  ?? local?.redPrimaria  ?? 0,
-    redSecundaria: geo?.redSecundaria ?? local?.redSecundaria ?? 0,
-    redTerciaria: geo?.redTerciaria ?? local?.redTerciaria ?? 0,
+    // km: Supabase tiene prioridad (editado desde panel admin); fallback a geoBundle
+    redKm:        row.red_km        != null ? Number(row.red_km)        : (geo?.redKm        ?? local?.redKm        ?? 0),
+    redPrimaria:  row.red_primaria  != null ? Number(row.red_primaria)  : (geo?.redPrimaria  ?? local?.redPrimaria  ?? 0),
+    redSecundaria: row.red_secundaria != null ? Number(row.red_secundaria) : (geo?.redSecundaria ?? local?.redSecundaria ?? 0),
+    redTerciaria: row.red_terciaria != null ? Number(row.red_terciaria) : (geo?.redTerciaria ?? local?.redTerciaria ?? 0),
     // autoridades actualizables desde Supabase
     presidente:   row.presidente    ?? local?.presidente    ?? '',
     vicepresidente: row.vicepresidente ?? local?.vicepresidente ?? '',
@@ -99,11 +99,7 @@ export function useConsorcios() {
         const cached = await AsyncStorage.getItem(CACHE_KEY);
         if (!cancelled && cached) {
           const parsed: ConsorcioDato[] = JSON.parse(cached);
-          const fixed = parsed.map(c => {
-            const geo = geoKmMap.get(Number(c.numero));
-            return geo ? { ...c, ...geo } : c;
-          });
-          setConsorcios(fixed);
+          setConsorcios(parsed);
           setSource('cache');
           return;
         }

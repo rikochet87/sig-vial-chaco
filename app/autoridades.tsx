@@ -1,15 +1,13 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
   FlatList, TextInput, ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useColors } from '@/context/ThemeContext';
 import type { ColorPalette } from '@/constants/Colors';
-import { GEO_BUNDLE } from '@/constants/geoBundle';
-
-const SEDES = GEO_BUNDLE.sedes as unknown as any[];
+import { useConsorcios } from '@/hooks/useConsorcios';
 
 const ZONAS = ['Todas', 'ZI', 'ZII', 'ZIII', 'ZIV', 'ZV'];
 const ZONA_LABELS: Record<string, string> = {
@@ -146,11 +144,16 @@ export default function AutoridadesScreen() {
   const c = useColors();
   const styles = useMemo(() => makeStyles(c), [c]);
 
+  const { consorcios, refresh } = useConsorcios();
+
+  // Re-fetch desde Supabase cada vez que el técnico abre esta pantalla
+  useFocusEffect(useCallback(() => { refresh(); }, []));
+
   const [zonaFiltro, setZonaFiltro] = useState('Todas');
   const [search, setSearch] = useState('');
 
   const filtrados = useMemo(() => {
-    let list = SEDES;
+    let list = consorcios;
     if (zonaFiltro !== 'Todas') list = list.filter(x => x.zona === zonaFiltro);
     if (search.trim()) {
       const q = search.trim().toLowerCase();
@@ -163,9 +166,9 @@ export default function AutoridadesScreen() {
       );
     }
     return [...list].sort((a, b) =>
-      a.zona.localeCompare(b.zona) || (a.numero ?? 0) - (b.numero ?? 0)
+      a.zona.localeCompare(b.zona) || Number(a.numero ?? 0) - Number(b.numero ?? 0)
     );
-  }, [zonaFiltro, search]);
+  }, [consorcios, zonaFiltro, search]);
 
   return (
     <View style={styles.container}>
@@ -178,7 +181,7 @@ export default function AutoridadesScreen() {
         <View style={styles.headerText}>
           <Text style={styles.headerTitle}>Autoridades</Text>
           <Text style={styles.headerSub}>
-            {filtrados.length} de {SEDES.length} consorcios
+            {filtrados.length} de {consorcios.length} consorcios
           </Text>
         </View>
       </View>
