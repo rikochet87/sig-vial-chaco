@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   TextInput, ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from 'expo-router';
 import { useColors } from '@/context/ThemeContext';
 import type { ColorPalette } from '@/constants/Colors';
 import { ZONAS_CONFIG } from '@/constants/realData';
@@ -71,9 +72,12 @@ function ConsorcioCard({ item, C, styles }: {
 export default function ConsorciosScreen() {
   const C = useColors();
   const styles = makeStyles(C);
-  const { consorcios, source } = useConsorcios();
+  const { consorcios, source, refresh } = useConsorcios();
   const [search, setSearch] = useState('');
   const [zonaFiltro, setZonaFiltro] = useState<string>('TODAS');
+
+  // Re-fetch desde Supabase cada vez que el técnico entra a esta pantalla
+  useFocusEffect(useCallback(() => { refresh(); }, []));
 
   const filtrados = consorcios.filter(c => {
     const q = search.toLowerCase();

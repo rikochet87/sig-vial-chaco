@@ -65,6 +65,9 @@ export function useConsorcios() {
   const [consorcios, setConsorcios] = useState<ConsorcioDato[]>(CONSORCIOS_INIT);
   const [loading, setLoading]       = useState(false);
   const [source, setSource]         = useState<ConsorcionSource>('local');
+  const [tick, setTick]             = useState(0);
+
+  const refresh = () => setTick(t => t + 1);
 
   useEffect(() => {
     let cancelled = false;
@@ -95,7 +98,6 @@ export function useConsorcios() {
       try {
         const cached = await AsyncStorage.getItem(CACHE_KEY);
         if (!cancelled && cached) {
-          // Al cargar desde caché también corregir km desde geoBundle
           const parsed: ConsorcioDato[] = JSON.parse(cached);
           const fixed = parsed.map(c => {
             const geo = geoKmMap.get(Number(c.numero));
@@ -112,7 +114,7 @@ export function useConsorcios() {
 
     fetchRemoto().finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, []);
+  }, [tick]);
 
-  return { consorcios, loading, source };
+  return { consorcios, loading, source, refresh };
 }
