@@ -718,6 +718,25 @@ function CalcDesmalezado({ paramsRef, onGuardarObra }: { paramsRef?: React.Mutab
             </div>
           </>
         )}
+        {view !== 'computo' && <div style={{ flex: 1 }} />}
+        {totalPres > 0 && onGuardarObra && (
+          <button
+            onClick={() => onGuardarObra({
+              tipo: 'limpieza',
+              cantidad: formulaHaEarly > 0 ? formulaHaEarly : progHaEarly > 0 ? progHaEarly : mapaHaEarly,
+              unidad: 'ha',
+              presupuesto_total: totalPres,
+              aporte_dvp: montoDVP,
+              aporte_ccc: montoCCC,
+              precio_unitario: apAdoptado,
+            })}
+            style={{ padding: '4px 14px', fontSize: 10, fontFamily: 'monospace', fontWeight: 700,
+              letterSpacing: 0.8, cursor: 'pointer', border: '1px solid #F5C300',
+              background: '#F5C30022', color: '#F5C300', borderRadius: 2 }}
+          >
+            💾 Guardar obra
+          </button>
+        )}
       </div>
 
       {/* Content */}
@@ -1498,28 +1517,10 @@ function CalcDesmalezado({ paramsRef, onGuardarObra }: { paramsRef?: React.Mutab
                 </div>
               )}
 
-              {/* Guardar Obra */}
-              {totalPres > 0 && onGuardarObra && (
-                <button
-                  onClick={() => onGuardarObra({
-                    tipo: 'limpieza',
-                    cantidad: formulaHaEarly > 0 ? formulaHaEarly : progHaEarly > 0 ? progHaEarly : mapaHaEarly,
-                    unidad: 'ha',
-                    presupuesto_total: totalPres,
-                    aporte_dvp: montoDVP,
-                    aporte_ccc: montoCCC,
-                    precio_unitario: apAdoptado,
-                  })}
-                  style={{ marginTop: 16, width: '100%', padding: '9px 0', ...mono,
-                    fontSize: 11, fontWeight: 700, letterSpacing: 0.8, cursor: 'pointer',
-                    background: '#F5C30022', border: '1px solid #F5C300', color: '#F5C300' }}
-                >
-                  💾 Guardar obra
-                </button>
-              )}
             </div>
           </div>
         )}
+
 
       </div>
     </div>
@@ -2020,6 +2021,24 @@ function CalcDesbosque({ paramsRef, onGuardarObra }: { paramsRef?: React.Mutable
           }}>
           ↓ Informe PDF
         </button>
+        {presTotal > 0 && onGuardarObra && (
+          <button
+            onClick={() => onGuardarObra({
+              tipo: 'limpieza',
+              cantidad: Sup_ha,
+              unidad: 'ha',
+              presupuesto_total: presTotal,
+              aporte_dvp: aporteDVP,
+              aporte_ccc: aporteCC,
+              precio_unitario: Sup_ha > 0 ? presTotal / Sup_ha : 0,
+            })}
+            style={{ padding: '4px 14px', fontSize: 10, fontFamily: 'monospace', fontWeight: 700,
+              letterSpacing: 0.8, cursor: 'pointer', border: '1px solid #F5C300',
+              background: '#F5C30022', color: '#F5C300', borderRadius: 3, marginLeft: 6 }}
+          >
+            💾 Guardar obra
+          </button>
+        )}
       </div>
 
       {/* Jornales ── siempre montado, oculto con display:none para preservar estado del mapa */}
@@ -2398,25 +2417,6 @@ function CalcDesbosque({ paramsRef, onGuardarObra }: { paramsRef?: React.Mutable
               </div>
             </div>
 
-            {/* Guardar Obra */}
-            {presTotal > 0 && onGuardarObra && (
-              <button
-                onClick={() => onGuardarObra({
-                  tipo: 'limpieza',
-                  cantidad: Sup_ha,
-                  unidad: 'ha',
-                  presupuesto_total: presTotal,
-                  aporte_dvp: aporteDVP,
-                  aporte_ccc: aporteCC,
-                  precio_unitario: Sup_ha > 0 ? presTotal / Sup_ha : 0,
-                })}
-                style={{ marginTop: 16, width: '100%', padding: '9px 0', fontFamily: 'monospace',
-                  fontSize: 11, fontWeight: 700, letterSpacing: 0.8, cursor: 'pointer',
-                  background: '#F5C30022', border: '1px solid #F5C300', color: '#F5C300' }}
-              >
-                💾 Guardar obra
-              </button>
-            )}
           </div>
         </div>
 
