@@ -1622,8 +1622,17 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
         const sz    = (customRelevSizes  as Record<string,number>)[r.tipo]  ?? 18
         const popup = L.popup({ maxWidth: 300, className: 'dark-popup' }).setContent(relevPopupHtml(r))
 
-        if (r.tipo === 'Lineal' && r.coords_linea?.length) {
-          const positions = r.coords_linea.map(p => [p.lat, p.lng] as [number, number])
+        // Parseo defensivo: coords_linea puede llegar como array (JSONB) o string JSON (TEXT)
+        if (r.tipo === 'Lineal') console.log('[MapInner] Lineal id=%s zona=%s coords_linea type=%s val=', r.id, r.zona, typeof r.coords_linea, r.coords_linea)
+        const _rawLinea = r.tipo === 'Lineal' ? r.coords_linea : null
+        const _linea: Array<{lat: number; lng: number}> | null = Array.isArray(_rawLinea)
+          ? _rawLinea
+          : (typeof _rawLinea === 'string'
+              ? (() => { try { return JSON.parse(_rawLinea) } catch { return null } })()
+              : null)
+
+        if (r.tipo === 'Lineal' && _linea && _linea.length >= 2) {
+          const positions = _linea.map(p => [p.lat, p.lng] as [number, number])
           const lineW = sz
           const visLine = L.polyline(positions, { color, weight: lineW, opacity: 0.9, lineCap: 'round', lineJoin: 'round' }).addTo(group)
           L.polyline(positions, { color: '#000', weight: 22, opacity: 0.001 })
