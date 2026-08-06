@@ -536,7 +536,7 @@ interface SegmentoDesm { id: string; ruta: string; lado: 'izq' | 'der'; desde: n
 interface EquipoAP     { id: string; nombre: string; hp: number; valor: number }
 interface MORigAP      { id: string; cargo: string; n: number; tarifa: number; coef: number; hs: number }
 
-function CalcDesmalezado({ paramsRef }: { paramsRef?: React.MutableRefObject<Params> }) {
+function CalcDesmalezado({ paramsRef, onGuardarObra }: { paramsRef?: React.MutableRefObject<Params>; onGuardarObra?: (d: GuardarObraData) => void }) {
   const [method,        setMethod]        = useState<'formula' | 'progresivas' | 'mapa'>('formula')
   const [view,          setView]          = useState<'computo' | 'jornales' | 'presupuesto'>('computo')
   const [mapaActivated, setMapaActivated] = useState(false)  // lazy-mount: nunca desmontar InlineMapDraw
@@ -1497,6 +1497,26 @@ function CalcDesmalezado({ paramsRef }: { paramsRef?: React.MutableRefObject<Par
                   <span style={{ fontSize: 8, color: '#222', marginTop: 4 }}>para ver el presupuesto calculado</span>
                 </div>
               )}
+
+              {/* Guardar Obra */}
+              {totalPres > 0 && onGuardarObra && (
+                <button
+                  onClick={() => onGuardarObra({
+                    tipo: 'limpieza',
+                    cantidad: formulaHaEarly > 0 ? formulaHaEarly : progHaEarly > 0 ? progHaEarly : mapaHaEarly,
+                    unidad: 'ha',
+                    presupuesto_total: totalPres,
+                    aporte_dvp: montoDVP,
+                    aporte_ccc: montoCCC,
+                    precio_unitario: apAdoptado,
+                  })}
+                  style={{ marginTop: 16, width: '100%', padding: '9px 0', ...mono,
+                    fontSize: 11, fontWeight: 700, letterSpacing: 0.8, cursor: 'pointer',
+                    background: '#F5C30022', border: '1px solid #F5C300', color: '#F5C300' }}
+                >
+                  💾 Guardar obra
+                </button>
+              )}
             </div>
           </div>
         )}
@@ -1534,7 +1554,7 @@ interface PresRow { id: string; num: number; desc: string; unit: string; cant: n
 type MonteKey = 'ralo' | 'semitupido' | 'tupido'
 interface MonteEntry { id: string; ha: number; monte: MonteKey; fromMap?: boolean; pts?: [number,number][] }
 
-function CalcDesbosque({ paramsRef }: { paramsRef?: React.MutableRefObject<Params> }) {
+function CalcDesbosque({ paramsRef, onGuardarObra }: { paramsRef?: React.MutableRefObject<Params>; onGuardarObra?: (d: GuardarObraData) => void }) {
   // ── Geometría — múltiples superficies por tipo en cada lado ──────────────
   const [entriesIzq, setEntriesIzq] = useState<MonteEntry[]>([])
   const [entriesDer, setEntriesDer] = useState<MonteEntry[]>([])
@@ -2377,6 +2397,26 @@ function CalcDesbosque({ paramsRef }: { paramsRef?: React.MutableRefObject<Param
                 </div>
               </div>
             </div>
+
+            {/* Guardar Obra */}
+            {presTotal > 0 && onGuardarObra && (
+              <button
+                onClick={() => onGuardarObra({
+                  tipo: 'limpieza',
+                  cantidad: Sup_ha,
+                  unidad: 'ha',
+                  presupuesto_total: presTotal,
+                  aporte_dvp: aporteDVP,
+                  aporte_ccc: aporteCC,
+                  precio_unitario: Sup_ha > 0 ? presTotal / Sup_ha : 0,
+                })}
+                style={{ marginTop: 16, width: '100%', padding: '9px 0', fontFamily: 'monospace',
+                  fontSize: 11, fontWeight: 700, letterSpacing: 0.8, cursor: 'pointer',
+                  background: '#F5C30022', border: '1px solid #F5C300', color: '#F5C300' }}
+              >
+                💾 Guardar obra
+              </button>
+            )}
           </div>
         </div>
 
@@ -2486,7 +2526,7 @@ function CalcDesbosque({ paramsRef }: { paramsRef?: React.MutableRefObject<Param
 }
 
 // ── LIMPIEZA VIAL (Desmalezado + Desbosque, selector unificado) ───────────────
-function CalcLimpiezaVial({ paramsRef }: { paramsRef?: React.MutableRefObject<Params> }) {
+function CalcLimpiezaVial({ paramsRef, onGuardarObra }: { paramsRef?: React.MutableRefObject<Params>; onGuardarObra?: (d: GuardarObraData) => void }) {
   const [tipo, setTipo] = useState<'desmalezado' | 'desbosque'>('desmalezado')
   const colorDesm = '#66BB6A'
   const colorDesb = '#795548'
@@ -2518,8 +2558,8 @@ function CalcLimpiezaVial({ paramsRef }: { paramsRef?: React.MutableRefObject<Pa
 
       {/* Contenido */}
       <div style={{ flex: 1, minHeight: 0, borderLeft: `2px solid ${activeColor}33`, paddingLeft: 14 }}>
-        {tipo === 'desmalezado' && <CalcDesmalezado paramsRef={paramsRef} />}
-        {tipo === 'desbosque'   && <CalcDesbosque   paramsRef={paramsRef} />}
+        {tipo === 'desmalezado' && <CalcDesmalezado paramsRef={paramsRef} onGuardarObra={onGuardarObra} />}
+        {tipo === 'desbosque'   && <CalcDesbosque   paramsRef={paramsRef} onGuardarObra={onGuardarObra} />}
       </div>
     </div>
   )
@@ -2666,7 +2706,7 @@ export default function CalculadorasPage() {
         {tab === 'excavacion' && <CalcExcavacion paramsRef={paramsRef} />}
         {tab === 'ripio'      && <CalcRipio      paramsRef={paramsRef} />}
         {tab === 'canal'      && <CalcCanal      paramsRef={paramsRef} />}
-        {tab === 'limpieza'   && <CalcLimpiezaVial paramsRef={paramsRef} />}
+        {tab === 'limpieza'   && <CalcLimpiezaVial paramsRef={paramsRef} onGuardarObra={(d) => { setGuardarData(d); setGuardarOpen(true) }} />}
       </div>
 
       <GuardarObraModal
