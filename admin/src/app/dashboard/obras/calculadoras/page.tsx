@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { setObraTransfer, saveReturnTab, consumeReturnTab } from '@/lib/obraTransfer'
 import InlineMapDraw from '@/components/InlineMapDraw'
 import InlineLineDraw from '@/components/InlineLineDraw'
+import GuardarObraModal, { type GuardarObraData, type ObraTipo } from '@/components/GuardarObraModal'
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 type Tab    = 'terraplen' | 'excavacion' | 'ripio' | 'canal' | 'limpieza'
@@ -178,17 +179,17 @@ function CalcTerraplen({ paramsRef }: { paramsRef?: React.MutableRefObject<Param
   const [Fe, setFe]   = useState(20)
   const [Fc, setFc]   = useState(90)
 
-  // Sincronizar params con ref del padre (para transferencia a Planta)
-  useEffect(() => {
-    if (paramsRef) paramsRef.current = { H, Bc, m, rho, Fe, Fc }
-  }, [paramsRef, H, Bc, m, rho, Fe, Fc])
-
   const Bb     = Bc + 2 * H * m
   const A      = (Bc + Bb) / 2 * H
   const Vneto  = A * L
   const Vbanco = Vneto / (Fc / 100)
   const Vesp   = Vbanco * (1 + Fe / 100)
   const W      = Vbanco * rho
+
+  // Sincronizar params con ref del padre (para transferencia a Planta y Guardar Obra)
+  useEffect(() => {
+    if (paramsRef) paramsRef.current = { H, Bc, m, rho, Fe, Fc, W_t: W, L_m: L }
+  }, [paramsRef, L, H, Bc, m, rho, Fe, Fc, W])
   const fmt    = (n: number) => Math.round(n).toLocaleString('es-AR')
 
   const W_SVG = 420, H_SVG = 210, GY = 160, PAD = 50
@@ -269,15 +270,15 @@ function CalcExcavacion({ paramsRef }: { paramsRef?: React.MutableRefObject<Para
   const [rho, setRho] = useState(1.80)
   const [Fe, setFe]   = useState(25)
 
-  useEffect(() => {
-    if (paramsRef) paramsRef.current = { H, Bf, m, rho, Fe }
-  }, [paramsRef, H, Bf, m, rho, Fe])
-
   const Bb  = Bf + 2 * H * m
   const A   = (Bf + Bb) / 2 * H
   const Vc  = A * L
   const Ves = Vc * (1 + Fe / 100)
   const W   = Vc * rho
+
+  useEffect(() => {
+    if (paramsRef) paramsRef.current = { H, Bf, m, rho, Fe, W_t: W, L_m: L }
+  }, [paramsRef, L, H, Bf, m, rho, Fe, W])
   const fmt = (n: number) => Math.round(n).toLocaleString('es-AR')
 
   const W_SVG = 420, H_SVG = 200, GY = 50, PAD = 50
@@ -357,12 +358,12 @@ function CalcRipio({ paramsRef }: { paramsRef?: React.MutableRefObject<Params> }
   const [E, setE]     = useState(0.15)
   const [rho, setRho] = useState(2.10)
 
-  useEffect(() => {
-    if (paramsRef) paramsRef.current = { An, E, rho }
-  }, [paramsRef, An, E, rho])
-
   const V   = L * An * E
   const W   = V * rho
+
+  useEffect(() => {
+    if (paramsRef) paramsRef.current = { An, E, rho, W_t: W, L_m: L }
+  }, [paramsRef, L, An, E, rho, W])
   const fmt = (n: number) => Math.round(n).toLocaleString('es-AR')
   const color = CLR.ripio
 
@@ -423,11 +424,6 @@ function CalcCanal({ paramsRef }: { paramsRef?: React.MutableRefObject<Params> }
   const [rho, setRho] = useState(1.80)
   const [Fe, setFe]   = useState(25)
 
-  // Transferir solo params geométricos relevantes para Planta (excluir hidráulica)
-  useEffect(() => {
-    if (paramsRef) paramsRef.current = { H, Bf: tipo === 'triangular' ? 0 : Bf, m, rho, Fe }
-  }, [paramsRef, H, tipo, Bf, m, rho, Fe])
-
   const Bs = tipo === 'triangular' ? 2 * H * m : Bf + 2 * H * m
   const A  = tipo === 'triangular' ? H * H * m : (Bf + Bs) / 2 * H
   const P  = tipo === 'triangular'
@@ -440,6 +436,11 @@ function CalcCanal({ paramsRef }: { paramsRef?: React.MutableRefObject<Params> }
   const Vex = A * L
   const Ves = Vex * 1.25
   const W   = Vex * rho
+
+  // Transferir params geométricos + cantidad para Planta y Guardar Obra
+  useEffect(() => {
+    if (paramsRef) paramsRef.current = { H, Bf: tipo === 'triangular' ? 0 : Bf, m, rho, Fe, W_t: W, L_m: L }
+  }, [paramsRef, L, H, tipo, Bf, m, rho, Fe, W])
   const fmt = (n: number) => Math.round(n).toLocaleString('es-AR')
 
   const W_SVG = 420, H_SVG = 200, GY = 60, PAD = 60
@@ -2540,6 +2541,30 @@ export default function CalculadorasPage() {
   const router    = useRouter()
   const color     = CLR[tab]
 
+  // ── Guardar Obra ──────────────────────────────────────────────────────────
+  const [guardarOpen, setGuardarOpen] = useState(false)
+  const [guardarData, setGuardarData] = useState<GuardarObraData | null>(null)
+
+  const handleGuardarObra = () => {
+    const W_t = Number(paramsRef.current.W_t ?? 0)
+    const L_m = Number(paramsRef.current.L_m ?? 0)
+    if (W_t <= 0 && tab !== 'limpieza') {
+      alert('Completá los datos de la calculadora primero.')
+      return
+    }
+    const total = W_t * precio
+    setGuardarData({
+      tipo:              tab as ObraTipo,
+      cantidad:          tab === 'ripio' ? L_m / 1000 : W_t,   // ripio en km, resto en t
+      unidad:            tab === 'ripio' ? 'km' : 't',
+      presupuesto_total: total,
+      aporte_dvp:        total * 0.5,   // el modal puede ajustarse en Fase 2
+      aporte_ccc:        total * 0.5,
+      precio_unitario:   precio,
+    })
+    setGuardarOpen(true)
+  }
+
   const handleDraw = () => {
     saveReturnTab(tab)
     setObraTransfer({
@@ -2617,6 +2642,18 @@ export default function CalculadorasPage() {
         >
           Dibujar en mapa →
         </button>
+
+        <button
+          onClick={handleGuardarObra}
+          style={{
+            padding: '7px 18px', fontSize: 11, fontFamily: 'monospace',
+            fontWeight: 700, letterSpacing: 0.8, cursor: 'pointer',
+            border: '1px solid #F5C300', background: '#F5C30022',
+            color: '#F5C300', transition: 'background 0.15s',
+          }}
+        >
+          💾 Guardar obra
+        </button>
       </div>
       )}
 
@@ -2631,6 +2668,13 @@ export default function CalculadorasPage() {
         {tab === 'canal'      && <CalcCanal      paramsRef={paramsRef} />}
         {tab === 'limpieza'   && <CalcLimpiezaVial paramsRef={paramsRef} />}
       </div>
+
+      <GuardarObraModal
+        open={guardarOpen}
+        data={guardarData}
+        onClose={() => setGuardarOpen(false)}
+        onSaved={() => setGuardarOpen(false)}
+      />
     </div>
   )
 }
