@@ -531,8 +531,8 @@ function CalcCanal({ paramsRef }: { paramsRef?: React.MutableRefObject<Params> }
 
 // ── DESMALEZADO DE BANQUINAS ──────────────────────────────────────────────────
 const CLR_DESM = '#66BB6A'
-interface DesmEntry    { id: string; ha: number; side: 'izq' | 'der'; pts?: [number,number][] }
-interface SegmentoDesm { id: string; ruta: string; lado: 'izq' | 'der'; desde: number; hasta: number; ancho: number }
+interface DesmEntry { id: string; ha: number; side: 'izq' | 'der'; pts?: [number,number][] }
+interface TramoDesm { id: string; ruta: string; desde: number; hasta: number; lados: 1 | 2; anchoIzq: number; anchoDer: number }
 interface EquipoAP     { id: string; nombre: string; hp: number; valor: number }
 interface MORigAP      { id: string; cargo: string; n: number; tarifa: number; coef: number; hs: number }
 
@@ -541,18 +541,14 @@ function CalcDesmalezado({ paramsRef, onGuardarObra }: { paramsRef?: React.Mutab
   const [view,          setView]          = useState<'computo' | 'jornales' | 'presupuesto'>('computo')
   const [mapaActivated, setMapaActivated] = useState(false)  // lazy-mount: nunca desmontar InlineMapDraw
 
-  // Fórmula
-  const [L,     setL]     = useState(1000)
-  const [Ab,    setAb]    = useState(3.0)
-  const [lados, setLados] = useState(2)
-
-  // Progresivas
-  const [segmentos, setSegmentos] = useState<SegmentoDesm[]>([])
+  // Fórmula — tramos
+  const [tramos,    setTramos]    = useState<TramoDesm[]>([])
   const [fmRuta,    setFmRuta]    = useState('RP 1')
-  const [fmLado,    setFmLado]    = useState<'izq' | 'der'>('izq')
   const [fmDesde,   setFmDesde]   = useState(0)
   const [fmHasta,   setFmHasta]   = useState(3000)
-  const [fmAncho,   setFmAncho]   = useState(15)
+  const [fmLados,   setFmLados]   = useState<1 | 2>(2)
+  const [fmAnchoIzq, setFmAnchoIzq] = useState(3)
+  const [fmAnchoDer, setFmAnchoDer] = useState(3)
 
   // Mapa/drone
   const [mapEntries, setMapEntries] = useState<DesmEntry[]>([])
@@ -603,26 +599,24 @@ function CalcDesmalezado({ paramsRef, onGuardarObra }: { paramsRef?: React.Mutab
   const apCU         = apRendDiaHa > 0 ? apCDE / apRendDiaHa : 0
 
   // ── Cómputo derivados (deben estar antes del bloque presupuesto) ─────────────
-  const Sup_m2early  = L * Ab * lados
-  const formulaHaEarly = Sup_m2early / 10000
-  const progHaEarly  = segmentos.reduce((s, sg) => s + (sg.hasta - sg.desde) * sg.ancho / 10000, 0)
-  const mapaHaEarly  = mapEntries.reduce((s, e) => s + e.ha, 0)
+  const tramoHa = (t: TramoDesm) => {
+    const L = t.hasta - t.desde
+    return L * t.anchoIzq / 10000 + (t.lados === 2 ? L * t.anchoDer / 10000 : 0)
+  }
+  const formulaHaEarly = tramos.reduce((s, t) => s + tramoHa(t), 0)
+  const mapaHaEarly    = mapEntries.reduce((s, e) => s + e.ha, 0)
 
   // ── Presupuesto state ────────────────────────────────────────────────────────
   const [prespPlazo,     setPrespPlazo]     = useState(6)
   const [prespPctDVP,    setPrespPctDVP]    = useState(80)
   const [prespDescTramo, setPrespDescTramo] = useState('Ruta Prov. Nº 1 y 3')
 
-  // Ha por lado para presupuesto (depende del método activo en Cómputo)
+  // Ha por lado para presupuesto
   const haIzqPres = method === 'formula'
-    ? (lados === 2 ? formulaHaEarly / 2 : formulaHaEarly)
-    : method === 'progresivas'
-    ? segmentos.filter(s => s.lado === 'izq').reduce((a, s) => a + (s.hasta - s.desde) * s.ancho / 10000, 0)
+    ? tramos.reduce((a, t) => a + (t.hasta - t.desde) * t.anchoIzq / 10000, 0)
     : mapEntries.filter(e => e.side === 'izq').reduce((a, e) => a + e.ha, 0)
   const haDerPres = method === 'formula'
-    ? (lados === 2 ? formulaHaEarly / 2 : 0)
-    : method === 'progresivas'
-    ? segmentos.filter(s => s.lado === 'der').reduce((a, s) => a + (s.hasta - s.desde) * s.ancho / 10000, 0)
+    ? tramos.filter(t => t.lados === 2).reduce((a, t) => a + (t.hasta - t.desde) * t.anchoDer / 10000, 0)
     : mapEntries.filter(e => e.side === 'der').reduce((a, e) => a + e.ha, 0)
 
   const parcIzq      = haIzqPres * apAdoptado
@@ -632,30 +626,30 @@ function CalcDesmalezado({ paramsRef, onGuardarObra }: { paramsRef?: React.Mutab
   const montoDVP     = totalPres * prespPctDVP / 100
   const montoCCC     = totalPres * (100 - prespPctDVP) / 100
 
-  const color      = CLR_DESM
-  const Sup_m2     = L * Ab * lados
-  const formulaHa  = Sup_m2 / 10000
-  const progHa     = segmentos.reduce((s, sg) => s + (sg.hasta - sg.desde) * sg.ancho / 10000, 0)
-  const mapaHa     = mapEntries.reduce((s, e) => s + e.ha, 0)
-  const Sup_ha     = method === 'formula' ? formulaHa : method === 'progresivas' ? progHa : mapaHa
-  const fmt        = (n: number) => Math.round(n).toLocaleString('es-AR')
+  const color   = CLR_DESM
+  const mapaHa  = mapEntries.reduce((s, e) => s + e.ha, 0)
+  const Sup_ha  = method === 'formula' ? formulaHaEarly : mapaHa
+  const fmt     = (n: number) => Math.round(n).toLocaleString('es-AR')
 
   useEffect(() => {
-    if (paramsRef) paramsRef.current = { Ab, lados }
-  }, [paramsRef, Ab, lados])
+    if (paramsRef) paramsRef.current = { ha: formulaHaEarly }
+  }, [paramsRef, formulaHaEarly])
 
-  const addSegmento = () => {
+  const addTramo = () => {
     if (fmHasta <= fmDesde || !fmRuta.trim()) return
-    setSegmentos(prev => [...prev, {
+    setTramos(prev => [...prev, {
       id: Math.random().toString(36).slice(2, 8),
-      ruta: fmRuta.trim(), lado: fmLado,
-      desde: fmDesde, hasta: fmHasta, ancho: fmAncho,
+      ruta: fmRuta.trim(),
+      desde: fmDesde, hasta: fmHasta,
+      lados: fmLados,
+      anchoIzq: fmAnchoIzq,
+      anchoDer: fmAnchoDer,
     }])
     setFmDesde(fmHasta)
     setFmHasta(fmHasta + 3000)
   }
 
-  const rutasUnicas = [...new Set(segmentos.map(s => s.ruta))]
+  const rutasUnicas = [...new Set(tramos.map(t => t.ruta))]
   const sColor = (s: 'izq' | 'der') => s === 'izq' ? '#66bb6a' : '#42a5f5'
   const mono: React.CSSProperties = { fontFamily: 'monospace' }
 
@@ -671,9 +665,8 @@ function CalcDesmalezado({ paramsRef, onGuardarObra }: { paramsRef?: React.Mutab
   ]
 
   const METHODS = [
-    { id: 'formula'     as const, label: '∑ Fórmula' },
-    { id: 'progresivas' as const, label: '≡ Progresivas' },
-    { id: 'mapa'        as const, label: '◈ Drone / Polígono' },
+    { id: 'formula' as const, label: '∑ Fórmula' },
+    { id: 'mapa'    as const, label: '◈ Dibujar'  },
   ]
 
   return (
@@ -723,7 +716,7 @@ function CalcDesmalezado({ paramsRef, onGuardarObra }: { paramsRef?: React.Mutab
           <button
             onClick={() => onGuardarObra({
               tipo: 'limpieza',
-              cantidad: formulaHaEarly > 0 ? formulaHaEarly : progHaEarly > 0 ? progHaEarly : mapaHaEarly,
+              cantidad: formulaHaEarly > 0 ? formulaHaEarly : mapaHaEarly,
               unidad: 'ha',
               presupuesto_total: totalPres,
               aporte_dvp: montoDVP,
@@ -742,97 +735,11 @@ function CalcDesmalezado({ paramsRef, onGuardarObra }: { paramsRef?: React.Mutab
       {/* Content */}
       <div style={{ flex: 1, minHeight: 0 }}>
 
-        {/* ── Cómputo — Fórmula ── */}
+        {/* ── Cómputo — Fórmula (tramos por progresivas) ── */}
         {view === 'computo' && method === 'formula' && (
-          <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr 148px', gap: 10, height: '100%' }}>
-            <div style={panel}>
-              <SectionTitle>Geometría</SectionTitle>
-              <Inp label="Longitud"       unit="m" value={L}   onChange={setL}   step={100} />
-              <Inp label="Ancho banquina" unit="m" value={Ab}  onChange={setAb}  step={0.5} min={0.5} />
-              <div>
-                <span style={lbl}>Cantidad de lados</span>
-                <div style={{ display: 'flex', gap: 6 }}>
-                  {[1, 2].map(l => (
-                    <button key={l} onClick={() => setLados(l)}
-                      style={{ flex: 1, padding: '6px 4px', fontSize: 13, fontFamily: 'monospace',
-                        cursor: 'pointer', borderRadius: 3,
-                        border: `1px solid ${lados === l ? color : '#222'}`,
-                        background: lados === l ? `${color}22` : '#080808',
-                        color: lados === l ? color : '#555' }}>
-                      {l} lado{l > 1 ? 's' : ''}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div style={{ marginTop: 12, padding: '8px', background: '#0a0a0a', borderRadius: 4,
-                fontSize: 9, color: '#555', fontFamily: 'monospace', lineHeight: 1.6 }}>
-                Área total: {fmt(Sup_m2)} m²<br/>= {Sup_ha.toFixed(4)} ha
-              </div>
-            </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '210px 1fr 148px', gap: 10, height: '100%' }}>
 
-            <div style={{ ...panel, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
-              <SectionTitle>Vista en planta — Desmalezado de banquinas</SectionTitle>
-              <svg viewBox={`0 0 ${W_SVG} ${H_SVG}`} style={{ width: '100%', height: 'auto' }}>
-                <rect x={0} y={0} width={W_SVG} height={H_SVG} fill="#0a0a0a" />
-                <rect x={cx - roadW_px/2 - bankW_px} y={roadY} width={bankW_px} height={roadH}
-                  fill={lados === 2 ? `${color}30` : '#0d0d0d'}
-                  stroke={lados === 2 ? color : '#1a1a1a'} strokeWidth={lados === 2 ? 1.5 : 0.8}
-                  strokeDasharray={lados === 2 ? '' : '4 4'} />
-                {lados === 2 && (
-                  <text x={cx - roadW_px/2 - bankW_px/2} y={roadY + roadH/2 + 4}
-                    textAnchor="middle" fontSize={9} fill={color} fontFamily="monospace">BANQ.</text>
-                )}
-                <rect x={cx - roadW_px/2} y={roadY} width={roadW_px} height={roadH}
-                  fill="#161616" stroke="#2a2a2a" strokeWidth={1} />
-                <line x1={cx} y1={roadY} x2={cx} y2={roadY + roadH}
-                  stroke="#222" strokeWidth={1} strokeDasharray="8 6" />
-                <text x={cx} y={roadY + roadH/2 + 4} textAnchor="middle"
-                  fontSize={9} fill="#333" fontFamily="monospace">CALZADA</text>
-                <rect x={cx + roadW_px/2} y={roadY} width={bankW_px} height={roadH}
-                  fill={`${color}30`} stroke={color} strokeWidth={1.5} />
-                <text x={cx + roadW_px/2 + bankW_px/2} y={roadY + roadH/2 + 4}
-                  textAnchor="middle" fontSize={9} fill={color} fontFamily="monospace">BANQ.</text>
-                {lados === 2 && Array.from({ length: 8 }, (_, i) => (
-                  <line key={i} x1={cx - roadW_px/2 - bankW_px + i*10} y1={roadY}
-                    x2={cx - roadW_px/2 - bankW_px + i*10 + roadH} y2={roadY + roadH}
-                    stroke={`${color}18`} strokeWidth={1.5} />
-                ))}
-                {Array.from({ length: 8 }, (_, i) => (
-                  <line key={i} x1={cx + roadW_px/2 + i*10} y1={roadY}
-                    x2={cx + roadW_px/2 + i*10 + roadH} y2={roadY + roadH}
-                    stroke={`${color}18`} strokeWidth={1.5} />
-                ))}
-                <DimLine x1={cx + roadW_px/2} y1={roadY - 14} x2={cx + roadW_px/2 + bankW_px} y2={roadY - 14}
-                  label={`Ab = ${Ab.toFixed(1)} m`} textX={cx + roadW_px/2 + bankW_px/2} textY={roadY - 18} />
-                <text x={cx} y={H_SVG - 8} textAnchor="middle" fontSize={10} fill={color} fontFamily="monospace">
-                  Sup = {fmt(Sup_m2)} m² = {Sup_ha.toFixed(2)} ha
-                </text>
-              </svg>
-              <Pipeline color={color} steps={[
-                { label: 'Superficie', formula: 'S = L · Ab · lados',
-                  sub: `${L}·${Ab}·${lados}`, result: `${fmt(Sup_m2)} m²` },
-                { label: 'Hectáreas', formula: 'ha = S / 10.000',
-                  sub: `${fmt(Sup_m2)}/10000`, result: `${Sup_ha.toFixed(4)} ha`, accent: true },
-              ]} />
-            </div>
-
-            <div style={panel}>
-              <SectionTitle>Cómputo</SectionTitle>
-              <Res label="Superficie total" value={fmt(Sup_m2)}       unit="m²" />
-              <Res label="Hectáreas"        value={Sup_ha.toFixed(4)} unit="ha" accent />
-              <div style={{ marginTop: 8, fontSize: 11, color: '#666', fontFamily: 'monospace', lineHeight: 1.8 }}>
-                {(Sup_ha / (L / 1000)).toFixed(2)} ha/km<br />
-                {lados} lado{lados > 1 ? 's' : ''} · {Ab} m c/u
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ── Cómputo — Progresivas ── */}
-        {view === 'computo' && method === 'progresivas' && (
-          <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr', gap: 10, height: '100%' }}>
-
-            {/* Panel izquierdo: formulario */}
+            {/* Panel izquierdo: formulario de tramo */}
             <div style={{ ...panel, display: 'flex', flexDirection: 'column', gap: 6, overflowY: 'auto' }}>
               <SectionTitle>Agregar tramo</SectionTitle>
               <div>
@@ -842,44 +749,57 @@ function CalcDesmalezado({ paramsRef, onGuardarObra }: { paramsRef?: React.Mutab
                   style={{ width: '100%', boxSizing: 'border-box', background: '#0a0a0a', border: '1px solid #222',
                     color: '#ccc', padding: '5px 8px', fontSize: 11, ...mono, borderRadius: 2, outline: 'none' }} />
               </div>
+              <Inp label="Prog. desde" unit="m" value={fmDesde} onChange={setFmDesde} step={100} min={0} />
+              <Inp label="Prog. hasta" unit="m" value={fmHasta} onChange={setFmHasta} step={100} min={0} />
+              <div style={{ fontSize: 9, ...mono, color: '#555', marginTop: -2 }}>
+                Long: {fmHasta > fmDesde ? ((fmHasta - fmDesde) / 1000).toFixed(3) : '0.000'} km
+              </div>
               <div>
-                <span style={lbl}>Lado</span>
+                <span style={lbl}>Lados</span>
                 <div style={{ display: 'flex', gap: 4 }}>
-                  {(['izq', 'der'] as const).map(s => (
-                    <button key={s} onClick={() => setFmLado(s)}
-                      style={{ flex: 1, padding: '5px 4px', fontSize: 10, ...mono, cursor: 'pointer',
-                        borderRadius: 2, border: `1px solid ${fmLado === s ? sColor(s) : '#222'}`,
-                        background: fmLado === s ? `${sColor(s)}22` : '#080808',
-                        color: fmLado === s ? sColor(s) : '#555' }}>
-                      {s === 'izq' ? 'Izquierdo' : 'Derecho'}
+                  {([1, 2] as const).map(l => (
+                    <button key={l} onClick={() => setFmLados(l)}
+                      style={{ flex: 1, padding: '5px 4px', fontSize: 11, ...mono, cursor: 'pointer',
+                        borderRadius: 2, border: `1px solid ${fmLados === l ? color : '#222'}`,
+                        background: fmLados === l ? `${color}22` : '#080808',
+                        color: fmLados === l ? color : '#555' }}>
+                      {l} {l === 1 ? 'lado' : 'lados'}
                     </button>
                   ))}
                 </div>
               </div>
-              <Inp label="Prog. desde" unit="m"   value={fmDesde} onChange={setFmDesde} step={100} min={0} />
-              <Inp label="Prog. hasta" unit="m"   value={fmHasta} onChange={setFmHasta} step={100} min={0} />
-              <Inp label="Ancho"       unit="m"   value={fmAncho} onChange={setFmAncho} step={0.5} min={1} />
-              <div style={{ fontSize: 9, ...mono, color: color, padding: '4px 8px', background: '#0a0a0a',
-                borderRadius: 2, border: `1px solid ${color}22` }}>
-                {fmHasta > fmDesde ? ((fmHasta - fmDesde) * fmAncho / 10000).toFixed(4) : '0.0000'} ha
-              </div>
-              <button onClick={addSegmento}
+              <Inp label="Ancho banquina IZQ" unit="m" value={fmAnchoIzq} onChange={setFmAnchoIzq} step={0.5} min={0.5} />
+              {fmLados === 2 && (
+                <Inp label="Ancho banquina DER" unit="m" value={fmAnchoDer} onChange={setFmAnchoDer} step={0.5} min={0.5} />
+              )}
+              {fmHasta > fmDesde && (
+                <div style={{ fontSize: 9, ...mono, color, padding: '4px 8px', background: '#0a0a0a',
+                  borderRadius: 2, border: `1px solid ${color}22`, lineHeight: 1.7 }}>
+                  Izq: {((fmHasta - fmDesde) * fmAnchoIzq / 10000).toFixed(4)} ha
+                  {fmLados === 2 && <><br/>Der: {((fmHasta - fmDesde) * fmAnchoDer / 10000).toFixed(4)} ha</>}
+                  <br/><strong>Total: {(
+                    (fmHasta - fmDesde) * fmAnchoIzq / 10000 +
+                    (fmLados === 2 ? (fmHasta - fmDesde) * fmAnchoDer / 10000 : 0)
+                  ).toFixed(4)} ha</strong>
+                </div>
+              )}
+              <button onClick={addTramo}
                 style={{ padding: '7px', fontSize: 11, ...mono, cursor: 'pointer', borderRadius: 2,
                   border: `1px solid ${color}66`, background: `${color}15`, color, fontWeight: 700, marginTop: 2 }}>
                 + Agregar tramo
               </button>
 
-              {segmentos.length > 0 && (
+              {tramos.length > 0 && (
                 <div style={{ borderTop: '1px solid #1a1a1a', paddingTop: 10, marginTop: 6 }}>
                   <div style={{ fontSize: 8, color: '#444', ...mono, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>
                     Resumen por lado
                   </div>
                   {(['izq', 'der'] as const).map(s => {
-                    const haS = segmentos.filter(sg => sg.lado === s)
-                      .reduce((acc, sg) => acc + (sg.hasta - sg.desde) * sg.ancho / 10000, 0)
+                    const haS = s === 'izq'
+                      ? tramos.reduce((a, t) => a + (t.hasta - t.desde) * t.anchoIzq / 10000, 0)
+                      : tramos.filter(t => t.lados === 2).reduce((a, t) => a + (t.hasta - t.desde) * t.anchoDer / 10000, 0)
                     return haS > 0 ? (
-                      <div key={s} style={{ display: 'flex', justifyContent: 'space-between',
-                        fontSize: 10, ...mono, marginBottom: 4 }}>
+                      <div key={s} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, ...mono, marginBottom: 4 }}>
                         <span style={{ color: sColor(s) }}>{s === 'izq' ? 'Izquierdo' : 'Derecho'}</span>
                         <span style={{ color: '#aaa' }}>{haS.toFixed(4)} ha</span>
                       </div>
@@ -888,9 +808,9 @@ function CalcDesmalezado({ paramsRef, onGuardarObra }: { paramsRef?: React.Mutab
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, ...mono,
                     fontWeight: 700, marginTop: 6, paddingTop: 6, borderTop: `1px solid ${color}33` }}>
                     <span style={{ color: '#666' }}>Total</span>
-                    <span style={{ color }}>{progHa.toFixed(4)} ha</span>
+                    <span style={{ color }}>{Sup_ha.toFixed(4)} ha</span>
                   </div>
-                  <button onClick={() => setSegmentos([])}
+                  <button onClick={() => setTramos([])}
                     style={{ marginTop: 10, width: '100%', padding: '4px', fontSize: 9, ...mono,
                       cursor: 'pointer', borderRadius: 2, border: '1px solid #1a1a1a',
                       background: '#080808', color: '#333' }}>
@@ -900,18 +820,15 @@ function CalcDesmalezado({ paramsRef, onGuardarObra }: { paramsRef?: React.Mutab
               )}
             </div>
 
-            {/* Tabla Ae-7 */}
+            {/* Tabla de tramos */}
             <div style={{ ...panel, overflowY: 'auto' }}>
-              {segmentos.length === 0 ? (
+              {tramos.length === 0 ? (
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center',
                   height: '100%', ...mono, textAlign: 'center' }}>
                   <div>
-                    <div style={{ fontSize: 10, color: '#333', marginBottom: 6 }}>
-                      Agregá tramos desde el panel izquierdo
-                    </div>
+                    <div style={{ fontSize: 10, color: '#333', marginBottom: 6 }}>Agregá tramos desde el panel izquierdo</div>
                     <div style={{ fontSize: 9, color: '#222', lineHeight: 1.8 }}>
-                      Por ruta · por lado · por segmento progresivo<br />
-                      (igual que el Ae-7 del convenio)
+                      Por ruta · por tramo progresivo<br/>Ancho de banquina variable por tramo y por lado
                     </div>
                   </div>
                 </div>
@@ -919,18 +836,20 @@ function CalcDesmalezado({ paramsRef, onGuardarObra }: { paramsRef?: React.Mutab
                 <table style={{ width: '100%', borderCollapse: 'collapse', ...mono, fontSize: 10 }}>
                   <thead>
                     <tr style={{ borderBottom: '1px solid #222' }}>
+                      <th style={th} />
                       <th style={th}>Designación</th>
                       <th style={{ ...th, textAlign: 'center' }} colSpan={3}>Progresivas</th>
-                      <th style={{ ...th, textAlign: 'center' }} colSpan={3}>Dimensiones</th>
-                      <th style={th}>Uni.</th>
-                      <th style={{ ...th, textAlign: 'right' }}>Parciales</th>
-                      <th style={{ ...th, textAlign: 'right' }}>Totales</th>
+                      <th style={{ ...th, textAlign: 'right' }}>Long. (m)</th>
+                      <th style={{ ...th, textAlign: 'center' }}>Lados</th>
+                      <th style={{ ...th, textAlign: 'right' }}>Ab. Izq (m)</th>
+                      <th style={{ ...th, textAlign: 'right' }}>Ab. Der (m)</th>
+                      <th style={{ ...th, textAlign: 'right' }}>Sup. (ha)</th>
                     </tr>
                   </thead>
                   <tbody>
                     {rutasUnicas.map(ruta => {
-                      const rutaSegs = segmentos.filter(s => s.ruta === ruta)
-                      const rutaHa   = rutaSegs.reduce((a, s) => a + (s.hasta - s.desde) * s.ancho / 10000, 0)
+                      const rutaTramos = tramos.filter(t => t.ruta === ruta)
+                      const rutaHa = rutaTramos.reduce((a, t) => a + tramoHa(t), 0)
                       return (
                         <React.Fragment key={`ruta-${ruta}`}>
                           <tr>
@@ -938,51 +857,34 @@ function CalcDesmalezado({ paramsRef, onGuardarObra }: { paramsRef?: React.Mutab
                               {ruta}
                             </td>
                           </tr>
-                          {(['izq', 'der'] as const).map(lado => {
-                            const ladoSegs = rutaSegs.filter(s => s.lado === lado)
-                            if (!ladoSegs.length) return null
-                            const ladoHa = ladoSegs.reduce((a, s) => a + (s.hasta - s.desde) * s.ancho / 10000, 0)
-                            const sc = sColor(lado)
+                          {rutaTramos.map((t, i) => {
+                            const ha = tramoHa(t)
                             return (
-                              <React.Fragment key={`lado-${ruta}-${lado}`}>
-                                <tr>
-                                  <td colSpan={10} style={{ padding: '4px 8px 1px 18px', color: sc, fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                                    Lado {lado === 'izq' ? 'Izquierdo' : 'Derecho'}
-                                  </td>
-                                </tr>
-                                {ladoSegs.map((sg, i) => {
-                                  const ha = (sg.hasta - sg.desde) * sg.ancho / 10000
-                                  return (
-                                    <tr key={sg.id} style={{ background: i % 2 === 0 ? '#080808' : 'transparent' }}>
-                                      <td style={{ padding: '2px 4px 2px 28px' }}>
-                                        <button onClick={() => setSegmentos(p => p.filter(x => x.id !== sg.id))}
-                                          title="Eliminar"
-                                          style={{ background: 'none', border: 'none', color: '#2a2a2a',
-                                            cursor: 'pointer', fontSize: 9, padding: 0 }}>✕</button>
-                                      </td>
-                                      <td style={{ padding: '2px 4px', color: '#666', textAlign: 'right' }}>
-                                        {sg.desde > 0 ? fmt(sg.desde) : '–'}
-                                      </td>
-                                      <td style={{ padding: '2px 4px', color: '#444', textAlign: 'center', fontSize: 9 }}>a</td>
-                                      <td style={{ padding: '2px 4px', color: '#666' }}>{fmt(sg.hasta)}</td>
-                                      <td style={{ padding: '2px 4px', color: '#888', textAlign: 'right' }}>{fmt(sg.hasta - sg.desde)}</td>
-                                      <td style={{ padding: '2px 4px', color: '#444', textAlign: 'center', fontSize: 9 }}>×</td>
-                                      <td style={{ padding: '2px 4px', color: '#888' }}>{sg.ancho}</td>
-                                      <td style={{ padding: '2px 4px', color: '#555', textAlign: 'center' }}>Ha.</td>
-                                      <td style={{ padding: '2px 4px', color: '#aaa', textAlign: 'right' }}>{ha.toFixed(4)}</td>
-                                      <td />
-                                    </tr>
-                                  )
-                                })}
-                                <tr style={{ borderTop: `1px solid ${sc}22` }}>
-                                  <td colSpan={9} style={{ padding: '3px 8px', textAlign: 'right', fontSize: 9, color: '#555' }}>
-                                    Subtotal {lado === 'izq' ? 'Izq.' : 'Der.'}
-                                  </td>
-                                  <td style={{ padding: '3px 8px 6px', textAlign: 'right', color: sc, fontWeight: 700 }}>
-                                    {ladoHa.toFixed(4)}
-                                  </td>
-                                </tr>
-                              </React.Fragment>
+                              <tr key={t.id} style={{ background: i % 2 === 0 ? '#080808' : 'transparent' }}>
+                                <td style={{ padding: '2px 4px 2px 8px' }}>
+                                  <button onClick={() => setTramos(p => p.filter(x => x.id !== t.id))}
+                                    title="Eliminar"
+                                    style={{ background: 'none', border: 'none', color: '#2a2a2a', cursor: 'pointer', fontSize: 9, padding: 0 }}>✕</button>
+                                </td>
+                                <td style={{ padding: '2px 8px', color: '#555', fontSize: 9 }}>{ruta}</td>
+                                <td style={{ padding: '2px 4px', color: '#666', textAlign: 'right' }}>
+                                  {t.desde > 0 ? fmt(t.desde) : '–'}
+                                </td>
+                                <td style={{ padding: '2px 4px', color: '#444', textAlign: 'center', fontSize: 9 }}>a</td>
+                                <td style={{ padding: '2px 4px', color: '#666' }}>{fmt(t.hasta)}</td>
+                                <td style={{ padding: '2px 4px', color: '#888', textAlign: 'right' }}>{fmt(t.hasta - t.desde)}</td>
+                                <td style={{ padding: '2px 4px', textAlign: 'center' }}>
+                                  <span style={{ color: sColor('izq'), fontSize: 8 }}>IZQ</span>
+                                  {t.lados === 2 && <><span style={{ color: '#333', margin: '0 2px' }}>+</span><span style={{ color: sColor('der'), fontSize: 8 }}>DER</span></>}
+                                </td>
+                                <td style={{ padding: '2px 4px', color: sColor('izq'), textAlign: 'right' }}>{t.anchoIzq}</td>
+                                <td style={{ padding: '2px 4px', textAlign: 'right' }}>
+                                  {t.lados === 2
+                                    ? <span style={{ color: sColor('der') }}>{t.anchoDer}</span>
+                                    : <span style={{ color: '#2a2a2a' }}>–</span>}
+                                </td>
+                                <td style={{ padding: '2px 8px', color: '#aaa', textAlign: 'right' }}>{ha.toFixed(4)}</td>
+                              </tr>
                             )
                           })}
                           <tr style={{ borderTop: `1px solid ${color}22` }}>
@@ -996,18 +898,33 @@ function CalcDesmalezado({ paramsRef, onGuardarObra }: { paramsRef?: React.Mutab
                         </React.Fragment>
                       )
                     })}
-                    {progHa > 0 && (
+                    {Sup_ha > 0 && (
                       <tr style={{ borderTop: `2px solid ${color}55` }}>
-                        <td colSpan={9} style={{ padding: '8px 8px', textAlign: 'right', fontSize: 12, color: '#666', fontWeight: 700 }}>
+                        <td colSpan={9} style={{ padding: '8px', textAlign: 'right', fontSize: 12, color: '#666', fontWeight: 700 }}>
                           TOTAL GENERAL
                         </td>
-                        <td style={{ padding: '8px 8px', textAlign: 'right', color, fontSize: 14, fontWeight: 700 }}>
-                          {progHa.toFixed(2)}
+                        <td style={{ padding: '8px', textAlign: 'right', color, fontSize: 14, fontWeight: 700 }}>
+                          {Sup_ha.toFixed(4)}
                         </td>
                       </tr>
                     )}
                   </tbody>
                 </table>
+              )}
+            </div>
+
+            {/* Panel computo */}
+            <div style={panel}>
+              <SectionTitle>Cómputo</SectionTitle>
+              <Res label="Hectáreas total" value={Sup_ha.toFixed(4)} unit="ha" accent />
+              {Sup_ha > 0 && (
+                <div style={{ marginTop: 8, fontSize: 11, color: '#555', ...mono, lineHeight: 1.9 }}>
+                  <div style={{ color: sColor('izq') }}>Izq: {haIzqPres.toFixed(4)} ha</div>
+                  <div style={{ color: sColor('der') }}>Der: {haDerPres.toFixed(4)} ha</div>
+                  <div style={{ color: '#444', marginTop: 4 }}>
+                    {tramos.length} tramo{tramos.length !== 1 ? 's' : ''}
+                  </div>
+                </div>
               )}
             </div>
           </div>
@@ -1338,9 +1255,8 @@ function CalcDesmalezado({ paramsRef, onGuardarObra }: { paramsRef?: React.Mutab
 
               <SectionTitle>Origen de cantidades</SectionTitle>
               <div style={{ fontSize: 9, ...mono, color: '#444', lineHeight: 1.9 }}>
-                {method === 'formula'     && `∑ Fórmula: ${formulaHa.toFixed(4)} ha\n(${lados} lado${lados>1?'s':''})`}
-                {method === 'progresivas' && `≡ Progresivas: ${segmentos.length} tramos\n${progHa.toFixed(4)} ha totales`}
-                {method === 'mapa'        && `◈ Drone: ${mapEntries.length} polígonos\n${mapaHa.toFixed(4)} ha totales`}
+                {method === 'formula' && `∑ Fórmula: ${tramos.length} tramo${tramos.length !== 1 ? 's' : ''}\n${formulaHaEarly.toFixed(4)} ha totales`}
+                {method === 'mapa'    && `◈ Dibujar: ${mapEntries.length} polígono${mapEntries.length !== 1 ? 's' : ''}\n${mapaHaEarly.toFixed(4)} ha totales`}
                 <br/>
                 <span style={{ color: '#333' }}>(editá en pestaña Cómputo)</span>
               </div>
