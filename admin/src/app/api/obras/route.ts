@@ -41,6 +41,38 @@ export async function GET() {
   return NextResponse.json(data)
 }
 
+export async function PATCH(req: NextRequest) {
+  const body = await req.json()
+  const { id, ...fields } = body
+  if (!id) return NextResponse.json({ error: 'id requerido' }, { status: 400 })
+
+  const supabase = createServiceClient()
+  const { data, error } = await supabase
+    .from('obras')
+    .update({
+      tipo:               fields.tipo,
+      jurisdiccion:       fields.jurisdiccion,
+      consorcio_numero:   fields.consorcio_numero ?? null,
+      ubicacion:          fields.ubicacion ?? null,
+      descripcion:        fields.descripcion ?? null,
+      estado:             fields.estado,
+      fecha_inicio:       fields.fecha_inicio ?? null,
+      fecha_fin_estimada: fields.fecha_fin_estimada ?? null,
+      cantidad:           fields.cantidad ?? null,
+      unidad:             fields.unidad ?? null,
+      presupuesto_total:  fields.presupuesto_total ?? null,
+      aporte_dvp:         fields.aporte_dvp ?? null,
+      aporte_ccc:         fields.aporte_ccc ?? null,
+      precio_unitario:    fields.precio_unitario ?? null,
+    })
+    .eq('id', id)
+    .select()
+    .single()
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+  return NextResponse.json(data)
+}
+
 export async function DELETE(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const id = searchParams.get('id')

@@ -53,6 +53,11 @@ interface Tecnico {
   rol: string
 }
 
+const TIPOS_EDIT = ['terraplen', 'excavacion', 'ripio', 'canal', 'limpieza'] as const
+const ESTADOS_EDIT = ['planificada', 'en_curso', 'ejecutada'] as const
+type Jurisdiccion = 'consorcio' | 'ruta_provincial' | 'metropolitana' | 'otra'
+const JURIS_EDIT: Jurisdiccion[] = ['consorcio', 'ruta_provincial', 'metropolitana', 'otra']
+
 const mono: React.CSSProperties = { fontFamily: 'monospace' }
 const selectStyle: React.CSSProperties = {
   background: '#1a1a1a', border: '1px solid #252525', color: '#e0e0e0',
@@ -62,6 +67,245 @@ const labelStyle: React.CSSProperties = {
   color: '#555', fontSize: 10, letterSpacing: 1, textTransform: 'uppercase',
 }
 const wrapStyle: React.CSSProperties = { display: 'flex', flexDirection: 'column', gap: 4 }
+
+const inpStyle: React.CSSProperties = {
+  width: '100%', boxSizing: 'border-box',
+  background: '#0a0a0a', border: '1px solid #222',
+  color: '#ddd', padding: '6px 9px', fontSize: 12,
+  fontFamily: 'monospace', outline: 'none', borderRadius: 2,
+}
+const lbl: React.CSSProperties = {
+  display: 'block', fontSize: 9, color: '#555',
+  textTransform: 'uppercase', letterSpacing: 0.8,
+  fontFamily: 'monospace', marginBottom: 3, marginTop: 10,
+}
+
+// ── Modal de edición ───────────────────────────────────────────────────────────
+interface EditModalProps {
+  obra: Obra | null
+  onClose: () => void
+  onSaved: (updated: Obra) => void
+}
+
+function EditModal({ obra, onClose, onSaved }: EditModalProps) {
+  const [tipo,        setTipo]        = useState('')
+  const [juris,       setJuris]       = useState<Jurisdiccion>('consorcio')
+  const [consNum,     setConsNum]     = useState('')
+  const [ubicacion,   setUbicacion]   = useState('')
+  const [descripcion, setDescripcion] = useState('')
+  const [estado,      setEstado]      = useState('')
+  const [fechaIni,    setFechaIni]    = useState('')
+  const [fechaFin,    setFechaFin]    = useState('')
+  const [cantidad,    setCantidad]    = useState('')
+  const [unidad,      setUnidad]      = useState('')
+  const [presupuesto, setPresupuesto] = useState('')
+  const [dvp,         setDvp]         = useState('')
+  const [ccc,         setCcc]         = useState('')
+  const [precioUnit,  setPrecioUnit]  = useState('')
+  const [saving,      setSaving]      = useState(false)
+  const [error,       setError]       = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!obra) return
+    setTipo(obra.tipo)
+    setJuris((obra.jurisdiccion as Jurisdiccion) ?? 'consorcio')
+    setConsNum(obra.consorcio_numero != null ? String(obra.consorcio_numero) : '')
+    setUbicacion(obra.ubicacion ?? '')
+    setDescripcion(obra.descripcion ?? '')
+    setEstado(obra.estado)
+    setFechaIni(obra.fecha_inicio ?? '')
+    setFechaFin(obra.fecha_fin_estimada ?? '')
+    setCantidad(obra.cantidad != null ? String(obra.cantidad) : '')
+    setUnidad(obra.unidad ?? '')
+    setPresupuesto(obra.presupuesto_total != null ? String(obra.presupuesto_total) : '')
+    setDvp(obra.aporte_dvp != null ? String(obra.aporte_dvp) : '')
+    setCcc(obra.aporte_ccc != null ? String(obra.aporte_ccc) : '')
+    setPrecioUnit(obra.precio_unitario != null ? String(obra.precio_unitario) : '')
+    setError(null)
+  }, [obra?.id])
+
+  if (!obra) return null
+
+  const color = TIPO_COLORS[tipo] ?? '#607D8B'
+
+  const handleSave = async () => {
+    setSaving(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/obras', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: obra.id,
+          tipo,
+          jurisdiccion:       juris,
+          consorcio_numero:   juris === 'consorcio' && consNum ? Number(consNum) : null,
+          ubicacion:          juris !== 'consorcio' ? ubicacion || null : null,
+          descripcion:        descripcion || null,
+          estado,
+          fecha_inicio:       fechaIni || null,
+          fecha_fin_estimada: fechaFin || null,
+          cantidad:           cantidad ? Number(cantidad) : null,
+          unidad:             unidad || null,
+          presupuesto_total:  presupuesto ? Number(presupuesto) : null,
+          aporte_dvp:         dvp ? Number(dvp) : null,
+          aporte_ccc:         ccc ? Number(ccc) : null,
+          precio_unitario:    precioUnit ? Number(precioUnit) : null,
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error ?? 'Error al guardar')
+      onSaved({ ...obra, ...json })
+      onClose()
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Error desconocido')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 300 }}
+    >
+      <div style={{ background: '#111', border: '1px solid #222', width: 520,
+        maxHeight: '90vh', overflowY: 'auto', padding: 24, position: 'relative' }}>
+
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 18 }}>
+          <div style={{ borderLeft: `3px solid ${color}`, paddingLeft: 10 }}>
+            <div style={{ fontSize: 9, color: '#444', ...mono, textTransform: 'uppercase', letterSpacing: 1 }}>Editar obra</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color, ...mono, marginTop: 2 }}>
+              {TIPO_LABELS[obra.tipo] ?? obra.tipo}
+            </div>
+          </div>
+          <button onClick={onClose}
+            style={{ background: 'none', border: 'none', color: '#444', cursor: 'pointer', fontSize: 20, lineHeight: 1 }}>×</button>
+        </div>
+
+        {/* Tipo */}
+        <label style={lbl}>Tipo de obra</label>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 5 }}>
+          {TIPOS_EDIT.map(t => (
+            <button key={t} onClick={() => setTipo(t)}
+              style={{ padding: '6px 4px', fontSize: 10, ...mono, cursor: 'pointer', borderRadius: 2,
+                border: `1px solid ${tipo === t ? (TIPO_COLORS[t] ?? '#607D8B') : '#1e1e1e'}`,
+                background: tipo === t ? `${TIPO_COLORS[t] ?? '#607D8B'}18` : '#0a0a0a',
+                color: tipo === t ? (TIPO_COLORS[t] ?? '#607D8B') : '#555' }}>
+              {TIPO_LABELS[t]}
+            </button>
+          ))}
+        </div>
+
+        {/* Jurisdicción */}
+        <label style={lbl}>Jurisdicción</label>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 5 }}>
+          {JURIS_EDIT.map(j => (
+            <button key={j} onClick={() => setJuris(j)}
+              style={{ padding: '6px 4px', fontSize: 10, ...mono, cursor: 'pointer', borderRadius: 2,
+                textAlign: 'left', paddingLeft: 8,
+                border: `1px solid ${juris === j ? color : '#1e1e1e'}`,
+                background: juris === j ? `${color}18` : '#0a0a0a',
+                color: juris === j ? color : '#555' }}>
+              {JURIS_LABELS[j]}
+            </button>
+          ))}
+        </div>
+
+        {/* Consorcio o ubicación */}
+        {juris === 'consorcio' ? (
+          <>
+            <label style={lbl}>Nº Consorcio</label>
+            <input style={inpStyle} type="number" value={consNum}
+              onChange={e => setConsNum(e.target.value)} placeholder="Ej: 45" />
+          </>
+        ) : (
+          <>
+            <label style={lbl}>Ubicación</label>
+            <input style={inpStyle} value={ubicacion}
+              onChange={e => setUbicacion(e.target.value)} placeholder="Ej: RP 3 km 45-78" />
+          </>
+        )}
+
+        {/* Descripción */}
+        <label style={lbl}>Descripción / Tramo</label>
+        <input style={inpStyle} value={descripcion}
+          onChange={e => setDescripcion(e.target.value)} placeholder="Descripción adicional..." />
+
+        {/* Estado + Fechas */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+          <div>
+            <label style={lbl}>Estado</label>
+            <select style={{ ...inpStyle, cursor: 'pointer' }} value={estado} onChange={e => setEstado(e.target.value)}>
+              {ESTADOS_EDIT.map(s => <option key={s} value={s}>{ESTADO_LABELS[s]}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={lbl}>Fecha inicio</label>
+            <input type="date" style={inpStyle} value={fechaIni} onChange={e => setFechaIni(e.target.value)} />
+          </div>
+          <div>
+            <label style={lbl}>Fecha fin est.</label>
+            <input type="date" style={inpStyle} value={fechaFin} onChange={e => setFechaFin(e.target.value)} />
+          </div>
+        </div>
+
+        {/* Cantidades */}
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 10 }}>
+          <div>
+            <label style={lbl}>Cantidad</label>
+            <input type="number" style={inpStyle} value={cantidad} onChange={e => setCantidad(e.target.value)} />
+          </div>
+          <div>
+            <label style={lbl}>Unidad</label>
+            <input style={inpStyle} value={unidad} onChange={e => setUnidad(e.target.value)} placeholder="ha / km / m³" />
+          </div>
+        </div>
+
+        {/* Presupuesto */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 10 }}>
+          {[
+            { label: 'Presupuesto total', val: presupuesto, set: setPresupuesto },
+            { label: 'Aporte DVP',        val: dvp,         set: setDvp         },
+            { label: 'Aporte CCC',        val: ccc,         set: setCcc         },
+            { label: 'Precio unitario',   val: precioUnit,  set: setPrecioUnit  },
+          ].map(({ label, val, set }) => (
+            <div key={label}>
+              <label style={lbl}>{label}</label>
+              <input type="number" style={inpStyle} value={val} onChange={e => set(e.target.value)} />
+            </div>
+          ))}
+        </div>
+
+        {/* Error */}
+        {error && (
+          <div style={{ marginTop: 12, padding: '7px 10px', background: '#ff525211',
+            border: '1px solid #ff5252', color: '#ff5252', fontSize: 11, ...mono }}>
+            {error}
+          </div>
+        )}
+
+        {/* Acciones */}
+        <div style={{ display: 'flex', gap: 10, marginTop: 20, justifyContent: 'flex-end' }}>
+          <button onClick={onClose}
+            style={{ ...mono, background: 'none', border: '1px solid #222',
+              color: '#555', padding: '8px 18px', cursor: 'pointer', fontSize: 11 }}>
+            Cancelar
+          </button>
+          <button onClick={handleSave} disabled={saving}
+            style={{ ...mono, background: color, border: 'none',
+              color: '#000', fontWeight: 700, padding: '8px 22px',
+              cursor: saving ? 'not-allowed' : 'pointer', fontSize: 11,
+              opacity: saving ? 0.6 : 1 }}>
+            {saving ? 'Guardando...' : 'Guardar cambios'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 function fmt(n: number | null) {
   if (n == null) return '-'
@@ -387,6 +631,9 @@ export default function ObrasPage() {
   const [hasta, setHasta]       = useState('')
   const [page, setPage]         = useState(0)
 
+  // Estado del modal de edición
+  const [editObra, setEditObra] = useState<Obra | null>(null)
+
   // Estado del panel push
   const [panelObra, setPanelObra]           = useState<Obra | null>(null)
   const [tecnicos, setTecnicos]             = useState<Tecnico[]>([])
@@ -413,6 +660,10 @@ export default function ObrasPage() {
 
   const handlePublicada = (obraId: string, visible_para: Obra['visible_para']) => {
     setObras(prev => prev.map(o => o.id === obraId ? { ...o, visible_para } : o))
+  }
+
+  const handleSaved = (updated: Obra) => {
+    setObras(prev => prev.map(o => o.id === updated.id ? updated : o))
   }
 
   const applyFilters = useCallback(() => {
@@ -598,12 +849,20 @@ export default function ObrasPage() {
                     <td style={{ padding: '10px 14px', color: '#555', fontSize: 12, ...mono, whiteSpace: 'nowrap' }}>
                       {o.fecha_inicio ?? '-'}
                     </td>
-                    <td style={{ padding: '8px 12px' }} onClick={e => e.stopPropagation()}>
+                    <td style={{ padding: '8px 8px 8px 4px', whiteSpace: 'nowrap' }} onClick={e => e.stopPropagation()}>
+                      <button
+                        onClick={() => setEditObra(o)}
+                        title="Editar"
+                        style={{ background: 'transparent', border: '1px solid #252525', color: '#444',
+                          padding: '4px 9px', fontSize: 11, lineHeight: 1, cursor: 'pointer', marginRight: 4 }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#F5C300'; (e.currentTarget as HTMLButtonElement).style.color = '#F5C300' }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#252525'; (e.currentTarget as HTMLButtonElement).style.color = '#444' }}
+                      >✎</button>
                       <button
                         onClick={e => handleDelete(o.id, e)}
                         title="Eliminar"
                         style={{ background: 'transparent', border: '1px solid #252525', color: '#444',
-                          padding: '4px 10px', fontSize: 11, lineHeight: 1, cursor: 'pointer' }}
+                          padding: '4px 9px', fontSize: 11, lineHeight: 1, cursor: 'pointer' }}
                         onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#f44336'; (e.currentTarget as HTMLButtonElement).style.color = '#f44336' }}
                         onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#252525'; (e.currentTarget as HTMLButtonElement).style.color = '#444' }}
                       >✕</button>
@@ -646,6 +905,13 @@ export default function ObrasPage() {
           </div>
         )}
       </div>
+
+      {/* Modal de edición */}
+      <EditModal
+        obra={editObra}
+        onClose={() => setEditObra(null)}
+        onSaved={handleSaved}
+      />
 
       {/* Panel lateral de publicación */}
       <PushPanel
