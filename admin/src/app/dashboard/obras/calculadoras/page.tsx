@@ -532,23 +532,25 @@ function CalcCanal({ paramsRef }: { paramsRef?: React.MutableRefObject<Params> }
 // ── DESMALEZADO DE BANQUINAS ──────────────────────────────────────────────────
 const CLR_DESM = '#66BB6A'
 interface DesmEntry { id: string; ha: number; side: 'izq' | 'der'; pts?: [number,number][] }
-interface TramoDesm { id: string; ruta: string; desde: number; hasta: number; lados: 1 | 2; anchoIzq: number; anchoDer: number }
+interface TramoDesm { id: string; ruta: string; lados: 1 | 2; desdeIzq: number; hastaIzq: number; anchoIzq: number; desdeDer: number; hastaDer: number; anchoDer: number }
 interface EquipoAP     { id: string; nombre: string; hp: number; valor: number }
 interface MORigAP      { id: string; cargo: string; n: number; tarifa: number; coef: number; hs: number }
 
 function CalcDesmalezado({ paramsRef, onGuardarObra }: { paramsRef?: React.MutableRefObject<Params>; onGuardarObra?: (d: GuardarObraData) => void }) {
-  const [method,        setMethod]        = useState<'formula' | 'progresivas' | 'mapa'>('formula')
+  const [method,        setMethod]        = useState<'formula' | 'mapa'>('formula')
   const [view,          setView]          = useState<'computo' | 'jornales' | 'presupuesto'>('computo')
   const [mapaActivated, setMapaActivated] = useState(false)  // lazy-mount: nunca desmontar InlineMapDraw
 
   // Fórmula — tramos
-  const [tramos,    setTramos]    = useState<TramoDesm[]>([])
-  const [fmRuta,    setFmRuta]    = useState('RP 1')
-  const [fmDesde,   setFmDesde]   = useState(0)
-  const [fmHasta,   setFmHasta]   = useState(3000)
-  const [fmLados,   setFmLados]   = useState<1 | 2>(2)
-  const [fmAnchoIzq, setFmAnchoIzq] = useState(3)
-  const [fmAnchoDer, setFmAnchoDer] = useState(3)
+  const [tramos,      setTramos]      = useState<TramoDesm[]>([])
+  const [fmRuta,      setFmRuta]      = useState('RP 1')
+  const [fmLados,     setFmLados]     = useState<1 | 2>(2)
+  const [fmDesdeIzq,  setFmDesdeIzq]  = useState(0)
+  const [fmHastaIzq,  setFmHastaIzq]  = useState(3000)
+  const [fmAnchoIzq,  setFmAnchoIzq]  = useState(3)
+  const [fmDesdeDer,  setFmDesdeDer]  = useState(0)
+  const [fmHastaDer,  setFmHastaDer]  = useState(3000)
+  const [fmAnchoDer,  setFmAnchoDer]  = useState(3)
 
   // Mapa/drone
   const [mapEntries, setMapEntries] = useState<DesmEntry[]>([])
@@ -600,9 +602,12 @@ function CalcDesmalezado({ paramsRef, onGuardarObra }: { paramsRef?: React.Mutab
 
   // ── Cómputo derivados (deben estar antes del bloque presupuesto) ─────────────
   const tramoHa = (t: TramoDesm) => {
-    const L = t.hasta - t.desde
-    return L * t.anchoIzq / 10000 + (t.lados === 2 ? L * t.anchoDer / 10000 : 0)
+    const Lizq = t.hastaIzq - t.desdeIzq
+    const Lder = t.hastaDer - t.desdeDer
+    return Lizq * t.anchoIzq / 10000 + (t.lados === 2 ? Lder * t.anchoDer / 10000 : 0)
   }
+  const tramoHaIzq = (t: TramoDesm) => (t.hastaIzq - t.desdeIzq) * t.anchoIzq / 10000
+  const tramoHaDer = (t: TramoDesm) => t.lados === 2 ? (t.hastaDer - t.desdeDer) * t.anchoDer / 10000 : 0
   const formulaHaEarly = tramos.reduce((s, t) => s + tramoHa(t), 0)
   const mapaHaEarly    = mapEntries.reduce((s, e) => s + e.ha, 0)
 
@@ -613,10 +618,10 @@ function CalcDesmalezado({ paramsRef, onGuardarObra }: { paramsRef?: React.Mutab
 
   // Ha por lado para presupuesto
   const haIzqPres = method === 'formula'
-    ? tramos.reduce((a, t) => a + (t.hasta - t.desde) * t.anchoIzq / 10000, 0)
+    ? tramos.reduce((a, t) => a + tramoHaIzq(t), 0)
     : mapEntries.filter(e => e.side === 'izq').reduce((a, e) => a + e.ha, 0)
   const haDerPres = method === 'formula'
-    ? tramos.filter(t => t.lados === 2).reduce((a, t) => a + (t.hasta - t.desde) * t.anchoDer / 10000, 0)
+    ? tramos.reduce((a, t) => a + tramoHaDer(t), 0)
     : mapEntries.filter(e => e.side === 'der').reduce((a, e) => a + e.ha, 0)
 
   const parcIzq      = haIzqPres * apAdoptado
@@ -636,17 +641,19 @@ function CalcDesmalezado({ paramsRef, onGuardarObra }: { paramsRef?: React.Mutab
   }, [paramsRef, formulaHaEarly])
 
   const addTramo = () => {
-    if (fmHasta <= fmDesde || !fmRuta.trim()) return
+    if (fmHastaIzq <= fmDesdeIzq || !fmRuta.trim()) return
+    if (fmLados === 2 && fmHastaDer <= fmDesdeDer) return
     setTramos(prev => [...prev, {
       id: Math.random().toString(36).slice(2, 8),
       ruta: fmRuta.trim(),
-      desde: fmDesde, hasta: fmHasta,
       lados: fmLados,
-      anchoIzq: fmAnchoIzq,
-      anchoDer: fmAnchoDer,
+      desdeIzq: fmDesdeIzq, hastaIzq: fmHastaIzq, anchoIzq: fmAnchoIzq,
+      desdeDer: fmDesdeDer, hastaDer: fmHastaDer,  anchoDer: fmAnchoDer,
     }])
-    setFmDesde(fmHasta)
-    setFmHasta(fmHasta + 3000)
+    setFmDesdeIzq(fmHastaIzq)
+    setFmHastaIzq(fmHastaIzq + 3000)
+    setFmDesdeDer(fmHastaDer)
+    setFmHastaDer(fmHastaDer + 3000)
   }
 
   const rutasUnicas = [...new Set(tramos.map(t => t.ruta))]
@@ -749,11 +756,6 @@ function CalcDesmalezado({ paramsRef, onGuardarObra }: { paramsRef?: React.Mutab
                   style={{ width: '100%', boxSizing: 'border-box', background: '#0a0a0a', border: '1px solid #222',
                     color: '#ccc', padding: '5px 8px', fontSize: 11, ...mono, borderRadius: 2, outline: 'none' }} />
               </div>
-              <Inp label="Prog. desde" unit="m" value={fmDesde} onChange={setFmDesde} step={100} min={0} />
-              <Inp label="Prog. hasta" unit="m" value={fmHasta} onChange={setFmHasta} step={100} min={0} />
-              <div style={{ fontSize: 9, ...mono, color: '#555', marginTop: -2 }}>
-                Long: {fmHasta > fmDesde ? ((fmHasta - fmDesde) / 1000).toFixed(3) : '0.000'} km
-              </div>
               <div>
                 <span style={lbl}>Lados</span>
                 <div style={{ display: 'flex', gap: 4 }}>
@@ -768,24 +770,54 @@ function CalcDesmalezado({ paramsRef, onGuardarObra }: { paramsRef?: React.Mutab
                   ))}
                 </div>
               </div>
-              <Inp label="Ancho banquina IZQ" unit="m" value={fmAnchoIzq} onChange={setFmAnchoIzq} step={0.5} min={0.5} />
+
+              {/* Lado Izquierdo */}
+              <div style={{ borderLeft: `2px solid ${sColor('izq')}`, paddingLeft: 8, marginTop: 4 }}>
+                <div style={{ fontSize: 8, color: sColor('izq'), ...mono, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>Lado Izquierdo</div>
+                <Inp label="Prog. desde" unit="m" value={fmDesdeIzq} onChange={setFmDesdeIzq} step={100} min={0} />
+                <Inp label="Prog. hasta" unit="m" value={fmHastaIzq} onChange={setFmHastaIzq} step={100} min={0} />
+                <div style={{ fontSize: 9, ...mono, color: '#555', marginTop: -2, marginBottom: 4 }}>
+                  Long: {fmHastaIzq > fmDesdeIzq ? ((fmHastaIzq - fmDesdeIzq) / 1000).toFixed(3) : '0.000'} km
+                </div>
+                <Inp label="Ancho banquina" unit="m" value={fmAnchoIzq} onChange={setFmAnchoIzq} step={0.5} min={0.5} />
+                {fmHastaIzq > fmDesdeIzq && (
+                  <div style={{ fontSize: 9, ...mono, color: sColor('izq'), marginTop: 2 }}>
+                    = {((fmHastaIzq - fmDesdeIzq) * fmAnchoIzq / 10000).toFixed(4)} ha
+                  </div>
+                )}
+              </div>
+
+              {/* Lado Derecho */}
               {fmLados === 2 && (
-                <Inp label="Ancho banquina DER" unit="m" value={fmAnchoDer} onChange={setFmAnchoDer} step={0.5} min={0.5} />
+                <div style={{ borderLeft: `2px solid ${sColor('der')}`, paddingLeft: 8, marginTop: 4 }}>
+                  <div style={{ fontSize: 8, color: sColor('der'), ...mono, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>Lado Derecho</div>
+                  <Inp label="Prog. desde" unit="m" value={fmDesdeDer} onChange={setFmDesdeDer} step={100} min={0} />
+                  <Inp label="Prog. hasta" unit="m" value={fmHastaDer} onChange={setFmHastaDer} step={100} min={0} />
+                  <div style={{ fontSize: 9, ...mono, color: '#555', marginTop: -2, marginBottom: 4 }}>
+                    Long: {fmHastaDer > fmDesdeDer ? ((fmHastaDer - fmDesdeDer) / 1000).toFixed(3) : '0.000'} km
+                  </div>
+                  <Inp label="Ancho banquina" unit="m" value={fmAnchoDer} onChange={setFmAnchoDer} step={0.5} min={0.5} />
+                  {fmHastaDer > fmDesdeDer && (
+                    <div style={{ fontSize: 9, ...mono, color: sColor('der'), marginTop: 2 }}>
+                      = {((fmHastaDer - fmDesdeDer) * fmAnchoDer / 10000).toFixed(4)} ha
+                    </div>
+                  )}
+                </div>
               )}
-              {fmHasta > fmDesde && (
+
+              {/* Preview total */}
+              {fmHastaIzq > fmDesdeIzq && (
                 <div style={{ fontSize: 9, ...mono, color, padding: '4px 8px', background: '#0a0a0a',
-                  borderRadius: 2, border: `1px solid ${color}22`, lineHeight: 1.7 }}>
-                  Izq: {((fmHasta - fmDesde) * fmAnchoIzq / 10000).toFixed(4)} ha
-                  {fmLados === 2 && <><br/>Der: {((fmHasta - fmDesde) * fmAnchoDer / 10000).toFixed(4)} ha</>}
-                  <br/><strong>Total: {(
-                    (fmHasta - fmDesde) * fmAnchoIzq / 10000 +
-                    (fmLados === 2 ? (fmHasta - fmDesde) * fmAnchoDer / 10000 : 0)
+                  borderRadius: 2, border: `1px solid ${color}22`, lineHeight: 1.7, marginTop: 4 }}>
+                  <strong>Total tramo: {(
+                    (fmHastaIzq - fmDesdeIzq) * fmAnchoIzq / 10000 +
+                    (fmLados === 2 && fmHastaDer > fmDesdeDer ? (fmHastaDer - fmDesdeDer) * fmAnchoDer / 10000 : 0)
                   ).toFixed(4)} ha</strong>
                 </div>
               )}
               <button onClick={addTramo}
                 style={{ padding: '7px', fontSize: 11, ...mono, cursor: 'pointer', borderRadius: 2,
-                  border: `1px solid ${color}66`, background: `${color}15`, color, fontWeight: 700, marginTop: 2 }}>
+                  border: `1px solid ${color}66`, background: `${color}15`, color, fontWeight: 700, marginTop: 4 }}>
                 + Agregar tramo
               </button>
 
@@ -796,8 +828,8 @@ function CalcDesmalezado({ paramsRef, onGuardarObra }: { paramsRef?: React.Mutab
                   </div>
                   {(['izq', 'der'] as const).map(s => {
                     const haS = s === 'izq'
-                      ? tramos.reduce((a, t) => a + (t.hasta - t.desde) * t.anchoIzq / 10000, 0)
-                      : tramos.filter(t => t.lados === 2).reduce((a, t) => a + (t.hasta - t.desde) * t.anchoDer / 10000, 0)
+                      ? tramos.reduce((a, t) => a + tramoHaIzq(t), 0)
+                      : tramos.filter(t => t.lados === 2).reduce((a, t) => a + tramoHaDer(t), 0)
                     return haS > 0 ? (
                       <div key={s} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, ...mono, marginBottom: 4 }}>
                         <span style={{ color: sColor(s) }}>{s === 'izq' ? 'Izquierdo' : 'Derecho'}</span>
@@ -837,12 +869,12 @@ function CalcDesmalezado({ paramsRef, onGuardarObra }: { paramsRef?: React.Mutab
                   <thead>
                     <tr style={{ borderBottom: '1px solid #222' }}>
                       <th style={th} />
-                      <th style={th}>Designación</th>
-                      <th style={{ ...th, textAlign: 'center' }} colSpan={3}>Progresivas</th>
-                      <th style={{ ...th, textAlign: 'right' }}>Long. (m)</th>
+                      <th style={th}>Ruta</th>
+                      <th style={{ ...th, textAlign: 'left' }}>Progresivas (desde – hasta)</th>
+                      <th style={{ ...th, textAlign: 'right' }}>Long.</th>
                       <th style={{ ...th, textAlign: 'center' }}>Lados</th>
-                      <th style={{ ...th, textAlign: 'right' }}>Ab. Izq (m)</th>
-                      <th style={{ ...th, textAlign: 'right' }}>Ab. Der (m)</th>
+                      <th style={{ ...th, textAlign: 'right' }}>Ancho banq.</th>
+                      <th style={th} />
                       <th style={{ ...th, textAlign: 'right' }}>Sup. (ha)</th>
                     </tr>
                   </thead>
@@ -867,28 +899,34 @@ function CalcDesmalezado({ paramsRef, onGuardarObra }: { paramsRef?: React.Mutab
                                     style={{ background: 'none', border: 'none', color: '#2a2a2a', cursor: 'pointer', fontSize: 9, padding: 0 }}>✕</button>
                                 </td>
                                 <td style={{ padding: '2px 8px', color: '#555', fontSize: 9 }}>{ruta}</td>
-                                <td style={{ padding: '2px 4px', color: '#666', textAlign: 'right' }}>
-                                  {t.desde > 0 ? fmt(t.desde) : '–'}
+                                <td style={{ padding: '2px 4px', fontSize: 9 }}>
+                                  <div style={{ color: sColor('izq') }}>
+                                    {t.desdeIzq > 0 ? fmt(t.desdeIzq) : '0'} – {fmt(t.hastaIzq)} m
+                                  </div>
+                                  {t.lados === 2 && (
+                                    <div style={{ color: sColor('der') }}>
+                                      {t.desdeDer > 0 ? fmt(t.desdeDer) : '0'} – {fmt(t.hastaDer)} m
+                                    </div>
+                                  )}
                                 </td>
-                                <td style={{ padding: '2px 4px', color: '#444', textAlign: 'center', fontSize: 9 }}>a</td>
-                                <td style={{ padding: '2px 4px', color: '#666' }}>{fmt(t.hasta)}</td>
-                                <td style={{ padding: '2px 4px', color: '#888', textAlign: 'right' }}>{fmt(t.hasta - t.desde)}</td>
+                                <td style={{ padding: '2px 4px', fontSize: 9, textAlign: 'right' }}>
+                                  <div style={{ color: sColor('izq') }}>{fmt(t.hastaIzq - t.desdeIzq)} m</div>
+                                  {t.lados === 2 && <div style={{ color: sColor('der') }}>{fmt(t.hastaDer - t.desdeDer)} m</div>}
+                                </td>
                                 <td style={{ padding: '2px 4px', textAlign: 'center' }}>
                                   <span style={{ color: sColor('izq'), fontSize: 8 }}>IZQ</span>
                                   {t.lados === 2 && <><span style={{ color: '#333', margin: '0 2px' }}>+</span><span style={{ color: sColor('der'), fontSize: 8 }}>DER</span></>}
                                 </td>
-                                <td style={{ padding: '2px 4px', color: sColor('izq'), textAlign: 'right' }}>{t.anchoIzq}</td>
-                                <td style={{ padding: '2px 4px', textAlign: 'right' }}>
-                                  {t.lados === 2
-                                    ? <span style={{ color: sColor('der') }}>{t.anchoDer}</span>
-                                    : <span style={{ color: '#2a2a2a' }}>–</span>}
+                                <td style={{ padding: '2px 4px', fontSize: 9, textAlign: 'right' }}>
+                                  <div style={{ color: sColor('izq') }}>{t.anchoIzq} m</div>
+                                  {t.lados === 2 && <div style={{ color: sColor('der') }}>{t.anchoDer} m</div>}
                                 </td>
                                 <td style={{ padding: '2px 8px', color: '#aaa', textAlign: 'right' }}>{ha.toFixed(4)}</td>
                               </tr>
                             )
                           })}
                           <tr style={{ borderTop: `1px solid ${color}22` }}>
-                            <td colSpan={9} style={{ padding: '3px 8px', textAlign: 'right', fontSize: 9, color: '#444' }}>
+                            <td colSpan={7} style={{ padding: '3px 8px', textAlign: 'right', fontSize: 9, color: '#444' }}>
                               Total {ruta}
                             </td>
                             <td style={{ padding: '3px 8px 8px', textAlign: 'right', color: '#888', fontWeight: 700 }}>
@@ -900,7 +938,7 @@ function CalcDesmalezado({ paramsRef, onGuardarObra }: { paramsRef?: React.Mutab
                     })}
                     {Sup_ha > 0 && (
                       <tr style={{ borderTop: `2px solid ${color}55` }}>
-                        <td colSpan={9} style={{ padding: '8px', textAlign: 'right', fontSize: 12, color: '#666', fontWeight: 700 }}>
+                        <td colSpan={7} style={{ padding: '8px', textAlign: 'right', fontSize: 12, color: '#666', fontWeight: 700 }}>
                           TOTAL GENERAL
                         </td>
                         <td style={{ padding: '8px', textAlign: 'right', color, fontSize: 14, fontWeight: 700 }}>
