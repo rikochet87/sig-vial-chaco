@@ -21,7 +21,8 @@ export async function POST(req: NextRequest) {
       presupuesto_total: body.presupuesto_total ?? null,
       aporte_dvp:        body.aporte_dvp ?? null,
       aporte_ccc:        body.aporte_ccc ?? null,
-      precio_unitario:   body.precio_unitario ?? null,
+      precio_unitario:    body.precio_unitario ?? null,
+      datos_calculadora:  body.datos_calculadora ?? null,
     })
     .select()
     .single()
@@ -64,6 +65,7 @@ export async function PATCH(req: NextRequest) {
       aporte_dvp:         fields.aporte_dvp ?? null,
       aporte_ccc:         fields.aporte_ccc ?? null,
       precio_unitario:    fields.precio_unitario ?? null,
+      datos_calculadora:  fields.datos_calculadora ?? null,
     })
     .eq('id', id)
     .select()

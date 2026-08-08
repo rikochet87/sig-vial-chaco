@@ -6,14 +6,16 @@ import { createClient } from '@/lib/supabase/client'
 export type ObraTipo = 'terraplen' | 'excavacion' | 'ripio' | 'canal' | 'limpieza'
 
 export interface GuardarObraData {
-  tipo:             ObraTipo
-  cantidad:         number      // km o ha según tipo
-  unidad:           string      // 'km' | 'ha' | 'm³'
+  tipo:              ObraTipo
+  cantidad:          number      // km o ha según tipo
+  unidad:            string      // 'km' | 'ha' | 'm³'
   presupuesto_total: number
-  aporte_dvp:       number
-  aporte_ccc:       number
-  precio_unitario:  number
-  descripcion?:     string      // texto del tramo/descripción ya ingresado en la calculadora
+  aporte_dvp:        number
+  aporte_ccc:        number
+  precio_unitario:   number
+  descripcion?:      string      // texto del tramo/descripción ya ingresado en la calculadora
+  // Snapshot completo del calculator (inputs + outputs) para PDF y edición
+  datos_calculadora?: Record<string, unknown>
 }
 
 interface Props {
@@ -118,12 +120,13 @@ export default function GuardarObraModal({ open, data, onClose, onSaved }: Props
         estado,
         fecha_inicio:      fechaInicio || null,
         fecha_fin_estimada: fechaFin || null,
-        cantidad:          data!.cantidad,
-        unidad:            data!.unidad,
-        presupuesto_total: data!.presupuesto_total,
-        aporte_dvp:        data!.aporte_dvp,
-        aporte_ccc:        data!.aporte_ccc,
-        precio_unitario:   data!.precio_unitario,
+        cantidad:            data!.cantidad,
+        unidad:              data!.unidad,
+        presupuesto_total:   data!.presupuesto_total,
+        aporte_dvp:          data!.aporte_dvp,
+        aporte_ccc:          data!.aporte_ccc,
+        precio_unitario:     data!.precio_unitario,
+        datos_calculadora:   data!.datos_calculadora ?? null,
       }
       const res = await fetch('/api/obras', {
         method: 'POST',

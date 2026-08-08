@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 
 const TIPOS = ['', 'terraplen', 'excavacion', 'ripio', 'canal', 'limpieza'] as const
 const ESTADOS = ['', 'planificada', 'en_curso', 'ejecutada'] as const
@@ -42,6 +43,7 @@ interface Obra {
   aporte_ccc: number | null
   precio_unitario: number | null
   visible_para: 'todos' | 'seleccion' | null
+  datos_calculadora: Record<string, unknown> | null
   created_at: string
 }
 
@@ -622,6 +624,8 @@ function PushPanel({ obra, tecnicos, loadingTecnicos, onClose, onPublicada }: Pu
 
 // ── Página principal ───────────────────────────────────────────────────────────
 export default function ObrasPage() {
+  const router = useRouter()
+
   const [obras, setObras]       = useState<Obra[]>([])
   const [filtered, setFiltered] = useState<Obra[]>([])
   const [loading, setLoading]   = useState(true)
@@ -850,9 +854,27 @@ export default function ObrasPage() {
                       {o.fecha_inicio ?? '-'}
                     </td>
                     <td style={{ padding: '8px 8px 8px 4px', whiteSpace: 'nowrap' }} onClick={e => e.stopPropagation()}>
+                      {/* PDF — solo si tiene snapshot */}
+                      {o.datos_calculadora && (
+                        <button
+                          onClick={() => window.open(`/dashboard/obras/${o.id}/print`, '_blank')}
+                          title="Imprimir / PDF"
+                          style={{ background: 'transparent', border: '1px solid #252525', color: '#444',
+                            padding: '4px 9px', fontSize: 10, lineHeight: 1, cursor: 'pointer', marginRight: 4 }}
+                          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#90A4AE'; (e.currentTarget as HTMLButtonElement).style.color = '#90A4AE' }}
+                          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#252525'; (e.currentTarget as HTMLButtonElement).style.color = '#444' }}
+                        >PDF</button>
+                      )}
+                      {/* Editar: desde calculadora si tiene snapshot, sino modal genérico */}
                       <button
-                        onClick={() => setEditObra(o)}
-                        title="Editar"
+                        onClick={() => {
+                          if (o.datos_calculadora) {
+                            router.push(`/dashboard/obras/calculadoras?edit=${o.id}`)
+                          } else {
+                            setEditObra(o)
+                          }
+                        }}
+                        title={o.datos_calculadora ? 'Editar en calculadora' : 'Editar'}
                         style={{ background: 'transparent', border: '1px solid #252525', color: '#444',
                           padding: '4px 9px', fontSize: 11, lineHeight: 1, cursor: 'pointer', marginRight: 4 }}
                         onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#F5C300'; (e.currentTarget as HTMLButtonElement).style.color = '#F5C300' }}
