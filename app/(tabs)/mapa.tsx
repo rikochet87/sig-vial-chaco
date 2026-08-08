@@ -1283,6 +1283,28 @@ export default function MapaScreen() {
   // Recargar relevamientos al volver al tab (sincroniza eliminaciones desde Reportes)
   useFocusEffect(useCallback(() => { reloadRelevamientos(); }, [reloadRelevamientos]));
 
+  // ── Obras: mostrar marcador al navegar desde la tab Obras ────────────────────
+  useFocusEffect(useCallback(() => {
+    AsyncStorage.getItem('sig_vial_obra_highlight').then(raw => {
+      if (!raw) return;
+      AsyncStorage.removeItem('sig_vial_obra_highlight');
+      try {
+        const { lat, lng, label, color } = JSON.parse(raw);
+        const safeLabel = String(label).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"');
+        const js = `(function(){
+          if(window._obraHL){try{map.removeLayer(window._obraHL);}catch(e){}}
+          var ic=L.divIcon({
+            html:'<div style="width:20px;height:20px;background:${color.replace('#','%23')};border:3px solid #fff;border-radius:50%;box-shadow:0 2px 10px rgba(0,0,0,0.6)"></div>',
+            iconSize:[20,20],iconAnchor:[10,10],className:''
+          });
+          window._obraHL=L.marker([${lat},${lng}],{icon:ic}).addTo(map).bindPopup('<b>${safeLabel}</b>').openPopup();
+          map.setView([${lat},${lng}],13);
+        })(); true;`;
+        setTimeout(() => webviewRef.current?.injectJavaScript(js), 400);
+      } catch { /* ignore */ }
+    });
+  }, [])); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Ripio: "Dibujar en mapa" iniciado desde el modal ────────────────────────
   const handleRequestDraw = useCallback(() => {
     setRelevModalVisible(false);

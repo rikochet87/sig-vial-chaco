@@ -91,6 +91,14 @@ export default function TabsLayout() {
           headerTitle: 'Relevamientos',
         }}
       />
+      <Tabs.Screen
+        name="obras"
+        options={{
+          title: 'Obras',
+          tabBarIcon: ({ focused }) => <TabIcon name="construct-outline" focused={focused} />,
+          headerTitle: 'Obras Asignadas',
+        }}
+      />
     </Tabs>
   );
 }
