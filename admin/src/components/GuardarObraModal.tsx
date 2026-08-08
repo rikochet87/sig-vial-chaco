@@ -19,10 +19,11 @@ export interface GuardarObraData {
 }
 
 interface Props {
-  open:    boolean
-  data:    GuardarObraData | null
-  onClose: () => void
-  onSaved: () => void
+  open:     boolean
+  data:     GuardarObraData | null
+  onClose:  () => void
+  onSaved:  () => void
+  editId?:  string   // si está presente → PATCH en lugar de POST
 }
 
 type Jurisdiccion = 'consorcio' | 'ruta_provincial' | 'metropolitana' | 'otra'
@@ -60,7 +61,7 @@ const inp: React.CSSProperties = {
 }
 
 // ── Componente ────────────────────────────────────────────────────────────────
-export default function GuardarObraModal({ open, data, onClose, onSaved }: Props) {
+export default function GuardarObraModal({ open, data, onClose, onSaved, editId }: Props) {
   const [jurisdiccion, setJurisdiccion] = useState<Jurisdiccion>('consorcio')
   const [consorcioNum, setConsorcioNum] = useState<string>('')
   const [consorcioSearch, setConsorcioSearch] = useState('')
@@ -112,6 +113,7 @@ export default function GuardarObraModal({ open, data, onClose, onSaved }: Props
     setSaving(true)
     try {
       const body = {
+        ...(editId ? { id: editId } : {}),
         tipo:              data!.tipo,
         jurisdiccion,
         consorcio_numero:  jurisdiccion === 'consorcio' && consorcioNum ? Number(consorcioNum) : null,
@@ -129,7 +131,7 @@ export default function GuardarObraModal({ open, data, onClose, onSaved }: Props
         datos_calculadora:   data!.datos_calculadora ?? null,
       }
       const res = await fetch('/api/obras', {
-        method: 'POST',
+        method: editId ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       })

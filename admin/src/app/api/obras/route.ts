@@ -31,8 +31,17 @@ export async function POST(req: NextRequest) {
   return NextResponse.json(data, { status: 201 })
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url)
+  const id = searchParams.get('id')
   const supabase = createServiceClient()
+
+  if (id) {
+    const { data, error } = await supabase.from('obras').select('*').eq('id', id).single()
+    if (error) return NextResponse.json({ error: error.message }, { status: 404 })
+    return NextResponse.json(data)
+  }
+
   const { data, error } = await supabase
     .from('obras')
     .select('*')

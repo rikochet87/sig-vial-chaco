@@ -1,6 +1,6 @@
 'use client'
 import React, { useState, useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { setObraTransfer, saveReturnTab, consumeReturnTab } from '@/lib/obraTransfer'
 import InlineMapDraw from '@/components/InlineMapDraw'
 import InlineLineDraw from '@/components/InlineLineDraw'
@@ -536,50 +536,53 @@ interface TramoDesm { id: string; ruta: string; lados: 1 | 2; desdeIzq: number; 
 interface EquipoAP     { id: string; nombre: string; hp: number; valor: number }
 interface MORigAP      { id: string; cargo: string; n: number; tarifa: number; coef: number; hs: number }
 
-function CalcDesmalezado({ paramsRef, onGuardarObra }: { paramsRef?: React.MutableRefObject<Params>; onGuardarObra?: (d: GuardarObraData) => void }) {
-  const [method,        setMethod]        = useState<'formula' | 'mapa'>('formula')
+function CalcDesmalezado({ paramsRef, onGuardarObra, initialData }: { paramsRef?: React.MutableRefObject<Params>; onGuardarObra?: (d: GuardarObraData) => void; initialData?: Record<string, unknown> }) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const _i: any = initialData ?? {}
+
+  const [method,        setMethod]        = useState<'formula' | 'mapa'>(_i.method ?? 'formula')
   const [view,          setView]          = useState<'computo' | 'jornales' | 'presupuesto'>('computo')
   const [mapaActivated, setMapaActivated] = useState(false)  // lazy-mount: nunca desmontar InlineMapDraw
 
   // Fórmula — tramos
-  const [tramos,      setTramos]      = useState<TramoDesm[]>([])
-  const [fmRuta,      setFmRuta]      = useState('RP 1')
-  const [fmLados,     setFmLados]     = useState<1 | 2>(2)
-  const [fmDesdeIzq,  setFmDesdeIzq]  = useState(0)
-  const [fmHastaIzq,  setFmHastaIzq]  = useState(3000)
-  const [fmAnchoIzq,  setFmAnchoIzq]  = useState(3)
-  const [fmDesdeDer,  setFmDesdeDer]  = useState(0)
-  const [fmHastaDer,  setFmHastaDer]  = useState(3000)
-  const [fmAnchoDer,  setFmAnchoDer]  = useState(3)
+  const [tramos,      setTramos]      = useState<TramoDesm[]>(_i.tramos ?? [])
+  const [fmRuta,      setFmRuta]      = useState(_i.fmRuta ?? 'RP 1')
+  const [fmLados,     setFmLados]     = useState<1 | 2>(_i.fmLados ?? 2)
+  const [fmDesdeIzq,  setFmDesdeIzq]  = useState(_i.fmDesdeIzq ?? 0)
+  const [fmHastaIzq,  setFmHastaIzq]  = useState(_i.fmHastaIzq ?? 3000)
+  const [fmAnchoIzq,  setFmAnchoIzq]  = useState(_i.fmAnchoIzq ?? 3)
+  const [fmDesdeDer,  setFmDesdeDer]  = useState(_i.fmDesdeDer ?? 0)
+  const [fmHastaDer,  setFmHastaDer]  = useState(_i.fmHastaDer ?? 3000)
+  const [fmAnchoDer,  setFmAnchoDer]  = useState(_i.fmAnchoDer ?? 3)
 
   // Mapa/drone
-  const [mapEntries, setMapEntries] = useState<DesmEntry[]>([])
+  const [mapEntries, setMapEntries] = useState<DesmEntry[]>(_i.mapEntries ?? [])
 
   // ── Análisis de Precio ──────────────────────────────────────────────────────
-  const [apEquipos,      setApEquipos]      = useState<EquipoAP[]>([
+  const [apEquipos,      setApEquipos]      = useState<EquipoAP[]>(_i.apEquipos ?? [
     { id: 'tr', nombre: 'Tractor 120 HP',       hp: 120, valor: 120235050 },
     { id: 'dm', nombre: 'Desmalezadora 4,20 m', hp: 0,   valor: 38125815  },
     { id: 'mg', nombre: 'Motoguadaña 1 HP',     hp: 0,   valor: 500000    },
   ])
-  const [apVidaHs,       setApVidaHs]       = useState(10000)
-  const [apHsDia,        setApHsDia]        = useState(8)
-  const [apHsAnio,       setApHsAnio]       = useState(2000)
-  const [apI,            setApI]            = useState(0.12)
-  const [apPctRep,       setApPctRep]       = useState(80)
-  const [apConsDiesel,   setApConsDiesel]   = useState(0.16)
-  const [apPrecioDiesel, setApPrecioDiesel] = useState(2121)
-  const [apConsNafta,    setApConsNafta]    = useState(1)
-  const [apPrecioNafta,  setApPrecioNafta]  = useState(2757)
-  const [apPctLub,       setApPctLub]       = useState(30)
-  const [apMO,           setApMO]           = useState<MORigAP[]>([
+  const [apVidaHs,       setApVidaHs]       = useState(_i.apVidaHs       ?? 10000)
+  const [apHsDia,        setApHsDia]        = useState(_i.apHsDia        ?? 8)
+  const [apHsAnio,       setApHsAnio]       = useState(_i.apHsAnio       ?? 2000)
+  const [apI,            setApI]            = useState(_i.apI            ?? 0.12)
+  const [apPctRep,       setApPctRep]       = useState(_i.apPctRep       ?? 80)
+  const [apConsDiesel,   setApConsDiesel]   = useState(_i.apConsDiesel   ?? 0.16)
+  const [apPrecioDiesel, setApPrecioDiesel] = useState(_i.apPrecioDiesel ?? 2121)
+  const [apConsNafta,    setApConsNafta]    = useState(_i.apConsNafta    ?? 1)
+  const [apPrecioNafta,  setApPrecioNafta]  = useState(_i.apPrecioNafta  ?? 2757)
+  const [apPctLub,       setApPctLub]       = useState(_i.apPctLub       ?? 30)
+  const [apMO,           setApMO]           = useState<MORigAP[]>(_i.apMO ?? [
     { id: 'oe', cargo: 'Oficial Esp.', n: 1, tarifa: 0, coef: 0, hs: 8 },
     { id: 'ay', cargo: 'Ayudante',     n: 1, tarifa: 0, coef: 0, hs: 8 },
   ])
-  const [apPctEqMen,     setApPctEqMen]     = useState(8)
-  const [apPctGG,        setApPctGG]        = useState(15)
-  const [apRendHa,       setApRendHa]       = useState(90)
-  const [apRendDias,     setApRendDias]     = useState(5)
-  const [apAdoptado,     setApAdoptado]     = useState(37848)
+  const [apPctEqMen,     setApPctEqMen]     = useState(_i.apPctEqMen     ?? 8)
+  const [apPctGG,        setApPctGG]        = useState(_i.apPctGG        ?? 15)
+  const [apRendHa,       setApRendHa]       = useState(_i.apRendHa       ?? 90)
+  const [apRendDias,     setApRendDias]     = useState(_i.apRendDias     ?? 5)
+  const [apAdoptado,     setApAdoptado]     = useState(_i.apAdoptado     ?? 37848)
 
   // ── Computed AP ──────────────────────────────────────────────────────────────
   const apTotalV     = apEquipos.reduce((s, e) => s + e.valor, 0)
@@ -612,9 +615,9 @@ function CalcDesmalezado({ paramsRef, onGuardarObra }: { paramsRef?: React.Mutab
   const mapaHaEarly    = mapEntries.reduce((s, e) => s + e.ha, 0)
 
   // ── Presupuesto state ────────────────────────────────────────────────────────
-  const [prespPlazo,     setPrespPlazo]     = useState(6)
-  const [prespPctDVP,    setPrespPctDVP]    = useState(80)
-  const [prespDescTramo, setPrespDescTramo] = useState('Ruta Prov. Nº 1 y 3')
+  const [prespPlazo,     setPrespPlazo]     = useState(_i.prespPlazo     ?? 6)
+  const [prespPctDVP,    setPrespPctDVP]    = useState(_i.prespPctDVP    ?? 80)
+  const [prespDescTramo, setPrespDescTramo] = useState(_i.prespDescTramo ?? 'Ruta Prov. Nº 1 y 3')
 
   // Ha por lado para presupuesto
   const haIzqPres = method === 'formula'
@@ -1591,43 +1594,46 @@ interface PresRow { id: string; num: number; desc: string; unit: string; cant: n
 type MonteKey = 'ralo' | 'semitupido' | 'tupido'
 interface MonteEntry { id: string; ha: number; monte: MonteKey; fromMap?: boolean; pts?: [number,number][] }
 
-function CalcDesbosque({ paramsRef, onGuardarObra }: { paramsRef?: React.MutableRefObject<Params>; onGuardarObra?: (d: GuardarObraData) => void }) {
+function CalcDesbosque({ paramsRef, onGuardarObra, initialData }: { paramsRef?: React.MutableRefObject<Params>; onGuardarObra?: (d: GuardarObraData) => void; initialData?: Record<string, unknown> }) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const _i: any = initialData ?? {}
+
   // ── Geometría — múltiples superficies por tipo en cada lado ──────────────
-  const [entriesIzq, setEntriesIzq] = useState<MonteEntry[]>([])
-  const [entriesDer, setEntriesDer] = useState<MonteEntry[]>([])
+  const [entriesIzq, setEntriesIzq] = useState<MonteEntry[]>(_i.entriesIzq ?? [])
+  const [entriesDer, setEntriesDer] = useState<MonteEntry[]>(_i.entriesDer ?? [])
 
   // ── VIII) Coeficiente Resumen ─────────────────────────────────
-  const [ggPct,  setGgPct]  = useState(15)
-  const [benPct, setBenPct] = useState(0)
-  const [gfPct,  setGfPct]  = useState(0)
-  const [ivaPct, setIvaPct] = useState(0)
+  const [ggPct,  setGgPct]  = useState(_i.ggPct  ?? 15)
+  const [benPct, setBenPct] = useState(_i.benPct ?? 0)
+  const [gfPct,  setGfPct]  = useState(_i.gfPct  ?? 0)
+  const [ivaPct, setIvaPct] = useState(_i.ivaPct ?? 0)
 
   // ── I) Mano de Obra ───────────────────────────────────────────
-  const [moRows, setMoRows] = useState<MORow[]>(MO_DEFAULTS.map(r => ({ ...r })))
+  const [moRows, setMoRows] = useState<MORow[]>(_i.moRows ?? MO_DEFAULTS.map(r => ({ ...r })))
 
   // ── Equipos ───────────────────────────────────────────────────
-  const [eqRows, setEqRows] = useState<EqRow[]>(EQ_DEFAULTS.map(r => ({ ...r })))
+  const [eqRows, setEqRows] = useState<EqRow[]>(_i.eqRows ?? EQ_DEFAULTS.map(r => ({ ...r })))
 
   // ── II) Amortización + III) Reparación ───────────────────────
-  const [amortCoef, setAmortCoef] = useState(0.0011)
-  const [repCoef,   setRepCoef]   = useState(0.00056)
+  const [amortCoef, setAmortCoef] = useState(_i.amortCoef ?? 0.0011)
+  const [repCoef,   setRepCoef]   = useState(_i.repCoef   ?? 0.00056)
 
   // ── IV) Combustibles y Lubricantes ───────────────────────────
-  const [consumoLHpH, setConsumoLHpH] = useState(0.15)
-  const [hsDiaComb, setHsDiaComb]     = useState(8)
-  const [precioLitro, setPrecioLitro] = useState(1198)
-  const [coefLubri, setCoefLubri]     = useState(1.30)
+  const [consumoLHpH, setConsumoLHpH] = useState(_i.consumoLHpH ?? 0.15)
+  const [hsDiaComb, setHsDiaComb]     = useState(_i.hsDiaComb   ?? 8)
+  const [precioLitro, setPrecioLitro] = useState(_i.precioLitro ?? 1198)
+  const [coefLubri, setCoefLubri]     = useState(_i.coefLubri   ?? 1.30)
 
   // ── Resumen (Ae-9) ────────────────────────────────────────────
-  const [materiales, setMateriales] = useState(0)
-  const [transpInt,  setTranspInt]  = useState(0)
+  const [materiales, setMateriales] = useState(_i.materiales ?? 0)
+  const [transpInt,  setTranspInt]  = useState(_i.transpInt  ?? 0)
 
   // ── Presupuesto (Ae-10) ───────────────────────────────────────
-  const [presRows, setPresRows] = useState<PresRow[]>([
+  const [presRows, setPresRows] = useState<PresRow[]>(_i.presRows ?? [
     { id: 'p1', num: 1, desc: 'DESBOSQUE-DESTRONQUE Y LIMPIEZA — Monte Semi-tupido', unit: 'Has', cant: 0, precioUnit: 0 },
     { id: 'p2', num: 2, desc: 'DESBOSQUE-DESTRONQUE Y LIMPIEZA — Monte Ralo',        unit: 'Has', cant: 0, precioUnit: 0 },
   ])
-  const [dvpPct, setDvpPct] = useState(80)
+  const [dvpPct, setDvpPct] = useState(_i.dvpPct ?? 80)
 
   // ── Sub-vista ─────────────────────────────────────────────────
   const [view, setView] = useState<'computo' | 'jornales' | 'presupuesto'>('computo')
@@ -2609,8 +2615,9 @@ function CalcDesbosque({ paramsRef, onGuardarObra }: { paramsRef?: React.Mutable
 }
 
 // ── LIMPIEZA VIAL (Desmalezado + Desbosque, selector unificado) ───────────────
-function CalcLimpiezaVial({ paramsRef, onGuardarObra }: { paramsRef?: React.MutableRefObject<Params>; onGuardarObra?: (d: GuardarObraData) => void }) {
-  const [tipo, setTipo] = useState<'desmalezado' | 'desbosque'>('desmalezado')
+function CalcLimpiezaVial({ paramsRef, onGuardarObra, initialData }: { paramsRef?: React.MutableRefObject<Params>; onGuardarObra?: (d: GuardarObraData) => void; initialData?: Record<string, unknown> }) {
+  const calcType = initialData?.calculadora as 'desmalezado' | 'desbosque' | undefined
+  const [tipo, setTipo] = useState<'desmalezado' | 'desbosque'>(calcType ?? 'desmalezado')
   const colorDesm = '#66BB6A'
   const colorDesb = '#795548'
   const activeColor = tipo === 'desmalezado' ? colorDesm : colorDesb
@@ -2641,8 +2648,8 @@ function CalcLimpiezaVial({ paramsRef, onGuardarObra }: { paramsRef?: React.Muta
 
       {/* Contenido */}
       <div style={{ flex: 1, minHeight: 0, borderLeft: `2px solid ${activeColor}33`, paddingLeft: 14 }}>
-        {tipo === 'desmalezado' && <CalcDesmalezado paramsRef={paramsRef} onGuardarObra={onGuardarObra} />}
-        {tipo === 'desbosque'   && <CalcDesbosque   paramsRef={paramsRef} onGuardarObra={onGuardarObra} />}
+        {tipo === 'desmalezado' && <CalcDesmalezado key={initialData ? 'edit-desm' : 'new-desm'} paramsRef={paramsRef} onGuardarObra={onGuardarObra} initialData={initialData?.inputs as Record<string, unknown> | undefined} />}
+        {tipo === 'desbosque'   && <CalcDesbosque   key={initialData ? 'edit-desb' : 'new-desb'} paramsRef={paramsRef} onGuardarObra={onGuardarObra} initialData={initialData?.inputs as Record<string, unknown> | undefined} />}
       </div>
     </div>
   )
@@ -2658,11 +2665,37 @@ const TABS: { id: Tab; label: string; icon: string }[] = [
 ]
 
 export default function CalculadorasPage() {
-  const [tab, setTab]     = useState<Tab>(() => (consumeReturnTab() as Tab) || 'terraplen')
+  const searchParams  = useSearchParams()
+  const editId        = searchParams.get('edit') ?? undefined
+
+  const [tab, setTab] = useState<Tab>(() => (consumeReturnTab() as Tab) || 'terraplen')
   const [precio, setPrecio] = useState(0)
   const paramsRef = useRef<Params>({})
   const router    = useRouter()
   const color     = CLR[tab]
+
+  // ── Edición desde lista de obras ──────────────────────────────────────────
+  const [editDC,      setEditDC]      = useState<Record<string, unknown> | null>(null)
+  const [editLoading, setEditLoading] = useState(false)
+
+  useEffect(() => {
+    if (!editId) return
+    setEditLoading(true)
+    fetch(`/api/obras?id=${editId}`)
+      .then(r => r.json())
+      .then(obra => {
+        const dc = obra.datos_calculadora as Record<string, unknown> | null
+        if (!dc) return
+        setEditDC(dc)
+        // Navegar al tab correcto
+        if (dc.calculadora === 'desmalezado' || dc.calculadora === 'desbosque') {
+          setTab('limpieza')
+        }
+        // Para otras calculadoras agregar aquí cuando sea necesario
+      })
+      .finally(() => setEditLoading(false))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editId])
 
   // ── Guardar Obra ──────────────────────────────────────────────────────────
   const [guardarOpen, setGuardarOpen] = useState(false)
@@ -2789,7 +2822,8 @@ export default function CalculadorasPage() {
         {tab === 'excavacion' && <CalcExcavacion paramsRef={paramsRef} />}
         {tab === 'ripio'      && <CalcRipio      paramsRef={paramsRef} />}
         {tab === 'canal'      && <CalcCanal      paramsRef={paramsRef} />}
-        {tab === 'limpieza'   && <CalcLimpiezaVial paramsRef={paramsRef} onGuardarObra={(d) => { setGuardarData(d); setGuardarOpen(true) }} />}
+        {tab === 'limpieza'   && !editLoading && <CalcLimpiezaVial key={editId ?? 'new'} paramsRef={paramsRef} onGuardarObra={(d) => { setGuardarData(d); setGuardarOpen(true) }} initialData={editDC ?? undefined} />}
+        {tab === 'limpieza'   && editLoading  && <div style={{ color: '#555', fontFamily: 'monospace', fontSize: 12, padding: 20 }}>Cargando obra...</div>}
       </div>
 
       <GuardarObraModal
@@ -2797,6 +2831,7 @@ export default function CalculadorasPage() {
         data={guardarData}
         onClose={() => setGuardarOpen(false)}
         onSaved={() => setGuardarOpen(false)}
+        editId={editId}
       />
     </div>
   )
