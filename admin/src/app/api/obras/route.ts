@@ -23,6 +23,9 @@ export async function POST(req: NextRequest) {
       aporte_ccc:        body.aporte_ccc ?? null,
       precio_unitario:    body.precio_unitario ?? null,
       datos_calculadora:  body.datos_calculadora ?? null,
+      lat:                body.lat ?? null,
+      lng:                body.lng ?? null,
+      coords_linea:       body.coords_linea ?? null,
     })
     .select()
     .single()
@@ -75,6 +78,9 @@ export async function PATCH(req: NextRequest) {
       aporte_ccc:         fields.aporte_ccc ?? null,
       precio_unitario:    fields.precio_unitario ?? null,
       datos_calculadora:  fields.datos_calculadora ?? null,
+      lat:                fields.lat ?? null,
+      lng:                fields.lng ?? null,
+      coords_linea:       fields.coords_linea ?? null,
     })
     .eq('id', id)
     .select()

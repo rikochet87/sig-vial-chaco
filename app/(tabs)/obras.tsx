@@ -33,12 +33,16 @@ interface Obra {
   aporte_ccc: number | null;
   precio_unitario: number | null;
   visible_para: string | null;
+  lat: number | null;
+  lng: number | null;
+  coords_linea: Array<{lat: number; lng: number}> | null;
   created_at: string;
 }
 
 export interface ObraHighlight {
-  lat: number;
-  lng: number;
+  lat?: number;
+  lng?: number;
+  coordsLinea?: Array<{lat: number; lng: number}>;
   label: string;
   color: string;
 }
@@ -80,7 +84,7 @@ function Campo({ label, value, accent }: { label: string; value: string; accent?
   return (
     <View style={s.campo}>
       <Text style={s.campoLabel}>{label}</Text>
-      <Text style={[s.campoValue, accent ? { color: accent, fontWeight: '700' } : {}]}>
+      <Text style={[s.campoValue, accent ? { color: accent, fontWeight: '700', fontSize: 14 } : {}]} numberOfLines={1}>
         {value}
       </Text>
     </View>
@@ -100,14 +104,18 @@ function ObraCard({ obra, expanded, onToggle }: {
     ? consorcio.nombre.replace(/Consorcio Caminero N[°º]?\s*/i, 'CC ')
     : (obra.ubicacion ?? '—');
 
+  // Geometría: polilínea primero, fallback a punto, fallback a consorcio
+  const hasLinea = obra.coords_linea && obra.coords_linea.length >= 2;
+  const mapLat = !hasLinea ? (obra.lat ?? consorcio?.latitude ?? null) : null;
+  const mapLng = !hasLinea ? (obra.lng ?? consorcio?.longitude ?? null) : null;
+  const hasLocation = hasLinea || (mapLat != null && mapLng != null);
+
   const handleVerEnMapa = async () => {
-    if (!consorcio) return;
-    const highlight: ObraHighlight = {
-      lat:   consorcio.latitude,
-      lng:   consorcio.longitude,
-      label: ubicLabel + (obra.descripcion ? ` — ${obra.descripcion}` : ''),
-      color,
-    };
+    if (!hasLocation) return;
+    const label = ubicLabel + (obra.descripcion ? ` — ${obra.descripcion}` : '');
+    const highlight: ObraHighlight = hasLinea
+      ? { coordsLinea: obra.coords_linea!, label, color }
+      : { lat: mapLat!, lng: mapLng!, label, color };
     await AsyncStorage.setItem(OBRA_HIGHLIGHT_KEY, JSON.stringify(highlight));
     router.push('/(tabs)/mapa');
   };
@@ -147,30 +155,17 @@ function ObraCard({ obra, expanded, onToggle }: {
 
           {/* Presupuesto */}
           <Text style={s.seccion}>Presupuesto</Text>
-          <Campo label="Total"        value={fmtPesos(obra.presupuesto_total)} accent={color} />
-          <View style={s.row2}>
-            <View style={{ flex: 1 }}>
-              <Campo label="Aporte Provincial" value={fmtPesos(obra.aporte_dvp)} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Campo label="Aporte Consorcio"  value={fmtPesos(obra.aporte_ccc)} />
-            </View>
-          </View>
+          <Campo label="Total" value={fmtPesos(obra.presupuesto_total)} accent={color} />
+          <Campo label="Aporte Provincial" value={fmtPesos(obra.aporte_dvp)} />
+          <Campo label="Aporte Consorcio"  value={fmtPesos(obra.aporte_ccc)} />
           {obra.cantidad != null && (
-            <View style={s.row2}>
-              <View style={{ flex: 1 }}>
-                <Campo
-                  label="Cantidad"
-                  value={`${Number(obra.cantidad).toLocaleString('es-AR', { maximumFractionDigits: 2 })} ${obra.unidad ?? ''}`}
-                />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Campo label="P. unitario" value={fmtPesos(obra.precio_unitario)} />
-              </View>
-            </View>
+            <>
+              <Campo label="Cantidad"    value={`${Number(obra.cantidad).toLocaleString('es-AR', { maximumFractionDigits: 2 })} ${obra.unidad ?? ''}`} />
+              <Campo label="P. unitario" value={fmtPesos(obra.precio_unitario)} />
+            </>
           )}
 
-          {/* Descripción / tramo */}
+          {/* Tramo / Descripción */}
           {obra.descripcion ? (
             <>
               <Text style={s.seccion}>Tramo / Descripción</Text>
@@ -178,30 +173,22 @@ function ObraCard({ obra, expanded, onToggle }: {
             </>
           ) : null}
 
-          {/* Fechas */}
-          <Text style={s.seccion}>Fechas</Text>
-          <View style={s.row2}>
-            <View style={{ flex: 1 }}>
-              <Campo label="Inicio"   value={fmtFecha(obra.fecha_inicio)} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Campo label="Fin est." value={fmtFecha(obra.fecha_fin_estimada)} />
-            </View>
-          </View>
+          {/* Fechas — solo si hay alguna */}
+          {(obra.fecha_inicio || obra.fecha_fin_estimada) && (
+            <>
+              <Text style={s.seccion}>Fechas</Text>
+              {obra.fecha_inicio      && <Campo label="Inicio"   value={fmtFecha(obra.fecha_inicio)} />}
+              {obra.fecha_fin_estimada && <Campo label="Fin est." value={fmtFecha(obra.fecha_fin_estimada)} />}
+            </>
+          )}
 
           {/* Consorcio */}
           {consorcio && (
             <>
               <Text style={s.seccion}>Consorcio</Text>
-              <Campo label="Nombre" value={consorcio.nombre.replace(/Consorcio Caminero N[°º]?\s*/i, 'CC ')} />
-              <View style={s.row2}>
-                <View style={{ flex: 1 }}>
-                  <Campo label="Zona"     value={consorcio.zona} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Campo label="Red vial" value={`${consorcio.redKm.toLocaleString('es-AR')} km`} />
-                </View>
-              </View>
+              <Campo label="Nombre"   value={consorcio.nombre.replace(/Consorcio Caminero N[°º]?\s*/i, 'CC ')} />
+              <Campo label="Zona"     value={consorcio.zona} />
+              <Campo label="Red vial" value={`${consorcio.redKm.toLocaleString('es-AR')} km`} />
             </>
           )}
           {!consorcio && obra.ubicacion && (
@@ -212,7 +199,7 @@ function ObraCard({ obra, expanded, onToggle }: {
           )}
 
           {/* Botón Ver en mapa */}
-          {consorcio && (
+          {hasLocation && (
             <TouchableOpacity style={[s.btnMapa, { borderColor: color + '66' }]} onPress={handleVerEnMapa} activeOpacity={0.8}>
               <Text style={[s.btnMapaText, { color }]}>🗺  Ver en mapa</Text>
             </TouchableOpacity>
@@ -365,14 +352,13 @@ const s = StyleSheet.create({
   estadoText:   { fontSize: 8, fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: '600' },
 
   // Detalle
-  detalle:     { paddingHorizontal: 14, paddingBottom: 14 },
-  divider:     { height: 1, backgroundColor: '#1e1e1e', marginBottom: 12 },
-  seccion:     { fontSize: 8, color: '#333', fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: 1.5, marginTop: 12, marginBottom: 6 },
-  row2:        { flexDirection: 'row', gap: 12 },
-  campo:       { marginBottom: 8 },
-  campoLabel:  { fontSize: 8, color: '#444', fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 2 },
-  campoValue:  { fontSize: 13, color: '#aaa', fontFamily: 'monospace' },
-  detalleText: { fontSize: 12, color: '#888', fontFamily: 'monospace', lineHeight: 18, marginBottom: 6 },
+  detalle:     { paddingHorizontal: 14, paddingBottom: 16 },
+  divider:     { height: 1, backgroundColor: '#1e1e1e', marginBottom: 10 },
+  seccion:     { fontSize: 8, color: '#333', fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: 1.5, marginTop: 10, marginBottom: 4 },
+  campo:       { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', paddingVertical: 3, borderBottomWidth: 1, borderBottomColor: '#161616' },
+  campoLabel:  { fontSize: 10, color: '#444', fontFamily: 'monospace', flexShrink: 0 },
+  campoValue:  { fontSize: 12, color: '#aaa', fontFamily: 'monospace', textAlign: 'right', flexShrink: 1 },
+  detalleText: { fontSize: 12, color: '#888', fontFamily: 'monospace', lineHeight: 18, marginBottom: 4 },
 
   btnMapa:     { marginTop: 16, borderWidth: 1, borderRadius: 3, paddingVertical: 10, alignItems: 'center' },
   btnMapaText: { fontSize: 12, fontFamily: 'monospace', fontWeight: '700', letterSpacing: 0.5 },

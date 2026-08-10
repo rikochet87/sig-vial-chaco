@@ -1283,23 +1283,39 @@ export default function MapaScreen() {
   // Recargar relevamientos al volver al tab (sincroniza eliminaciones desde Reportes)
   useFocusEffect(useCallback(() => { reloadRelevamientos(); }, [reloadRelevamientos]));
 
-  // ── Obras: mostrar marcador al navegar desde la tab Obras ────────────────────
+  // ── Obras: mostrar marcador/polilínea al navegar desde la tab Obras ──────────
   useFocusEffect(useCallback(() => {
     AsyncStorage.getItem('sig_vial_obra_highlight').then(raw => {
       if (!raw) return;
       AsyncStorage.removeItem('sig_vial_obra_highlight');
       try {
-        const { lat, lng, label, color } = JSON.parse(raw);
+        const { lat, lng, coordsLinea, label, color } = JSON.parse(raw);
         const safeLabel = String(label).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"');
-        const js = `(function(){
-          if(window._obraHL){try{map.removeLayer(window._obraHL);}catch(e){}}
-          var ic=L.divIcon({
-            html:'<div style="width:20px;height:20px;background:${color.replace('#','%23')};border:3px solid #fff;border-radius:50%;box-shadow:0 2px 10px rgba(0,0,0,0.6)"></div>',
-            iconSize:[20,20],iconAnchor:[10,10],className:''
-          });
-          window._obraHL=L.marker([${lat},${lng}],{icon:ic}).addTo(map).bindPopup('<b>${safeLabel}</b>').openPopup();
-          map.setView([${lat},${lng}],13);
-        })(); true;`;
+        let js: string;
+        if (coordsLinea && coordsLinea.length >= 2) {
+          // Polilínea
+          const pts = JSON.stringify(coordsLinea.map((p: {lat:number;lng:number}) => [p.lat, p.lng]));
+          const col = color.replace(/#/g, '%23');
+          js = `(function(){
+            if(window._obraHL){try{map.removeLayer(window._obraHL);}catch(e){}}
+            var pts=${pts};
+            window._obraHL=L.polyline(pts,{color:'${col}',weight:4,opacity:0.9}).addTo(map);
+            window._obraHL.bindPopup('<b>${safeLabel}</b>').openPopup();
+            map.fitBounds(window._obraHL.getBounds(),{padding:[30,30]});
+          })(); true;`;
+        } else {
+          // Marcador puntual
+          const col = color.replace(/#/g, '%23');
+          js = `(function(){
+            if(window._obraHL){try{map.removeLayer(window._obraHL);}catch(e){}}
+            var ic=L.divIcon({
+              html:'<div style="width:20px;height:20px;background:${col};border:3px solid #fff;border-radius:50%;box-shadow:0 2px 10px rgba(0,0,0,0.6)"></div>',
+              iconSize:[20,20],iconAnchor:[10,10],className:''
+            });
+            window._obraHL=L.marker([${lat},${lng}],{icon:ic}).addTo(map).bindPopup('<b>${safeLabel}</b>').openPopup();
+            map.setView([${lat},${lng}],13);
+          })(); true;`;
+        }
         setTimeout(() => webviewRef.current?.injectJavaScript(js), 400);
       } catch { /* ignore */ }
     });
