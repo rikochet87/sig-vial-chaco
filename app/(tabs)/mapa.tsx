@@ -1497,7 +1497,9 @@ export default function MapaScreen() {
     const hideHL = !obrasOn
       ? `if(window._obraHL){try{map.removeLayer(window._obraHL);}catch(e){} window._obraHL=null;}`
       : '';
-    const js = `(function(){clearObrasFeatures();${calls}setObrasVisible(${obrasOn});${hideHL}})(); true;`;
+    // Forzar _obrasVisible=true antes de addObraFeature para que los features
+    // siempre se agreguen al mapa; luego setObrasVisible aplica la visibilidad real.
+    const js = `(function(){clearObrasFeatures();window._obrasVisible=true;${calls}setObrasVisible(${obrasOn});${hideHL}})(); true;`;
     webviewRef.current?.injectJavaScript(js);
   }, [obrasCapas, obrasOn, webViewLoadCount]);
 
