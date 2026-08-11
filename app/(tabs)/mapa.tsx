@@ -1299,7 +1299,6 @@ export default function MapaScreen() {
             if(window._obraHL){try{map.removeLayer(window._obraHL);}catch(e){}}
             var pts=${pts};
             window._obraHL=L.polyline(pts,{color:'${color}',weight:5,opacity:0.9}).addTo(map);
-            window._obraHL.bindPopup('<b>${safeLabel}</b>');
             map.fitBounds(window._obraHL.getBounds(),{padding:[40,40]});
           })(); true;`;
         } else {
