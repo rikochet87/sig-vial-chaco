@@ -65,6 +65,13 @@ type RelevLayers = {
 };
 const RELEV_TIPOS = ['Puente', 'Alcantarilla', 'Tubos', 'Lineal', 'Otro'] as const;
 
+interface ObraCapa {
+  id: string; tipo: string;
+  descripcion: string | null; ubicacion: string | null; estado: string | null;
+  lat: number | null; lng: number | null;
+  coords_linea: Array<{lat: number; lng: number}> | null;
+}
+
 type SedesAutoriadadesOverride = Record<number, {
   presidente?: string; vicepresidente?: string;
   secretario?: string; tesorero?: string;
@@ -1414,6 +1421,48 @@ export default function MapaScreen() {
     webviewRef.current?.injectJavaScript(js);
   }, [relevLayers, webViewLoadCount]);
 
+  // ── Obras: capa en el mapa ────────────────────────────────────────────────
+  const OBRA_TIPO_COLOR: Record<string, string> = {
+    terraplen: '#8D6E63', excavacion: '#FF7043',
+    ripio: '#90A4AE', canal: '#29B6F6', limpieza: '#66BB6A',
+  };
+  const [obrasCapas, setObrasCapas] = useState<ObraCapa[]>([]);
+  const [obrasOn, setObrasOn] = useState(true);
+
+  // Fetch obras con geometría al montar
+  useEffect(() => {
+    supabase.from('obras')
+      .select('id,tipo,descripcion,ubicacion,estado,lat,lng,coords_linea')
+      .eq('visible_para', 'todos')
+      .then(({ data }) => {
+        if (data) {
+          setObrasCapas((data as ObraCapa[]).filter(
+            o => o.lat != null || (o.coords_linea && o.coords_linea.length >= 2)
+          ));
+        }
+      });
+  }, []);
+
+  // Inyectar capa obras en Leaflet
+  useEffect(() => {
+    if (webViewLoadCount === 0) return;
+    let js = 'if(window._obrasLG){try{map.removeLayer(window._obrasLG);}catch(e){}} window._obrasLG=L.layerGroup();';
+    for (const o of obrasCapas) {
+      const color = OBRA_TIPO_COLOR[o.tipo] ?? '#888';
+      const rawLabel = o.descripcion ?? o.ubicacion ?? o.tipo;
+      const lbl = rawLabel.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'\\"');
+      const popup = `'<b style="font-size:12px">${lbl}</b><br><span style="color:${color};font-size:10px;text-transform:uppercase">${o.tipo}</span>'`;
+      if (o.coords_linea && o.coords_linea.length >= 2) {
+        const pts = JSON.stringify(o.coords_linea.map(p => [p.lat, p.lng]));
+        js += `L.polyline(${pts},{color:'${color}',weight:5,opacity:0.85}).bindPopup(${popup}).addTo(window._obrasLG);`;
+      } else if (o.lat != null && o.lng != null) {
+        js += `L.circleMarker([${o.lat},${o.lng}],{radius:8,fillColor:'${color}',color:'#fff',weight:2,fillOpacity:0.9}).bindPopup(${popup}).addTo(window._obrasLG);`;
+      }
+    }
+    if (obrasOn) js += 'window._obrasLG.addTo(map);';
+    webviewRef.current?.injectJavaScript(js + ' true;');
+  }, [obrasCapas, obrasOn, webViewLoadCount]);
+
   // ── Relevamiento markers ──────────────────────────────────────────────────
   useEffect(() => {
     if (webViewLoadCount === 0) return; // WebView not ready yet
@@ -1896,6 +1945,23 @@ export default function MapaScreen() {
               </TouchableOpacity>
             );
           })}
+
+          {/* ── Obras ───────────────────────────────────────────────── */}
+          <Text style={[styles.drawerSection, { marginTop: 20 }]}>
+            Obras{obrasCapas.length > 0 ? ` · ${obrasCapas.length}` : ''}
+          </Text>
+          <TouchableOpacity style={styles.layerRow} onPress={() => setObrasOn(v => !v)}>
+            <View style={[styles.layerCheck, obrasOn && styles.layerCheckOn]}>
+              {obrasOn && <Text style={styles.layerCheckMark}>✓</Text>}
+            </View>
+            <Text style={styles.layerIcon}>🏗</Text>
+            <Text style={[styles.layerLabel, !obrasOn && styles.layerLabelOff]}>Mostrar obras</Text>
+          </TouchableOpacity>
+          {obrasCapas.length === 0 && (
+            <Text style={{ fontSize: 10, color: '#333', fontFamily: 'monospace', paddingLeft: 14, marginTop: 2 }}>
+              Sin obras con ubicación publicadas
+            </Text>
+          )}
 
           <View style={{ height: 40 }} />
         </ScrollView>
