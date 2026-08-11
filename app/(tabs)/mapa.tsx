@@ -78,7 +78,7 @@ type SedesAutoriadadesOverride = Record<number, {
 }>;
 
 // ── HTML Leaflet (mínimo UI, sin controles propios) ──────────────────────────
-function buildMapHtml(sedesZonas: SedesZonas, layers: Layers, sedesOverride?: SedesAutoriadadesOverride): string {
+function buildMapHtml(sedesZonas: SedesZonas, layers: Layers, sedesOverride?: SedesAutoriadadesOverride, obrasScript = ''): string {
   // Serialized lazily — only runs when the map tab is first opened
   const rawSedes = GEO_BUNDLE.sedes as unknown as any[];
   const mergedSedes = sedesOverride
@@ -1227,6 +1227,7 @@ window.setObrasVisible=function(v){
     else{try{map.removeLayer(f);}catch(e){}}
   });
 };
+${obrasScript}
 <\/script>
 </body>
 </html>`;
@@ -1448,13 +1449,8 @@ export default function MapaScreen() {
   }, [relevLayers, webViewLoadCount]);
 
   // ── Obras: capa en el mapa ────────────────────────────────────────────────
-  const OBRA_TIPO_COLOR: Record<string, string> = {
-    terraplen: '#8D6E63', excavacion: '#FF7043',
-    ripio: '#90A4AE', canal: '#29B6F6', limpieza: '#66BB6A',
-  };
   const [obrasCapas, setObrasCapas] = useState<ObraCapa[]>([]);
   const [obrasOn, setObrasOn] = useState(true);
-  const obrasOnRef = useRef(true);
 
   // Fetch obras con geometría al montar
   useEffect(() => {
@@ -1469,32 +1465,6 @@ export default function MapaScreen() {
         }
       });
   }, []);
-
-  // Cargar features de obras en el WebView
-  useEffect(() => {
-    if (webViewLoadCount === 0) return;
-    let js = 'clearObrasFeatures();';
-    for (const o of obrasCapas) {
-      const color = OBRA_TIPO_COLOR[o.tipo] ?? '#888';
-      const rawLabel = (o.descripcion ?? o.ubicacion ?? o.tipo)
-        .replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-      if (o.coords_linea && o.coords_linea.length >= 2) {
-        const pts = JSON.stringify(o.coords_linea.map(p => [p.lat, p.lng]));
-        js += `addObraFeature(true,${pts},'${color}','${rawLabel}');`;
-      } else if (o.lat != null && o.lng != null) {
-        js += `addObraFeature(false,[[${o.lat},${o.lng}]],'${color}','${rawLabel}');`;
-      }
-    }
-    js += `setObrasVisible(${obrasOnRef.current});`;
-    webviewRef.current?.injectJavaScript(js + ' true;');
-  }, [obrasCapas, webViewLoadCount]);
-
-  // Toggle visibilidad
-  useEffect(() => {
-    if (webViewLoadCount === 0) return;
-    obrasOnRef.current = obrasOn;
-    webviewRef.current?.injectJavaScript(`setObrasVisible(${obrasOn}); true;`);
-  }, [obrasOn, webViewLoadCount]);
 
   // ── Relevamiento markers ──────────────────────────────────────────────────
   useEffect(() => {
@@ -1609,9 +1579,29 @@ export default function MapaScreen() {
     [consorcios]
   );
 
+  const OBRA_TIPO_COLOR_MAP: Record<string, string> = {
+    terraplen: '#8D6E63', excavacion: '#FF7043',
+    ripio: '#90A4AE', canal: '#29B6F6', limpieza: '#66BB6A',
+  };
+
+  const obrasScript = useMemo(() => {
+    let s = obrasOn ? '' : 'window._obrasVisible=false;';
+    for (const o of obrasCapas) {
+      const color = OBRA_TIPO_COLOR_MAP[o.tipo] ?? '#888';
+      const lbl = JSON.stringify(o.descripcion ?? o.ubicacion ?? o.tipo);
+      if (o.coords_linea && o.coords_linea.length >= 2) {
+        const pts = JSON.stringify(o.coords_linea.map(p => [p.lat, p.lng]));
+        s += `addObraFeature(true,${pts},${JSON.stringify(color)},${lbl});`;
+      } else if (o.lat != null && o.lng != null) {
+        s += `addObraFeature(false,[[${o.lat},${o.lng}]],${JSON.stringify(color)},${lbl});`;
+      }
+    }
+    return s;
+  }, [obrasCapas, obrasOn]);
+
   const mapHtml = useMemo(
-    () => buildMapHtml(sedesZonas, layers, sedesOverride),
-    [sedesZonas, layers, sedesOverride]
+    () => buildMapHtml(sedesZonas, layers, sedesOverride, obrasScript),
+    [sedesZonas, layers, sedesOverride, obrasScript]
   );
 
   const toggleZona = useCallback((zona: string) =>
