@@ -42,6 +42,11 @@ const CC_PER_ZONA: Record<string, number[]> = {
 };
 type CCZonaState = { expanded: boolean; allOn: boolean; ccs: Record<number, boolean> };
 
+const OBRA_COLOR: Record<string, string> = {
+  terraplen:'#8D6E63', excavacion:'#FF7043',
+  ripio:'#90A4AE', canal:'#29B6F6', limpieza:'#66BB6A',
+};
+
 type Layers = {
   basemap: boolean;
   zonaBoundaries: boolean;
@@ -1457,13 +1462,8 @@ export default function MapaScreen() {
   }, [relevLayers, webViewLoadCount]);
 
   // ── Obras: capa en el mapa ────────────────────────────────────────────────
-  const OBRA_COLOR: Record<string, string> = {
-    terraplen:'#8D6E63', excavacion:'#FF7043',
-    ripio:'#90A4AE', canal:'#29B6F6', limpieza:'#66BB6A',
-  };
   const [obrasCapas, setObrasCapas] = useState<ObraCapa[]>([]);
   const [obrasOn, setObrasOn]       = useState(true);
-  const obrasOnRef                  = useRef(true);
 
   useEffect(() => {
     supabase.from('obras')
@@ -1478,7 +1478,8 @@ export default function MapaScreen() {
       });
   }, []);
 
-  // Reconstruir features cuando llegan datos o el WebView recarga
+  // Único efecto: reconstruye features y aplica visibilidad actual
+  // Dispara ante: datos nuevos, toggle del usuario, recarga del WebView
   useEffect(() => {
     if (webViewLoadCount === 0) return;
     const calls = obrasCapas.map(o => {
@@ -1492,16 +1493,9 @@ export default function MapaScreen() {
       }
       return '';
     }).join('');
-    const js = `(function(){clearObrasFeatures();${calls}setObrasVisible(${obrasOnRef.current});})(); true;`;
+    const js = `(function(){clearObrasFeatures();${calls}setObrasVisible(${obrasOn});})(); true;`;
     webviewRef.current?.injectJavaScript(js);
-  }, [obrasCapas, webViewLoadCount]);
-
-  // Toggle de visibilidad — sin reconstruir
-  useEffect(() => {
-    if (webViewLoadCount === 0) return;
-    obrasOnRef.current = obrasOn;
-    webviewRef.current?.injectJavaScript(`setObrasVisible(${obrasOn}); true;`);
-  }, [obrasOn, webViewLoadCount]);
+  }, [obrasCapas, obrasOn, webViewLoadCount]);
 
   // ── Relevamiento markers ──────────────────────────────────────────────────
   useEffect(() => {
