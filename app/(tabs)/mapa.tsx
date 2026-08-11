@@ -1317,6 +1317,9 @@ export default function MapaScreen() {
   // Recargar relevamientos al volver al tab (sincroniza eliminaciones desde Reportes)
   useFocusEffect(useCallback(() => { reloadRelevamientos(); }, [reloadRelevamientos]));
 
+  // Ref para reaplica el highlight si el WebView recarga mientras el usuario está en la tab
+  const obraHLJsRef = useRef<string | null>(null);
+
   // ── Obras: mostrar marcador/polilínea al navegar desde la tab Obras ──────────
   useFocusEffect(useCallback(() => {
     AsyncStorage.getItem('sig_vial_obra_highlight').then(raw => {
@@ -1324,33 +1327,38 @@ export default function MapaScreen() {
       AsyncStorage.removeItem('sig_vial_obra_highlight');
       try {
         const { lat, lng, coordsLinea, label, color } = JSON.parse(raw);
-        const safeLabel = String(label).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"');
+        const lbl  = JSON.stringify(String(label));   // escaping seguro
+        const col  = JSON.stringify(String(color));
         let js: string;
         if (coordsLinea && coordsLinea.length >= 2) {
-          // Polilínea
           const pts = JSON.stringify(coordsLinea.map((p: {lat:number;lng:number}) => [p.lat, p.lng]));
           js = `(function(){
             if(window._obraHL){try{map.removeLayer(window._obraHL);}catch(e){}}
-            var pts=${pts};
-            window._obraHL=L.polyline(pts,{color:'${color}',weight:5,opacity:0.9}).addTo(map);
+            window._obraHL=L.polyline(${pts},{color:${col},weight:5,opacity:0.9}).addTo(map);
             map.fitBounds(window._obraHL.getBounds(),{padding:[40,40]});
           })(); true;`;
         } else {
-          // Marcador puntual
           js = `(function(){
             if(window._obraHL){try{map.removeLayer(window._obraHL);}catch(e){}}
-            var ic=L.divIcon({
-              html:'<div style="width:20px;height:20px;background:${color};border:3px solid #fff;border-radius:50%;box-shadow:0 2px 10px rgba(0,0,0,0.6)"></div>',
-              iconSize:[20,20],iconAnchor:[10,10],className:''
-            });
-            window._obraHL=L.marker([${lat},${lng}],{icon:ic}).addTo(map).bindPopup('<b>${safeLabel}</b>').openPopup();
+            var ic=L.divIcon({html:'<div style="width:20px;height:20px;background:'+${col}+';border:3px solid #fff;border-radius:50%;box-shadow:0 2px 10px rgba(0,0,0,.6)"></div>',iconSize:[20,20],iconAnchor:[10,10],className:''});
+            window._obraHL=L.marker([${lat},${lng}],{icon:ic}).addTo(map).bindPopup('<b>'+${lbl}+'</b>').openPopup();
             map.setView([${lat},${lng}],13);
           })(); true;`;
         }
+        obraHLJsRef.current = js;
         setTimeout(() => webviewRef.current?.injectJavaScript(js), 400);
       } catch { /* ignore */ }
     });
+    // Al perder el foco limpiar el highlight guardado
+    return () => { obraHLJsRef.current = null; };
   }, [])); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Reaplica el highlight si el WebView recargó (toggle otra capa) mientras el usuario está aquí
+  useEffect(() => {
+    if (webViewLoadCount === 0 || !obraHLJsRef.current) return;
+    const js = obraHLJsRef.current;
+    setTimeout(() => webviewRef.current?.injectJavaScript(js), 500);
+  }, [webViewLoadCount]);
 
   // ── Ripio: "Dibujar en mapa" iniciado desde el modal ────────────────────────
   const handleRequestDraw = useCallback(() => {
@@ -1449,22 +1457,51 @@ export default function MapaScreen() {
   }, [relevLayers, webViewLoadCount]);
 
   // ── Obras: capa en el mapa ────────────────────────────────────────────────
+  const OBRA_COLOR: Record<string, string> = {
+    terraplen:'#8D6E63', excavacion:'#FF7043',
+    ripio:'#90A4AE', canal:'#29B6F6', limpieza:'#66BB6A',
+  };
   const [obrasCapas, setObrasCapas] = useState<ObraCapa[]>([]);
-  const [obrasOn, setObrasOn] = useState(true);
+  const [obrasOn, setObrasOn]       = useState(true);
+  const obrasOnRef                  = useRef(true);
 
-  // Fetch obras con geometría al montar
   useEffect(() => {
     supabase.from('obras')
       .select('id,tipo,descripcion,ubicacion,estado,lat,lng,coords_linea')
       .eq('visible_para', 'todos')
       .then(({ data }) => {
-        if (data) {
-          setObrasCapas((data as ObraCapa[]).filter(
+        if (data) setObrasCapas(
+          (data as ObraCapa[]).filter(
             o => o.lat != null || (o.coords_linea && o.coords_linea.length >= 2)
-          ));
-        }
+          )
+        );
       });
   }, []);
+
+  // Reconstruir features cuando llegan datos o el WebView recarga
+  useEffect(() => {
+    if (webViewLoadCount === 0) return;
+    const calls = obrasCapas.map(o => {
+      const c = JSON.stringify(OBRA_COLOR[o.tipo] ?? '#888');
+      const l = JSON.stringify(o.descripcion ?? o.ubicacion ?? o.tipo);
+      if (o.coords_linea && o.coords_linea.length >= 2) {
+        return `addObraFeature(true,${JSON.stringify(o.coords_linea.map(p=>[p.lat,p.lng]))},${c},${l});`;
+      }
+      if (o.lat != null && o.lng != null) {
+        return `addObraFeature(false,[[${o.lat},${o.lng}]],${c},${l});`;
+      }
+      return '';
+    }).join('');
+    const js = `(function(){clearObrasFeatures();${calls}setObrasVisible(${obrasOnRef.current});})(); true;`;
+    webviewRef.current?.injectJavaScript(js);
+  }, [obrasCapas, webViewLoadCount]);
+
+  // Toggle de visibilidad — sin reconstruir
+  useEffect(() => {
+    if (webViewLoadCount === 0) return;
+    obrasOnRef.current = obrasOn;
+    webviewRef.current?.injectJavaScript(`setObrasVisible(${obrasOn}); true;`);
+  }, [obrasOn, webViewLoadCount]);
 
   // ── Relevamiento markers ──────────────────────────────────────────────────
   useEffect(() => {
@@ -1579,29 +1616,9 @@ export default function MapaScreen() {
     [consorcios]
   );
 
-  const OBRA_TIPO_COLOR_MAP: Record<string, string> = {
-    terraplen: '#8D6E63', excavacion: '#FF7043',
-    ripio: '#90A4AE', canal: '#29B6F6', limpieza: '#66BB6A',
-  };
-
-  const obrasScript = useMemo(() => {
-    let s = obrasOn ? '' : 'window._obrasVisible=false;';
-    for (const o of obrasCapas) {
-      const color = OBRA_TIPO_COLOR_MAP[o.tipo] ?? '#888';
-      const lbl = JSON.stringify(o.descripcion ?? o.ubicacion ?? o.tipo);
-      if (o.coords_linea && o.coords_linea.length >= 2) {
-        const pts = JSON.stringify(o.coords_linea.map(p => [p.lat, p.lng]));
-        s += `addObraFeature(true,${pts},${JSON.stringify(color)},${lbl});`;
-      } else if (o.lat != null && o.lng != null) {
-        s += `addObraFeature(false,[[${o.lat},${o.lng}]],${JSON.stringify(color)},${lbl});`;
-      }
-    }
-    return s;
-  }, [obrasCapas, obrasOn]);
-
   const mapHtml = useMemo(
-    () => buildMapHtml(sedesZonas, layers, sedesOverride, obrasScript),
-    [sedesZonas, layers, sedesOverride, obrasScript]
+    () => buildMapHtml(sedesZonas, layers, sedesOverride),
+    [sedesZonas, layers, sedesOverride]
   );
 
   const toggleZona = useCallback((zona: string) =>
