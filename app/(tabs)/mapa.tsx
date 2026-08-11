@@ -1493,7 +1493,11 @@ export default function MapaScreen() {
       }
       return '';
     }).join('');
-    const js = `(function(){clearObrasFeatures();${calls}setObrasVisible(${obrasOn});})(); true;`;
+    // Al apagar la capa, también quitar el highlight de navegación (_obraHL)
+    const hideHL = !obrasOn
+      ? `if(window._obraHL){try{map.removeLayer(window._obraHL);}catch(e){} window._obraHL=null;}`
+      : '';
+    const js = `(function(){clearObrasFeatures();${calls}setObrasVisible(${obrasOn});${hideHL}})(); true;`;
     webviewRef.current?.injectJavaScript(js);
   }, [obrasCapas, obrasOn, webViewLoadCount]);
 
