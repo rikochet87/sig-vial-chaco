@@ -1295,21 +1295,19 @@ export default function MapaScreen() {
         if (coordsLinea && coordsLinea.length >= 2) {
           // Polilínea
           const pts = JSON.stringify(coordsLinea.map((p: {lat:number;lng:number}) => [p.lat, p.lng]));
-          const col = color.replace(/#/g, '%23');
           js = `(function(){
             if(window._obraHL){try{map.removeLayer(window._obraHL);}catch(e){}}
             var pts=${pts};
-            window._obraHL=L.polyline(pts,{color:'${col}',weight:4,opacity:0.9}).addTo(map);
-            window._obraHL.bindPopup('<b>${safeLabel}</b>').openPopup();
-            map.fitBounds(window._obraHL.getBounds(),{padding:[30,30]});
+            window._obraHL=L.polyline(pts,{color:'${color}',weight:5,opacity:0.9}).addTo(map);
+            window._obraHL.bindPopup('<b>${safeLabel}</b>');
+            map.fitBounds(window._obraHL.getBounds(),{padding:[40,40]});
           })(); true;`;
         } else {
           // Marcador puntual
-          const col = color.replace(/#/g, '%23');
           js = `(function(){
             if(window._obraHL){try{map.removeLayer(window._obraHL);}catch(e){}}
             var ic=L.divIcon({
-              html:'<div style="width:20px;height:20px;background:${col};border:3px solid #fff;border-radius:50%;box-shadow:0 2px 10px rgba(0,0,0,0.6)"></div>',
+              html:'<div style="width:20px;height:20px;background:${color};border:3px solid #fff;border-radius:50%;box-shadow:0 2px 10px rgba(0,0,0,0.6)"></div>',
               iconSize:[20,20],iconAnchor:[10,10],className:''
             });
             window._obraHL=L.marker([${lat},${lng}],{icon:ic}).addTo(map).bindPopup('<b>${safeLabel}</b>').openPopup();
