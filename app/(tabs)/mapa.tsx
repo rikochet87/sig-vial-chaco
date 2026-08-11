@@ -1428,6 +1428,7 @@ export default function MapaScreen() {
   };
   const [obrasCapas, setObrasCapas] = useState<ObraCapa[]>([]);
   const [obrasOn, setObrasOn] = useState(true);
+  const obrasOnRef = useRef(true);
 
   // Fetch obras con geometría al montar
   useEffect(() => {
@@ -1443,7 +1444,7 @@ export default function MapaScreen() {
       });
   }, []);
 
-  // Inyectar capa obras en Leaflet
+  // Construir layer group cuando cambian los datos o recarga el WebView
   useEffect(() => {
     if (webViewLoadCount === 0) return;
     let js = 'if(window._obrasLG){try{map.removeLayer(window._obrasLG);}catch(e){}} window._obrasLG=L.layerGroup();';
@@ -1459,9 +1460,20 @@ export default function MapaScreen() {
         js += `L.circleMarker([${o.lat},${o.lng}],{radius:8,fillColor:'${color}',color:'#fff',weight:2,fillOpacity:0.9}).bindPopup(${popup}).addTo(window._obrasLG);`;
       }
     }
-    if (obrasOn) js += 'window._obrasLG.addTo(map);';
+    // Respetar visibilidad actual sin depender de obrasOn (usamos ref)
+    if (obrasOnRef.current) js += 'window._obrasLG.addTo(map);';
     webviewRef.current?.injectJavaScript(js + ' true;');
-  }, [obrasCapas, obrasOn, webViewLoadCount]);
+  }, [obrasCapas, webViewLoadCount]);
+
+  // Solo toggle visibilidad — no reconstruye el layer group
+  useEffect(() => {
+    if (webViewLoadCount === 0) return;
+    obrasOnRef.current = obrasOn;
+    const js = obrasOn
+      ? 'if(window._obrasLG && !map.hasLayer(window._obrasLG)){window._obrasLG.addTo(map);} true;'
+      : 'if(window._obrasLG){try{map.removeLayer(window._obrasLG);}catch(e){}} true;';
+    webviewRef.current?.injectJavaScript(js);
+  }, [obrasOn, webViewLoadCount]);
 
   // ── Relevamiento markers ──────────────────────────────────────────────────
   useEffect(() => {
