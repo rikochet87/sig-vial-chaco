@@ -1201,6 +1201,32 @@ function clearPickedPointMarker(){
     });
   });
 })();
+
+// ── Obras: capa dinámica ──────────────────────────────────────────────────
+window._obrasFeatures=[];
+window._obrasVisible=true;
+window.clearObrasFeatures=function(){
+  window._obrasFeatures.forEach(function(f){try{map.removeLayer(f);}catch(e){}});
+  window._obrasFeatures=[];
+};
+window.addObraFeature=function(isLine,coords,color,label){
+  var popup='<b style="font-family:monospace;font-size:12px">'+label+'</b>';
+  var f;
+  if(isLine){
+    f=L.polyline(coords,{color:color,weight:5,opacity:0.85}).bindPopup(popup);
+  } else {
+    f=L.circleMarker(coords[0],{radius:8,fillColor:color,color:'#fff',weight:2,fillOpacity:0.9}).bindPopup(popup);
+  }
+  window._obrasFeatures.push(f);
+  if(window._obrasVisible){f.addTo(map);}
+};
+window.setObrasVisible=function(v){
+  window._obrasVisible=v;
+  window._obrasFeatures.forEach(function(f){
+    if(v){if(!map.hasLayer(f)){f.addTo(map);}}
+    else{try{map.removeLayer(f);}catch(e){}}
+  });
+};
 <\/script>
 </body>
 </html>`;
@@ -1444,46 +1470,30 @@ export default function MapaScreen() {
       });
   }, []);
 
-  // Construir features de obras; define window.setObrasVisible para toggle
+  // Cargar features de obras en el WebView
   useEffect(() => {
     if (webViewLoadCount === 0) return;
-    // Limpiar features anteriores
-    let js = `
-      if(window._obrasFeatures){
-        window._obrasFeatures.forEach(function(f){try{map.removeLayer(f);}catch(e){}});
-      }
-      window._obrasFeatures=[];
-    `;
+    let js = 'clearObrasFeatures();';
     for (const o of obrasCapas) {
       const color = OBRA_TIPO_COLOR[o.tipo] ?? '#888';
-      const rawLabel = o.descripcion ?? o.ubicacion ?? o.tipo;
-      const lbl = rawLabel.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'\\"');
-      const popup = `'<b style="font-size:12px">${lbl}</b><br><span style="color:${color};font-size:10px;text-transform:uppercase">${o.tipo}</span>'`;
+      const rawLabel = (o.descripcion ?? o.ubicacion ?? o.tipo)
+        .replace(/\\/g, '\\\\').replace(/'/g, "\\'");
       if (o.coords_linea && o.coords_linea.length >= 2) {
         const pts = JSON.stringify(o.coords_linea.map(p => [p.lat, p.lng]));
-        js += `window._obrasFeatures.push(L.polyline(${pts},{color:'${color}',weight:5,opacity:0.85}).bindPopup(${popup}));`;
+        js += `addObraFeature(true,${pts},'${color}','${rawLabel}');`;
       } else if (o.lat != null && o.lng != null) {
-        js += `window._obrasFeatures.push(L.circleMarker([${o.lat},${o.lng}],{radius:8,fillColor:'${color}',color:'#fff',weight:2,fillOpacity:0.9}).bindPopup(${popup}));`;
+        js += `addObraFeature(false,[[${o.lat},${o.lng}]],'${color}','${rawLabel}');`;
       }
     }
-    // Función de toggle reutilizable desde React Native
-    js += `
-      window.setObrasVisible=function(v){
-        window._obrasFeatures.forEach(function(f){
-          if(v){if(!map.hasLayer(f)){f.addTo(map);}}
-          else{try{map.removeLayer(f);}catch(e){}}
-        });
-      };
-      window.setObrasVisible(${obrasOnRef.current});
-    `;
+    js += `setObrasVisible(${obrasOnRef.current});`;
     webviewRef.current?.injectJavaScript(js + ' true;');
   }, [obrasCapas, webViewLoadCount]);
 
-  // Toggle visibilidad — llama a la función ya definida en el WebView
+  // Toggle visibilidad
   useEffect(() => {
     if (webViewLoadCount === 0) return;
     obrasOnRef.current = obrasOn;
-    webviewRef.current?.injectJavaScript(`if(window.setObrasVisible){window.setObrasVisible(${obrasOn});} true;`);
+    webviewRef.current?.injectJavaScript(`setObrasVisible(${obrasOn}); true;`);
   }, [obrasOn, webViewLoadCount]);
 
   // ── Relevamiento markers ──────────────────────────────────────────────────
