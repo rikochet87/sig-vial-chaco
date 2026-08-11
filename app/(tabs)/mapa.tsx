@@ -1444,10 +1444,16 @@ export default function MapaScreen() {
       });
   }, []);
 
-  // Construir layer group cuando cambian los datos o recarga el WebView
+  // Construir features de obras; define window.setObrasVisible para toggle
   useEffect(() => {
     if (webViewLoadCount === 0) return;
-    let js = 'if(window._obrasLG){try{map.removeLayer(window._obrasLG);}catch(e){}} window._obrasLG=L.layerGroup();';
+    // Limpiar features anteriores
+    let js = `
+      if(window._obrasFeatures){
+        window._obrasFeatures.forEach(function(f){try{map.removeLayer(f);}catch(e){}});
+      }
+      window._obrasFeatures=[];
+    `;
     for (const o of obrasCapas) {
       const color = OBRA_TIPO_COLOR[o.tipo] ?? '#888';
       const rawLabel = o.descripcion ?? o.ubicacion ?? o.tipo;
@@ -1455,24 +1461,29 @@ export default function MapaScreen() {
       const popup = `'<b style="font-size:12px">${lbl}</b><br><span style="color:${color};font-size:10px;text-transform:uppercase">${o.tipo}</span>'`;
       if (o.coords_linea && o.coords_linea.length >= 2) {
         const pts = JSON.stringify(o.coords_linea.map(p => [p.lat, p.lng]));
-        js += `L.polyline(${pts},{color:'${color}',weight:5,opacity:0.85}).bindPopup(${popup}).addTo(window._obrasLG);`;
+        js += `window._obrasFeatures.push(L.polyline(${pts},{color:'${color}',weight:5,opacity:0.85}).bindPopup(${popup}));`;
       } else if (o.lat != null && o.lng != null) {
-        js += `L.circleMarker([${o.lat},${o.lng}],{radius:8,fillColor:'${color}',color:'#fff',weight:2,fillOpacity:0.9}).bindPopup(${popup}).addTo(window._obrasLG);`;
+        js += `window._obrasFeatures.push(L.circleMarker([${o.lat},${o.lng}],{radius:8,fillColor:'${color}',color:'#fff',weight:2,fillOpacity:0.9}).bindPopup(${popup}));`;
       }
     }
-    // Respetar visibilidad actual sin depender de obrasOn (usamos ref)
-    if (obrasOnRef.current) js += 'window._obrasLG.addTo(map);';
+    // Función de toggle reutilizable desde React Native
+    js += `
+      window.setObrasVisible=function(v){
+        window._obrasFeatures.forEach(function(f){
+          if(v){if(!map.hasLayer(f)){f.addTo(map);}}
+          else{try{map.removeLayer(f);}catch(e){}}
+        });
+      };
+      window.setObrasVisible(${obrasOnRef.current});
+    `;
     webviewRef.current?.injectJavaScript(js + ' true;');
   }, [obrasCapas, webViewLoadCount]);
 
-  // Solo toggle visibilidad — no reconstruye el layer group
+  // Toggle visibilidad — llama a la función ya definida en el WebView
   useEffect(() => {
     if (webViewLoadCount === 0) return;
     obrasOnRef.current = obrasOn;
-    const js = obrasOn
-      ? 'if(window._obrasLG && !map.hasLayer(window._obrasLG)){window._obrasLG.addTo(map);} true;'
-      : 'if(window._obrasLG){try{map.removeLayer(window._obrasLG);}catch(e){}} true;';
-    webviewRef.current?.injectJavaScript(js);
+    webviewRef.current?.injectJavaScript(`if(window.setObrasVisible){window.setObrasVisible(${obrasOn});} true;`);
   }, [obrasOn, webViewLoadCount]);
 
   // ── Relevamiento markers ──────────────────────────────────────────────────
