@@ -15,6 +15,7 @@ import { useRelevamientos } from '@/hooks/useRelevamientos';
 import { useConsorcios } from '@/hooks/useConsorcios';
 import RelevamientoModal from '@/components/RelevamientoModal';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/context/AuthContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Relevamiento } from '@/types/relevamiento';
 
@@ -1242,6 +1243,7 @@ ${obrasScript}
 export default function MapaScreen() {
   const webviewRef = useRef<WebView>(null);
   const C = useColors();
+  const { user } = useAuth();
   const { consorcios } = useConsorcios();
   const { width, height } = useWindowDimensions();
   const DRAWER_WIDTH = useMemo(() => Math.min(width * 0.78, 300), [width]);
@@ -1466,17 +1468,33 @@ export default function MapaScreen() {
   const [obrasOn, setObrasOn]       = useState(true);
 
   useEffect(() => {
-    supabase.from('obras')
-      .select('id,tipo,descripcion,ubicacion,estado,lat,lng,coords_linea')
-      .eq('visible_para', 'todos')
-      .then(({ data }) => {
-        if (data) setObrasCapas(
-          (data as ObraCapa[]).filter(
-            o => o.lat != null || (o.coords_linea && o.coords_linea.length >= 2)
-          )
-        );
-      });
-  }, []);
+    if (!user) return;
+    (async () => {
+      const { data: destRows } = await supabase
+        .from('obra_destinatarios')
+        .select('obra_id')
+        .eq('user_id', user.id);
+
+      const myIds: string[] = destRows?.map((r: { obra_id: string }) => r.obra_id) ?? [];
+
+      let query = supabase
+        .from('obras')
+        .select('id,tipo,descripcion,ubicacion,estado,lat,lng,coords_linea');
+
+      if (myIds.length > 0) {
+        query = query.or(`visible_para.eq.todos,id.in.(${myIds.join(',')})`);
+      } else {
+        query = query.eq('visible_para', 'todos');
+      }
+
+      const { data } = await query;
+      if (data) setObrasCapas(
+        (data as ObraCapa[]).filter(
+          o => o.lat != null || (o.coords_linea && o.coords_linea.length >= 2)
+        )
+      );
+    })();
+  }, [user]);
 
   // Único efecto: reconstruye features y aplica visibilidad actual
   // Dispara ante: datos nuevos, toggle del usuario, recarga del WebView
@@ -1505,6 +1523,8 @@ export default function MapaScreen() {
     const hideHL = !obrasOn
       ? `if(window._obraHL){try{map.removeLayer(window._obraHL);}catch(e){} window._obraHL=null;}`
       : '';
+    // Al volver a prender obras, restaurar el highlight de navegación si existe
+    const restoreHL = obrasOn && obraHLJsRef.current ? obraHLJsRef.current : '';
 
     const js = `(function(){
       window._obrasFeatures.forEach(function(f){try{map.removeLayer(f);}catch(e){}});
@@ -1514,6 +1534,7 @@ export default function MapaScreen() {
       ${hideHL}
     })(); true;`;
     webviewRef.current?.injectJavaScript(js);
+    if (restoreHL) webviewRef.current?.injectJavaScript(restoreHL);
   }, [obrasCapas, obrasOn, webViewLoadCount]);
 
   // ── Relevamiento markers ──────────────────────────────────────────────────
