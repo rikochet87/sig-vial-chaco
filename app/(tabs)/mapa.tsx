@@ -637,6 +637,7 @@ function ccHighlight(visLayer,baseStyle){
 }
 function ccReset(){if(_ccHL){_ccHL.setStyle(_ccHLStyle);_ccHL=null;_ccHLStyle=null;}}
 
+function ccDetToggle(btn){var id=btn.dataset.did;var d=document.getElementById(id);if(!d)return;var show=(d.style.display==='none');d.style.display=show?'block':'none';btn.textContent=show?'Ver menos ▴':'Ver más ▾';}
 function addCCData(cc,zona,gj){
   if(CC_LAYERS_CC[cc])return;
   CC_DATA_CC[cc]=gj;
@@ -670,26 +671,32 @@ function addCCData(cc,zona,gj){
       var nc=p.Nc||'';
       var baseStyle={color:zColor,weight:j==='PRIMARIA'?2.5:j==='SECUNDARIA'?1.8:1.2,opacity:0.85};
       var kmCC=calcLineKm(f);
-      var rowCC='<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #1e1e1e">';
-      var lblCC='<span style="font-size:10px;color:#666;width:90px">';
-      var valCC='<span style="font-size:12px;color:#e0e0e0;font-weight:600">';
+      var did='ccdet_'+ccNum+'_'+vi;
+      var row='<div style="display:flex;padding:4px 0;border-bottom:1px solid #1e1e1e;">';
+      var lb='<span style="font-size:10px;color:#555;width:85px;flex-shrink:0;">';
+      var vl='<span style="font-size:11px;color:#e0e0e0;font-weight:600;">';
       l.bindPopup(
-        '<div style="background:#111;border-radius:10px;overflow:hidden;font-family:sans-serif;min-width:210px;max-width:250px">'
-        +'<div style="background:'+zColor+';padding:10px 14px">'
-        +'<div style="font-size:10px;color:rgba(255,255,255,0.7);text-transform:uppercase;letter-spacing:1px">Red bajo Convenio CC<\/div>'
-        +'<div style="font-size:20px;font-weight:900;color:#fff;margin-top:2px">CC N° '+ccNum+'<\/div>'
-        +(nomenclatura?'<div style="font-size:11px;color:rgba(255,255,255,0.65);margin-top:2px">'+nomenclatura+'<\/div>':'')
+        '<div style="font-family:sans-serif;">'
+        +'<div style="background:'+zColor+';padding:8px 12px;display:flex;align-items:center;gap:8px;">'
+        +  '<div style="background:rgba(0,0,0,.25);width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:#fff;flex-shrink:0;">'+ccNum+'<\/div>'
+        +  '<div>'
+        +    '<div style="font-size:13px;font-weight:800;color:#fff;line-height:1.2;">CC N° '+ccNum+'<\/div>'
+        +    (nomenclatura?'<div style="font-size:10px;color:rgba(255,255,255,.6);">'+nomenclatura+'<\/div>':'')
+        +  '<\/div>'
         +'<\/div>'
-        +'<div style="padding:10px 14px">'
-        +(kmCC?rowCC+lblCC+'Longitud<\/span><span style="font-size:12px;color:#F5C300;font-weight:700">'+kmCC+' km<\/span><\/div>':'')
-        +rowCC+lblCC+vialLabel+'<\/span>'+valCC+vialNum+'<\/span><\/div>'
-        +(nc?rowCC+lblCC+'Nomenclatura<\/span><span style="font-size:11px;color:#e0e0e0;font-weight:600;font-family:monospace">'+nc+'<\/span><\/div>':'')
-        +rowCC+lblCC+'Jerarqu\u00eda<\/span>'+valCC+jLabel+'<\/span><\/div>'
-        +'<div style="display:flex;align-items:center;gap:8px;padding:5px 0">'
-        +lblCC+'Mantenimiento<\/span>'+valCC+mn+'<\/span><\/div>'
-        +'<\/div>'
-        +'<\/div>',
-        {className:'dark-popup',closeButton:true,maxWidth:260}
+        +'<div style="padding:8px 12px;background:#111;">'
+        +  '<div style="display:flex;gap:6px;margin-bottom:6px;">'
+        +    (kmCC?'<div style="flex:1;background:#1a1a1a;border-radius:4px;padding:6px 8px;"><div style="font-size:9px;color:#555;text-transform:uppercase;letter-spacing:.5px;">Longitud<\/div><div style="font-size:14px;color:#F5C300;font-weight:800;">'+kmCC+' km<\/div><\/div>':'')
+        +    '<div style="flex:1;background:#1a1a1a;border-radius:4px;padding:6px 8px;"><div style="font-size:9px;color:#555;text-transform:uppercase;letter-spacing:.5px;">Jerarqu\u00eda<\/div><div style="font-size:14px;color:'+jColor+';font-weight:800;">'+jLabel+'<\/div><\/div>'
+        +  '<\/div>'
+        +  '<div id="'+did+'" style="display:none;">'
+        +    row+lb+vialLabel+'<\/span>'+vl+vialNum+'<\/span><\/div>'
+        +    (nc?row+lb+'Nomenclatura<\/span><span style="font-size:10px;color:#e0e0e0;font-weight:600;font-family:monospace;">'+nc+'<\/span><\/div>':'')
+        +    '<div style="display:flex;padding:4px 0;">'+lb+'Mantenimiento<\/span>'+vl+mn+'<\/span><\/div>'
+        +  '<\/div>'
+        +  '<button data-did="'+did+'" onclick="ccDetToggle(this)" style="margin-top:6px;width:100%;background:transparent;border:1px solid #2a2a2a;color:#555;padding:5px;border-radius:4px;font-size:10px;cursor:pointer;font-family:monospace;">Ver m\u00e1s \u25be<\/button>'
+        +'<\/div><\/div>',
+        {className:'dark-popup',closeButton:true,maxWidth:230}
       );
       l.on('click',function(){if(visLayers[vi])ccHighlight(visLayers[vi],baseStyle);});
       l.on('popupclose',function(){ccReset();});
