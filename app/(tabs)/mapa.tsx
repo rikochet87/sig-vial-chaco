@@ -1398,14 +1398,14 @@ export default function MapaScreen() {
           const pts = JSON.stringify(coordsLinea.map((p: {lat:number;lng:number}) => [p.lat, p.lng]));
           js = `(function(){
             if(window._obraHL){try{map.removeLayer(window._obraHL);}catch(e){}}
-            window._obraHL=L.polyline(${pts},{color:${col},weight:5,opacity:0.9}).addTo(map);
+            window._obraHL=L.polyline(${pts},{color:${col},weight:5,opacity:0.9,interactive:false}).addTo(map);
             map.fitBounds(window._obraHL.getBounds(),{padding:[40,40]});
           })(); true;`;
         } else {
           js = `(function(){
             if(window._obraHL){try{map.removeLayer(window._obraHL);}catch(e){}}
             var ic=L.divIcon({html:'<div style="width:20px;height:20px;background:'+${col}+';border:3px solid #fff;border-radius:50%;box-shadow:0 2px 10px rgba(0,0,0,.6)"></div>',iconSize:[20,20],iconAnchor:[10,10],className:''});
-            window._obraHL=L.marker([${lat},${lng}],{icon:ic}).addTo(map).bindPopup('<b>'+${lbl}+'</b>').openPopup();
+            window._obraHL=L.marker([${lat},${lng}],{icon:ic,interactive:false}).addTo(map);
             map.setView([${lat},${lng}],13);
           })(); true;`;
         }
@@ -1580,8 +1580,11 @@ export default function MapaScreen() {
     const hideHL = !obrasOn
       ? `if(window._obraHL){try{map.removeLayer(window._obraHL);}catch(e){} window._obraHL=null;}`
       : '';
-    // Al volver a prender obras, restaurar el highlight de navegación si existe
-    const restoreHL = obrasOn && obraHLJsRef.current ? obraHLJsRef.current : '';
+    // Solo restaurar _obraHL si obras está prendida Y la obra NO está ya en obrasCapas
+    // (si está en obrasCapas, _obrasFeatures la muestra con popup; _obraHL encima bloquearía el tap)
+    const hlJs = obraHLJsRef.current;
+    const obraEnCapa = obrasCapas.length > 0;
+    const restoreHL = obrasOn && hlJs && !obraEnCapa ? hlJs : '';
 
     const js = `(function(){
       window._obrasFeatures.forEach(function(f){try{map.removeLayer(f);}catch(e){}});
