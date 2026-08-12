@@ -74,8 +74,62 @@ const RELEV_TIPOS = ['Puente', 'Alcantarilla', 'Tubos', 'Lineal', 'Otro'] as con
 interface ObraCapa {
   id: string; tipo: string;
   descripcion: string | null; ubicacion: string | null; estado: string | null;
+  consorcio_numero: number | null;
+  cantidad: number | null; unidad: string | null;
+  presupuesto_total: number | null;
+  fecha_inicio: string | null; fecha_fin_estimada: string | null;
   lat: number | null; lng: number | null;
   coords_linea: Array<{lat: number; lng: number}> | null;
+}
+
+const OBRA_TIPO_LABEL: Record<string, string> = {
+  terraplen:'Terraplén', excavacion:'Excavación',
+  ripio:'Ripio', canal:'Canal', limpieza:'Limpieza Vial',
+};
+const OBRA_ESTADO_LABEL: Record<string, string> = {
+  planificada:'Planificada', en_curso:'En curso', ejecutada:'Ejecutada',
+};
+const OBRA_ESTADO_COLOR: Record<string, string> = {
+  planificada:'#F5C300', en_curso:'#66BB6A', ejecutada:'#90A4AE',
+};
+
+function buildObraPopup(o: ObraCapa): string {
+  const color      = OBRA_COLOR[o.tipo] ?? '#888';
+  const tipoLabel  = OBRA_TIPO_LABEL[o.tipo] ?? o.tipo;
+  const estLabel   = OBRA_ESTADO_LABEL[o.estado ?? ''] ?? (o.estado ?? '');
+  const estColor   = OBRA_ESTADO_COLOR[o.estado ?? ''] ?? '#888';
+  const fmtFecha   = (s: string | null) => {
+    if (!s) return null;
+    const [y, m, d] = s.split('-');
+    return `${d}/${m}/${y}`;
+  };
+  const fmtPesos   = (n: number | null) =>
+    n != null ? `$ ${Math.round(n).toLocaleString('es-AR')}` : null;
+
+  let rows = '';
+  if (o.descripcion)
+    rows += `<div style="font-size:12px;color:#e0e0e0;margin-bottom:4px;">${o.descripcion}</div>`;
+  if (o.ubicacion)
+    rows += `<div style="font-size:11px;color:#aaa;margin-bottom:3px;">📍 ${o.ubicacion}</div>`;
+  if (o.consorcio_numero)
+    rows += `<div style="font-size:11px;color:#bbb;margin-bottom:3px;">CC N° ${o.consorcio_numero}</div>`;
+  if (o.cantidad != null && o.unidad)
+    rows += `<div style="font-size:11px;color:#ccc;margin-bottom:3px;">📦 ${o.cantidad} ${o.unidad}</div>`;
+  const pp = fmtPesos(o.presupuesto_total);
+  if (pp)
+    rows += `<div style="font-size:11px;color:#F5C300;margin-bottom:3px;">💰 ${pp}</div>`;
+  const fi = fmtFecha(o.fecha_inicio);
+  const ff = fmtFecha(o.fecha_fin_estimada);
+  if (fi || ff)
+    rows += `<div style="font-size:10px;color:#888;">📅 ${fi ?? '—'} → ${ff ?? '—'}</div>`;
+
+  return `<div style="font-family:monospace;min-width:170px;max-width:240px;">
+    <div style="background:${color};padding:6px 10px;display:flex;justify-content:space-between;align-items:center;gap:8px;">
+      <span style="color:#fff;font-size:12px;font-weight:700;">${tipoLabel}</span>
+      <span style="color:#fff;font-size:10px;background:${estColor};padding:2px 8px;border-radius:10px;white-space:nowrap;">${estLabel}</span>
+    </div>
+    <div style="padding:8px 10px;">${rows || '<span style="color:#666;font-size:11px;">Sin detalle</span>'}</div>
+  </div>`;
 }
 
 type SedesAutoriadadesOverride = Record<number, {
@@ -151,9 +205,9 @@ html,body,#map{width:100%;height:100vh;background:#f0ebe3}
 .rn-popup .leaflet-popup-content{margin:0!important;width:auto!important;}
 /* En modo dibujo, los paths interactivos no capturan clicks */
 .draw-mode .leaflet-interactive{pointer-events:none!important;}
-/* Popup de obras: ancho automático, texto claro */
-.obra-popup .leaflet-popup-content{width:auto!important;padding:6px 10px;}
-.obra-popup .leaflet-popup-content b{color:#e0e0e0;}
+/* Popup de obras: ancho automático, sin padding extra (el HTML interno lo maneja) */
+.obra-popup .leaflet-popup-content-wrapper{padding:0;overflow:hidden;}
+.obra-popup .leaflet-popup-content{width:auto!important;margin:0;padding:0;}
 </style>
 </head>
 <body>
@@ -1482,7 +1536,7 @@ export default function MapaScreen() {
 
       let query = supabase
         .from('obras')
-        .select('id,tipo,descripcion,ubicacion,estado,lat,lng,coords_linea');
+        .select('id,tipo,descripcion,ubicacion,estado,consorcio_numero,cantidad,unidad,presupuesto_total,fecha_inicio,fecha_fin_estimada,lat,lng,coords_linea');
 
       if (myIds.length > 0) {
         query = query.or(`visible_para.eq.todos,id.in.(${myIds.join(',')})`);
@@ -1507,9 +1561,9 @@ export default function MapaScreen() {
     // Construir features inline: siempre se agregan al mapa primero,
     // luego se ocultan si obrasOn=false. Sin dependencia de _obrasVisible.
     const addCalls = obrasCapas.map(o => {
-      const c = JSON.stringify(OBRA_COLOR[o.tipo] ?? '#888');
-      const l = JSON.stringify(o.descripcion ?? o.ubicacion ?? o.tipo);
-      const popup = `L.popup({className:'obra-popup'}).setContent('<b style="font-family:monospace;font-size:12px">'+${l}+'</b>')`;
+      const c     = JSON.stringify(OBRA_COLOR[o.tipo] ?? '#888');
+      const html  = JSON.stringify(buildObraPopup(o));
+      const popup = `L.popup({className:'obra-popup'}).setContent(${html})`;
       if (o.coords_linea && o.coords_linea.length >= 2) {
         const pts = JSON.stringify(o.coords_linea.map(p => [p.lat, p.lng]));
         return `(function(){var f=L.polyline(${pts},{color:${c},weight:5,opacity:0.85}).bindPopup(${popup});window._obrasFeatures.push(f);f.addTo(map);})();`;
