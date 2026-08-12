@@ -1482,24 +1482,37 @@ export default function MapaScreen() {
   // Dispara ante: datos nuevos, toggle del usuario, recarga del WebView
   useEffect(() => {
     if (webViewLoadCount === 0) return;
-    const calls = obrasCapas.map(o => {
+
+    // Construir features inline: siempre se agregan al mapa primero,
+    // luego se ocultan si obrasOn=false. Sin dependencia de _obrasVisible.
+    const addCalls = obrasCapas.map(o => {
       const c = JSON.stringify(OBRA_COLOR[o.tipo] ?? '#888');
       const l = JSON.stringify(o.descripcion ?? o.ubicacion ?? o.tipo);
+      const popup = `'<b style="font-family:monospace;font-size:12px">'+${l}+'</b>'`;
       if (o.coords_linea && o.coords_linea.length >= 2) {
-        return `addObraFeature(true,${JSON.stringify(o.coords_linea.map(p=>[p.lat,p.lng]))},${c},${l});`;
+        const pts = JSON.stringify(o.coords_linea.map(p => [p.lat, p.lng]));
+        return `(function(){var f=L.polyline(${pts},{color:${c},weight:5,opacity:0.85}).bindPopup(${popup});window._obrasFeatures.push(f);f.addTo(map);})();`;
       }
       if (o.lat != null && o.lng != null) {
-        return `addObraFeature(false,[[${o.lat},${o.lng}]],${c},${l});`;
+        return `(function(){var f=L.circleMarker([${o.lat},${o.lng}],{radius:8,fillColor:${c},color:'#fff',weight:2,fillOpacity:0.9}).bindPopup(${popup});window._obrasFeatures.push(f);f.addTo(map);})();`;
       }
       return '';
     }).join('');
-    // Al apagar la capa, también quitar el highlight de navegación (_obraHL)
+
+    const hideAll = !obrasOn
+      ? `window._obrasFeatures.forEach(function(f){try{map.removeLayer(f);}catch(e){}});`
+      : '';
     const hideHL = !obrasOn
       ? `if(window._obraHL){try{map.removeLayer(window._obraHL);}catch(e){} window._obraHL=null;}`
       : '';
-    // Forzar _obrasVisible=true antes de addObraFeature para que los features
-    // siempre se agreguen al mapa; luego setObrasVisible aplica la visibilidad real.
-    const js = `(function(){clearObrasFeatures();window._obrasVisible=true;${calls}setObrasVisible(${obrasOn});${hideHL}})(); true;`;
+
+    const js = `(function(){
+      window._obrasFeatures.forEach(function(f){try{map.removeLayer(f);}catch(e){}});
+      window._obrasFeatures=[];
+      ${addCalls}
+      ${hideAll}
+      ${hideHL}
+    })(); true;`;
     webviewRef.current?.injectJavaScript(js);
   }, [obrasCapas, obrasOn, webViewLoadCount]);
 
