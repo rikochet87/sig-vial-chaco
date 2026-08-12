@@ -94,42 +94,63 @@ const OBRA_ESTADO_COLOR: Record<string, string> = {
 };
 
 function buildObraPopup(o: ObraCapa): string {
-  const color      = OBRA_COLOR[o.tipo] ?? '#888';
-  const tipoLabel  = OBRA_TIPO_LABEL[o.tipo] ?? o.tipo;
-  const estLabel   = OBRA_ESTADO_LABEL[o.estado ?? ''] ?? (o.estado ?? '');
-  const estColor   = OBRA_ESTADO_COLOR[o.estado ?? ''] ?? '#888';
-  const fmtFecha   = (s: string | null) => {
+  const color     = OBRA_COLOR[o.tipo] ?? '#888';
+  const tipoLabel = OBRA_TIPO_LABEL[o.tipo] ?? o.tipo;
+  const estLabel  = OBRA_ESTADO_LABEL[o.estado ?? ''] ?? (o.estado ?? '');
+  const estColor  = OBRA_ESTADO_COLOR[o.estado ?? ''] ?? '#888';
+  const icon      = tipoLabel.charAt(0).toUpperCase();
+
+  const fmtFecha = (s: string | null) => {
     if (!s) return null;
     const [y, m, d] = s.split('-');
     return `${d}/${m}/${y}`;
   };
-  const fmtPesos   = (n: number | null) =>
+  const fmtPesos = (n: number | null) =>
     n != null ? `$ ${Math.round(n).toLocaleString('es-AR')}` : null;
 
-  let rows = '';
+  const subtitle = [
+    estLabel,
+    o.consorcio_numero ? `CC N° ${o.consorcio_numero}` : null,
+  ].filter(Boolean).join(' · ');
+
+  let body = '';
+
   if (o.descripcion)
-    rows += `<div style="font-size:12px;color:#e0e0e0;margin-bottom:4px;">${o.descripcion}</div>`;
+    body += `<div class="ps">Descripción</div>`
+          + `<div style="font-size:12px;color:#e0e0e0;margin-bottom:8px;">${o.descripcion}</div>`;
+
   if (o.ubicacion)
-    rows += `<div style="font-size:11px;color:#aaa;margin-bottom:3px;">📍 ${o.ubicacion}</div>`;
-  if (o.consorcio_numero)
-    rows += `<div style="font-size:11px;color:#bbb;margin-bottom:3px;">CC N° ${o.consorcio_numero}</div>`;
-  if (o.cantidad != null && o.unidad)
-    rows += `<div style="font-size:11px;color:#ccc;margin-bottom:3px;">📦 ${o.cantidad} ${o.unidad}</div>`;
+    body += `<div class="ps" style="margin-top:4px">Ubicación</div>`
+          + `<div style="font-size:11px;color:#aaa;margin-bottom:8px;">${o.ubicacion}</div>`;
+
   const pp = fmtPesos(o.presupuesto_total);
+  const stats: string[] = [];
+  if (o.cantidad != null && o.unidad)
+    stats.push(`<div class="kc"><div class="kv">${o.cantidad} ${o.unidad}</div><div class="kl">Cantidad</div></div>`);
   if (pp)
-    rows += `<div style="font-size:11px;color:#F5C300;margin-bottom:3px;">💰 ${pp}</div>`;
+    stats.push(`<div class="kc"><div class="kv" style="color:#F5C300">${pp}</div><div class="kl">Presupuesto</div></div>`);
+  if (stats.length)
+    body += `<div class="kg">${stats.join('')}</div>`;
+
   const fi = fmtFecha(o.fecha_inicio);
   const ff = fmtFecha(o.fecha_fin_estimada);
   if (fi || ff)
-    rows += `<div style="font-size:10px;color:#888;">📅 ${fi ?? '—'} → ${ff ?? '—'}</div>`;
+    body += `<div style="margin-top:8px;font-size:10px;color:#555;">📅 ${fi ?? '—'} → ${ff ?? '—'}</div>`;
 
-  return `<div style="font-family:monospace;min-width:170px;max-width:240px;">
-    <div style="background:${color};padding:6px 10px;display:flex;justify-content:space-between;align-items:center;gap:8px;">
-      <span style="color:#fff;font-size:12px;font-weight:700;">${tipoLabel}</span>
-      <span style="color:#fff;font-size:10px;background:${estColor};padding:2px 8px;border-radius:10px;white-space:nowrap;">${estLabel}</span>
-    </div>
-    <div style="padding:8px 10px;">${rows || '<span style="color:#666;font-size:11px;">Sin detalle</span>'}</div>
-  </div>`;
+  if (!body)
+    body = `<div style="font-size:11px;color:#555;">Sin detalle</div>`;
+
+  return `<div>`
+    + `<div class="ph" style="background:${color}">`
+    +   `<div class="pn">${icon}</div>`
+    +   `<div>`
+    +     `<div class="pl">${tipoLabel}</div>`
+    +     `<div class="pz">${subtitle}</div>`
+    +   `</div>`
+    +   `<div style="margin-left:auto;background:${estColor};color:#fff;font-size:9px;font-weight:700;padding:2px 7px;border-radius:10px;white-space:nowrap;">${estLabel}</div>`
+    + `</div>`
+    + `<div class="pb">${body}</div>`
+    + `</div>`;
 }
 
 type SedesAutoriadadesOverride = Record<number, {
@@ -205,9 +226,6 @@ html,body,#map{width:100%;height:100vh;background:#f0ebe3}
 .rn-popup .leaflet-popup-content{margin:0!important;width:auto!important;}
 /* En modo dibujo, los paths interactivos no capturan clicks */
 .draw-mode .leaflet-interactive{pointer-events:none!important;}
-/* Popup de obras: ancho automático, sin padding extra (el HTML interno lo maneja) */
-.obra-popup .leaflet-popup-content-wrapper{padding:0;overflow:hidden;}
-.obra-popup .leaflet-popup-content{width:auto!important;margin:0;padding:0;}
 </style>
 </head>
 <body>
@@ -1562,8 +1580,7 @@ export default function MapaScreen() {
     // luego se ocultan si obrasOn=false. Sin dependencia de _obrasVisible.
     const addCalls = obrasCapas.map(o => {
       const c     = JSON.stringify(OBRA_COLOR[o.tipo] ?? '#888');
-      const html  = JSON.stringify(buildObraPopup(o));
-      const popup = `L.popup({className:'obra-popup'}).setContent(${html})`;
+      const popup = JSON.stringify(buildObraPopup(o)); // string literal para bindPopup()
       if (o.coords_linea && o.coords_linea.length >= 2) {
         const pts = JSON.stringify(o.coords_linea.map(p => [p.lat, p.lng]));
         return `(function(){var f=L.polyline(${pts},{color:${c},weight:5,opacity:0.85}).bindPopup(${popup});window._obrasFeatures.push(f);f.addTo(map);})();`;
