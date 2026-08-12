@@ -125,87 +125,129 @@ function ObraCard({ obra, expanded, onToggle }: {
       {/* Accent bar */}
       <View style={[s.accent, { backgroundColor: color }]} />
 
-      {/* Header — siempre visible */}
-      <TouchableOpacity style={s.cardHeader} onPress={onToggle} activeOpacity={0.75}>
-        <View style={s.cardHeaderLeft}>
-          <Text style={[s.cardTipo, { color }]}>
-            {expanded ? '▾ ' : '▸ '}{TIPO_LABEL[obra.tipo] ?? obra.tipo}
-          </Text>
-          <Text style={s.cardUbic} numberOfLines={1}>{ubicLabel}</Text>
-          {!expanded && obra.descripcion ? (
-            <Text style={s.cardDesc} numberOfLines={1}>{obra.descripcion}</Text>
-          ) : null}
-        </View>
-        <View style={s.cardHeaderRight}>
-          <View style={[s.estadoBadge, { borderColor: estadoColor }]}>
-            <Text style={[s.estadoText, { color: estadoColor }]}>
-              {ESTADO_LABEL[obra.estado ?? ''] ?? obra.estado ?? '—'}
+      {/* Columna principal — header + detalle apilados verticalmente */}
+      <View style={{ flex: 1 }}>
+
+        {/* Header — siempre visible */}
+        <TouchableOpacity style={s.cardHeader} onPress={onToggle} activeOpacity={0.75}>
+          <View style={s.cardHeaderLeft}>
+            <Text style={[s.cardTipo, { color }]}>
+              {expanded ? '▾ ' : '▸ '}{TIPO_LABEL[obra.tipo] ?? obra.tipo}
             </Text>
+            <Text style={s.cardUbic} numberOfLines={1}>{ubicLabel}</Text>
+            {!expanded && obra.descripcion ? (
+              <Text style={s.cardDesc} numberOfLines={1}>{obra.descripcion}</Text>
+            ) : null}
           </View>
-          {!expanded && (
-            <Text style={s.cardPres}>{fmtPesos(obra.presupuesto_total)}</Text>
-          )}
-        </View>
-      </TouchableOpacity>
+          <View style={s.cardHeaderRight}>
+            <View style={[s.estadoBadge, { borderColor: estadoColor }]}>
+              <Text style={[s.estadoText, { color: estadoColor }]}>
+                {ESTADO_LABEL[obra.estado ?? ''] ?? obra.estado ?? '—'}
+              </Text>
+            </View>
+            {!expanded && (
+              <Text style={s.cardPres}>{fmtPesos(obra.presupuesto_total)}</Text>
+            )}
+          </View>
+        </TouchableOpacity>
 
-      {/* Detalle — solo expandido */}
-      {expanded && (
-        <View style={s.detalle}>
-          <View style={s.divider} />
+        {/* Detalle — solo expandido */}
+        {expanded && (
+          <View style={s.detalle}>
+            <View style={s.divider} />
 
-          {/* Presupuesto */}
-          <Text style={s.seccion}>Presupuesto</Text>
-          <Campo label="Total" value={fmtPesos(obra.presupuesto_total)} accent={color} />
-          <Campo label="Aporte Provincial" value={fmtPesos(obra.aporte_dvp)} />
-          <Campo label="Aporte Consorcio"  value={fmtPesos(obra.aporte_ccc)} />
-          {obra.cantidad != null && (
-            <>
-              <Campo label="Cantidad"    value={`${Number(obra.cantidad).toLocaleString('es-AR', { maximumFractionDigits: 2 })} ${obra.unidad ?? ''}`} />
-              <Campo label="P. unitario" value={fmtPesos(obra.precio_unitario)} />
-            </>
-          )}
+            {/* Presupuesto total destacado */}
+            {obra.presupuesto_total != null && (
+              <View style={s.presBox}>
+                <Text style={s.presLabel}>Presupuesto total</Text>
+                <Text style={[s.presValue, { color }]}>{fmtPesos(obra.presupuesto_total)}</Text>
+              </View>
+            )}
 
-          {/* Tramo / Descripción */}
-          {obra.descripcion ? (
-            <>
-              <Text style={s.seccion}>Tramo / Descripción</Text>
-              <Text style={s.detalleText}>{obra.descripcion}</Text>
-            </>
-          ) : null}
+            {/* Aportes + cantidad en grid 2 columnas */}
+            <View style={s.grid}>
+              {obra.aporte_dvp != null && (
+                <View style={s.gridCell}>
+                  <Text style={s.gridLabel}>Ap. Provincial</Text>
+                  <Text style={s.gridValue}>{fmtPesos(obra.aporte_dvp)}</Text>
+                </View>
+              )}
+              {obra.aporte_ccc != null && (
+                <View style={s.gridCell}>
+                  <Text style={s.gridLabel}>Ap. Consorcio</Text>
+                  <Text style={s.gridValue}>{fmtPesos(obra.aporte_ccc)}</Text>
+                </View>
+              )}
+              {obra.cantidad != null && (
+                <View style={s.gridCell}>
+                  <Text style={s.gridLabel}>Cantidad</Text>
+                  <Text style={s.gridValue}>
+                    {Number(obra.cantidad).toLocaleString('es-AR', { maximumFractionDigits: 2 })} {obra.unidad ?? ''}
+                  </Text>
+                </View>
+              )}
+              {obra.precio_unitario != null && (
+                <View style={s.gridCell}>
+                  <Text style={s.gridLabel}>P. unitario</Text>
+                  <Text style={s.gridValue}>{fmtPesos(obra.precio_unitario)}</Text>
+                </View>
+              )}
+            </View>
 
-          {/* Fechas — solo si hay alguna */}
-          {(obra.fecha_inicio || obra.fecha_fin_estimada) && (
-            <>
-              <Text style={s.seccion}>Fechas</Text>
-              {obra.fecha_inicio      && <Campo label="Inicio"   value={fmtFecha(obra.fecha_inicio)} />}
-              {obra.fecha_fin_estimada && <Campo label="Fin est." value={fmtFecha(obra.fecha_fin_estimada)} />}
-            </>
-          )}
+            {/* Tramo / Descripción */}
+            {obra.descripcion ? (
+              <>
+                <Text style={s.seccion}>Tramo / Descripción</Text>
+                <Text style={s.detalleText}>{obra.descripcion}</Text>
+              </>
+            ) : null}
 
-          {/* Consorcio */}
-          {consorcio && (
-            <>
-              <Text style={s.seccion}>Consorcio</Text>
-              <Campo label="Nombre"   value={consorcio.nombre.replace(/Consorcio Caminero N[°º]?\s*/i, 'CC ')} />
-              <Campo label="Zona"     value={consorcio.zona} />
-              <Campo label="Red vial" value={`${consorcio.redKm.toLocaleString('es-AR')} km`} />
-            </>
-          )}
-          {!consorcio && obra.ubicacion && (
-            <>
-              <Text style={s.seccion}>Ubicación</Text>
-              <Campo label="Descripción" value={obra.ubicacion} />
-            </>
-          )}
+            {/* Fechas */}
+            {(obra.fecha_inicio || obra.fecha_fin_estimada) && (
+              <>
+                <Text style={s.seccion}>Fechas</Text>
+                <View style={s.grid}>
+                  {obra.fecha_inicio && (
+                    <View style={s.gridCell}>
+                      <Text style={s.gridLabel}>Inicio</Text>
+                      <Text style={s.gridValue}>{fmtFecha(obra.fecha_inicio)}</Text>
+                    </View>
+                  )}
+                  {obra.fecha_fin_estimada && (
+                    <View style={s.gridCell}>
+                      <Text style={s.gridLabel}>Fin estimado</Text>
+                      <Text style={s.gridValue}>{fmtFecha(obra.fecha_fin_estimada)}</Text>
+                    </View>
+                  )}
+                </View>
+              </>
+            )}
 
-          {/* Botón Ver en mapa */}
-          {hasLocation && (
-            <TouchableOpacity style={[s.btnMapa, { borderColor: color + '66' }]} onPress={handleVerEnMapa} activeOpacity={0.8}>
-              <Text style={[s.btnMapaText, { color }]}>🗺  Ver en mapa</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      )}
+            {/* Consorcio */}
+            {consorcio && (
+              <>
+                <Text style={s.seccion}>Consorcio</Text>
+                <Campo label="Nombre"   value={consorcio.nombre.replace(/Consorcio Caminero N[°º]?\s*/i, 'CC ')} />
+                <Campo label="Zona"     value={consorcio.zona} />
+                <Campo label="Red vial" value={`${consorcio.redKm.toLocaleString('es-AR')} km`} />
+              </>
+            )}
+            {!consorcio && obra.ubicacion && (
+              <>
+                <Text style={s.seccion}>Ubicación</Text>
+                <Campo label="Descripción" value={obra.ubicacion} />
+              </>
+            )}
+
+            {/* Botón Ver en mapa */}
+            {hasLocation && (
+              <TouchableOpacity style={[s.btnMapa, { borderColor: color + '66' }]} onPress={handleVerEnMapa} activeOpacity={0.8}>
+                <Text style={[s.btnMapaText, { color }]}>🗺  Ver en mapa</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+      </View>
     </View>
   );
 }
@@ -362,4 +404,15 @@ const s = StyleSheet.create({
 
   btnMapa:     { marginTop: 16, borderWidth: 1, borderRadius: 3, paddingVertical: 10, alignItems: 'center' },
   btnMapaText: { fontSize: 12, fontFamily: 'monospace', fontWeight: '700', letterSpacing: 0.5 },
+
+  // Presupuesto destacado
+  presBox:   { marginBottom: 10, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: '#1e1e1e' },
+  presLabel: { fontSize: 9, color: '#444', fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: 1 },
+  presValue: { fontSize: 22, fontWeight: '800', fontFamily: 'monospace', marginTop: 2 },
+
+  // Grid 2 columnas
+  grid:      { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 },
+  gridCell:  { flex: 1, minWidth: '45%', backgroundColor: '#1a1a1a', borderRadius: 4, padding: 8 },
+  gridLabel: { fontSize: 9, color: '#444', fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 },
+  gridValue: { fontSize: 12, color: '#aaa', fontFamily: 'monospace', fontWeight: '600' },
 });
