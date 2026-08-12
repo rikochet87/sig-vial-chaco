@@ -151,6 +151,9 @@ html,body,#map{width:100%;height:100vh;background:#f0ebe3}
 .rn-popup .leaflet-popup-content{margin:0!important;width:auto!important;}
 /* En modo dibujo, los paths interactivos no capturan clicks */
 .draw-mode .leaflet-interactive{pointer-events:none!important;}
+/* Popup de obras: ancho automático, texto claro */
+.obra-popup .leaflet-popup-content{width:auto!important;padding:6px 10px;}
+.obra-popup .leaflet-popup-content b{color:#e0e0e0;}
 </style>
 </head>
 <body>
@@ -1506,7 +1509,7 @@ export default function MapaScreen() {
     const addCalls = obrasCapas.map(o => {
       const c = JSON.stringify(OBRA_COLOR[o.tipo] ?? '#888');
       const l = JSON.stringify(o.descripcion ?? o.ubicacion ?? o.tipo);
-      const popup = `'<b style="font-family:monospace;font-size:12px">'+${l}+'</b>'`;
+      const popup = `L.popup({className:'obra-popup'}).setContent('<b style="font-family:monospace;font-size:12px">'+${l}+'</b>')`;
       if (o.coords_linea && o.coords_linea.length >= 2) {
         const pts = JSON.stringify(o.coords_linea.map(p => [p.lat, p.lng]));
         return `(function(){var f=L.polyline(${pts},{color:${c},weight:5,opacity:0.85}).bindPopup(${popup});window._obrasFeatures.push(f);f.addTo(map);})();`;
