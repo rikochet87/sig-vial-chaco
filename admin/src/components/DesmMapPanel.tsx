@@ -29,6 +29,32 @@ function segLen(a: LatLng, b: LatLng): number {
 function totalLen(pts: LatLng[]): number {
   let d = 0; for (let i = 1; i < pts.length; i++) d += segLen(pts[i-1], pts[i]); return d
 }
+function interpolateAtDist(pts: LatLng[], distM: number): LatLng | null {
+  let acc = 0
+  for (let i = 1; i < pts.length; i++) {
+    const d = segLen(pts[i-1], pts[i])
+    if (acc + d >= distM) {
+      const t = (distM - acc) / d
+      return [pts[i-1][0] + t*(pts[i][0]-pts[i-1][0]), pts[i-1][1] + t*(pts[i][1]-pts[i-1][1])]
+    }
+    acc += d
+  }
+  return null
+}
+function getProgPositions(pts: LatLng[], interval: number): { pos: LatLng; dist: number }[] {
+  if (pts.length < 2 || interval <= 0) return []
+  const total = totalLen(pts)
+  const result: { pos: LatLng; dist: number }[] = []
+  for (let d = interval; d <= total - interval * 0.05; d += interval) {
+    const pos = interpolateAtDist(pts, d)
+    if (pos) result.push({ pos, dist: d })
+  }
+  return result
+}
+function fmtProgDist(m: number): string {
+  if (m >= 1000) { const km = m / 1000; return km % 1 === 0 ? `${km} km` : `${km.toFixed(1)} km` }
+  return `${m} m`
+}
 
 // ── Layer control ─────────────────────────────────────────────────────────────
 const LAYER_KEYS = [
@@ -89,6 +115,16 @@ export default function DesmMapPanel({ tramosMap, pendingColor, onLineDone, onDr
   const geoCacheRef      = useRef<Record<string, any>>({})
   const prevTramoCountRef = useRef(0)
 
+  const [progInterval,   setProgInterval]   = useState<number>(500)
+  const progIntervalRef  = useRef<number>(500)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const drawProgMarkersRef    = useRef<any[]>([])
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const pendingProgMarkersRef = useRef<any[]>([])
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tramoProgMarkersRef   = useRef<Map<string, any[]>>(new Map())
+  const updateDrawProgRef     = useRef<(() => void) | null>(null)
+
   // ── CSS popups ───────────────────────────────────────────────────────────────
   useEffect(() => {
     const id = 'desm-map-css'
@@ -98,6 +134,10 @@ export default function DesmMapPanel({ tramosMap, pendingColor, onLineDone, onDr
     s.textContent = `
       .desm-label { background:transparent!important;border:none!important;box-shadow:none!important;padding:0!important; }
       .desm-label .leaflet-tooltip-content { padding:0; }
+      .desm-prog { background:rgba(10,10,10,0.88)!important;border:1px solid #333!important;border-radius:2px!important;
+        box-shadow:0 1px 4px rgba(0,0,0,.6)!important;padding:1px 5px!important;
+        font-family:monospace!important;font-size:9px!important;color:#aaa!important;white-space:nowrap!important; }
+      .desm-prog::before { display:none!important; }
     `
     document.head.appendChild(s)
     return () => { document.getElementById(id)?.remove() }
@@ -171,6 +211,7 @@ export default function DesmMapPanel({ tramosMap, pendingColor, onLineDone, onDr
       if (!currentIds.has(id)) {
         map.removeLayer(layer)
         tramoLayersRef.current.delete(id)
+        tramoProgMarkersRef.current.delete(id)
       }
     }
 
@@ -178,18 +219,32 @@ export default function DesmMapPanel({ tramosMap, pendingColor, onLineDone, onDr
     for (const tramo of tramosMap) {
       if (tramoLayersRef.current.has(tramo.id)) continue
       if (tramo.coords.length < 2) continue
-      const line = Lf.polyline(tramo.coords, { color: tramo.color, weight: 4, opacity: 0.92 }).addTo(map)
-      line.bindTooltip(
-        `<span style="font-family:monospace;font-size:10px;color:${tramo.color};font-weight:700">${tramo.label}</span>`,
-        { permanent: true, direction: 'center', className: 'desm-label' }
-      )
-      tramoLayersRef.current.set(tramo.id, line)
+      const group = Lf.layerGroup().addTo(map)
+      Lf.polyline(tramo.coords, { color: tramo.color, weight: 4, opacity: 0.92 })
+        .bindTooltip(
+          `<span style="font-family:monospace;font-size:10px;color:${tramo.color};font-weight:700">${tramo.label}</span>`,
+          { permanent: true, direction: 'center', className: 'desm-label' }
+        ).addTo(group)
+      // Progresivas del tramo confirmado
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const pms: any[] = []
+      for (const { pos, dist } of getProgPositions(tramo.coords, progIntervalRef.current)) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const pm: any = Lf.circleMarker(pos, { radius: 3, color: tramo.color, weight: 2, fillColor: '#0a0a0a', fillOpacity: 1 }).addTo(group)
+        pm.bindTooltip(fmtProgDist(dist), { permanent: true, direction: 'top', className: 'desm-prog', offset: [0, -4] })
+        pm.openTooltip()
+        pms.push(pm)
+      }
+      tramoLayersRef.current.set(tramo.id, group)
+      tramoProgMarkersRef.current.set(tramo.id, pms)
     }
 
-    // Si se agregó un tramo nuevo (count creció), limpiar la línea pendiente
+    // Si se agregó un tramo nuevo (count creció), limpiar la línea + prog markers pendientes
     if (tramosMap.length > prevTramoCountRef.current && pendingLineRef.current) {
       map.removeLayer(pendingLineRef.current)
       pendingLineRef.current = null
+      pendingProgMarkersRef.current.forEach(m => map.removeLayer(m))
+      pendingProgMarkersRef.current = []
       setPendingResult(null)
     }
     prevTramoCountRef.current = tramosMap.length
@@ -214,6 +269,22 @@ export default function DesmMapPanel({ tramosMap, pendingColor, onLineDone, onDr
     const previewSeg    = Lf.polyline([], { color: pendingColor, weight: 2, dashArray: '8 5', opacity: 0.55 }).addTo(map)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const vmList: any[] = []
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const localProgMarkers: any[] = []
+
+    const refreshProgMarkers = (currentPts: LatLng[]) => {
+      localProgMarkers.forEach(m => map.removeLayer(m)); localProgMarkers.length = 0
+      drawProgMarkersRef.current = localProgMarkers
+      if (currentPts.length < 2) return
+      for (const { pos, dist } of getProgPositions(currentPts, progIntervalRef.current)) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const pm: any = Lf.circleMarker(pos, { radius: 3, color: pendingColor, weight: 2, fillColor: '#0a0a0a', fillOpacity: 1 }).addTo(map)
+        pm.bindTooltip(fmtProgDist(dist), { permanent: true, direction: 'top', className: 'desm-prog', offset: [0, -4] })
+        pm.openTooltip()
+        localProgMarkers.push(pm)
+      }
+    }
+    updateDrawProgRef.current = () => refreshProgMarkers(pts)
 
     const cleanup = () => {
       map.off('click',       onLineClick)
@@ -223,6 +294,9 @@ export default function DesmMapPanel({ tramosMap, pendingColor, onLineDone, onDr
       map.removeLayer(previewSeg)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       vmList.forEach((m: any) => map.removeLayer(m)); vmList.length = 0
+      localProgMarkers.forEach(m => map.removeLayer(m)); localProgMarkers.length = 0
+      drawProgMarkersRef.current = []
+      updateDrawProgRef.current = null
       map.getContainer().style.cursor = ''
       drawStateRef.current = null
       setHudInfo(null); setCanUndo(false)
@@ -263,6 +337,7 @@ export default function DesmMapPanel({ tramosMap, pendingColor, onLineDone, onDr
         weight: isFirst ? 2 : 1.5, opacity: 1,
       }).addTo(map)
       vmList.push(vm); redraw(); updateHUD(); setCanUndo(true)
+      refreshProgMarkers(pts)
       drawStateRef.current = { pts: [...pts], cleanup, undo }
     }
 
@@ -281,6 +356,16 @@ export default function DesmMapPanel({ tramosMap, pendingColor, onLineDone, onDr
       // Mostrar línea como pendiente (punteada)
       const pendLine = Lf.polyline(pts, { color: pendingColor, weight: 3.5, opacity: 0.85, dashArray: '8 4' }).addTo(map)
       pendingLineRef.current = pendLine
+      // Prog markers para la línea pendiente
+      pendingProgMarkersRef.current.forEach(m => map.removeLayer(m))
+      pendingProgMarkersRef.current = []
+      for (const { pos, dist } of getProgPositions(pts, progIntervalRef.current)) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const pm: any = Lf.circleMarker(pos, { radius: 3, color: pendingColor, weight: 2, fillColor: '#0a0a0a', fillOpacity: 1 }).addTo(map)
+        pm.bindTooltip(fmtProgDist(dist), { permanent: true, direction: 'top', className: 'desm-prog', offset: [0, -4] })
+        pm.openTooltip()
+        pendingProgMarkersRef.current.push(pm)
+      }
       const result = { coords: [...pts], lengthM }
       setPendingResult(result)
       onLineDone(result.coords, result.lengthM)
@@ -299,7 +384,47 @@ export default function DesmMapPanel({ tramosMap, pendingColor, onLineDone, onDr
     setPendingResult(null)
     onDrawingChange?.(false)
     if (pendingLineRef.current) { mapRef.current?.removeLayer(pendingLineRef.current); pendingLineRef.current = null }
+    pendingProgMarkersRef.current.forEach(m => mapRef.current?.removeLayer(m))
+    pendingProgMarkersRef.current = []
   }, [onDrawingChange])
+
+  // ── Actualizar progresivas cuando cambia el intervalo ─────────────────────────
+  useEffect(() => {
+    progIntervalRef.current = progInterval
+    // Durante dibujo activo
+    updateDrawProgRef.current?.()
+    const map = mapRef.current, Lf = LfRef.current
+    if (!map || !Lf || !mapReady) return
+    // Tramos confirmados
+    for (const [id, markers] of tramoProgMarkersRef.current) {
+      markers.forEach(m => map.removeLayer(m))
+      const tramo = tramosMap.find(t => t.id === id)
+      if (!tramo) continue
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const newMs: any[] = []
+      for (const { pos, dist } of getProgPositions(tramo.coords, progInterval)) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const pm: any = Lf.circleMarker(pos, { radius: 3, color: tramo.color, weight: 2, fillColor: '#0a0a0a', fillOpacity: 1 }).addTo(map)
+        pm.bindTooltip(fmtProgDist(dist), { permanent: true, direction: 'top', className: 'desm-prog', offset: [0, -4] })
+        pm.openTooltip(); newMs.push(pm)
+      }
+      tramoProgMarkersRef.current.set(id, newMs)
+    }
+    // Línea pendiente
+    if (pendingProgMarkersRef.current.length > 0 && pendingLineRef.current) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const rawPts: LatLng[] = pendingLineRef.current.getLatLngs().map((ll: any) => [ll.lat, ll.lng] as LatLng)
+      pendingProgMarkersRef.current.forEach(m => map.removeLayer(m))
+      pendingProgMarkersRef.current = []
+      for (const { pos, dist } of getProgPositions(rawPts, progInterval)) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const pm: any = Lf.circleMarker(pos, { radius: 3, color: pendingColor, weight: 2, fillColor: '#0a0a0a', fillOpacity: 1 }).addTo(map)
+        pm.bindTooltip(fmtProgDist(dist), { permanent: true, direction: 'top', className: 'desm-prog', offset: [0, -4] })
+        pm.openTooltip(); pendingProgMarkersRef.current.push(pm)
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [progInterval, mapReady])
 
   // ── Toggle capas GeoJSON ──────────────────────────────────────────────────────
   const toggleLayer = useCallback(async (key: LayerKey) => {
@@ -450,6 +575,17 @@ export default function DesmMapPanel({ tramosMap, pendingColor, onLineDone, onDr
         )}
 
         <div style={{ flex: 1 }} />
+
+        {/* Intervalo de progresivas */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <span style={{ fontSize: 8, color: '#444', fontFamily: 'monospace', marginRight: 2 }}>Prog.</span>
+          {([50, 100, 250, 500, 1000] as const).map(v => (
+            <button key={v} onClick={() => setProgInterval(v)}
+              style={{ ...toolBtn(progInterval === v, '#888'), fontSize: 8, padding: '2px 5px' }}>
+              {v >= 1000 ? '1km' : `${v}m`}
+            </button>
+          ))}
+        </div>
 
         {/* Basemap */}
         <div style={{ display: 'flex', gap: 2 }}>
