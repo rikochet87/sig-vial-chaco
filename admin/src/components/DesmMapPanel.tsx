@@ -1,4 +1,5 @@
 'use client'
+import 'leaflet/dist/leaflet.css'
 import { useEffect, useRef, useCallback, useState } from 'react'
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
@@ -129,6 +130,9 @@ export default function DesmMapPanel({ tramosMap, pendingColor, onLineDone, onDr
       mapRef.current = map
       LfRef.current  = Lf
       setMapReady(true)
+      // Safety net: forzar invalidateSize luego de que el layout se asiente
+      setTimeout(() => { if (!destroyed) map.invalidateSize({ animate: false }) }, 150)
+      setTimeout(() => { if (!destroyed) map.invalidateSize({ animate: false }) }, 500)
     })()
     return () => {
       destroyed = true

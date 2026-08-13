@@ -1015,7 +1015,7 @@ function CalcDesmalezado({ paramsRef, onGuardarObra, initialData }: { paramsRef?
             {/* Panel central: mapa + tabla compacta */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minHeight: 0 }}>
               {/* Mapa Leaflet multi-tramo */}
-              <div style={{ flex: 1, minHeight: 0, borderRadius: 3, overflow: 'hidden' }}>
+              <div style={{ flex: 1, minHeight: 0, borderRadius: 3, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                 <DesmMapPanel
                   tramosMap={tramosMap}
                   pendingColor={fmRuta ? getRutaColor(fmRuta) : color}
