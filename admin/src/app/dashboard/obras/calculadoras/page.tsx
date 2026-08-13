@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { setObraTransfer, saveReturnTab, consumeReturnTab } from '@/lib/obraTransfer'
 import InlineMapDraw from '@/components/InlineMapDraw'
 import InlineLineDraw from '@/components/InlineLineDraw'
+import DesmMapPanel, { type TramoForMap } from '@/components/DesmMapPanel'
 import GuardarObraModal, { type GuardarObraData, type ObraTipo } from '@/components/GuardarObraModal'
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
@@ -531,8 +532,17 @@ function CalcCanal({ paramsRef }: { paramsRef?: React.MutableRefObject<Params> }
 
 // ── DESMALEZADO DE BANQUINAS ──────────────────────────────────────────────────
 const CLR_DESM = '#66BB6A'
+const RUTA_PALETTE = ['#66BB6A','#42a5f5','#FFA726','#EC407A','#AB47BC','#26C6DA','#D4E157','#FF7043']
+
 interface DesmEntry { id: string; ha: number; side: 'izq' | 'der'; pts?: [number,number][] }
-interface TramoDesm { id: string; ruta: string; lados: 1 | 2; desdeIzq: number; hastaIzq: number; anchoIzq: number; desdeDer: number; hastaDer: number; anchoDer: number }
+interface TramoDesm {
+  id: string; ruta: string; lados: 1 | 2
+  progMode: 'auto' | 'manual'
+  desdeIzq: number; hastaIzq: number; anchoIzq: number
+  desdeDer: number; hastaDer: number; anchoDer: number
+  coords: [number, number][]   // polilínea georreferenciada del tramo
+  longGeo: number              // longitud geodésica calculada desde coords (m)
+}
 interface EquipoAP     { id: string; nombre: string; hp: number; valor: number }
 interface MORigAP      { id: string; cargo: string; n: number; tarifa: number; coef: number; hs: number }
 
@@ -554,6 +564,9 @@ function CalcDesmalezado({ paramsRef, onGuardarObra, initialData }: { paramsRef?
   const [fmDesdeDer,  setFmDesdeDer]  = useState(_i.fmDesdeDer ?? 0)
   const [fmHastaDer,  setFmHastaDer]  = useState(_i.fmHastaDer ?? 3000)
   const [fmAnchoDer,  setFmAnchoDer]  = useState(_i.fmAnchoDer ?? 3)
+  const [fmProgMode,    setFmProgMode]    = useState<'auto'|'manual'>(_i.fmProgMode ?? 'auto')
+  const [pendingCoords, setPendingCoords] = useState<[number,number][]>([])
+  const [pendingLong,   setPendingLong]   = useState(0)
 
   // Mapa/drone
   const [mapEntries, setMapEntries] = useState<DesmEntry[]>(_i.mapEntries ?? [])
@@ -650,16 +663,45 @@ function CalcDesmalezado({ paramsRef, onGuardarObra, initialData }: { paramsRef?
       id: Math.random().toString(36).slice(2, 8),
       ruta: fmRuta.trim(),
       lados: fmLados,
+      progMode: fmProgMode,
       desdeIzq: fmDesdeIzq, hastaIzq: fmHastaIzq, anchoIzq: fmAnchoIzq,
       desdeDer: fmDesdeDer, hastaDer: fmHastaDer,  anchoDer: fmAnchoDer,
+      coords: pendingCoords,
+      longGeo: pendingLong,
     }])
+    setPendingCoords([])
+    setPendingLong(0)
     setFmDesdeIzq(fmHastaIzq)
     setFmHastaIzq(fmHastaIzq + 3000)
     setFmDesdeDer(fmHastaDer)
     setFmHastaDer(fmHastaDer + 3000)
   }
 
+  // Callback que recibe coords + longitud desde DesmMapPanel
+  const handleLineDone = (coords: [number, number][], lengthM: number) => {
+    setPendingCoords(coords)
+    setPendingLong(lengthM)
+    if (fmProgMode === 'auto') {
+      // Propagar longitud al lado izquierdo (base)
+      setFmHastaIzq(Math.round(fmDesdeIzq + lengthM))
+      if (fmLados === 2) setFmHastaDer(Math.round(fmDesdeDer + lengthM))
+    }
+  }
+
+  // Helpers de color por ruta y lista de tramos para el mapa
   const rutasUnicas = [...new Set(tramos.map(t => t.ruta))]
+  const getRutaColor = (ruta: string): string => {
+    const idx = rutasUnicas.indexOf(ruta)
+    return RUTA_PALETTE[idx % RUTA_PALETTE.length]
+  }
+  const tramosMap: TramoForMap[] = tramos
+    .filter(t => t.coords.length >= 2)
+    .map(t => ({
+      id:     t.id,
+      coords: t.coords,
+      color:  getRutaColor(t.ruta),
+      label:  `${t.ruta} – ${(t.desdeIzq / 1000).toFixed(1)} km`,
+    }))
   const sColor = (s: 'izq' | 'der') => s === 'izq' ? '#66bb6a' : '#42a5f5'
   const mono: React.CSSProperties = { fontFamily: 'monospace' }
 
@@ -732,6 +774,7 @@ function CalcDesmalezado({ paramsRef, onGuardarObra, initialData }: { paramsRef?
               aporte_dvp: montoDVP,
               aporte_ccc: montoCCC,
               precio_unitario: apAdoptado,
+              coordsLinea: tramos.flatMap(t => t.coords.map(([lat, lng]) => ({ lat, lng }))),
               datos_calculadora: {
                 calculadora: 'desmalezado',
                 // ── Inputs (para restaurar estado al editar) ──────────────
@@ -739,7 +782,7 @@ function CalcDesmalezado({ paramsRef, onGuardarObra, initialData }: { paramsRef?
                   method,
                   tramos,
                   mapEntries,
-                  fmRuta, fmLados,
+                  fmRuta, fmLados, fmProgMode,
                   fmDesdeIzq, fmHastaIzq, fmAnchoIzq,
                   fmDesdeDer, fmHastaDer, fmAnchoDer,
                   apEquipos, apVidaHs, apHsDia, apHsAnio, apI, apPctRep,
@@ -856,6 +899,38 @@ function CalcDesmalezado({ paramsRef, onGuardarObra, initialData }: { paramsRef?
                 </div>
               </div>
 
+              {/* Modo de progresivas */}
+              <div>
+                <span style={lbl}>Progresivas</span>
+                <div style={{ display: 'flex', gap: 4 }}>
+                  {(['auto', 'manual'] as const).map(m => (
+                    <button key={m} onClick={() => setFmProgMode(m)}
+                      style={{ flex: 1, padding: '5px 4px', fontSize: 11, ...mono, cursor: 'pointer',
+                        borderRadius: 2, border: `1px solid ${fmProgMode === m ? color : '#222'}`,
+                        background: fmProgMode === m ? `${color}22` : '#080808',
+                        color: fmProgMode === m ? color : '#555' }}>
+                      {m === 'auto' ? '↗ Auto' : '✎ Manual'}
+                    </button>
+                  ))}
+                </div>
+                <div style={{ fontSize: 9, color: '#444', ...mono, marginTop: 3, lineHeight: 1.4 }}>
+                  {fmProgMode === 'auto'
+                    ? 'La longitud del trazado llena las progresivas'
+                    : 'Progresivas manuales; trazado solo visual'}
+                </div>
+              </div>
+
+              {/* Estado de tramo pendiente */}
+              {pendingCoords.length >= 2 && (
+                <div style={{ fontSize: 9, ...mono, color, padding: '4px 8px',
+                  background: `${color}11`, border: `1px solid ${color}33`, borderRadius: 2,
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span>↗ {(pendingLong / 1000).toFixed(3)} km trazados</span>
+                  <button onClick={() => { setPendingCoords([]); setPendingLong(0) }}
+                    style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: 9 }}>✕</button>
+                </div>
+              )}
+
               {/* Lado Izquierdo */}
               <div style={{ borderLeft: `2px solid ${sColor('izq')}`, paddingLeft: 8, marginTop: 4 }}>
                 <div style={{ fontSize: 8, color: sColor('izq'), ...mono, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>Lado Izquierdo</div>
@@ -937,103 +1012,108 @@ function CalcDesmalezado({ paramsRef, onGuardarObra, initialData }: { paramsRef?
               )}
             </div>
 
-            {/* Tabla de tramos */}
-            <div style={{ ...panel, overflowY: 'auto' }}>
-              {tramos.length === 0 ? (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  height: '100%', ...mono, textAlign: 'center' }}>
-                  <div>
-                    <div style={{ fontSize: 10, color: '#333', marginBottom: 6 }}>Agregá tramos desde el panel izquierdo</div>
-                    <div style={{ fontSize: 9, color: '#222', lineHeight: 1.8 }}>
-                      Por ruta · por tramo progresivo<br/>Ancho de banquina variable por tramo y por lado
-                    </div>
+            {/* Panel central: mapa + tabla compacta */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minHeight: 0 }}>
+              {/* Mapa Leaflet multi-tramo */}
+              <div style={{ flex: 1, minHeight: 0, borderRadius: 3, overflow: 'hidden' }}>
+                <DesmMapPanel
+                  tramosMap={tramosMap}
+                  pendingColor={fmRuta ? getRutaColor(fmRuta) : color}
+                  onLineDone={handleLineDone}
+                />
+              </div>
+              {/* Tabla de tramos compacta */}
+              <div style={{ ...panel, maxHeight: 140, overflowY: 'auto', flexShrink: 0 }}>
+                {tramos.length === 0 ? (
+                  <div style={{ padding: '8px', ...mono, fontSize: 9, color: '#333', textAlign: 'center' }}>
+                    Trazá un tramo en el mapa y agregalo desde el panel izquierdo
                   </div>
-                </div>
-              ) : (
-                <table style={{ width: '100%', borderCollapse: 'collapse', ...mono, fontSize: 10 }}>
-                  <thead>
-                    <tr style={{ borderBottom: '1px solid #222' }}>
-                      <th style={th} />
-                      <th style={th}>Ruta</th>
-                      <th style={{ ...th, textAlign: 'left' }}>Progresivas (desde – hasta)</th>
-                      <th style={{ ...th, textAlign: 'right' }}>Long.</th>
-                      <th style={{ ...th, textAlign: 'center' }}>Lados</th>
-                      <th style={{ ...th, textAlign: 'right' }}>Ancho banq.</th>
-                      <th style={th} />
-                      <th style={{ ...th, textAlign: 'right' }}>Sup. (ha)</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rutasUnicas.map(ruta => {
-                      const rutaTramos = tramos.filter(t => t.ruta === ruta)
-                      const rutaHa = rutaTramos.reduce((a, t) => a + tramoHa(t), 0)
-                      return (
-                        <React.Fragment key={`ruta-${ruta}`}>
-                          <tr>
-                            <td colSpan={10} style={{ padding: '10px 8px 2px', color, fontWeight: 700, fontSize: 10 }}>
-                              {ruta}
-                            </td>
-                          </tr>
-                          {rutaTramos.map((t, i) => {
-                            const ha = tramoHa(t)
-                            return (
-                              <tr key={t.id} style={{ background: i % 2 === 0 ? '#080808' : 'transparent' }}>
-                                <td style={{ padding: '2px 4px 2px 8px' }}>
-                                  <button onClick={() => setTramos(p => p.filter(x => x.id !== t.id))}
-                                    title="Eliminar"
-                                    style={{ background: 'none', border: 'none', color: '#2a2a2a', cursor: 'pointer', fontSize: 9, padding: 0 }}>✕</button>
-                                </td>
-                                <td style={{ padding: '2px 8px', color: '#555', fontSize: 9 }}>{ruta}</td>
-                                <td style={{ padding: '2px 4px', fontSize: 9 }}>
-                                  <div style={{ color: sColor('izq') }}>
-                                    {t.desdeIzq > 0 ? fmt(t.desdeIzq) : '0'} – {fmt(t.hastaIzq)} m
-                                  </div>
-                                  {t.lados === 2 && (
-                                    <div style={{ color: sColor('der') }}>
-                                      {t.desdeDer > 0 ? fmt(t.desdeDer) : '0'} – {fmt(t.hastaDer)} m
-                                    </div>
-                                  )}
-                                </td>
-                                <td style={{ padding: '2px 4px', fontSize: 9, textAlign: 'right' }}>
-                                  <div style={{ color: sColor('izq') }}>{fmt(t.hastaIzq - t.desdeIzq)} m</div>
-                                  {t.lados === 2 && <div style={{ color: sColor('der') }}>{fmt(t.hastaDer - t.desdeDer)} m</div>}
-                                </td>
-                                <td style={{ padding: '2px 4px', textAlign: 'center' }}>
-                                  <span style={{ color: sColor('izq'), fontSize: 8 }}>IZQ</span>
-                                  {t.lados === 2 && <><span style={{ color: '#333', margin: '0 2px' }}>+</span><span style={{ color: sColor('der'), fontSize: 8 }}>DER</span></>}
-                                </td>
-                                <td style={{ padding: '2px 4px', fontSize: 9, textAlign: 'right' }}>
-                                  <div style={{ color: sColor('izq') }}>{t.anchoIzq} m</div>
-                                  {t.lados === 2 && <div style={{ color: sColor('der') }}>{t.anchoDer} m</div>}
-                                </td>
-                                <td style={{ padding: '2px 8px', color: '#aaa', textAlign: 'right' }}>{ha.toFixed(4)}</td>
-                              </tr>
-                            )
-                          })}
-                          <tr style={{ borderTop: `1px solid ${color}22` }}>
-                            <td colSpan={7} style={{ padding: '3px 8px', textAlign: 'right', fontSize: 9, color: '#444' }}>
-                              Total {ruta}
-                            </td>
-                            <td style={{ padding: '3px 8px 8px', textAlign: 'right', color: '#888', fontWeight: 700 }}>
-                              {rutaHa.toFixed(4)}
-                            </td>
-                          </tr>
-                        </React.Fragment>
-                      )
-                    })}
-                    {Sup_ha > 0 && (
-                      <tr style={{ borderTop: `2px solid ${color}55` }}>
-                        <td colSpan={7} style={{ padding: '8px', textAlign: 'right', fontSize: 12, color: '#666', fontWeight: 700 }}>
-                          TOTAL GENERAL
-                        </td>
-                        <td style={{ padding: '8px', textAlign: 'right', color, fontSize: 14, fontWeight: 700 }}>
-                          {Sup_ha.toFixed(4)}
-                        </td>
+                ) : (
+                  <table style={{ width: '100%', borderCollapse: 'collapse', ...mono, fontSize: 10 }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid #222' }}>
+                        <th style={th} />
+                        <th style={th}>Ruta</th>
+                        <th style={{ ...th, textAlign: 'left' }}>Progresivas (desde – hasta)</th>
+                        <th style={{ ...th, textAlign: 'right' }}>Long.</th>
+                        <th style={{ ...th, textAlign: 'center' }}>Lados</th>
+                        <th style={{ ...th, textAlign: 'right' }}>Ancho banq.</th>
+                        <th style={th} />
+                        <th style={{ ...th, textAlign: 'right' }}>Sup. (ha)</th>
                       </tr>
-                    )}
-                  </tbody>
-                </table>
-              )}
+                    </thead>
+                    <tbody>
+                      {rutasUnicas.map(ruta => {
+                        const rutaTramos = tramos.filter(t => t.ruta === ruta)
+                        const rutaHa = rutaTramos.reduce((a, t) => a + tramoHa(t), 0)
+                        return (
+                          <React.Fragment key={`ruta-${ruta}`}>
+                            <tr>
+                              <td colSpan={10} style={{ padding: '10px 8px 2px', color, fontWeight: 700, fontSize: 10 }}>
+                                {ruta}
+                              </td>
+                            </tr>
+                            {rutaTramos.map((t, i) => {
+                              const ha = tramoHa(t)
+                              return (
+                                <tr key={t.id} style={{ background: i % 2 === 0 ? '#080808' : 'transparent' }}>
+                                  <td style={{ padding: '2px 4px 2px 8px' }}>
+                                    <button onClick={() => setTramos(p => p.filter(x => x.id !== t.id))}
+                                      title="Eliminar"
+                                      style={{ background: 'none', border: 'none', color: '#2a2a2a', cursor: 'pointer', fontSize: 9, padding: 0 }}>✕</button>
+                                  </td>
+                                  <td style={{ padding: '2px 8px', color: '#555', fontSize: 9 }}>{ruta}</td>
+                                  <td style={{ padding: '2px 4px', fontSize: 9 }}>
+                                    <div style={{ color: sColor('izq') }}>
+                                      {t.desdeIzq > 0 ? fmt(t.desdeIzq) : '0'} – {fmt(t.hastaIzq)} m
+                                    </div>
+                                    {t.lados === 2 && (
+                                      <div style={{ color: sColor('der') }}>
+                                        {t.desdeDer > 0 ? fmt(t.desdeDer) : '0'} – {fmt(t.hastaDer)} m
+                                      </div>
+                                    )}
+                                  </td>
+                                  <td style={{ padding: '2px 4px', fontSize: 9, textAlign: 'right' }}>
+                                    <div style={{ color: sColor('izq') }}>{fmt(t.hastaIzq - t.desdeIzq)} m</div>
+                                    {t.lados === 2 && <div style={{ color: sColor('der') }}>{fmt(t.hastaDer - t.desdeDer)} m</div>}
+                                  </td>
+                                  <td style={{ padding: '2px 4px', textAlign: 'center' }}>
+                                    <span style={{ color: sColor('izq'), fontSize: 8 }}>IZQ</span>
+                                    {t.lados === 2 && <><span style={{ color: '#333', margin: '0 2px' }}>+</span><span style={{ color: sColor('der'), fontSize: 8 }}>DER</span></>}
+                                  </td>
+                                  <td style={{ padding: '2px 4px', fontSize: 9, textAlign: 'right' }}>
+                                    <div style={{ color: sColor('izq') }}>{t.anchoIzq} m</div>
+                                    {t.lados === 2 && <div style={{ color: sColor('der') }}>{t.anchoDer} m</div>}
+                                  </td>
+                                  <td style={{ padding: '2px 8px', color: '#aaa', textAlign: 'right' }}>{ha.toFixed(4)}</td>
+                                </tr>
+                              )
+                            })}
+                            <tr style={{ borderTop: `1px solid ${color}22` }}>
+                              <td colSpan={7} style={{ padding: '3px 8px', textAlign: 'right', fontSize: 9, color: '#444' }}>
+                                Total {ruta}
+                              </td>
+                              <td style={{ padding: '3px 8px 8px', textAlign: 'right', color: '#888', fontWeight: 700 }}>
+                                {rutaHa.toFixed(4)}
+                              </td>
+                            </tr>
+                          </React.Fragment>
+                        )
+                      })}
+                      {Sup_ha > 0 && (
+                        <tr style={{ borderTop: `2px solid ${color}55` }}>
+                          <td colSpan={7} style={{ padding: '8px', textAlign: 'right', fontSize: 12, color: '#666', fontWeight: 700 }}>
+                            TOTAL GENERAL
+                          </td>
+                          <td style={{ padding: '8px', textAlign: 'right', color, fontSize: 14, fontWeight: 700 }}>
+                            {Sup_ha.toFixed(4)}
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                )}
+              </div>
             </div>
 
             {/* Panel computo */}

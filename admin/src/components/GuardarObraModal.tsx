@@ -14,6 +14,7 @@ export interface GuardarObraData {
   aporte_ccc:        number
   precio_unitario:   number
   descripcion?:      string      // texto del tramo/descripción ya ingresado en la calculadora
+  coordsLinea?:      Array<{lat: number; lng: number}>  // polilínea pre-cargada desde la calculadora
   // Snapshot completo del calculator (inputs + outputs) para PDF y edición
   datos_calculadora?: Record<string, unknown>
 }
@@ -210,14 +211,15 @@ export default function GuardarObraModal({ open, data, onClose, onSaved, editId 
     setFechaFin('')
     setLat(null)
     setLng(null)
-    setCoordsLinea([])
+    // Pre-poblar línea desde la calculadora si fue proporcionada
+    setCoordsLinea(data?.coordsLinea ?? [])
     setMapaOpen(false)
     setStep('form')
     setError(null)
     // Auto-detectar tipo de geometría según tipo de obra
     const gt: GeoTipo = data?.tipo && TIPOS_LINEALES.has(data.tipo) ? 'linea' : 'punto'
     setGeoTipo(gt)
-  }, [open, data?.descripcion, data?.tipo])
+  }, [open, data?.descripcion, data?.tipo, data?.coordsLinea])
 
   if (!open || !data) return null
 
