@@ -56,6 +56,26 @@ function fmtProgDist(m: number): string {
   return `${m} m`
 }
 
+// ── Snapping ──────────────────────────────────────────────────────────────────
+const SNAP_PX = 18   // umbral de magnetismo en píxeles de pantalla
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function findSnapPoint(map: any, cursor: LatLng, tramos: TramoForMap[]): LatLng | null {
+  if (!tramos.length) return null
+  const cp = map.latLngToContainerPoint(cursor)
+  let best = SNAP_PX, snap: LatLng | null = null
+  for (const t of tramos) {
+    if (t.coords.length < 2) continue
+    // Snap a ambos extremos del tramo (inicio y fin)
+    for (const ep of [t.coords[0], t.coords[t.coords.length - 1]] as LatLng[]) {
+      const pp = map.latLngToContainerPoint(ep)
+      const d = Math.hypot(cp.x - pp.x, cp.y - pp.y)
+      if (d < best) { best = d; snap = ep }
+    }
+  }
+  return snap
+}
+
 // ── Layer control ─────────────────────────────────────────────────────────────
 const LAYER_KEYS = [
   'zonas','sedes',
@@ -114,6 +134,7 @@ export default function DesmMapPanel({ tramosMap, pendingColor, onLineDone, onDr
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const geoCacheRef      = useRef<Record<string, any>>({})
   const prevTramoCountRef = useRef(0)
+  const tramosMapRef      = useRef<TramoForMap[]>(tramosMap)
 
   const [progInterval,   setProgInterval]   = useState<number>(500)
   const progIntervalRef  = useRef<number>(500)
@@ -200,6 +221,8 @@ export default function DesmMapPanel({ tramosMap, pendingColor, onLineDone, onDr
     else                   { map.removeLayer(sat); osm.addTo(map) }
   }, [basemap])
 
+  useEffect(() => { tramosMapRef.current = tramosMap }, [tramosMap])
+
   // ── Sincronizar tramosMap → capas Leaflet ─────────────────────────────────────
   useEffect(() => {
     const map = mapRef.current, Lf = LfRef.current
@@ -268,6 +291,11 @@ export default function DesmMapPanel({ tramosMap, pendingColor, onLineDone, onDr
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const previewSeg    = Lf.polyline([], { color: pendingColor, weight: 2, dashArray: '8 5', opacity: 0.55 }).addTo(map)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const snapRing = Lf.circleMarker([0, 0], {
+      radius: 10, color: '#F5C300', weight: 2.5, fill: false, opacity: 0,
+    }).addTo(map)
+    let currentSnapPt: LatLng | null = null
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const vmList: any[] = []
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const localProgMarkers: any[] = []
@@ -292,6 +320,7 @@ export default function DesmMapPanel({ tramosMap, pendingColor, onLineDone, onDr
       map.off('contextmenu', onLineRight)
       map.removeLayer(committedLine)
       map.removeLayer(previewSeg)
+      map.removeLayer(snapRing)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       vmList.forEach((m: any) => map.removeLayer(m)); vmList.length = 0
       localProgMarkers.forEach(m => map.removeLayer(m)); localProgMarkers.length = 0
@@ -327,7 +356,7 @@ export default function DesmMapPanel({ tramosMap, pendingColor, onLineDone, onDr
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const onLineClick = (e: any) => {
-      const ll: LatLng = [e.latlng.lat, e.latlng.lng]
+      const ll: LatLng = currentSnapPt ?? [e.latlng.lat, e.latlng.lng]
       pts.push(ll)
       const isFirst = pts.length === 1
       const vm = Lf.circleMarker(ll, {
@@ -343,8 +372,17 @@ export default function DesmMapPanel({ tramosMap, pendingColor, onLineDone, onDr
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const onLineMove = (e: any) => {
-      if (!pts.length) return
-      redraw([e.latlng.lat, e.latlng.lng]); updateHUD([e.latlng.lat, e.latlng.lng])
+      const cursor: LatLng = [e.latlng.lat, e.latlng.lng]
+      const snap = findSnapPoint(map, cursor, tramosMapRef.current)
+      if (snap) {
+        snapRing.setLatLng(snap); snapRing.setStyle({ opacity: 1 })
+        currentSnapPt = snap
+        if (pts.length) { redraw(snap); updateHUD(snap) }
+      } else {
+        if (snapRing.options.opacity !== 0) snapRing.setStyle({ opacity: 0 })
+        currentSnapPt = null
+        if (pts.length) { redraw(cursor); updateHUD(cursor) }
+      }
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
