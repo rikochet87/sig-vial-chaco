@@ -137,6 +137,28 @@ function ccPopupHtml(p: Record<string, unknown>, zona: string): string {
 </div>`
 }
 
+function dvpPopupHtml(p: Record<string, unknown>, zona: string): string {
+  const c    = '#7B1FA2'
+  const nc   = p.Nc  || p.NOMENCLATURA  || p.nomenclatura  || '—'
+  const jer  = p.J   || p.JERARQUIA     || p.jerarquia     || '—'
+  const mant = p.Mn  || p.MANTENIMIENTO || p.mantenimiento || '—'
+  return `
+<div>
+  <div class="ph" style="background:${c}20;border-bottom:1px solid ${c}40">
+    <div class="pn" style="background:${c}">DVP</div>
+    <div>
+      <div class="pl">Tramo mantenido DVP</div>
+      <div class="pz">${zona}</div>
+    </div>
+  </div>
+  <div class="pb">
+    <div class="pr"><span class="plb">Nomenclatura</span><span class="pv">${nc}</span></div>
+    <div class="pr"><span class="plb">Jerarquía</span><span class="pv">${jer}</span></div>
+    <div class="pr"><span class="plb">Mantenimiento</span><span class="pv">${mant}</span></div>
+  </div>
+</div>`
+}
+
 function relevPopupHtml(r: Relevamiento): string {
   const color = TIPO_COLORS[r.tipo] || '#607D8B'
   const fecha = r.fecha ? new Date(r.fecha).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—'
@@ -857,20 +879,52 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
 
   // ── Populate DVP layers (tramos mantenidos ZIV y ZV) ────────────────────────
   useEffect(() => {
-    if (!cc || !mapRef.current) return
+    if (!cc || !mapReady || !mapRef.current) return
     import('leaflet').then(L => {
       (['dvpZIV', 'dvpZV'] as const).forEach(key => {
         const ccKey = key === 'dvpZIV' ? 'ZIV_DVP' : 'ZV_DVP'
         const group = groupsRef.current[key]
         if (!group || !cc[ccKey]) return
         group.clearLayers()
-        L.geoJSON(cc[ccKey] as unknown as GeoJSON.FeatureCollection, {
-          style: { color: customColors.dvp, weight: customWidths.dvp, opacity: 0.85, dashArray: '10 4' },
+        const fc = cc[ccKey] as unknown as GeoJSON.FeatureCollection
+        const zona = key === 'dvpZIV' ? 'Zona IV' : 'Zona V'
+        const baseStyle: import('leaflet').PathOptions = {
+          color: customColors.dvp, weight: customWidths.dvp, opacity: 0.85, dashArray: '10 4',
+        }
+        const featureToVisLayer = new Map<GeoJSON.Feature, import('leaflet').Path>()
+
+        L.geoJSON(fc, {
+          style: baseStyle,
           onEachFeature(feature, layer) {
-            const p = feature.properties ?? {}
-            const zona = key === 'dvpZIV' ? 'Zona IV' : 'Zona V'
-            const nm = p.Nm || p.nm || p.T || ''
-            layer.bindPopup(`<div class="poi-popup"><div class="poi-name">Tramo${nm ? ' N° '+nm : ''}</div><div class="poi-type">Mantenimiento Provincial · ${zona}</div></div>`)
+            const visLayer = layer as import('leaflet').Path
+            featureToVisLayer.set(feature, visLayer)
+            const p = (feature.properties ?? {}) as Record<string, unknown>
+            const popup = L.popup({ maxWidth: 280 }).setContent(dvpPopupHtml(p, zona))
+            visLayer.bindPopup(popup)
+            visLayer.on('click', () => {
+              if (highlightRef.current) {
+                highlightRef.current.layer.setStyle(highlightRef.current.style)
+                highlightRef.current = null
+              }
+              highlightRef.current = { layer: visLayer, style: baseStyle }
+              visLayer.setStyle({ color: '#F5C300', weight: customWidths.dvp + 4, opacity: 1, dashArray: undefined })
+            })
+            popup.on('remove', () => {
+              if (highlightRef.current?.layer === visLayer) {
+                visLayer.setStyle(baseStyle)
+                highlightRef.current = null
+              }
+            })
+          },
+        }).addTo(group)
+
+        // Hit area invisible — facilita el click en tramos delgados
+        L.geoJSON(fc, {
+          style: { color: '#000', weight: 22, opacity: 0.001, fillOpacity: 0 },
+          onEachFeature(feature, hitLayer) {
+            hitLayer.on('click', () => {
+              featureToVisLayer.get(feature)?.fire('click')
+            })
           },
         }).addTo(group)
       })
