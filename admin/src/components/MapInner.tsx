@@ -1255,6 +1255,7 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
         'rnNacional',
         'rpPavimentada', 'rpMejorada', 'rpEnObra', 'rpTierra',
         'ccZI', 'ccZII', 'ccZIII', 'ccZIV', 'ccZV',
+        'dvpZIV', 'dvpZV',
         'sedes', 'campamentos', 'salud', 'educacion',
         'relevPuente', 'relevAlcantarilla', 'relevTubos', 'relevLineal', 'relevOtro',
       ]
