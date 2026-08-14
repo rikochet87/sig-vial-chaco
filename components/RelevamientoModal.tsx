@@ -431,7 +431,6 @@ function GPSTrackPanel({
 }) {
   const s = useS();
   const [trackPhase,    setTrackPhase]    = useState<'idle'|'recording'|'done'>('idle');
-  const [capMode,       setCapMode]       = useState<'gps'|'draw'>('gps');
   const [trackPts,      setTrackPts]      = useState<LatLngPunto[]>([]);
   const [lastAcc,       setLastAcc]       = useState<number | null>(null);
   const [lastAlt,       setLastAlt]       = useState<number | null>(null);
@@ -656,87 +655,61 @@ function GPSTrackPanel({
           </View>
         </View>
 
-      /* ── IDLE: panel unificado con selector de modo ── */
+      /* ── IDLE: selección de método ── */
       ) : (
-        <View>
-          {/* Selector de modo — solo mostrar si hay ambas opciones disponibles */}
-          {onRequestDraw && !hideGPS && (
-            <View style={{ flexDirection: 'row', marginBottom: 14, borderWidth: 1, borderColor: '#2a2a2a', borderRadius: 0 }}>
-              {([
-                { id: 'gps',  icon: '📍', label: 'GPS Track' },
-                { id: 'draw', icon: '✏️', label: 'Dibujar en mapa' },
-              ] as const).map(m => (
-                <TouchableOpacity
-                  key={m.id}
-                  onPress={() => setCapMode(m.id)}
-                  style={{
-                    flex: 1, paddingVertical: 9, alignItems: 'center',
-                    backgroundColor: capMode === m.id ? '#F5C300' : '#111',
-                    borderRightWidth: m.id === 'gps' ? 1 : 0, borderColor: '#2a2a2a',
-                  }}>
-                  <Text style={{ fontSize: 13, marginBottom: 1 }}>{m.icon}</Text>
-                  <Text style={{
-                    fontSize: 10, fontFamily: 'monospace', fontWeight: '700',
-                    color: capMode === m.id ? '#111' : '#666',
-                  }}>{m.label}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
-
-          {/* ── Modo GPS Track ── */}
-          {(capMode === 'gps' || hideGPS) && !hideGPS && (
-            <View>
-              <Text style={{ fontSize: 10, color: '#666', marginBottom: 4, fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: 0.8 }}>
-                Intervalo entre puntos
-              </Text>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginBottom: 8 }}>
-                {INTERVALOS.map(op => (
-                  <TouchableOpacity key={op.value} onPress={() => setIntervaloM(op.value)}
-                    style={{
-                      paddingHorizontal: 10, paddingVertical: 5, borderRadius: 0,
-                      backgroundColor: intervaloM === op.value ? '#F5C300' : '#151515',
-                      borderWidth: 1, borderColor: intervaloM === op.value ? '#F5C300' : '#2a2a2a',
-                    }}>
-                    <Text style={{ fontSize: 12, fontWeight: '700', fontFamily: 'monospace',
-                      color: intervaloM === op.value ? '#111' : '#666' }}>
-                      {op.label}
-                    </Text>
+        <View style={s.metodoCards}>
+          {onRequestDraw && (
+            <>
+              <View style={s.metodoCard}>
+                <Text style={s.metodoCardIcon}>✏️</Text>
+                <View style={s.metodoCardBody}>
+                  <Text style={s.metodoCardTitle}>Dibujar en mapa</Text>
+                  <Text style={s.metodoCardDesc}>
+                    Trazá el tramo tocando puntos sobre el mapa OSM. Útil para trabajar desde gabinete o cuando no estás en el lugar.
+                  </Text>
+                  <TouchableOpacity style={s.metodoCardBtn} onPress={onRequestDraw}>
+                    <Text style={s.metodoCardBtnTxt}>Ir al mapa →</Text>
                   </TouchableOpacity>
-                ))}
+                </View>
               </View>
-              <Text style={{ fontSize: 9, color: '#444', fontFamily: 'monospace', marginBottom: 12 }}>
-                {intervaloM <= 5  ? 'Alta densidad — peatonal / bicicleta' :
-                 intervaloM <= 20 ? 'Densidad media — a paso de vehículo lento' :
-                                    'Densidad baja — rutas largas'}
-              </Text>
-              <TouchableOpacity style={[s.metodoCardBtn, s.metodoCardBtnGps]} onPress={startTrack}>
-                <Text style={s.metodoCardBtnTxt}>▶ Iniciar grabación GPS</Text>
-              </TouchableOpacity>
-            </View>
+              <View style={s.metodoDivider} />
+            </>
           )}
-
-          {/* ── Modo Dibujar en mapa ── */}
-          {capMode === 'draw' && onRequestDraw && (
-            <View>
-              <Text style={{ fontSize: 12, color: '#888', fontFamily: 'monospace', marginBottom: 14, lineHeight: 18 }}>
-                Trazá el tramo tocando puntos sobre el mapa OSM. Útil para trabajar desde gabinete o cuando no estás en el lugar.
-              </Text>
-              <TouchableOpacity style={s.metodoCardBtn} onPress={onRequestDraw}>
-                <Text style={s.metodoCardBtnTxt}>Ir al mapa →</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {/* Caso: solo dibujar disponible (Canal oculta GPS) */}
-          {hideGPS && onRequestDraw && (
-            <View>
-              <Text style={{ fontSize: 12, color: '#888', fontFamily: 'monospace', marginBottom: 14, lineHeight: 18 }}>
-                Trazá el recorrido tocando puntos sobre el mapa.
-              </Text>
-              <TouchableOpacity style={s.metodoCardBtn} onPress={onRequestDraw}>
-                <Text style={s.metodoCardBtnTxt}>Ir al mapa →</Text>
-              </TouchableOpacity>
+          {!hideGPS && (
+            <View style={s.metodoCard}>
+              <Text style={s.metodoCardIcon}>📍</Text>
+              <View style={s.metodoCardBody}>
+                <Text style={s.metodoCardTitle}>GPS Track</Text>
+                <Text style={s.metodoCardDesc}>
+                  Registra un punto GPS cada vez que avanzás la distancia configurada. Incluye altitud, precisión y progresivas.
+                </Text>
+                <Text style={{ fontSize: 10, color: '#666', marginTop: 8, marginBottom: 4, fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: 0.8 }}>
+                  Intervalo entre puntos
+                </Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginBottom: 10 }}>
+                  {INTERVALOS.map(op => (
+                    <TouchableOpacity key={op.value} onPress={() => setIntervaloM(op.value)}
+                      style={{
+                        paddingHorizontal: 10, paddingVertical: 5, borderRadius: 0,
+                        backgroundColor: intervaloM === op.value ? '#F5C300' : '#151515',
+                        borderWidth: 1, borderColor: intervaloM === op.value ? '#F5C300' : '#2a2a2a',
+                      }}>
+                      <Text style={{ fontSize: 12, fontWeight: '700', fontFamily: 'monospace',
+                        color: intervaloM === op.value ? '#111' : '#666' }}>
+                        {op.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                <Text style={{ fontSize: 9, color: '#444', fontFamily: 'monospace', marginBottom: 8 }}>
+                  {intervaloM <= 5  ? 'Alta densidad — peatonal / bicicleta' :
+                   intervaloM <= 20 ? 'Densidad media — a paso de vehículo lento' :
+                                      'Densidad baja — rutas largas'}
+                </Text>
+                <TouchableOpacity style={[s.metodoCardBtn, s.metodoCardBtnGps]} onPress={startTrack}>
+                  <Text style={s.metodoCardBtnTxt}>▶ Iniciar grabación</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           )}
         </View>
