@@ -4,161 +4,210 @@ import 'leaflet/dist/leaflet.css'
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 export interface TramoComp {
-  id: string
-  ruta: string
-  color: string
+  id: string; ruta: string; color: string
   coords: [number, number][]
   lados: 1 | 2
-  ha: number
-  haIzq: number
-  haDer: number
-  desdeIzq: number
-  hastaIzq: number
-  anchoIzq: number
-  desdeDer: number
-  hastaDer: number
-  anchoDer: number
+  ha: number; haIzq: number; haDer: number
+  desdeIzq: number; hastaIzq: number; anchoIzq: number
+  desdeDer: number; hastaDer: number; anchoDer: number
 }
+
+interface SigBlock { nombre: string; cargo: string; cc: string; dni: string }
 
 interface Props {
   tramosComp: TramoComp[]
-  Sup_ha: number
-  haIzq: number
-  haDer: number
-  apAdoptado: number
-  totalPres: number
-  color: string
-  active: boolean   // triggers invalidateSize when tab becomes visible
+  Sup_ha: number; haIzq: number; haDer: number
+  apAdoptado: number; totalPres: number
+  color: string; active: boolean
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-const fmtN = (n: number) => Math.round(n).toLocaleString('es-AR')
-const fmtKm = (m: number) => (m / 1000).toFixed(3) + ' km'
-const todayStr = () => {
-  const d = new Date()
-  return d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+// ── Progresiva format: "00+000" (Argentine road standard) ─────────────────────
+function fmtProg(m: number): string {
+  const km  = Math.floor(m / 1000)
+  const rem = Math.round(m % 1000)
+  return `${String(km).padStart(2, '0')}+${String(rem).padStart(3, '0')}`
 }
 
-// ── North-arrow SVG ───────────────────────────────────────────────────────────
+// ── North arrow (classic cartographic style) ──────────────────────────────────
 const NorthArrow = () => (
-  <svg width="38" height="52" viewBox="0 0 38 52" fill="none" xmlns="http://www.w3.org/2000/svg"
-    style={{ filter: 'drop-shadow(0 1px 3px #000a)' }}>
-    {/* needle */}
-    <polygon points="19,4 25,32 19,28 13,32" fill="#e74c3c"/>
-    <polygon points="19,4 13,32 19,28 25,32" fill="#fff"/>
-    <circle cx="19" cy="28" r="3.5" fill="#222" stroke="#555" strokeWidth="1"/>
-    {/* N label */}
-    <text x="19" y="50" textAnchor="middle" fontSize="13" fontWeight="700"
-      fill="#ccc" fontFamily="monospace">N</text>
+  <svg width="52" height="65" viewBox="0 0 52 65" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="26" cy="32" r="22" fill="none" stroke="#333" strokeWidth="1.5"/>
+    {/* black north half */}
+    <path d="M26,10 L32,32 L26,28 L20,32 Z" fill="#222"/>
+    {/* white south half */}
+    <path d="M26,54 L32,32 L26,36 L20,32 Z" fill="#fff" stroke="#333" strokeWidth="0.8"/>
+    <circle cx="26" cy="32" r="3" fill="#333"/>
+    <text x="26" y="8" textAnchor="middle" fontSize="11" fontWeight="900"
+      fill="#222" fontFamily="Arial, sans-serif">N</text>
   </svg>
 )
 
-// ── Scale bar (visual) ────────────────────────────────────────────────────────
-function ScaleBar({ mapRef }: { mapRef: React.MutableRefObject<any> }) {
-  const [label, setLabel] = useState('— m')
-  const [width, setWidth] = useState(80)
+// ── Cartographic scale bar ────────────────────────────────────────────────────
+function ScaleBar({ mapInst }: { mapInst: any }) {
+  const [info, setInfo] = useState<{ px: number; km: number; ratio: number } | null>(null)
 
   useEffect(() => {
-    const updateScale = () => {
-      const map = mapRef.current
-      if (!map) return
-      // Target ~100px → find nice round distance
-      const p1 = map.containerPointToLatLng([0, 200])
-      const p2 = map.containerPointToLatLng([100, 200])
-      const rawM = map.distance(p1, p2)
-      // Round to nice value
-      const nice = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000]
-      const target = nice.find(v => v >= rawM * 0.8) ?? nice[nice.length - 1]
-      const px = 100 * (target / rawM)
-      setWidth(Math.round(px))
-      setLabel(target >= 1000 ? `${target / 1000} km` : `${target} m`)
+    if (!mapInst) return
+    const update = () => {
+      try {
+        const size   = mapInst.getSize()
+        const bounds = mapInst.getBounds()
+        const mPerPx = mapInst.distance(bounds.getSouthWest(), bounds.getSouthEast()) / size.x
+        if (!mPerPx || !isFinite(mPerPx)) return
+        const nice = [100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000, 100000]
+        const target = mPerPx * 110
+        const niceM  = nice.find(v => v >= target * 0.7) ?? nice[nice.length - 1]
+        const barPx  = niceM / mPerPx
+        // Scale ratio at 96dpi: realMM / screenMM
+        const ratio  = Math.round((niceM * 1000) / (barPx * 25.4 / 96))
+        setInfo({ px: barPx, km: niceM / 1000, ratio })
+      } catch { /* ignore */ }
     }
-    updateScale()
-    const map = mapRef.current
-    if (!map) return
-    map.on('zoomend moveend', updateScale)
-    return () => { map.off('zoomend moveend', updateScale) }
-  }, [mapRef])
+    update()
+    mapInst.on('zoomend moveend', update)
+    return () => { mapInst.off('zoomend moveend', update) }
+  }, [mapInst])
+
+  if (!info) return null
+  const { px, km, ratio } = info
+  const half = px / 2
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-      <div style={{
-        width, height: 6, borderLeft: '2px solid #ccc', borderRight: '2px solid #ccc',
-        borderBottom: '2px solid #ccc', marginBottom: 2,
-      }}/>
-      <span style={{ fontSize: 9, color: '#ccc', fontFamily: 'monospace',
-        textShadow: '0 1px 3px #000', letterSpacing: 0.5 }}>{label}</span>
+    <div style={{ fontFamily: 'Arial, sans-serif', userSelect: 'none' }}>
+      {/* Alternating black/white bar */}
+      <div style={{ position: 'relative', height: 18, width: px }}>
+        <div style={{ position: 'absolute', left: 0,    top: 4, width: half, height: 8, background: '#333' }}/>
+        <div style={{ position: 'absolute', left: half, top: 4, width: half, height: 8, background: '#fff', border: '1px solid #333', borderLeft: 'none' }}/>
+        {/* Ticks */}
+        {[0, half, px].map((x, i) => (
+          <div key={i} style={{ position: 'absolute', left: x - 0.75, top: 2, width: 1.5, height: 14, background: '#333' }}/>
+        ))}
+      </div>
+      {/* Labels */}
+      <div style={{ display: 'flex', width: px, justifyContent: 'space-between', fontSize: 9, color: '#333', lineHeight: 1 }}>
+        <span>0</span>
+        <span style={{ transform: 'translateX(50%)' }}>{(km / 2).toLocaleString('es-AR')}</span>
+        <span>{km.toLocaleString('es-AR')} km</span>
+      </div>
+      <div style={{ fontSize: 8, color: '#555', marginTop: 4, letterSpacing: 0.3 }}>
+        Escala: 1:{ratio.toLocaleString('es-AR')}
+      </div>
     </div>
   )
 }
 
+// ── Helper: editable inline input ─────────────────────────────────────────────
+const Editable = ({
+  value, onChange, placeholder = '…', bold = false, style = {},
+}: {
+  value: string; onChange: (v: string) => void
+  placeholder?: string; bold?: boolean; style?: React.CSSProperties
+}) => (
+  <input
+    value={value}
+    onChange={e => onChange(e.target.value)}
+    placeholder={placeholder}
+    style={{
+      border: 'none', borderBottom: '1px dashed #bbb', outline: 'none',
+      background: 'transparent', fontFamily: 'inherit', fontSize: 'inherit',
+      fontWeight: bold ? 700 : 'inherit', color: 'inherit', padding: '0 2px',
+      width: '100%', ...style,
+    }}
+  />
+)
+
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function MapComposicion({
-  tramosComp, Sup_ha, haIzq, haDer, apAdoptado, totalPres, color, active
+  tramosComp, Sup_ha, haIzq, haDer, apAdoptado, totalPres, color, active,
 }: Props) {
-  // Editable title block
-  const [titulo,     setTitulo]     = useState('Desmalezado de Banquinas')
-  const [consorcio,  setConsorcio]  = useState('')
-  const [fecha,      setFecha]      = useState(todayStr())
-  const [supervisor, setSupervisor] = useState('')
 
-  const mapDivRef   = useRef<HTMLDivElement>(null)
-  const mapRef      = useRef<any>(null)
-  const layersRef   = useRef<any[]>([])
-  const compAreaRef = useRef<HTMLDivElement>(null)
+  // Header fields
+  const [fOrganismo, setFOrganismo] = useState('')
+  const [fZona,      setFZona]      = useState('')
+  const [fObra,      setFObra]      = useState('Desmalezado de Banquinas')
+  const [fUbicacion, setFUbicacion] = useState('')
+  const [fEjecuta,   setFEjecuta]   = useState('')
+  const [fPlazo,     setFPlazo]     = useState('06 MESES')
 
-  // ── Leaflet init ───────────────────────────────────────────────────────────
+  // Signature blocks (4)
+  const [sigs, setSigs] = useState<SigBlock[]>([
+    { nombre: '', cargo: 'Secretario',         cc: '', dni: '' },
+    { nombre: '', cargo: 'Presidente',          cc: '', dni: '' },
+    { nombre: '', cargo: 'Jefe/Sec. Técnica',  cc: '', dni: '' },
+    { nombre: '', cargo: 'Jefe Delegación',    cc: '', dni: '' },
+  ])
+
+  const updateSig = (i: number, key: keyof SigBlock, val: string) =>
+    setSigs(p => p.map((s, j) => j === i ? { ...s, [key]: val } : s))
+
+  // Map
+  const mapDivRef  = useRef<HTMLDivElement>(null)
+  const mapRef     = useRef<any>(null)
+  const layersRef  = useRef<any[]>([])
+  const compRef    = useRef<HTMLDivElement>(null)
+  const [mapInst,  setMapInst] = useState<any>(null)
+
+  // ── Init Leaflet ─────────────────────────────────────────────────────────
   useEffect(() => {
     if (!mapDivRef.current || mapRef.current) return
-    let Lf: any
-
     import('leaflet').then(L => {
-      Lf = L.default ?? L
+      const Lf = L.default ?? L
       const map = Lf.map(mapDivRef.current!, {
         zoomControl: true,
-        attributionControl: false,
+        attributionControl: true,
         scrollWheelZoom: true,
       })
       Lf.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        crossOrigin: 'anonymous',   // needed for canvas export
+        maxZoom: 19, crossOrigin: 'anonymous',
+        attribution: '© OpenStreetMap contributors',
       }).addTo(map)
       mapRef.current = map
+      setMapInst(map)
       setTimeout(() => map.invalidateSize(), 150)
-      setTimeout(() => map.invalidateSize(), 600)
-      drawTramos(map, Lf)
+      setTimeout(() => { map.invalidateSize() }, 600)
     })
-
     return () => {
       if (mapRef.current) { mapRef.current.remove(); mapRef.current = null }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // ── Redraw tramos when they change ────────────────────────────────────────
+  // ── Draw tramos + progresiva labels ──────────────────────────────────────
   const drawTramos = useCallback((map: any, Lf: any) => {
-    layersRef.current.forEach(l => l.remove())
+    layersRef.current.forEach(l => { try { l.remove() } catch { /* ignore */ } })
     layersRef.current = []
 
-    const allLatLngs: any[] = []
+    const allLL: any[] = []
+
     tramosComp.filter(t => t.coords.length >= 2).forEach(t => {
       const lls = t.coords.map(([lat, lng]) => Lf.latLng(lat, lng))
-      allLatLngs.push(...lls)
-      const pl = Lf.polyline(lls, { color: t.color, weight: 4, opacity: 0.9 }).addTo(map)
+      allLL.push(...lls)
+
+      // Main polyline
+      const pl = Lf.polyline(lls, { color: t.color, weight: 6, opacity: 0.9 }).addTo(map)
       layersRef.current.push(pl)
-      // Endpoint markers
-      ;[lls[0], lls[lls.length - 1]].forEach((ll, i) => {
-        const m = Lf.circleMarker(ll, {
-          radius: 5, color: t.color, fillColor: i === 0 ? '#fff' : t.color,
-          fillOpacity: 1, weight: 2,
-        }).addTo(map)
-        layersRef.current.push(m)
-      })
+
+      // Thin white inner line for visibility
+      const inner = Lf.polyline(lls, { color: '#fff', weight: 2, opacity: 0.4, dashArray: '4 8' }).addTo(map)
+      layersRef.current.push(inner)
+
+      // Progresiva labels at endpoints
+      const addProgLabel = (ll: any, m: number, isStart: boolean) => {
+        const icon = Lf.divIcon({
+          className: '',
+          html: `<div style="background:rgba(255,255,255,0.9);padding:2px 5px;border:1px solid #666;border-radius:2px;font-size:10px;font-family:Arial,sans-serif;color:#222;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,0.25);font-weight:600">${isStart ? 'Progresiva' : 'Prog.'} ${fmtProg(m)}</div>`,
+          iconAnchor: isStart ? [0, 12] : [0, 12],
+        })
+        const mk = Lf.marker(ll, { icon, interactive: false, zIndexOffset: 1000 }).addTo(map)
+        layersRef.current.push(mk)
+      }
+
+      addProgLabel(lls[0], t.desdeIzq, true)
+      addProgLabel(lls[lls.length - 1], t.hastaIzq, false)
     })
 
-    if (allLatLngs.length > 0) {
-      const bounds = Lf.latLngBounds(allLatLngs)
-      map.fitBounds(bounds, { padding: [40, 40] })
+    if (allLL.length > 0) {
+      map.fitBounds(Lf.latLngBounds(allLL), { padding: [60, 60] })
     } else {
       map.setView([-27.45, -60.0], 9)
     }
@@ -166,269 +215,302 @@ export default function MapComposicion({
 
   useEffect(() => {
     if (!mapRef.current) return
-    import('leaflet').then(L => {
-      const Lf = L.default ?? L
-      drawTramos(mapRef.current, Lf)
-    })
+    import('leaflet').then(L => drawTramos(mapRef.current, L.default ?? L))
   }, [tramosComp, drawTramos])
 
-  // ── invalidateSize when tab becomes active ────────────────────────────────
+  // ── invalidateSize on tab activation ─────────────────────────────────────
   useEffect(() => {
     if (!active || !mapRef.current) return
     setTimeout(() => mapRef.current?.invalidateSize(), 50)
     setTimeout(() => mapRef.current?.invalidateSize(), 300)
   }, [active])
 
-  // ── Export: PNG ───────────────────────────────────────────────────────────
+  // ── Exports ──────────────────────────────────────────────────────────────
   const exportPNG = async () => {
-    if (!compAreaRef.current) return
+    if (!compRef.current) return
     const { default: h2c } = await import('html2canvas')
-    const canvas = await h2c(compAreaRef.current, { useCORS: true, allowTaint: false, scale: 2 })
+    const canvas = await h2c(compRef.current, { useCORS: true, allowTaint: false, scale: 2 })
     const link = document.createElement('a')
-    link.download = `${titulo.replace(/\s+/g, '_')}.png`
+    link.download = `${fObra.replace(/\s+/g, '_') || 'composicion'}.png`
     link.href = canvas.toDataURL('image/png')
     link.click()
   }
 
-  // ── Export: PDF ───────────────────────────────────────────────────────────
   const exportPDF = async () => {
-    if (!compAreaRef.current) return
+    if (!compRef.current) return
     const { default: h2c } = await import('html2canvas')
-    const { jsPDF } = await import('jspdf')
-    const canvas = await h2c(compAreaRef.current, { useCORS: true, allowTaint: false, scale: 2 })
-    const img = canvas.toDataURL('image/png')
-    const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
-    const pageW = pdf.internal.pageSize.getWidth()
-    const pageH = pdf.internal.pageSize.getHeight()
+    const { jsPDF }        = await import('jspdf')
+    const canvas = await h2c(compRef.current, { useCORS: true, allowTaint: false, scale: 2 })
+    const img    = canvas.toDataURL('image/png')
+    const pdf    = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+    const pw = pdf.internal.pageSize.getWidth()
+    const ph = pdf.internal.pageSize.getHeight()
     const ratio = canvas.width / canvas.height
-    let w = pageW - 16, h = w / ratio
-    if (h > pageH - 16) { h = pageH - 16; w = h * ratio }
-    pdf.addImage(img, 'PNG', (pageW - w) / 2, (pageH - h) / 2, w, h)
-    pdf.save(`${titulo.replace(/\s+/g, '_')}.pdf`)
+    let w = pw - 10, h = w / ratio
+    if (h > ph - 10) { h = ph - 10; w = h * ratio }
+    pdf.addImage(img, 'PNG', (pw - w) / 2, (ph - h) / 2, w, h)
+    pdf.save(`${fObra.replace(/\s+/g, '_') || 'composicion'}.pdf`)
   }
 
-  // ── Export: Print ─────────────────────────────────────────────────────────
-  const printComp = () => window.print()
-
-  // ── Styles ────────────────────────────────────────────────────────────────
-  const mono: React.CSSProperties = { fontFamily: 'monospace' }
-  const inpStyle: React.CSSProperties = {
-    background: '#080808', border: '1px solid #1e1e1e', color: '#ddd',
-    fontFamily: 'monospace', fontSize: 11, padding: '3px 6px', borderRadius: 2,
-    outline: 'none', width: '100%', boxSizing: 'border-box',
-  }
-  const thStyle: React.CSSProperties = {
-    padding: '4px 8px', fontSize: 9, color: '#555', fontFamily: 'monospace',
-    textTransform: 'uppercase', letterSpacing: 0.8, textAlign: 'left', fontWeight: 400,
-    borderBottom: '1px solid #1a1a1a',
-  }
-  const tdStyle: React.CSSProperties = {
-    padding: '3px 8px', fontSize: 10, fontFamily: 'monospace', color: '#aaa',
-  }
-
-  const sColorIzq = '#66bb6a'
-  const sColorDer = '#42a5f5'
-
+  // ── Derived ───────────────────────────────────────────────────────────────
   const hasTramos = tramosComp.some(t => t.coords.length >= 2)
+  const rutaMap   = new Map<string, string>()
+  tramosComp.forEach(t => rutaMap.set(t.ruta, t.color))
 
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, gap: 8 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
 
-      {/* ── Toolbar (no imprime) ── */}
+      {/* ── Toolbar (no-print) ────────────────────────────────────────────── */}
       <div className="no-print" style={{
-        display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0,
-        padding: '6px 10px', background: '#0a0a0a', borderRadius: 4,
-        border: '1px solid #1a1a1a',
+        display: 'flex', gap: 8, alignItems: 'center', padding: '6px 10px',
+        background: '#0a0a0a', borderRadius: 4, border: '1px solid #1a1a1a',
+        flexShrink: 0, marginBottom: 8,
       }}>
-        <span style={{ ...mono, fontSize: 10, color: '#555', flex: 1 }}>
-          Composición cartográfica — {tramosComp.length} tramo{tramosComp.length !== 1 ? 's' : ''} · {Sup_ha.toFixed(4)} ha
+        <span style={{ fontFamily: 'monospace', fontSize: 10, color: '#555', flex: 1 }}>
+          Composición A4 — {tramosComp.length} tramo{tramosComp.length !== 1 ? 's' : ''} · {Sup_ha.toFixed(4)} ha · editable (click en cualquier campo)
         </span>
-        <button onClick={printComp}
-          style={{ ...mono, padding: '4px 12px', fontSize: 10, cursor: 'pointer',
-            border: '1px solid #333', background: '#111', color: '#aaa', borderRadius: 2 }}>
-          🖨️ Imprimir
-        </button>
-        <button onClick={exportPDF}
-          style={{ ...mono, padding: '4px 12px', fontSize: 10, cursor: 'pointer',
-            border: '1px solid #333', background: '#111', color: '#aaa', borderRadius: 2 }}>
-          📄 Exportar PDF
-        </button>
-        <button onClick={exportPNG}
-          style={{ ...mono, padding: '4px 12px', fontSize: 10, cursor: 'pointer',
-            border: '1px solid #333', background: '#111', color: '#aaa', borderRadius: 2 }}>
-          🖼️ Exportar PNG
-        </button>
+        <button onClick={() => window.print()} style={btn}>🖨️ Imprimir</button>
+        <button onClick={exportPDF}            style={btn}>📄 PDF</button>
+        <button onClick={exportPNG}            style={btn}>🖼️ PNG</button>
       </div>
 
-      {/* ── Editable metadata (no imprime, arriba) ── */}
-      <div className="no-print" style={{
-        display: 'grid', gridTemplateColumns: '1fr 1fr 120px 1fr', gap: 6, flexShrink: 0,
-      }}>
-        {[
-          { label: 'Título', val: titulo,     set: setTitulo },
-          { label: 'Consorcio', val: consorcio, set: setConsorcio },
-          { label: 'Fecha',     val: fecha,    set: setFecha },
-          { label: 'Supervisor', val: supervisor, set: setSupervisor },
-        ].map(f => (
-          <div key={f.label}>
-            <div style={{ ...mono, fontSize: 8, color: '#444', letterSpacing: 0.8,
-              textTransform: 'uppercase', marginBottom: 3 }}>{f.label}</div>
-            <input value={f.val} onChange={e => f.set(e.target.value)} style={inpStyle} />
-          </div>
-        ))}
-      </div>
+      {/* ── Scrollable frame ─────────────────────────────────────────────── */}
+      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', background: '#2a2a2a', padding: '16px 0' }}>
 
-      {/* ── Área de composición (se imprime) ── */}
-      <div ref={compAreaRef} className="print-area" style={{
-        flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column',
-        background: '#0e0e0e', border: '1px solid #1e1e1e', borderRadius: 4, overflow: 'hidden',
-      }}>
-
-        {/* Header de la composición */}
-        <div style={{
-          flexShrink: 0, padding: '8px 14px',
-          background: '#111', borderBottom: '1px solid #1e1e1e',
-          display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+        {/* ── Hoja A4 ──────────────────────────────────────────────────── */}
+        <div ref={compRef} className="print-area" style={{
+          width: 794, margin: '0 auto', background: '#fff', color: '#111',
+          fontFamily: 'Arial, Helvetica, sans-serif',
+          boxShadow: '0 4px 24px rgba(0,0,0,0.6)',
+          display: 'flex', flexDirection: 'column',
+          padding: '18px 22px 14px',
+          boxSizing: 'border-box',
         }}>
-          <div>
-            <div style={{ ...mono, fontSize: 14, fontWeight: 700, color: '#e0e0e0' }}>{titulo || '—'}</div>
-            <div style={{ ...mono, fontSize: 10, color: '#555', marginTop: 2 }}>
-              {consorcio && <span style={{ marginRight: 16 }}>Consorcio: <span style={{ color: '#888' }}>{consorcio}</span></span>}
-              {supervisor && <span style={{ marginRight: 16 }}>Supervisor: <span style={{ color: '#888' }}>{supervisor}</span></span>}
-              {fecha && <span>Fecha: <span style={{ color: '#888' }}>{fecha}</span></span>}
+
+          {/* ── Header ─────────────────────────────────────────────────── */}
+          <div style={{ display: 'flex', alignItems: 'stretch', marginBottom: 6, gap: 14 }}>
+            {/* Logo box */}
+            <div style={{
+              width: 72, flexShrink: 0, border: '2px solid #333', borderRadius: 3,
+              display: 'flex', flexDirection: 'column', alignItems: 'center',
+              justifyContent: 'center', background: '#f4f4f4', padding: 4,
+            }}>
+              <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: -1, color: '#222', lineHeight: 1 }}>SIG</div>
+              <div style={{ fontSize: 8, fontWeight: 700, color: '#888', letterSpacing: 2 }}>VIAL</div>
+              <div style={{ fontSize: 7, color: '#aaa', marginTop: 2 }}>CHACO</div>
+            </div>
+
+            {/* Organismo block */}
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+              <Editable
+                value={fOrganismo} onChange={setFOrganismo}
+                placeholder="ORGANISMO / DIRECCIÓN"
+                bold style={{ fontSize: 13, letterSpacing: 1.2, marginBottom: 3 }}
+              />
+              <Editable
+                value={fZona} onChange={setFZona}
+                placeholder="ZONA / DELEGACIÓN"
+                style={{ fontSize: 11, color: '#555', letterSpacing: 0.5 }}
+              />
+            </div>
+
+            {/* Legal text */}
+            <div style={{
+              fontSize: 7.5, color: '#666', textAlign: 'right', lineHeight: 1.6,
+              maxWidth: 210, flexShrink: 0, fontStyle: 'italic', alignSelf: 'center',
+            }}>
+              <div>"DONAR ÓRGANOS ES SALVAR VIDAS" Ley 4422</div>
+              <div>{new Date().getFullYear()} — Año del 40° Aniversario del Juicio a las Juntas Militares,</div>
+              <div>Ley N° 4153-B</div>
             </div>
           </div>
-          <div style={{ ...mono, fontSize: 11, color: color, fontWeight: 700, textAlign: 'right' }}>
-            <div>{Sup_ha.toFixed(4)} ha</div>
-            <div style={{ fontSize: 9, color: '#555', fontWeight: 400 }}>superficie total</div>
+
+          {/* Separator */}
+          <div style={{ borderBottom: '2.5px solid #222', marginBottom: 8 }}/>
+
+          {/* ── Metadata ─────────────────────────────────────────────────── */}
+          <div style={{ marginBottom: 10, fontSize: 12, lineHeight: 1.9 }}>
+            {([
+              { label: 'OBRA',      val: fObra,      set: setFObra,      ph: 'Tipo de obra y ruta' },
+              { label: 'UBICACIÓN', val: fUbicacion, set: setFUbicacion, ph: 'Departamento / localidad' },
+              { label: 'EJECUTA',   val: fEjecuta,   set: setFEjecuta,   ph: 'CONSORCIO CAMINERO N° ...' },
+              { label: 'PLAZO',     val: fPlazo,     set: setFPlazo,     ph: '06 MESES' },
+            ] as const).map(f => (
+              <div key={f.label} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <strong style={{ minWidth: 90, flexShrink: 0 }}>{f.label}:</strong>
+                <Editable value={f.val} onChange={f.set} placeholder={f.ph} style={{ fontSize: 12 }} />
+              </div>
+            ))}
           </div>
-        </div>
 
-        {/* Mapa + leyenda */}
-        <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
-          {/* Mapa Leaflet */}
-          <div ref={mapDivRef} style={{ width: '100%', height: '100%' }} />
-
-          {/* Sin trazados */}
-          {!hasTramos && (
+          {/* ── Map frame ─────────────────────────────────────────────────── */}
+          <div style={{
+            border: '2px solid #444', position: 'relative',
+            flex: 1, minHeight: 490,
+          }}>
+            {/* Inset title bar (top-center of map) */}
             <div style={{
-              position: 'absolute', inset: 0, display: 'flex', alignItems: 'center',
-              justifyContent: 'center', pointerEvents: 'none',
+              position: 'absolute', top: 8,
+              left: '50%', transform: 'translateX(-50%)',
+              background: '#fff', border: '1.5px solid #555',
+              padding: '4px 18px', zIndex: 1000, textAlign: 'center',
+              boxShadow: '0 1px 5px rgba(0,0,0,0.25)', pointerEvents: 'none',
+              minWidth: 240,
             }}>
-              <span style={{ ...mono, fontSize: 11, color: '#333' }}>
-                Sin trazados — dibujá tramos en la pestaña Cómputo
-              </span>
+              <div style={{ fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap' }}>
+                Obra: {fObra || '—'}
+              </div>
+              <div style={{ fontSize: 9.5, color: '#444' }}>
+                {fEjecuta ? `CºCº: ${fEjecuta}` : 'CºCº: —'}
+              </div>
             </div>
-          )}
 
-          {/* North arrow — top-right */}
-          <div style={{
-            position: 'absolute', top: 10, right: 10, zIndex: 1000, pointerEvents: 'none',
-          }}>
-            <NorthArrow />
-          </div>
+            {/* Leaflet map div */}
+            <div ref={mapDivRef} style={{ position: 'absolute', inset: 0 }}/>
 
-          {/* Scale bar — bottom-left */}
-          <div style={{
-            position: 'absolute', bottom: 24, left: 10, zIndex: 1000, pointerEvents: 'none',
-          }}>
-            <ScaleBar mapRef={mapRef} />
-          </div>
+            {/* Empty state */}
+            {!hasTramos && (
+              <div style={{
+                position: 'absolute', inset: 0, display: 'flex',
+                alignItems: 'center', justifyContent: 'center',
+                zIndex: 500, pointerEvents: 'none',
+              }}>
+                <div style={{
+                  background: 'rgba(255,255,255,0.92)', padding: '10px 20px',
+                  borderRadius: 3, fontSize: 12, color: '#999', border: '1px solid #ddd',
+                }}>
+                  Sin trazados — dibujá tramos en la pestaña Cómputo
+                </div>
+              </div>
+            )}
 
-          {/* Legend — bottom-right */}
-          {tramosComp.length > 0 && (
+            {/* North arrow (top-right) */}
             <div style={{
-              position: 'absolute', bottom: 24, right: 48, zIndex: 1000,
-              background: '#000b', borderRadius: 3, padding: '6px 10px',
-              border: '1px solid #2a2a2a', maxWidth: 200,
+              position: 'absolute', top: 8, right: 8, zIndex: 1000, pointerEvents: 'none',
             }}>
-              {[...new Map(tramosComp.map(t => [t.ruta, t.color])).entries()].map(([ruta, col]) => (
-                <div key={ruta} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
-                  <div style={{ width: 22, height: 3, background: col, borderRadius: 1, flexShrink: 0 }} />
-                  <span style={{ ...mono, fontSize: 9, color: '#ccc', lineHeight: 1 }}>{ruta}</span>
+              <NorthArrow />
+            </div>
+
+            {/* Scale bar (bottom-left) */}
+            <div style={{
+              position: 'absolute', bottom: 28, left: 10, zIndex: 1000,
+              background: 'rgba(255,255,255,0.9)', padding: '6px 10px',
+              border: '1px solid #bbb', pointerEvents: 'none',
+            }}>
+              <ScaleBar mapInst={mapInst} />
+            </div>
+
+            {/* Referencias (bottom-right) */}
+            <div style={{
+              position: 'absolute', bottom: 10, right: 10, zIndex: 1000,
+              background: 'rgba(255,255,255,0.94)', border: '1.5px solid #555',
+              padding: '8px 14px', minWidth: 170,
+            }}>
+              <div style={{
+                fontSize: 12, fontWeight: 700, textAlign: 'center',
+                marginBottom: 8, letterSpacing: 0.5, borderBottom: '1px solid #ccc', paddingBottom: 5,
+              }}>REFERENCIAS</div>
+
+              {/* Tramos de desmalezado */}
+              {tramosComp.length > 0 && (
+                <>
+                  <div style={{ fontSize: 9, fontWeight: 700, color: '#444', marginBottom: 4 }}>
+                    Desmalezado {fEjecuta || 'CºCº'}
+                  </div>
+                  {[...rutaMap.entries()].map(([ruta, col]) => (
+                    <div key={ruta} style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 4 }}>
+                      <svg width="30" height="6" style={{ flexShrink: 0 }}>
+                        <rect width="30" height="6" rx="1" fill={col}/>
+                      </svg>
+                      <span style={{ fontSize: 9.5, color: '#222' }}>{ruta}</span>
+                    </div>
+                  ))}
+                  <div style={{ borderTop: '1px solid #ddd', marginTop: 6, marginBottom: 6 }}/>
+                </>
+              )}
+
+              {/* Road network legend (static, OSM basemap) */}
+              <div style={{ fontSize: 9, fontWeight: 700, color: '#444', marginBottom: 4 }}>
+                Rutas Provinciales y Nacionales
+              </div>
+              {[
+                { label: 'Consolidado',  color: '#e6b800' },
+                { label: 'Mejorado',     color: '#e08030' },
+                { label: 'Pavimentado',  color: '#b03020' },
+                { label: 'Tierra',       color: '#c4965a' },
+              ].map(r => (
+                <div key={r.label} style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 3 }}>
+                  <svg width="26" height="4" style={{ flexShrink: 0 }}>
+                    <rect width="26" height="4" rx="1" fill={r.color}/>
+                  </svg>
+                  <span style={{ fontSize: 9, color: '#444' }}>{r.label}</span>
                 </div>
               ))}
-            </div>
-          )}
-        </div>
 
-        {/* Tabla de cómputo */}
-        <div style={{
-          flexShrink: 0, borderTop: '1px solid #1a1a1a', overflowX: 'auto',
-        }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', ...mono, fontSize: 10 }}>
-            <thead>
-              <tr style={{ background: '#090909' }}>
-                <th style={thStyle}>Ruta</th>
-                <th style={{ ...thStyle, textAlign: 'right' }}>Prog. Izq (m)</th>
-                <th style={{ ...thStyle, textAlign: 'right' }}>Long. Izq</th>
-                <th style={{ ...thStyle, textAlign: 'right' }}>Ancho Izq</th>
-                <th style={{ ...thStyle, textAlign: 'right' }}>Sup. Izq (ha)</th>
-                <th style={{ ...thStyle, textAlign: 'right' }}>Prog. Der (m)</th>
-                <th style={{ ...thStyle, textAlign: 'right' }}>Long. Der</th>
-                <th style={{ ...thStyle, textAlign: 'right' }}>Ancho Der</th>
-                <th style={{ ...thStyle, textAlign: 'right' }}>Sup. Der (ha)</th>
-                <th style={{ ...thStyle, textAlign: 'right', color: color }}>Total (ha)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {tramosComp.map((t, i) => (
-                <tr key={t.id} style={{ background: i % 2 === 0 ? '#0a0a0a' : 'transparent', borderBottom: '1px solid #111' }}>
-                  <td style={{ ...tdStyle, color: t.color }}>{t.ruta}</td>
-                  <td style={{ ...tdStyle, textAlign: 'right', color: sColorIzq }}>
-                    {fmtN(t.desdeIzq)} – {fmtN(t.hastaIzq)}
-                  </td>
-                  <td style={{ ...tdStyle, textAlign: 'right', color: sColorIzq }}>
-                    {fmtKm(t.hastaIzq - t.desdeIzq)}
-                  </td>
-                  <td style={{ ...tdStyle, textAlign: 'right', color: sColorIzq }}>{t.anchoIzq} m</td>
-                  <td style={{ ...tdStyle, textAlign: 'right', color: sColorIzq }}>{t.haIzq.toFixed(4)}</td>
-                  <td style={{ ...tdStyle, textAlign: 'right', color: t.lados === 2 ? sColorDer : '#333' }}>
-                    {t.lados === 2 ? `${fmtN(t.desdeDer)} – ${fmtN(t.hastaDer)}` : '—'}
-                  </td>
-                  <td style={{ ...tdStyle, textAlign: 'right', color: t.lados === 2 ? sColorDer : '#333' }}>
-                    {t.lados === 2 ? fmtKm(t.hastaDer - t.desdeDer) : '—'}
-                  </td>
-                  <td style={{ ...tdStyle, textAlign: 'right', color: t.lados === 2 ? sColorDer : '#333' }}>
-                    {t.lados === 2 ? `${t.anchoDer} m` : '—'}
-                  </td>
-                  <td style={{ ...tdStyle, textAlign: 'right', color: t.lados === 2 ? sColorDer : '#333' }}>
-                    {t.lados === 2 ? t.haDer.toFixed(4) : '—'}
-                  </td>
-                  <td style={{ ...tdStyle, textAlign: 'right', color, fontWeight: 700 }}>
-                    {t.ha.toFixed(4)}
-                  </td>
-                </tr>
-              ))}
-              {tramosComp.length > 0 && (
-                <tr style={{ borderTop: `2px solid ${color}44`, background: '#080808' }}>
-                  <td colSpan={4} style={{ ...tdStyle, textAlign: 'right', fontSize: 9, color: '#555' }}>TOTAL GENERAL</td>
-                  <td style={{ ...tdStyle, textAlign: 'right', color: sColorIzq, fontWeight: 700 }}>{haIzq.toFixed(4)}</td>
-                  <td colSpan={3} />
-                  <td style={{ ...tdStyle, textAlign: 'right', color: sColorDer, fontWeight: 700 }}>{haDer.toFixed(4)}</td>
-                  <td style={{ ...tdStyle, textAlign: 'right', color, fontWeight: 700, fontSize: 12 }}>{Sup_ha.toFixed(4)}</td>
-                </tr>
-              )}
               {tramosComp.length === 0 && (
-                <tr>
-                  <td colSpan={10} style={{ ...tdStyle, textAlign: 'center', color: '#333', padding: '12px' }}>
-                    Sin tramos con trazado GPS/mapa
-                  </td>
-                </tr>
+                <div style={{ fontSize: 9, color: '#ccc', marginTop: 4 }}>Sin tramos trazados</div>
               )}
-            </tbody>
-          </table>
-        </div>
+            </div>
+          </div>
+
+          {/* ── Footer: signature blocks ──────────────────────────────────── */}
+          <div style={{
+            display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)',
+            gap: 12, marginTop: 14, paddingTop: 12, borderTop: '1px solid #ccc',
+          }}>
+            {sigs.map((s, i) => (
+              <div key={i} style={{ textAlign: 'center', fontSize: 10 }}>
+                {/* Signature space */}
+                <div style={{ height: 38, borderBottom: '1px solid #333', marginBottom: 4 }}/>
+                {/* Name */}
+                <input value={s.nombre} placeholder="Nombre Apellido"
+                  onChange={e => updateSig(i, 'nombre', e.target.value)}
+                  style={sigInp(true)} />
+                {/* Cargo */}
+                <input value={s.cargo}
+                  onChange={e => updateSig(i, 'cargo', e.target.value)}
+                  style={sigInp(false)} />
+                {/* CC */}
+                <input value={s.cc} placeholder="C°C° n°…"
+                  onChange={e => updateSig(i, 'cc', e.target.value)}
+                  style={sigInp(false)} />
+                {/* DNI */}
+                <input value={s.dni} placeholder="DNI XX.XXX.XXX"
+                  onChange={e => updateSig(i, 'dni', e.target.value)}
+                  style={{ ...sigInp(false), fontSize: 9 }} />
+              </div>
+            ))}
+          </div>
+
+        </div>{/* fin hoja */}
       </div>
 
-      {/* ── Print CSS ── */}
+      {/* ── Print CSS ─────────────────────────────────────────────────────── */}
       <style>{`
         @media print {
+          @page { size: A4 portrait; margin: 8mm; }
           .no-print { display: none !important; }
-          .print-area { page-break-inside: avoid; }
-          body { background: #fff !important; }
+          body { background: white !important; margin: 0 !important; }
+          .print-area {
+            width: 100% !important; margin: 0 !important;
+            box-shadow: none !important; padding: 0 !important;
+          }
         }
       `}</style>
     </div>
   )
 }
+
+// ── Shared styles ─────────────────────────────────────────────────────────────
+const btn: React.CSSProperties = {
+  fontFamily: 'monospace', padding: '4px 12px', fontSize: 10, cursor: 'pointer',
+  border: '1px solid #333', background: '#111', color: '#aaa', borderRadius: 2,
+}
+
+const sigInp = (bold: boolean): React.CSSProperties => ({
+  border: 'none', outline: 'none', background: 'transparent', width: '100%',
+  textAlign: 'center', fontFamily: 'Arial, sans-serif',
+  fontSize: 10, fontWeight: bold ? 700 : 400, color: bold ? '#222' : '#666',
+  display: 'block', lineHeight: 1.4,
+})
