@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { setObraTransfer, saveReturnTab, consumeReturnTab } from '@/lib/obraTransfer'
 import InlineMapDraw from '@/components/InlineMapDraw'
 import InlineLineDraw from '@/components/InlineLineDraw'
+import CalcRipioComponent from '@/components/CalcRipio'
 import DesmMapPanel, { type TramoForMap } from '@/components/DesmMapPanel'
 import MapComposicion, { type TramoComp } from '@/components/MapComposicion'
 import GuardarObraModal, { type GuardarObraData, type ObraTipo } from '@/components/GuardarObraModal'
@@ -353,67 +354,8 @@ function CalcExcavacion({ paramsRef }: { paramsRef?: React.MutableRefObject<Para
   )
 }
 
-// ── RIPIO ─────────────────────────────────────────────────────────────────────
-function CalcRipio({ paramsRef }: { paramsRef?: React.MutableRefObject<Params> }) {
-  const [L, setL]     = useState(1000)
-  const [An, setAn]   = useState(6.0)
-  const [E, setE]     = useState(0.15)
-  const [rho, setRho] = useState(2.10)
-
-  const V   = L * An * E
-  const W   = V * rho
-
-  useEffect(() => {
-    if (paramsRef) paramsRef.current = { An, E, rho, W_t: W, L_m: L }
-  }, [paramsRef, L, An, E, rho, W])
-  const fmt = (n: number) => Math.round(n).toLocaleString('es-AR')
-  const color = CLR.ripio
-
-  return (
-    <div style={{ display: 'flex', gap: 10, height: '100%' }}>
-      {/* Panel izquierdo */}
-      <div style={{ ...panel, width: 200, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 0 }}>
-        <SectionTitle>Dimensiones</SectionTitle>
-        <Inp label="Ancho"    unit="m"    value={An}  onChange={setAn}  step={0.5} />
-        <Inp label="Espesor"  unit="m"    value={E}   onChange={setE}   step={0.01} />
-        <div style={secLabel}>Material</div>
-        <Inp label="Densidad" unit="t/m³" value={rho} onChange={setRho} step={0.05} min={1.5} />
-
-        <div style={{ marginTop: 16, borderTop: '1px solid #1a1a1a', paddingTop: 12 }}>
-          <div style={{ fontSize: 8, color: '#444', fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>
-            Longitud medida
-          </div>
-          <div style={{ fontFamily: 'monospace', fontSize: 20, fontWeight: 700, color: L > 0 ? color : '#333', marginBottom: 2 }}>
-            {fmt(L)} <span style={{ fontSize: 11, fontWeight: 400, color: '#444' }}>m</span>
-          </div>
-          {L >= 1000 && (
-            <div style={{ fontSize: 10, color: '#555', fontFamily: 'monospace' }}>
-              {(L/1000).toFixed(3)} km
-            </div>
-          )}
-        </div>
-
-        <div style={{ marginTop: 'auto', borderTop: '1px solid #1a1a1a', paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <Res label="Volumen"   value={fmt(V)} unit="m³" />
-          <Res label="Toneladas" value={fmt(W)} unit="t" accent />
-          <div style={{ fontSize: 9, color: '#333', fontFamily: 'monospace', lineHeight: 1.7, marginTop: 4 }}>
-            Camiones 15t: ~{Math.ceil(W/15).toLocaleString('es-AR')}<br/>
-            Camiones 20t: ~{Math.ceil(W/20).toLocaleString('es-AR')}
-          </div>
-        </div>
-      </div>
-
-      {/* Mapa */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-        <InlineLineDraw
-          color={color}
-          halfWidth={An / 2}
-          onConfirm={(lengthM) => { setL(Math.round(lengthM)) }}
-        />
-      </div>
-    </div>
-  )
-}
+// ── RIPIO — ahora es el componente externo CalcRipioComponent ────────────────
+// (ver admin/src/components/CalcRipio.tsx)
 
 // ── CANAL ─────────────────────────────────────────────────────────────────────
 function CalcCanal({ paramsRef }: { paramsRef?: React.MutableRefObject<Params> }) {
@@ -2873,8 +2815,8 @@ export default function CalculadorasPage() {
         ))}
       </div>
 
-      {/* Barra precio + botón Dibujar — oculto para Limpieza (usa mapa inline propio) */}
-      {tab !== 'limpieza' && (
+      {/* Barra precio + botón Dibujar — oculto para Limpieza y Ripio (tienen gestión propia) */}
+      {tab !== 'limpieza' && tab !== 'ripio' && (
       <div style={{
         display: 'flex', alignItems: 'center', gap: 10,
         padding: '8px 0 10px', borderBottom: '1px solid #141414', flexShrink: 0,
@@ -2900,19 +2842,17 @@ export default function CalculadorasPage() {
           </span>
         )}
         <div style={{ flex: 1 }} />
-        {tab !== 'ripio' && (
-          <button
-            onClick={handleDraw}
-            style={{
-              padding: '7px 18px', fontSize: 11, fontFamily: 'monospace',
-              fontWeight: 700, letterSpacing: 0.8, cursor: 'pointer',
-              border: `1px solid ${color}`, background: `${color}22`,
-              color: color, transition: 'background 0.15s',
-            }}
-          >
-            Dibujar en mapa →
-          </button>
-        )}
+        <button
+          onClick={handleDraw}
+          style={{
+            padding: '7px 18px', fontSize: 11, fontFamily: 'monospace',
+            fontWeight: 700, letterSpacing: 0.8, cursor: 'pointer',
+            border: `1px solid ${color}`, background: `${color}22`,
+            color: color, transition: 'background 0.15s',
+          }}
+        >
+          Dibujar en mapa →
+        </button>
 
         <button
           onClick={handleGuardarObra}
@@ -2930,12 +2870,12 @@ export default function CalculadorasPage() {
 
       {/* Calculadora activa */}
       <div style={{
-        flex: 1, minHeight: 0, marginTop: 10,
-        ...(tab !== 'limpieza' ? { borderLeft: `2px solid ${color}44`, paddingLeft: 14 } : {}),
+        flex: 1, minHeight: 0, marginTop: tab === 'ripio' ? 0 : 10,
+        ...(tab !== 'limpieza' && tab !== 'ripio' ? { borderLeft: `2px solid ${color}44`, paddingLeft: 14 } : {}),
       }}>
         {tab === 'terraplen'  && <CalcTerraplen  paramsRef={paramsRef} />}
         {tab === 'excavacion' && <CalcExcavacion paramsRef={paramsRef} />}
-        {tab === 'ripio'      && <CalcRipio      paramsRef={paramsRef} />}
+        {tab === 'ripio'      && <CalcRipioComponent />}
         {tab === 'canal'      && <CalcCanal      paramsRef={paramsRef} />}
         {tab === 'limpieza'   && !editLoading && <CalcLimpiezaVial key={editId ?? 'new'} paramsRef={paramsRef} onGuardarObra={(d) => { setGuardarData(d); setGuardarOpen(true) }} initialData={editDC ?? undefined} />}
         {tab === 'limpieza'   && editLoading  && <div style={{ color: '#555', fontFamily: 'monospace', fontSize: 12, padding: 20 }}>Cargando obra...</div>}
