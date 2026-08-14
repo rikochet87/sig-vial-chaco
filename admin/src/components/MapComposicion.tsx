@@ -229,28 +229,20 @@ export default function MapComposicion({
   const exportPNG = async () => {
     if (!compRef.current) return
     const { default: h2c } = await import('html2canvas')
-    const canvas = await h2c(compRef.current, { useCORS: true, allowTaint: false, scale: 2 })
+    await new Promise(r => setTimeout(r, 800))
+    const canvas = await h2c(compRef.current, {
+      useCORS: true, allowTaint: false, scale: 2,
+      width: 794, height: 1123, windowWidth: 794, windowHeight: 1123,
+    })
     const link = document.createElement('a')
     link.download = `${fObra.replace(/\s+/g, '_') || 'composicion'}.png`
     link.href = canvas.toDataURL('image/png')
     link.click()
   }
 
-  const exportPDF = async () => {
-    if (!compRef.current) return
-    const { default: h2c } = await import('html2canvas')
-    const { jsPDF }        = await import('jspdf')
-    const canvas = await h2c(compRef.current, { useCORS: true, allowTaint: false, scale: 2 })
-    const img    = canvas.toDataURL('image/png')
-    const pdf    = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
-    const pw = pdf.internal.pageSize.getWidth()
-    const ph = pdf.internal.pageSize.getHeight()
-    const ratio = canvas.width / canvas.height
-    let w = pw - 10, h = w / ratio
-    if (h > ph - 10) { h = ph - 10; w = h * ratio }
-    pdf.addImage(img, 'PNG', (pw - w) / 2, (ph - h) / 2, w, h)
-    pdf.save(`${fObra.replace(/\s+/g, '_') || 'composicion'}.pdf`)
-  }
+  // PDF: usar window.print() — el browser renderiza el mapa nativo sin problemas de canvas/CORS
+  // El usuario elige "Guardar como PDF" en el diálogo de impresión
+  const exportPDF = () => window.print()
 
   // ── Derived ───────────────────────────────────────────────────────────────
   const hasTramos = tramosComp.some(t => t.coords.length >= 2)
@@ -270,9 +262,8 @@ export default function MapComposicion({
         <span style={{ fontFamily: 'monospace', fontSize: 10, color: '#555', flex: 1 }}>
           Composición A4 — {tramosComp.length} tramo{tramosComp.length !== 1 ? 's' : ''} · {Sup_ha.toFixed(4)} ha · editable (click en cualquier campo)
         </span>
-        <button onClick={() => window.print()} style={btn}>🖨️ Imprimir</button>
-        <button onClick={exportPDF}            style={btn}>📄 PDF</button>
-        <button onClick={exportPNG}            style={btn}>🖼️ PNG</button>
+        <button onClick={exportPDF} style={btn}>📄 Guardar PDF</button>
+        <button onClick={exportPNG} style={btn}>🖼️ PNG</button>
       </div>
 
       {/* ── Scrollable frame ─────────────────────────────────────────────── */}
@@ -280,12 +271,13 @@ export default function MapComposicion({
 
         {/* ── Hoja A4 ──────────────────────────────────────────────────── */}
         <div ref={compRef} className="print-area" style={{
-          width: 794, margin: '0 auto', background: '#fff', color: '#111',
+          width: 794, height: 1123, margin: '0 auto', background: '#fff', color: '#111',
           fontFamily: 'Arial, Helvetica, sans-serif',
           boxShadow: '0 4px 24px rgba(0,0,0,0.6)',
           display: 'flex', flexDirection: 'column',
           padding: '18px 22px 14px',
           boxSizing: 'border-box',
+          overflow: 'hidden',
         }}>
 
           {/* ── Header ─────────────────────────────────────────────────── */}
@@ -489,13 +481,25 @@ export default function MapComposicion({
       {/* ── Print CSS ─────────────────────────────────────────────────────── */}
       <style>{`
         @media print {
-          @page { size: A4 portrait; margin: 8mm; }
-          .no-print { display: none !important; }
-          body { background: white !important; margin: 0 !important; }
+          @page { size: A4 portrait; margin: 0; }
+
+          /* Ocultar TODO excepto la composición */
+          html, body { margin: 0 !important; padding: 0 !important; background: white !important; }
+          body * { visibility: hidden; }
+
+          /* Mostrar solo la hoja A4 */
+          .print-area, .print-area * { visibility: visible; }
           .print-area {
-            width: 100% !important; margin: 0 !important;
-            box-shadow: none !important; padding: 0 !important;
+            position: fixed !important;
+            top: 0 !important; left: 0 !important;
+            width: 210mm !important; height: 297mm !important;
+            margin: 0 !important; padding: 5mm 6mm !important;
+            box-shadow: none !important; overflow: hidden !important;
+            background: white !important; box-sizing: border-box !important;
           }
+
+          /* Barra de escala y referencias: asegurar visibilidad en print */
+          .leaflet-container { background: #e0e8f0 !important; }
         }
       `}</style>
     </div>
