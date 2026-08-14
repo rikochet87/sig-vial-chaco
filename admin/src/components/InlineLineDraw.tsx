@@ -14,6 +14,39 @@ function totalLen(pts: LatLng[]): number {
   let d = 0; for (let i = 1; i < pts.length; i++) d += segLen(pts[i-1], pts[i]); return d
 }
 
+// ── Buffer de calzada (igual que planta/page.tsx) ─────────────────────────────
+function roadBuffer(latLngs: LatLng[], halfWidth: number): LatLng[] {
+  if (latLngs.length < 2 || halfWidth <= 0) return []
+  const DEG = Math.PI / 180, R = 6371000
+  const lat0 = latLngs[0][0], lng0 = latLngs[0][1]
+  const cosLat = Math.cos(lat0 * DEG)
+  const pts = latLngs.map(([lat, lng]) => ({
+    x: (lng - lng0) * cosLat * R * DEG,
+    y: (lat - lat0) * R * DEG,
+  }))
+  const left:  { x: number; y: number }[] = []
+  const right: { x: number; y: number }[] = []
+  for (let i = 0; i < pts.length; i++) {
+    let dx = 0, dy = 0
+    if (i > 0)              { dx += pts[i].x - pts[i-1].x; dy += pts[i].y - pts[i-1].y }
+    if (i < pts.length - 1) { dx += pts[i+1].x - pts[i].x; dy += pts[i+1].y - pts[i].y }
+    const len = Math.sqrt(dx*dx + dy*dy)
+    if (len < 1e-10) {
+      left.push(left.length   > 0 ? left[left.length - 1]   : pts[i])
+      right.push(right.length > 0 ? right[right.length - 1] : pts[i])
+      continue
+    }
+    const nx = -dy/len, ny = dx/len
+    left.push({ x: pts[i].x + nx * halfWidth, y: pts[i].y + ny * halfWidth })
+    right.push({ x: pts[i].x - nx * halfWidth, y: pts[i].y - ny * halfWidth })
+  }
+  const toLL = (p: { x: number; y: number }): LatLng => [
+    lat0 + p.y / (R * DEG),
+    lng0 + p.x / (cosLat * R * DEG),
+  ]
+  return [...left.map(toLL), ...right.reverse().map(toLL)]
+}
+
 // ── Parsers de archivo ────────────────────────────────────────────────────────
 function parseKMLLines(text: string): LatLng[][] {
   const parser = new DOMParser()
@@ -86,12 +119,13 @@ const ZONE_CLR: Record<string, string> = {
 // ── Props ─────────────────────────────────────────────────────────────────────
 interface Props {
   color: string
+  halfWidth?: number          // metros — muestra buffer de calzada al finalizar
   onConfirm: (lengthM: number, pts: [number, number][]) => void
   onCancel?:  () => void
 }
 
 // ── Componente ────────────────────────────────────────────────────────────────
-export default function InlineLineDraw({ color, onConfirm, onCancel }: Props) {
+export default function InlineLineDraw({ color, halfWidth, onConfirm, onCancel }: Props) {
   const [drawing,    setDrawing]    = useState(false)
   const [lineResult, setLineResult] = useState<{ lengthM: number; pts: LatLng[] } | null>(null)
   const [lineHUD,    setLineHUD]    = useState<{ vertices: number; lastSegM: number; totalM: number } | null>(null)
@@ -119,7 +153,8 @@ export default function InlineLineDraw({ color, onConfirm, onCancel }: Props) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const satLayerRef     = useRef<any>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const confirmedLineRef = useRef<any>(null)
+  const confirmedLayersRef = useRef<any[]>([])
+  const halfWidthRef = useRef<number>(halfWidth ?? 0)
 
   // Layer control
   const [layerVis,       setLayerVis]       = useState<Record<LayerKey, boolean>>(LAYER_DEFAULTS)
@@ -148,6 +183,9 @@ export default function InlineLineDraw({ color, onConfirm, onCancel }: Props) {
     if (!document.getElementById('linedraw-map-styles')) document.head.appendChild(style)
     return () => { document.getElementById('linedraw-map-styles')?.remove() }
   }, [])
+
+  // ── Sincronizar halfWidthRef con prop ────────────────────────────────────
+  useEffect(() => { halfWidthRef.current = halfWidth ?? 0 }, [halfWidth])
 
   // ── Inicializar mapa ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -208,18 +246,32 @@ export default function InlineLineDraw({ color, onConfirm, onCancel }: Props) {
     else                   { map.removeLayer(sat); osm.addTo(map) }
   }, [basemap])
 
-  // ── Agregar línea confirmada al mapa ──────────────────────────────────────
+  // ── Agregar capa confirmada al mapa (buffer + línea central) ─────────────
   const addConfirmedLayer = useCallback((pts: LatLng[], lengthM: number) => {
     const map = mapRef.current, Lf = LfRef.current
     if (!map || !Lf) return
-    if (confirmedLineRef.current) { map.removeLayer(confirmedLineRef.current); confirmedLineRef.current = null }
+    confirmedLayersRef.current.forEach(l => map.removeLayer(l))
+    confirmedLayersRef.current = []
+    const hw = halfWidthRef.current
     const fmtL = (m: number) => m >= 1000 ? `${(m/1000).toFixed(3)} km` : `${Math.round(m)} m`
-    const line = Lf.polyline(pts as [number,number][], { color, weight: 4, opacity: 0.95 }).addTo(map)
+    const layers: unknown[] = []
+    if (hw > 0) {
+      const bufRing = roadBuffer(pts, hw)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const poly = (Lf as any).polygon(bufRing as [number,number][], {
+        color, fillColor: color, fillOpacity: 0.35, weight: 2, opacity: 0.9,
+      }).addTo(map)
+      layers.push(poly)
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const line = (Lf as any).polyline(pts as [number,number][], { color, weight: 4, opacity: 0.95 }).addTo(map)
     line.bindTooltip(
       `<span style="font-family:monospace;font-size:10px;color:${color};font-weight:700">${fmtL(lengthM)}</span>`,
       { permanent: true, direction: 'center', className: 'linedraw-label' }
     )
-    confirmedLineRef.current = line
+    layers.push(line)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    confirmedLayersRef.current = layers as any[]
   }, [color])
 
   // ── Usar resultado ────────────────────────────────────────────────────────
@@ -241,7 +293,8 @@ export default function InlineLineDraw({ color, onConfirm, onCancel }: Props) {
     if (!map || !Lf || drawing) return
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     previewRef.current.forEach((l: any) => map.removeLayer(l)); previewRef.current = []
-    if (confirmedLineRef.current) { map.removeLayer(confirmedLineRef.current); confirmedLineRef.current = null }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    confirmedLayersRef.current.forEach((l: any) => map.removeLayer(l)); confirmedLayersRef.current = []
     setLineResult(null); setDrawing(true); setLineHUD(null); setHasLine(false); setCanUndo(false)
     map.getContainer().style.cursor = 'crosshair'
 
@@ -324,10 +377,21 @@ export default function InlineLineDraw({ color, onConfirm, onCancel }: Props) {
       if (pts.length < 2) return
       cleanup(); setDrawing(false)
       const lengthM = totalLen(pts)
-      const prev = Lf.polyline(pts as [number,number][], {
-        color, weight: 3, opacity: 0.9, dashArray: '6 4',
+      const hw = halfWidthRef.current
+      const previewLayers: unknown[] = []
+      if (hw > 0) {
+        const bufRing = roadBuffer(pts, hw)
+        const poly = Lf.polygon(bufRing as [number,number][], {
+          color, fillColor: color, fillOpacity: 0.4, weight: 2, opacity: 0.9,
+        }).addTo(map)
+        previewLayers.push(poly)
+      }
+      const line = Lf.polyline(pts as [number,number][], {
+        color, weight: 3, opacity: hw > 0 ? 1 : 0.9, dashArray: hw > 0 ? '8 4' : '6 4',
       }).addTo(map)
-      previewRef.current = [prev]
+      previewLayers.push(line)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      previewRef.current = previewLayers as any[]
       setLineResult({ lengthM, pts: [...pts] })
     }
 
@@ -370,10 +434,21 @@ export default function InlineLineDraw({ color, onConfirm, onCancel }: Props) {
 
       const pts = lines[0]
       const lengthM = totalLen(pts)
+      const hw = halfWidthRef.current
+      const importLayers: unknown[] = []
+      if (hw > 0) {
+        const bufRing = roadBuffer(pts, hw)
+        const poly = Lf.polygon(bufRing as [number,number][], {
+          color, fillColor: color, fillOpacity: 0.4, weight: 2, opacity: 0.9,
+        }).addTo(map)
+        importLayers.push(poly)
+      }
       const prev = Lf.polyline(pts as [number,number][], {
-        color, weight: 3, opacity: 0.9, dashArray: '6 4',
+        color, weight: 3, opacity: hw > 0 ? 1 : 0.9, dashArray: hw > 0 ? '8 4' : '6 4',
       }).addTo(map)
-      previewRef.current = [prev]
+      importLayers.push(prev)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      previewRef.current = importLayers as any[]
       setLineResult({ lengthM, pts })
       map.fitBounds(prev.getBounds(), { padding: [40, 40] })
     }

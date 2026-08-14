@@ -407,6 +407,7 @@ function CalcRipio({ paramsRef }: { paramsRef?: React.MutableRefObject<Params> }
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
         <InlineLineDraw
           color={color}
+          halfWidth={An / 2}
           onConfirm={(lengthM) => { setL(Math.round(lengthM)) }}
         />
       </div>
@@ -2899,17 +2900,19 @@ export default function CalculadorasPage() {
           </span>
         )}
         <div style={{ flex: 1 }} />
-        <button
-          onClick={handleDraw}
-          style={{
-            padding: '7px 18px', fontSize: 11, fontFamily: 'monospace',
-            fontWeight: 700, letterSpacing: 0.8, cursor: 'pointer',
-            border: `1px solid ${color}`, background: `${color}22`,
-            color: color, transition: 'background 0.15s',
-          }}
-        >
-          Dibujar en mapa →
-        </button>
+        {tab !== 'ripio' && (
+          <button
+            onClick={handleDraw}
+            style={{
+              padding: '7px 18px', fontSize: 11, fontFamily: 'monospace',
+              fontWeight: 700, letterSpacing: 0.8, cursor: 'pointer',
+              border: `1px solid ${color}`, background: `${color}22`,
+              color: color, transition: 'background 0.15s',
+            }}
+          >
+            Dibujar en mapa →
+          </button>
+        )}
 
         <button
           onClick={handleGuardarObra}
