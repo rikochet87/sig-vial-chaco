@@ -119,9 +119,26 @@ export default function RipioMapPanel({
         center, zoom, zoomControl: false, doubleClickZoom: false,
       })
       mapRef.current = map
-      Lf.tileLayer('https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+
+      // Capas base
+      const satellite = Lf.tileLayer('https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
         subdomains: ['0','1','2','3'], maxZoom: 21, maxNativeZoom: 20, attribution: '© Google',
-      }).addTo(map)
+      })
+      const osm = Lf.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19, attribution: '© OpenStreetMap',
+      })
+      const hybrid = Lf.tileLayer('https://mt{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+        subdomains: ['0','1','2','3'], maxZoom: 21, maxNativeZoom: 20, attribution: '© Google',
+      })
+
+      satellite.addTo(map)
+
+      Lf.control.layers(
+        { 'Satélite': satellite, 'Satélite + etiquetas': hybrid, 'OpenStreetMap': osm },
+        {},
+        { position: 'topright', collapsed: true }
+      ).addTo(map)
+
       Lf.control.zoom({ position: 'bottomright' }).addTo(map)
       map.on('moveend', () => {
         const c = map.getCenter()
@@ -315,6 +332,26 @@ export default function RipioMapPanel({
           padding: 4px 8px; border-radius: 0; box-shadow: none;
         }
         .leaflet-tooltip::before { display: none; }
+        /* Control de capas — tema oscuro */
+        .leaflet-control-layers {
+          background: rgba(8,8,8,0.92) !important;
+          border: 1px solid #1a1a1a !important;
+          border-radius: 0 !important;
+          box-shadow: none !important;
+          color: #777 !important;
+          font-family: monospace !important;
+          font-size: 9px !important;
+        }
+        .leaflet-control-layers-toggle {
+          background-color: #111 !important;
+          border: 1px solid #222 !important;
+          width: 28px !important; height: 28px !important;
+          background-size: 16px 16px !important;
+          filter: invert(0.5) !important;
+        }
+        .leaflet-control-layers label { color: #777 !important; font-size: 10px !important; font-family: monospace !important; }
+        .leaflet-control-layers-separator { border-top-color: #1a1a1a !important; }
+        .leaflet-control-layers input[type=radio] { accent-color: #90A4AE; }
       `}</style>
       <div ref={mapDivRef} style={{ width: '100%', height: '100%' }} />
 
