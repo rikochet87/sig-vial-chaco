@@ -5,6 +5,7 @@ import { setObraTransfer, saveReturnTab, consumeReturnTab } from '@/lib/obraTran
 import InlineMapDraw from '@/components/InlineMapDraw'
 import InlineLineDraw from '@/components/InlineLineDraw'
 import DesmMapPanel, { type TramoForMap } from '@/components/DesmMapPanel'
+import MapComposicion, { type TramoComp } from '@/components/MapComposicion'
 import GuardarObraModal, { type GuardarObraData, type ObraTipo } from '@/components/GuardarObraModal'
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
@@ -551,8 +552,9 @@ function CalcDesmalezado({ paramsRef, onGuardarObra, initialData }: { paramsRef?
   const _i: any = initialData ?? {}
 
   const [method,        setMethod]        = useState<'formula' | 'mapa'>(_i.method ?? 'formula')
-  const [view,          setView]          = useState<'computo' | 'jornales' | 'presupuesto'>('computo')
-  const [mapaActivated, setMapaActivated] = useState(false)  // lazy-mount: nunca desmontar InlineMapDraw
+  const [view,              setView]              = useState<'computo' | 'jornales' | 'presupuesto' | 'mapa'>('computo')
+  const [mapaActivated,     setMapaActivated]     = useState(false)  // lazy-mount: nunca desmontar InlineMapDraw
+  const [mapaCompActivated, setMapaCompActivated] = useState(false)  // lazy-mount: composición cartográfica
 
   // Fórmula — tramos
   const [tramos,      setTramos]      = useState<TramoDesm[]>(_i.tramos ?? [])
@@ -714,7 +716,22 @@ function CalcDesmalezado({ paramsRef, onGuardarObra, initialData }: { paramsRef?
     { id: 'computo'     as const, label: 'Cómputo' },
     { id: 'jornales'    as const, label: 'Análisis de Precio' },
     { id: 'presupuesto' as const, label: 'Presupuesto' },
+    { id: 'mapa'        as const, label: '🗺 Composición' },
   ]
+
+  // Tramos con trazado GPS, listos para MapComposicion
+  const tramosComp: TramoComp[] = tramos.map(t => ({
+    id:       t.id,
+    ruta:     t.ruta,
+    color:    getRutaColor(t.ruta),
+    coords:   t.coords,
+    lados:    t.lados,
+    ha:       tramoHa(t),
+    haIzq:    tramoHaIzq(t),
+    haDer:    tramoHaDer(t),
+    desdeIzq: t.desdeIzq, hastaIzq: t.hastaIzq, anchoIzq: t.anchoIzq,
+    desdeDer: t.desdeDer, hastaDer: t.hastaDer,  anchoDer: t.anchoDer,
+  }))
 
   const METHODS = [
     { id: 'formula' as const, label: '∑ Fórmula' },
@@ -728,7 +745,7 @@ function CalcDesmalezado({ paramsRef, onGuardarObra, initialData }: { paramsRef?
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexShrink: 0, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', gap: 2 }}>
           {subTabs.map(st => (
-            <button key={st.id} onClick={() => setView(st.id)}
+            <button key={st.id} onClick={() => { if (st.id === 'mapa') setMapaCompActivated(true); setView(st.id) }}
               style={{
                 padding: '4px 12px', fontSize: 10, fontFamily: 'monospace', cursor: 'pointer',
                 border: `1px solid ${view === st.id ? color + '88' : '#1e1e1e'}`,
@@ -1640,6 +1657,21 @@ function CalcDesmalezado({ paramsRef, onGuardarObra, initialData }: { paramsRef?
           </div>
         )}
 
+        {/* ── Composición cartográfica (lazy-mount) ── */}
+        {mapaCompActivated && (
+          <div style={{ display: view === 'mapa' ? 'flex' : 'none', height: '100%', minHeight: 0 }}>
+            <MapComposicion
+              tramosComp={tramosComp}
+              Sup_ha={Sup_ha}
+              haIzq={haIzqPres}
+              haDer={haDerPres}
+              apAdoptado={apAdoptado}
+              totalPres={totalPres}
+              color={color}
+              active={view === 'mapa'}
+            />
+          </div>
+        )}
 
       </div>
     </div>
