@@ -301,7 +301,7 @@ export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: Guard
         const totalPres = activeProy.ripios.reduce((s, r) => s + calcRipio(r).presupuesto, 0)
         const totalTon  = activeProy.ripios.reduce((s, r) => s + calcRipio(r).W, 0)
         const totalLm   = activeProy.ripios.reduce((s, r) => s + r.l_m, 0)
-        if (totalPres <= 0) return null
+        if (totalTon <= 0) return null
         const precioPromedio = totalTon > 0 ? totalPres / totalTon : 0
         const allCoords = activeProy.ripios.flatMap(r => (r.coords ?? []).map(([lat, lng]) => ({ lat, lng })))
         return (
