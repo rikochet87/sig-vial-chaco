@@ -2875,7 +2875,7 @@ export default function CalculadorasPage() {
       }}>
         {tab === 'terraplen'  && <CalcTerraplen  paramsRef={paramsRef} />}
         {tab === 'excavacion' && <CalcExcavacion paramsRef={paramsRef} />}
-        {tab === 'ripio'      && <CalcRipioComponent />}
+        {tab === 'ripio'      && <CalcRipioComponent onGuardarObra={(d) => { setGuardarData(d); setGuardarOpen(true) }} />}
         {tab === 'canal'      && <CalcCanal      paramsRef={paramsRef} />}
         {tab === 'limpieza'   && !editLoading && <CalcLimpiezaVial key={editId ?? 'new'} paramsRef={paramsRef} onGuardarObra={(d) => { setGuardarData(d); setGuardarOpen(true) }} initialData={editDC ?? undefined} />}
         {tab === 'limpieza'   && editLoading  && <div style={{ color: '#555', fontFamily: 'monospace', fontSize: 12, padding: 20 }}>Cargando obra...</div>}

@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import type { RipioTramo, LatLng } from './RipioMapPanel'
+import type { GuardarObraData } from './GuardarObraModal'
 
 const RipioMapPanel = dynamic(() => import('./RipioMapPanel'), { ssr: false })
 
@@ -62,7 +63,7 @@ function Res({ label, value, accent }: { label: string; value: string; accent?: 
 }
 
 // ── Componente principal ──────────────────────────────────────────────────────
-export default function CalcRipio() {
+export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: GuardarObraData) => void }) {
   const [proyectos,    setProyectos]    = useState<Proyecto[]>([])
   const [activeProyId, setActiveProyId] = useState<string | null>(null)
   const [selectedId,   setSelectedId]   = useState<string | null>(null)
@@ -294,6 +295,59 @@ export default function CalcRipio() {
           textTransform: 'uppercase', letterSpacing: 1,
         }}
       >Σ Resumen presupuesto</button>
+
+      {/* Botón Guardar obra */}
+      {onGuardarObra && activeProy && activeProy.ripios.length > 0 && (() => {
+        const totalPres = activeProy.ripios.reduce((s, r) => s + calcRipio(r).presupuesto, 0)
+        const totalTon  = activeProy.ripios.reduce((s, r) => s + calcRipio(r).W, 0)
+        const totalLm   = activeProy.ripios.reduce((s, r) => s + r.l_m, 0)
+        if (totalPres <= 0) return null
+        const precioPromedio = totalTon > 0 ? totalPres / totalTon : 0
+        const allCoords = activeProy.ripios.flatMap(r => (r.coords ?? []).map(([lat, lng]) => ({ lat, lng })))
+        return (
+          <button
+            onClick={() => onGuardarObra({
+              tipo: 'ripio',
+              cantidad: totalTon,
+              unidad: 't',
+              presupuesto_total: totalPres,
+              aporte_dvp: 0,
+              aporte_ccc: 0,
+              precio_unitario: precioPromedio,
+              descripcion: activeProy.nombre,
+              coordsLinea: allCoords,
+              datos_calculadora: {
+                calculadora: 'ripio',
+                proyecto: activeProy.nombre,
+                inputs: {
+                  proyectos: proyectos.map(p => ({
+                    id: p.id, nombre: p.nombre,
+                    ripios: p.ripios.map(r => ({
+                      ...r,
+                      ...calcRipio(r),
+                    })),
+                  })),
+                  activeProyId,
+                },
+                computo: {
+                  totalLm,
+                  totalTon,
+                  totalPres,
+                  ripios: activeProy.ripios.map(r => ({ ...r, ...calcRipio(r) })),
+                },
+              },
+            })}
+            style={{
+              padding: '8px 10px', width: '100%', textAlign: 'left', cursor: 'pointer',
+              background: '#F5C30010', border: 'none', borderTop: '1px solid #111',
+              borderLeft: '2px solid #F5C300',
+              fontSize: 9, color: '#F5C300', ...MONO, fontWeight: 700,
+            }}
+          >
+            💾 Guardar obra
+          </button>
+        )
+      })()}
     </div>
   )
 
