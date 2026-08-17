@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import type { RipioTramo, LatLng } from './RipioMapPanel'
-import { PALETTE } from './RipioMapPanel'
+import { PALETTE } from '@/lib/ripioPalette'
 import type { GuardarObraData } from './GuardarObraModal'
 
 const RipioMapPanel = dynamic(() => import('./RipioMapPanel'), { ssr: false })

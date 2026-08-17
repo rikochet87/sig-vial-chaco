@@ -72,11 +72,8 @@ function roadBuffer(latLngs: LatLng[], halfWidth: number): LatLng[] {
   return [...left.map(toLL), ...right.reverse().map(toLL)]
 }
 
-// Paleta de colores por índice (para distinguir ripios en el mapa)
-export const PALETTE = [
-  '#90A4AE','#80CBC4','#FFB74D','#EF9A9A','#A5D6A7',
-  '#CE93D8','#80DEEA','#FFCC02','#F48FB1','#BCAAA4',
-]
+import { PALETTE } from '@/lib/ripioPalette'
+
 function ripioColor(orden: number): string {
   return PALETTE[orden % PALETTE.length]
 }
