@@ -7,7 +7,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const update: Record<string, any> = {}
-  const fields = ['nombre','an','e','rho','l_m','coords','empresa','fecha_ejecucion','precio_unitario']
+  const fields = ['nombre','an','e','rho','l_m','coords','empresa','fecha_ejecucion','precio_unitario','color']
   for (const f of fields) {
     if (body[f] !== undefined) update[f] = body[f]
   }

@@ -130,7 +130,8 @@ export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: Guard
 
   const deleteProyecto = useCallback(async (id: string) => {
     if (!confirm('¿Eliminar el proyecto y todos sus ripios?')) return
-    await fetch(`/api/proyectos-ripio/${id}`, { method: 'DELETE' })
+    const res = await fetch(`/api/proyectos-ripio/${id}`, { method: 'DELETE' })
+    if (!res.ok) { alert('Error al eliminar el proyecto'); return }
     setProyectos(prev => {
       const next = prev.filter(p => p.id !== id)
       if (activeProyId === id) { setActiveProyId(next[0]?.id ?? null); setSelectedId(null) }
@@ -158,7 +159,8 @@ export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: Guard
 
   const deleteRipio = useCallback(async (id: string) => {
     if (!confirm('¿Eliminar este ripio?')) return
-    await fetch(`/api/ripios/${id}`, { method: 'DELETE' })
+    const res = await fetch(`/api/ripios/${id}`, { method: 'DELETE' })
+    if (!res.ok) { alert('Error al eliminar el ripio'); return }
     setProyectos(prev => prev.map(p => ({ ...p, ripios: p.ripios.filter(r => r.id !== id) })))
     if (selectedId === id) setSelectedId(ripios.find(r => r.id !== id)?.id ?? null)
   }, [selectedId, ripios])
@@ -227,7 +229,7 @@ export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: Guard
                     const isSel     = r.id === selectedId
                     const isDrawing = r.id === drawingId
                     const hasCords  = r.l_m > 0
-                    const ripioClr  = PALETTE[r.orden % PALETTE.length]
+                    const ripioClr  = r.color ?? PALETTE[r.orden % PALETTE.length]
                     return (
                       <div key={r.id}
                         onClick={() => { setSelectedId(r.id); setPanel('form') }}
@@ -396,11 +398,22 @@ export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: Guard
 
         {/* Formulario scrolleable */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '0 12px 12px' }}>
-          {/* Nombre */}
-          <label style={{ display: 'block' }}>
-            <span style={lblS}>Nombre</span>
-            <input value={selected.nombre} onChange={e => saveRipio(selected.id, { nombre: e.target.value })} style={inpS} />
-          </label>
+          {/* Nombre + Color */}
+          <div style={{ display: 'flex', gap: 6, alignItems: 'flex-end' }}>
+            <label style={{ display: 'block', flex: 1 }}>
+              <span style={lblS}>Nombre</span>
+              <input value={selected.nombre} onChange={e => saveRipio(selected.id, { nombre: e.target.value })} style={inpS} />
+            </label>
+            <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
+              <span style={{ ...lblS, marginBottom: 3 }}>Color</span>
+              <input
+                type="color"
+                value={selected.color ?? PALETTE[selected.orden % PALETTE.length]}
+                onChange={e => saveRipio(selected.id, { color: e.target.value })}
+                style={{ width: 32, height: 28, padding: 2, background: '#0a0a0a', border: '1px solid #1e1e1e', cursor: 'pointer' }}
+              />
+            </label>
+          </div>
 
           {/* Dimensiones */}
           <div style={{ marginTop: 12, paddingTop: 8, borderTop: '1px solid #0e0e0e' }}>

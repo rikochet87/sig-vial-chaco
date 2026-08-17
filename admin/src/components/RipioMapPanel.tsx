@@ -17,6 +17,7 @@ export interface RipioTramo {
   fecha_ejecucion: string | null
   precio_unitario: number
   orden: number
+  color: string | null   // color personalizado; null = usar paleta automática
 }
 
 interface Props {
@@ -182,7 +183,7 @@ export default function RipioMapPanel({
 
     ripios.forEach((r) => {
       if (!r.coords || r.coords.length < 2) return
-      const clr = ripioColor(r.orden)
+      const clr = r.color ?? ripioColor(r.orden)
       const hw  = r.an / 2
       const layers = []
 
@@ -229,7 +230,7 @@ export default function RipioMapPanel({
     drawStateRef.current?.cleanup()
 
     const ripio = ripiosRef.current.find(r => r.id === ripioId)
-    const clr = ripio ? ripioColor(ripio.orden) : colorRef.current
+    const clr = ripio ? (ripio.color ?? ripioColor(ripio.orden)) : colorRef.current
     const hw  = ripio ? ripio.an / 2 : 3
 
     map.getContainer().style.cursor = 'crosshair'
