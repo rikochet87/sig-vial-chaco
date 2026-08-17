@@ -14,7 +14,7 @@ function totalLen(pts: LatLng[]): number {
   let d = 0; for (let i = 1; i < pts.length; i++) d += segLen(pts[i-1], pts[i]); return d
 }
 
-// ── Buffer de calzada (igual que planta/page.tsx) ─────────────────────────────
+// ── Buffer de calzada con miter join exacto ───────────────────────────────────
 function roadBuffer(latLngs: LatLng[], halfWidth: number): LatLng[] {
   if (latLngs.length < 2 || halfWidth <= 0) return []
   const DEG = Math.PI / 180, R = 6371000
@@ -24,21 +24,42 @@ function roadBuffer(latLngs: LatLng[], halfWidth: number): LatLng[] {
     x: (lng - lng0) * cosLat * R * DEG,
     y: (lat - lat0) * R * DEG,
   }))
+  const T: { x: number; y: number }[] = []
+  for (let i = 0; i < pts.length - 1; i++) {
+    const dx = pts[i+1].x - pts[i].x, dy = pts[i+1].y - pts[i].y
+    const len = Math.sqrt(dx*dx + dy*dy)
+    T.push(len > 1e-10 ? { x: dx/len, y: dy/len } : { x: 1, y: 0 })
+  }
   const left:  { x: number; y: number }[] = []
   const right: { x: number; y: number }[] = []
+  const MAX_MITER = halfWidth * 4
   for (let i = 0; i < pts.length; i++) {
-    let dx = 0, dy = 0
-    if (i > 0)              { dx += pts[i].x - pts[i-1].x; dy += pts[i].y - pts[i-1].y }
-    if (i < pts.length - 1) { dx += pts[i+1].x - pts[i].x; dy += pts[i+1].y - pts[i].y }
-    const len = Math.sqrt(dx*dx + dy*dy)
-    if (len < 1e-10) {
-      left.push(left.length   > 0 ? left[left.length - 1]   : pts[i])
-      right.push(right.length > 0 ? right[right.length - 1] : pts[i])
-      continue
+    let mx = 0, my = 0
+    if (i === 0) {
+      mx = -T[0].y * halfWidth; my = T[0].x * halfWidth
+    } else if (i === pts.length - 1) {
+      mx = -T[T.length-1].y * halfWidth; my = T[T.length-1].x * halfWidth
+    } else {
+      const t1 = T[i-1], t2 = T[i]
+      const cross = t1.x * t2.y - t1.y * t2.x
+      if (Math.abs(cross) < 0.05) {
+        const nx = -(t1.y + t2.y), ny = (t1.x + t2.x)
+        const nlen = Math.sqrt(nx*nx + ny*ny) || 1
+        mx = (nx/nlen) * halfWidth; my = (ny/nlen) * halfWidth
+      } else {
+        const mxR = halfWidth * (t2.x - t1.x) / cross
+        const myR = halfWidth * (t2.y - t1.y) / cross
+        if (Math.sqrt(mxR*mxR + myR*myR) <= MAX_MITER) {
+          mx = mxR; my = myR
+        } else {
+          const nx = -(t1.y + t2.y), ny = (t1.x + t2.x)
+          const nlen = Math.sqrt(nx*nx + ny*ny) || 1
+          mx = (nx/nlen) * halfWidth; my = (ny/nlen) * halfWidth
+        }
+      }
     }
-    const nx = -dy/len, ny = dx/len
-    left.push({ x: pts[i].x + nx * halfWidth, y: pts[i].y + ny * halfWidth })
-    right.push({ x: pts[i].x - nx * halfWidth, y: pts[i].y - ny * halfWidth })
+    left.push({ x: pts[i].x + mx, y: pts[i].y + my })
+    right.push({ x: pts[i].x - mx, y: pts[i].y - my })
   }
   const toLL = (p: { x: number; y: number }): LatLng => [
     lat0 + p.y / (R * DEG),
