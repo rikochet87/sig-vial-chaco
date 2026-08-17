@@ -40,60 +40,67 @@ function totalLen(pts: LatLng[]): number {
   let d = 0; for (let i = 1; i < pts.length; i++) d += segLen(pts[i-1], pts[i]); return d
 }
 
-function roadBuffer(latLngs: LatLng[], halfWidth: number): LatLng[] {
+function roadBuffer(latLngs: LatLng[], halfWidth: number): LatLng[][] {
   if (latLngs.length < 2 || halfWidth <= 0) return []
   const DEG = Math.PI / 180, R = 6371000
   const lat0 = latLngs[0][0], lng0 = latLngs[0][1]
   const cosLat = Math.cos(lat0 * DEG)
-  const pts = latLngs.map(([lat, lng]) => ({
+
+  let raw = latLngs.map(([lat, lng]) => ({
     x: (lng - lng0) * cosLat * R * DEG,
     y: (lat - lat0) * R * DEG,
   }))
 
-  // Tangentes unitarias por segmento
+  // Detectar bucle cerrado: primer y último punto dentro de 2 m
+  const d01 = Math.hypot(raw[0].x - raw[raw.length-1].x, raw[0].y - raw[raw.length-1].y)
+  const isClosed = d01 < 2
+  if (isClosed && raw.length > 2) raw = raw.slice(0, -1)
+  const n = raw.length
+
+  // Tangentes unitarias (segCount = n para cerrado, n-1 para abierto)
   const T: { x: number; y: number }[] = []
-  for (let i = 0; i < pts.length - 1; i++) {
-    const dx = pts[i+1].x - pts[i].x, dy = pts[i+1].y - pts[i].y
+  const segCount = isClosed ? n : n - 1
+  for (let i = 0; i < segCount; i++) {
+    const a = raw[i], b = raw[(i + 1) % n]
+    const dx = b.x - a.x, dy = b.y - a.y
     const len = Math.sqrt(dx*dx + dy*dy)
     T.push(len > 1e-10 ? { x: dx/len, y: dy/len } : { x: 1, y: 0 })
   }
 
   const left:  { x: number; y: number }[] = []
   const right: { x: number; y: number }[] = []
-  const MAX_MITER = halfWidth * 4   // limita extensión en curvas muy cerradas
+  const MAX_MITER = halfWidth * 4
 
-  for (let i = 0; i < pts.length; i++) {
+  for (let i = 0; i < n; i++) {
     let mx = 0, my = 0
 
-    if (i === 0) {
-      // Extremo inicial: perpendicular al primer segmento
+    const isFirst = !isClosed && i === 0
+    const isLast  = !isClosed && i === n - 1
+
+    if (isFirst) {
       mx = -T[0].y * halfWidth
       my =  T[0].x * halfWidth
-    } else if (i === pts.length - 1) {
-      // Extremo final: perpendicular al último segmento
+    } else if (isLast) {
       mx = -T[T.length-1].y * halfWidth
       my =  T[T.length-1].x * halfWidth
     } else {
-      const t1 = T[i-1], t2 = T[i]
-      // Producto vectorial = seno del ángulo exterior
+      // Punto interior o cualquier punto en loop cerrado: miter join
+      const t1 = T[(i - 1 + T.length) % T.length]
+      const t2 = T[i % T.length]
       const cross = t1.x * t2.y - t1.y * t2.x
 
       if (Math.abs(cross) < 0.05) {
-        // Casi recto: promedio de perpendiculares
         const nx = -(t1.y + t2.y), ny = (t1.x + t2.x)
         const nlen = Math.sqrt(nx*nx + ny*ny) || 1
         mx = (nx/nlen) * halfWidth
         my = (ny/nlen) * halfWidth
       } else {
-        // Miter join: resolver sistema 2×2 exacto
-        // Garantiza distancia perpendicular = halfWidth a ambos segmentos
         const mxRaw = halfWidth * (t2.x - t1.x) / cross
         const myRaw = halfWidth * (t2.y - t1.y) / cross
         const mlen  = Math.sqrt(mxRaw*mxRaw + myRaw*myRaw)
         if (mlen <= MAX_MITER) {
           mx = mxRaw; my = myRaw
         } else {
-          // Bevel: corta la extensión excesiva en curvas muy cerradas
           const nx = -(t1.y + t2.y), ny = (t1.x + t2.x)
           const nlen = Math.sqrt(nx*nx + ny*ny) || 1
           mx = (nx/nlen) * halfWidth
@@ -102,15 +109,20 @@ function roadBuffer(latLngs: LatLng[], halfWidth: number): LatLng[] {
       }
     }
 
-    left.push({ x: pts[i].x + mx, y: pts[i].y + my })
-    right.push({ x: pts[i].x - mx, y: pts[i].y - my })
+    left.push({ x: raw[i].x + mx, y: raw[i].y + my })
+    right.push({ x: raw[i].x - mx, y: raw[i].y - my })
   }
 
   const toLL = (p: { x: number; y: number }): LatLng => [
     lat0 + p.y / (R * DEG),
     lng0 + p.x / (cosLat * R * DEG),
   ]
-  return [...left.map(toLL), ...right.reverse().map(toLL)]
+
+  if (isClosed) {
+    // Donut: anillo exterior + interior → Leaflet rellena solo el grosor de la calle
+    return [left.map(toLL), right.map(toLL)]
+  }
+  return [[...left.map(toLL), ...right.reverse().map(toLL)]]
 }
 
 import { PALETTE } from '@/lib/ripioPalette'
@@ -226,9 +238,9 @@ export default function RipioMapPanel({
       const layers = []
 
       // Buffer de calzada
-      const bufRing = roadBuffer(r.coords, hw)
-      if (bufRing.length > 0) {
-        const poly = Lf.polygon(bufRing as [number,number][], {
+      const rings = roadBuffer(r.coords, hw)
+      if (rings.length > 0) {
+        const poly = Lf.polygon(rings as [number,number][][], {
           color: clr, fillColor: clr,
           fillOpacity: r.id === selectedId ? 0.45 : 0.25,
           weight: r.id === selectedId ? 2 : 1, opacity: 0.9,
@@ -290,8 +302,20 @@ export default function RipioMapPanel({
       drawStateRef.current = null
     }
 
+    const SNAP_PX = 20  // píxeles de pantalla para snap magnético al primer punto
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const onLineClick = (e: any) => {
+      // Snap magnético: si hay ≥3 puntos y el click es cerca del primero, cerrar el loop
+      if (pts.length >= 3) {
+        const startPx = map.latLngToContainerPoint(pts[0] as [number,number])
+        const curPx   = map.latLngToContainerPoint(e.latlng)
+        if (Math.hypot(startPx.x - curPx.x, startPx.y - curPx.y) < SNAP_PX) {
+          pts.push([pts[0][0], pts[0][1]])  // cierra el loop con coord exacta del primer punto
+          onLineRight(null)
+          return
+        }
+      }
       const ll: LatLng = [e.latlng.lat, e.latlng.lng]
       pts.push(ll)
       const isFirst = pts.length === 1
@@ -309,7 +333,23 @@ export default function RipioMapPanel({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const onLineMove = (e: any) => {
       if (!pts.length) return
-      const cursor: LatLng = [e.latlng.lat, e.latlng.lng]
+      let cursor: LatLng = [e.latlng.lat, e.latlng.lng]
+
+      // Snap magnético: resaltar primer marcador y snappear cursor
+      if (pts.length >= 3) {
+        const startPx = map.latLngToContainerPoint(pts[0] as [number,number])
+        const curPx   = map.latLngToContainerPoint(e.latlng)
+        const snapping = Math.hypot(startPx.x - curPx.x, startPx.y - curPx.y) < SNAP_PX
+        if (snapping) {
+          cursor = [pts[0][0], pts[0][1]]
+          vmList[0]?.setStyle({ radius: 9, weight: 3 })
+          map.getContainer().style.cursor = 'pointer'
+        } else {
+          vmList[0]?.setStyle({ radius: 6, weight: 2 })
+          map.getContainer().style.cursor = 'crosshair'
+        }
+      }
+
       previewSeg.setLatLngs([[pts[pts.length-1], cursor] as [number,number][]])
     }
 
@@ -323,9 +363,9 @@ export default function RipioMapPanel({
 
       // Mostrar preview del buffer
       const preview = []
-      const bufRing = roadBuffer(pts, hw)
-      if (bufRing.length > 0) {
-        const poly = Lf.polygon(bufRing as [number,number][], {
+      const rings = roadBuffer(pts, hw)
+      if (rings.length > 0) {
+        const poly = Lf.polygon(rings as [number,number][][], {
           color: clr, fillColor: clr, fillOpacity: 0.4, weight: 2, opacity: 0.9,
         }).addTo(map)
         preview.push(poly)
