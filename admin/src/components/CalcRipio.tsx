@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import type { RipioTramo, LatLng } from './RipioMapPanel'
+import { PALETTE } from './RipioMapPanel'
 import type { GuardarObraData } from './GuardarObraModal'
 
 const RipioMapPanel = dynamic(() => import('./RipioMapPanel'), { ssr: false })
@@ -215,39 +216,44 @@ export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: Guard
                   {total > 0 && <div style={{ fontSize: 8, color: '#444', ...MONO }}>{fmtP(total)}</div>}
                 </div>
                 <button onClick={e => { e.stopPropagation(); deleteProyecto(proy.id) }}
-                  style={{ fontSize: 8, color: '#222', background: 'transparent', border: 'none', cursor: 'pointer', flexShrink: 0 }}>✕</button>
+                  title="Eliminar proyecto"
+                  style={{ fontSize: 9, color: '#555', background: 'transparent', border: 'none', cursor: 'pointer', flexShrink: 0, lineHeight: 1 }}>✕</button>
               </div>
 
               {/* Ripios */}
               {isActive && (
                 <div>
                   {proy.ripios.map(r => {
-                    const isSel   = r.id === selectedId
+                    const isSel     = r.id === selectedId
                     const isDrawing = r.id === drawingId
                     const hasCords  = r.l_m > 0
+                    const ripioClr  = PALETTE[r.orden % PALETTE.length]
                     return (
                       <div key={r.id}
                         onClick={() => { setSelectedId(r.id); setPanel('form') }}
                         style={{
-                          padding: '5px 8px 5px 18px', cursor: 'pointer',
-                          background: isSel ? `${COLOR}0d` : 'transparent',
-                          borderLeft: `2px solid ${isSel ? COLOR : 'transparent'}`,
-                          display: 'flex', alignItems: 'center', gap: 4,
+                          padding: '5px 8px 5px 14px', cursor: 'pointer',
+                          background: isSel ? `${ripioClr}10` : 'transparent',
+                          borderLeft: `2px solid ${isSel ? ripioClr : 'transparent'}`,
+                          display: 'flex', alignItems: 'center', gap: 5,
                         }}
                       >
+                        {/* Dot de color de paleta */}
+                        <div style={{
+                          width: 7, height: 7, borderRadius: '50%', flexShrink: 0,
+                          background: hasCords ? ripioClr : 'transparent',
+                          border: `1px solid ${ripioClr}`,
+                        }} title={hasCords ? 'Línea trazada' : 'Sin línea'} />
+
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: 10, color: isSel ? '#ccc' : '#555', ...MONO, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                             {r.nombre}
                           </div>
-                          <div style={{ fontSize: 8, color: '#2a2a2a', ...MONO }}>
+                          <div style={{ fontSize: 8, color: hasCords ? ripioClr + 'aa' : '#2a2a2a', ...MONO }}>
                             {hasCords ? `${fmt(r.l_m)} m` : '—'}
                           </div>
                         </div>
-                        {/* Dot indicador: tiene línea o no */}
-                        <div style={{
-                          width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
-                          background: hasCords ? COLOR : '#1e1e1e',
-                        }} title={hasCords ? 'Línea trazada' : 'Sin línea'} />
+
                         {/* Botón dibujar */}
                         <button
                           onClick={e => {
@@ -256,16 +262,19 @@ export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: Guard
                             setPanel('form')
                             setDrawingId(prev => prev === r.id ? null : r.id)
                           }}
-                          title={isDrawing ? 'Cancelar dibujo' : 'Trazar línea'}
+                          title={isDrawing ? 'Cancelar dibujo' : 'Trazar línea en mapa'}
                           style={{
-                            fontSize: 9, padding: '1px 4px', cursor: 'pointer', flexShrink: 0,
-                            background: isDrawing ? `${COLOR}33` : 'transparent',
-                            border: `1px solid ${isDrawing ? COLOR : '#1a1a1a'}`,
-                            color: isDrawing ? COLOR : '#333', ...MONO,
+                            fontSize: 9, padding: '1px 5px', cursor: 'pointer', flexShrink: 0,
+                            background: isDrawing ? `${ripioClr}33` : 'transparent',
+                            border: `1px solid ${isDrawing ? ripioClr : '#222'}`,
+                            color: isDrawing ? ripioClr : '#444', ...MONO,
                           }}
                         >{isDrawing ? '✕' : '↔'}</button>
+
+                        {/* Botón eliminar */}
                         <button onClick={e => { e.stopPropagation(); deleteRipio(r.id) }}
-                          style={{ fontSize: 7, color: '#1a1a1a', background: 'transparent', border: 'none', cursor: 'pointer', flexShrink: 0 }}>✕</button>
+                          title="Eliminar ripio"
+                          style={{ fontSize: 9, color: '#444', background: 'transparent', border: 'none', cursor: 'pointer', flexShrink: 0, lineHeight: 1 }}>✕</button>
                       </div>
                     )
                   })}
