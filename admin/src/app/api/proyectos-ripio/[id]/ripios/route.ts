@@ -1,18 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   const supabase = createServiceClient()
   const { data, error } = await supabase
     .from('ripios')
     .select('*')
-    .eq('proyecto_id', params.id)
+    .eq('proyecto_id', id)
     .order('orden', { ascending: true })
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
   return NextResponse.json(data)
 }
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   const body = await req.json()
   const supabase = createServiceClient()
 
@@ -20,14 +22,14 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const { count } = await supabase
     .from('ripios')
     .select('*', { count: 'exact', head: true })
-    .eq('proyecto_id', params.id)
+    .eq('proyecto_id', id)
 
   const orden = (count ?? 0)
 
   const { data, error } = await supabase
     .from('ripios')
     .insert({
-      proyecto_id:     params.id,
+      proyecto_id:     id,
       nombre:          body.nombre,
       orden,
       an:              body.an   ?? 6.0,
