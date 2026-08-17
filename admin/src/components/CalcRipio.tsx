@@ -131,7 +131,11 @@ export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: Guard
   const deleteProyecto = useCallback(async (id: string) => {
     if (!confirm('¿Eliminar el proyecto y todos sus ripios?')) return
     const res = await fetch(`/api/proyectos-ripio/${id}`, { method: 'DELETE' })
-    if (!res.ok) { alert('Error al eliminar el proyecto'); return }
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      alert('Error al eliminar el proyecto: ' + (body.error ?? res.status))
+      return
+    }
     setProyectos(prev => {
       const next = prev.filter(p => p.id !== id)
       if (activeProyId === id) { setActiveProyId(next[0]?.id ?? null); setSelectedId(null) }
@@ -160,7 +164,11 @@ export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: Guard
   const deleteRipio = useCallback(async (id: string) => {
     if (!confirm('¿Eliminar este ripio?')) return
     const res = await fetch(`/api/ripios/${id}`, { method: 'DELETE' })
-    if (!res.ok) { alert('Error al eliminar el ripio'); return }
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      alert('Error al eliminar el ripio: ' + (body.error ?? res.status))
+      return
+    }
     setProyectos(prev => prev.map(p => ({ ...p, ripios: p.ripios.filter(r => r.id !== id) })))
     if (selectedId === id) setSelectedId(ripios.find(r => r.id !== id)?.id ?? null)
   }, [selectedId, ripios])
