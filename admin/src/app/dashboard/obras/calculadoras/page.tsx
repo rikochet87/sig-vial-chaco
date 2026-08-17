@@ -2745,8 +2745,9 @@ export default function CalculadorasPage() {
         // Navegar al tab correcto
         if (dc.calculadora === 'desmalezado' || dc.calculadora === 'desbosque') {
           setTab('limpieza')
+        } else if (dc.calculadora === 'ripio') {
+          setTab('ripio')
         }
-        // Para otras calculadoras agregar aquí cuando sea necesario
       })
       .finally(() => setEditLoading(false))
   // eslint-disable-next-line react-hooks/exhaustive-deps
