@@ -5,7 +5,8 @@ import type { RipioTramo, LatLng } from './RipioMapPanel'
 import { PALETTE } from '@/lib/ripioPalette'
 import type { GuardarObraData } from './GuardarObraModal'
 
-const RipioMapPanel = dynamic(() => import('./RipioMapPanel'), { ssr: false })
+const RipioMapPanel       = dynamic(() => import('./RipioMapPanel'),       { ssr: false })
+const MapComposicionRipio = dynamic(() => import('./MapComposicionRipio'), { ssr: false })
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 interface Proyecto {
@@ -76,6 +77,7 @@ export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: Guard
   const [editingName,  setEditingName]  = useState<string | null>(null)   // id del ripio cuyo nombre se edita inline
   const [confirmState, setConfirmState] = useState<{ msg: string; action: () => void } | null>(null)
   const [hiddenProyIds, setHiddenProyIds] = useState<Set<string>>(new Set())  // proyectos ocultos en el mapa
+  const [view,          setView]          = useState<'computo' | 'mapa'>('computo')
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // ── Carga ─────────────────────────────────────────────────────────────────
@@ -607,62 +609,107 @@ export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: Guard
     </div>
   )
 
+  // ── Datos para composición ────────────────────────────────────────────────
+  const ripiosComp = ripios.map(r => ({
+    id:     r.id,
+    nombre: r.nombre,
+    an:     r.an,
+    l_m:    r.l_m,
+    coords: r.coords ?? null,
+    color:  r.color ?? PALETTE[r.orden % PALETTE.length],
+  }))
+  const compTotalTon  = ripios.reduce((s, r) => s + calcRipio(r).W, 0)
+  const compTotalPres = ripios.reduce((s, r) => s + calcRipio(r).presupuesto, 0)
+
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div style={{ display: 'flex', height: '100%', minHeight: 0 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
 
-      {/* Columna 1: árbol */}
-      {renderTree()}
-
-      {/* Columna 2: mapa */}
-      <div style={{ flex: 1, minWidth: 0, position: 'relative' }}>
-        {saving && <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: COLOR, zIndex: 1001, opacity: 0.7 }} />}
-
-        {proyectos.length > 0 ? (
-          <RipioMapPanel
-            ripios={mapRipios}
-            selectedId={selectedId}
-            drawingId={drawingId}
-            color={COLOR}
-            onLineDraw={handleLineDraw}
-            onDrawEnd={() => setDrawingId(null)}
-            onSelectRipio={(id) => {
-              // Cambiar proyecto activo al dueño del ripio clickeado
-              const owner = proyectos.find(p => p.ripios.some(r => r.id === id))
-              if (owner) setActiveProyId(owner.id)
-              setSelectedId(id)
-              setPanel('form')
-            }}
-            onDeleteRipio={deleteRipio}
-          />
-        ) : (
-          <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#444', ...MONO, fontSize: 11 }}>
-            Creá un proyecto para comenzar
-          </div>
-        )}
-
-        {/* Instrucción de dibujo flotante */}
-        {drawingId && (
-          <div style={{
-            position: 'absolute', top: 10, left: '50%', transform: 'translateX(-50%)',
-            zIndex: 1000, background: '#0a0a0aee', border: `1px solid ${COLOR}55`,
-            padding: '5px 14px', ...MONO, fontSize: 9, color: `${COLOR}cc`,
-            pointerEvents: 'none',
-          }}>
-            Clic para agregar puntos · Clic derecho para finalizar
-          </div>
-        )}
-      </div>
-
-      {/* Columna 3: form / resumen */}
+      {/* Tab bar */}
       <div style={{
-        width: 220, flexShrink: 0, borderLeft: '1px solid #131313',
-        background: '#080808', display: 'flex', flexDirection: 'column',
+        display: 'flex', gap: 0, flexShrink: 0,
+        borderBottom: '1px solid #0e0e0e', background: '#060606',
       }}>
-        {panel === 'form' ? renderForm() : renderResumen()}
+        {(['computo', 'mapa'] as const).map(v => (
+          <button key={v} onClick={() => setView(v)} style={{
+            fontFamily: 'monospace', fontSize: 9.5, cursor: 'pointer',
+            padding: '6px 20px', border: 'none', borderRight: '1px solid #111',
+            letterSpacing: 0.8, textTransform: 'uppercase',
+            background: view === v ? '#0d0d0d' : 'transparent',
+            color:      view === v ? COLOR      : '#444',
+            borderBottom: view === v ? `1.5px solid ${COLOR}` : '1.5px solid transparent',
+          }}>
+            {v === 'computo' ? 'Cómputo' : 'Composición'}
+          </button>
+        ))}
+        {saving && <div style={{ marginLeft: 'auto', alignSelf: 'center', marginRight: 10, width: 6, height: 6, borderRadius: '50%', background: COLOR, opacity: 0.7 }}/>}
       </div>
 
-      {/* Modal de confirmación */}
+      {/* Contenido según tab */}
+      {view === 'computo' ? (
+        <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
+
+          {/* Columna 1: árbol */}
+          {renderTree()}
+
+          {/* Columna 2: mapa */}
+          <div style={{ flex: 1, minWidth: 0, position: 'relative' }}>
+            {proyectos.length > 0 ? (
+              <RipioMapPanel
+                ripios={mapRipios}
+                selectedId={selectedId}
+                drawingId={drawingId}
+                color={COLOR}
+                onLineDraw={handleLineDraw}
+                onDrawEnd={() => setDrawingId(null)}
+                onSelectRipio={(id) => {
+                  const owner = proyectos.find(p => p.ripios.some(r => r.id === id))
+                  if (owner) setActiveProyId(owner.id)
+                  setSelectedId(id)
+                  setPanel('form')
+                }}
+                onDeleteRipio={deleteRipio}
+              />
+            ) : (
+              <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#444', ...MONO, fontSize: 11 }}>
+                Creá un proyecto para comenzar
+              </div>
+            )}
+
+            {/* Instrucción de dibujo flotante */}
+            {drawingId && (
+              <div style={{
+                position: 'absolute', top: 10, left: '50%', transform: 'translateX(-50%)',
+                zIndex: 1000, background: '#0a0a0aee', border: `1px solid ${COLOR}55`,
+                padding: '5px 14px', ...MONO, fontSize: 9, color: `${COLOR}cc`,
+                pointerEvents: 'none',
+              }}>
+                Clic para agregar puntos · Clic derecho para finalizar
+              </div>
+            )}
+          </div>
+
+          {/* Columna 3: form / resumen */}
+          <div style={{
+            width: 220, flexShrink: 0, borderLeft: '1px solid #131313',
+            background: '#080808', display: 'flex', flexDirection: 'column',
+          }}>
+            {panel === 'form' ? renderForm() : renderResumen()}
+          </div>
+        </div>
+      ) : (
+        <div style={{ flex: 1, minHeight: 0 }}>
+          <MapComposicionRipio
+            ripios={ripiosComp}
+            proyectoNombre={activeProy?.nombre ?? 'Sin proyecto'}
+            totalTon={compTotalTon}
+            totalPres={compTotalPres}
+            active={view === 'mapa'}
+          />
+        </div>
+      )}
+
+      {/* Modal de confirmación (fuera del tab para que siempre esté disponible) */}
       {renderConfirm()}
     </div>
   )
