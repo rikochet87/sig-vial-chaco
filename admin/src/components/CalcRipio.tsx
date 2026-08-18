@@ -197,7 +197,7 @@ export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: Guard
 
       {/* Lista */}
       <div style={{ flex: 1, overflowY: 'auto' }}>
-        {loading && <div style={{ padding: 12, fontSize: 9, color: '#2a2a2a', ...MONO }}>Cargando…</div>}
+        {loading && <div style={{ padding: 12, fontSize: 11, color: '#555', ...MONO }}>Cargando…</div>}
 
         {proyectos.map(proy => {
           const isActive = proy.id === activeProyId
@@ -220,14 +220,14 @@ export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: Guard
                 }}
               >
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 10, color: isActive ? COLOR : '#666', ...MONO, fontWeight: isActive ? 700 : 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  <div style={{ fontSize: 12, color: isActive ? COLOR : '#999', ...MONO, fontWeight: isActive ? 700 : 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {isActive ? '▼ ' : '▶ '}{proy.nombre}
                   </div>
-                  {total > 0 && <div style={{ fontSize: 8, color: '#444', ...MONO }}>{fmtP(total)}</div>}
+                  {total > 0 && <div style={{ fontSize: 10, color: '#666', ...MONO }}>{fmtP(total)}</div>}
                 </div>
                 <button onClick={e => { e.stopPropagation(); deleteProyecto(proy.id) }}
                   title="Eliminar proyecto"
-                  style={{ fontSize: 9, color: '#555', background: 'transparent', border: 'none', cursor: 'pointer', flexShrink: 0, lineHeight: 1 }}>✕</button>
+                  style={{ fontSize: 11, color: '#666', background: 'transparent', border: 'none', cursor: 'pointer', flexShrink: 0, lineHeight: 1 }}>✕</button>
               </div>
 
               {/* Ripios */}
@@ -256,10 +256,10 @@ export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: Guard
                         }} title={hasCords ? 'Línea trazada' : 'Sin línea'} />
 
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 10, color: isSel ? '#ccc' : '#555', ...MONO, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          <div style={{ fontSize: 11, color: isSel ? '#e0e0e0' : '#888', ...MONO, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                             {r.nombre}
                           </div>
-                          <div style={{ fontSize: 8, color: hasCords ? ripioClr + 'aa' : '#2a2a2a', ...MONO }}>
+                          <div style={{ fontSize: 9, color: hasCords ? ripioClr + 'cc' : '#444', ...MONO }}>
                             {hasCords ? `${fmt(r.l_m)} m` : '—'}
                           </div>
                         </div>
@@ -514,8 +514,8 @@ export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: Guard
                   <input type="checkbox" checked={checked} onChange={() => toggleP(proy.id)}
                     style={{ accentColor: COLOR, width: 11, height: 11, flexShrink: 0 }} />
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 10, color: checked ? '#bbb' : '#555', ...MONO, fontWeight: 600 }}>{proy.nombre}</div>
-                    <div style={{ fontSize: 8, color: '#333', ...MONO }}>{fmtP(pTotal)}</div>
+                    <div style={{ fontSize: 11, color: checked ? '#ccc' : '#777', ...MONO, fontWeight: 600 }}>{proy.nombre}</div>
+                    <div style={{ fontSize: 10, color: '#555', ...MONO }}>{fmtP(pTotal)}</div>
                   </div>
                 </label>
 
@@ -525,12 +525,12 @@ export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: Guard
                   return (
                     <div key={r.id} style={{ padding: '3px 12px 3px 28px', display: 'flex', justifyContent: 'space-between' }}>
                       <div>
-                        <div style={{ fontSize: 9, color: '#555', ...MONO }}>{r.nombre}</div>
-                        <div style={{ fontSize: 7, color: '#2a2a2a', ...MONO }}>
+                        <div style={{ fontSize: 10, color: '#777', ...MONO }}>{r.nombre}</div>
+                        <div style={{ fontSize: 9, color: '#555', ...MONO }}>
                           {fmt(r.l_m)} m · {fmt(W)} t{r.empresa ? ` · ${r.empresa}` : ''}
                         </div>
                       </div>
-                      <div style={{ fontSize: 9, color: '#444', ...MONO }}>{presupuesto > 0 ? fmtP(presupuesto) : '—'}</div>
+                      <div style={{ fontSize: 10, color: '#666', ...MONO }}>{presupuesto > 0 ? fmtP(presupuesto) : '—'}</div>
                     </div>
                   )
                 })}
@@ -563,7 +563,7 @@ export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: Guard
             onDrawEnd={() => setDrawingId(null)}
           />
         ) : (
-          <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#1e1e1e', ...MONO, fontSize: 11 }}>
+          <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#444', ...MONO, fontSize: 11 }}>
             Creá un proyecto para comenzar
           </div>
         )}
