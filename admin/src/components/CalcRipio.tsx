@@ -75,6 +75,7 @@ export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: Guard
   const [resumenSel,   setResumenSel]   = useState<Set<string>>(new Set())
   const [editingName,  setEditingName]  = useState<string | null>(null)   // id del ripio cuyo nombre se edita inline
   const [confirmState, setConfirmState] = useState<{ msg: string; action: () => void } | null>(null)
+  const [hiddenProyIds, setHiddenProyIds] = useState<Set<string>>(new Set())  // proyectos ocultos en el mapa
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // ── Carga ─────────────────────────────────────────────────────────────────
@@ -95,6 +96,11 @@ export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: Guard
   const activeProy = proyectos.find(p => p.id === activeProyId) ?? null
   const ripios     = activeProy?.ripios ?? []
   const selected   = ripios.find(r => r.id === selectedId) ?? null
+  // Ripios visibles de TODOS los proyectos (para el mapa)
+  const mapRipios  = proyectos.filter(p => !hiddenProyIds.has(p.id)).flatMap(p => p.ripios)
+
+  const toggleProyVisibility = (id: string) =>
+    setHiddenProyIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
 
   // ── Mutación local ────────────────────────────────────────────────────────
   const updateLocal = useCallback((id: string, patch: Partial<RipioTramo>) => {
@@ -210,6 +216,7 @@ export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: Guard
 
         {proyectos.map(proy => {
           const isActive = proy.id === activeProyId
+          const isHidden = hiddenProyIds.has(proy.id)
           const total    = proy.ripios.reduce((s, r) => s + calcRipio(r).presupuesto, 0)
 
           return (
@@ -225,15 +232,22 @@ export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: Guard
                   background: isActive ? `${COLOR}0a` : 'transparent',
                   borderLeft: `2px solid ${isActive ? COLOR : 'transparent'}`,
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  opacity: isHidden ? 0.45 : 1,
                   gap: 4,
                 }}
               >
-                <div style={{ minWidth: 0 }}>
+                <div style={{ minWidth: 0, flex: 1 }}>
                   <div style={{ fontSize: 12, color: isActive ? COLOR : '#999', ...MONO, fontWeight: isActive ? 700 : 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {isActive ? '▼ ' : '▶ '}{proy.nombre}
                   </div>
                   {total > 0 && <div style={{ fontSize: 10, color: '#666', ...MONO }}>{fmtP(total)}</div>}
                 </div>
+                {/* Toggle visibilidad en mapa */}
+                <button onClick={e => { e.stopPropagation(); toggleProyVisibility(proy.id) }}
+                  title={isHidden ? 'Mostrar en mapa' : 'Ocultar del mapa'}
+                  style={{ fontSize: 13, color: isHidden ? '#333' : COLOR, background: 'transparent', border: 'none', cursor: 'pointer', flexShrink: 0, lineHeight: 1, padding: '0 2px' }}>
+                  {isHidden ? '○' : '●'}
+                </button>
                 <button onClick={e => { e.stopPropagation(); deleteProyecto(proy.id) }}
                   title="Eliminar proyecto"
                   style={{ fontSize: 11, color: '#666', background: 'transparent', border: 'none', cursor: 'pointer', flexShrink: 0, lineHeight: 1 }}>✕</button>
@@ -604,15 +618,21 @@ export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: Guard
       <div style={{ flex: 1, minWidth: 0, position: 'relative' }}>
         {saving && <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: COLOR, zIndex: 1001, opacity: 0.7 }} />}
 
-        {activeProy ? (
+        {proyectos.length > 0 ? (
           <RipioMapPanel
-            ripios={ripios}
+            ripios={mapRipios}
             selectedId={selectedId}
             drawingId={drawingId}
             color={COLOR}
             onLineDraw={handleLineDraw}
             onDrawEnd={() => setDrawingId(null)}
-            onSelectRipio={(id) => { setSelectedId(id); setPanel('form') }}
+            onSelectRipio={(id) => {
+              // Cambiar proyecto activo al dueño del ripio clickeado
+              const owner = proyectos.find(p => p.ripios.some(r => r.id === id))
+              if (owner) setActiveProyId(owner.id)
+              setSelectedId(id)
+              setPanel('form')
+            }}
             onDeleteRipio={deleteRipio}
           />
         ) : (
