@@ -36,7 +36,7 @@ const fmtP = (n: number) =>
 function calcRipio(r: RipioTramo) {
   const V = r.l_m * r.an * r.e
   const W = V * r.rho
-  return { V, W, presupuesto: W * r.precio_unitario, cam15: Math.ceil(W/15), cam20: Math.ceil(W/20) }
+  return { V, W, presupuesto: W * r.precio_unitario, cam15: Math.ceil(W/15), cam30: Math.ceil(W/30) }
 }
 
 // ── Campo numérico ─────────────────────────────────────────────────────────────
@@ -205,10 +205,10 @@ export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: Guard
         padding: '8px 10px', borderBottom: '1px solid #111',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0,
       }}>
-        <span style={{ fontSize: 8, color: '#444', ...MONO, textTransform: 'uppercase', letterSpacing: 1.2 }}>Proyectos</span>
+        <span style={{ fontSize: 8, color: '#666', ...MONO, textTransform: 'uppercase', letterSpacing: 1.2 }}>Proyectos</span>
         <button onClick={addProyecto} style={{
           fontSize: 9, ...MONO, cursor: 'pointer',
-          background: 'transparent', border: '1px solid #1e1e1e', color: '#555', padding: '2px 6px',
+          background: 'transparent', border: '1px solid #333', color: '#aaa', padding: '2px 8px',
         }}>+ Nuevo</button>
       </div>
 
@@ -301,15 +301,15 @@ export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: Guard
                           style={{
                             fontSize: 9, padding: '1px 5px', cursor: 'pointer', flexShrink: 0,
                             background: isDrawing ? `${ripioClr}33` : 'transparent',
-                            border: `1px solid ${isDrawing ? ripioClr : '#222'}`,
-                            color: isDrawing ? ripioClr : '#444', ...MONO,
+                            border: `1px solid ${isDrawing ? ripioClr : '#333'}`,
+                            color: isDrawing ? ripioClr : '#888', ...MONO,
                           }}
                         >{isDrawing ? '✕' : '↔'}</button>
 
                         {/* Botón eliminar */}
                         <button onClick={e => { e.stopPropagation(); deleteRipio(r.id) }}
                           title="Eliminar ripio"
-                          style={{ fontSize: 9, color: '#444', background: 'transparent', border: 'none', cursor: 'pointer', flexShrink: 0, lineHeight: 1 }}>✕</button>
+                          style={{ fontSize: 9, color: '#666', background: 'transparent', border: 'none', cursor: 'pointer', flexShrink: 0, lineHeight: 1 }}>✕</button>
                       </div>
                     )
                   })}
@@ -317,8 +317,8 @@ export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: Guard
                   {/* Agregar ripio */}
                   <button onClick={addRipio} style={{
                     width: '100%', padding: '5px 10px 5px 20px', textAlign: 'left',
-                    background: 'transparent', border: 'none', borderTop: '1px solid #0e0e0e',
-                    fontSize: 9, color: '#333', ...MONO, cursor: 'pointer',
+                    background: 'transparent', border: 'none', borderTop: '1px solid #181818',
+                    fontSize: 9.5, color: '#777', ...MONO, cursor: 'pointer', letterSpacing: 0.3,
                   }}>+ Agregar ripio</button>
                 </div>
               )}
@@ -403,7 +403,7 @@ export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: Guard
         {ripios.length === 0 ? 'Agregá un ripio para comenzar' : 'Seleccioná un ripio'}
       </div>
     )
-    const { V, W, presupuesto, cam15, cam20 } = calcRipio(selected)
+    const { V, W, presupuesto, cam15, cam30 } = calcRipio(selected)
 
     return (
       <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
@@ -462,7 +462,7 @@ export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: Guard
               <Res label="Volumen"    value={`${fmt(V)} m³`} />
               <Res label="Toneladas"  value={`${fmt(W)} t`}  accent />
               <Res label="Cam. 15 t"  value={`~${cam15.toLocaleString('es-AR')}`} />
-              <Res label="Cam. 20 t"  value={`~${cam20.toLocaleString('es-AR')}`} />
+              <Res label="Cam. 30 t"  value={`~${cam30.toLocaleString('es-AR')}`} />
             </div>
           )}
 
