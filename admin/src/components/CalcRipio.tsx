@@ -74,6 +74,7 @@ export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: Guard
   const [panel,        setPanel]        = useState<'form' | 'resumen'>('form')
   const [resumenSel,   setResumenSel]   = useState<Set<string>>(new Set())
   const [editingName,  setEditingName]  = useState<string | null>(null)   // id del ripio cuyo nombre se edita inline
+  const [confirmState, setConfirmState] = useState<{ msg: string; action: () => void } | null>(null)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // ── Carga ─────────────────────────────────────────────────────────────────
@@ -128,18 +129,22 @@ export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: Guard
     setSelectedId(null)
   }, [proyectos.length])
 
-  const deleteProyecto = useCallback(async (id: string) => {
-    if (!confirm('¿Eliminar el proyecto y todos sus ripios?')) return
-    const res = await fetch(`/api/proyectos-ripio/${id}`, { method: 'DELETE' })
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}))
-      alert('Error al eliminar el proyecto: ' + (body.error ?? res.status))
-      return
-    }
-    setProyectos(prev => {
-      const next = prev.filter(p => p.id !== id)
-      if (activeProyId === id) { setActiveProyId(next[0]?.id ?? null); setSelectedId(null) }
-      return next
+  const deleteProyecto = useCallback((id: string) => {
+    setConfirmState({
+      msg: '¿Eliminar el proyecto y todos sus ripios?',
+      action: async () => {
+        const res = await fetch(`/api/proyectos-ripio/${id}`, { method: 'DELETE' })
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}))
+          alert('Error al eliminar el proyecto: ' + (body.error ?? res.status))
+          return
+        }
+        setProyectos(prev => {
+          const next = prev.filter(p => p.id !== id)
+          if (activeProyId === id) { setActiveProyId(next[0]?.id ?? null); setSelectedId(null) }
+          return next
+        })
+      },
     })
   }, [activeProyId])
 
@@ -161,16 +166,20 @@ export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: Guard
     setPanel('form')
   }, [activeProyId, proyectos])
 
-  const deleteRipio = useCallback(async (id: string) => {
-    if (!confirm('¿Eliminar este ripio?')) return
-    const res = await fetch(`/api/ripios/${id}`, { method: 'DELETE' })
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}))
-      alert('Error al eliminar el ripio: ' + (body.error ?? res.status))
-      return
-    }
-    setProyectos(prev => prev.map(p => ({ ...p, ripios: p.ripios.filter(r => r.id !== id) })))
-    if (selectedId === id) setSelectedId(ripios.find(r => r.id !== id)?.id ?? null)
+  const deleteRipio = useCallback((id: string) => {
+    setConfirmState({
+      msg: '¿Eliminar este ripio?',
+      action: async () => {
+        const res = await fetch(`/api/ripios/${id}`, { method: 'DELETE' })
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}))
+          alert('Error al eliminar el ripio: ' + (body.error ?? res.status))
+          return
+        }
+        setProyectos(prev => prev.map(p => ({ ...p, ripios: p.ripios.filter(r => r.id !== id) })))
+        if (selectedId === id) setSelectedId(ripios.find(r => r.id !== id)?.id ?? null)
+      },
+    })
   }, [selectedId, ripios])
 
   const handleLineDraw = useCallback((id: string, lengthM: number, coords: LatLng[]) => {
@@ -542,6 +551,48 @@ export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: Guard
     )
   }
 
+  // ── Modal de confirmación custom ─────────────────────────────────────────
+  const renderConfirm = () => confirmState && (
+    <div
+      style={{
+        position: 'fixed', inset: 0, zIndex: 9999,
+        background: 'rgba(0,0,0,0.78)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}
+      onClick={() => setConfirmState(null)}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          background: '#0d0d0d', border: '1px solid #2a2a2a',
+          padding: '22px 26px', minWidth: 270, maxWidth: 360,
+          boxShadow: '0 6px 32px rgba(0,0,0,0.8)',
+        }}
+      >
+        <div style={{ fontSize: 13, color: '#bbb', ...MONO, marginBottom: 20, lineHeight: 1.6 }}>
+          {confirmState.msg}
+        </div>
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+          <button
+            onClick={() => setConfirmState(null)}
+            style={{
+              fontSize: 11, ...MONO, cursor: 'pointer', padding: '6px 16px',
+              background: 'transparent', border: '1px solid #252525', color: '#555',
+            }}
+          >Cancelar</button>
+          <button
+            onClick={() => { confirmState.action(); setConfirmState(null) }}
+            style={{
+              fontSize: 11, ...MONO, cursor: 'pointer', padding: '6px 16px',
+              background: '#250000', border: '1px solid #660000',
+              color: '#ff5555', fontWeight: 700,
+            }}
+          >Eliminar</button>
+        </div>
+      </div>
+    </div>
+  )
+
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div style={{ display: 'flex', height: '100%', minHeight: 0 }}>
@@ -590,6 +641,9 @@ export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: Guard
       }}>
         {panel === 'form' ? renderForm() : renderResumen()}
       </div>
+
+      {/* Modal de confirmación */}
+      {renderConfirm()}
     </div>
   )
 }
