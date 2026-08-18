@@ -609,17 +609,29 @@ export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: Guard
     </div>
   )
 
-  // ── Datos para composición ────────────────────────────────────────────────
-  const ripiosComp = ripios.map(r => ({
-    id:     r.id,
-    nombre: r.nombre,
-    an:     r.an,
-    l_m:    r.l_m,
-    coords: r.coords ?? null,
-    color:  r.color ?? PALETTE[r.orden % PALETTE.length],
-  }))
-  const compTotalTon  = ripios.reduce((s, r) => s + calcRipio(r).W, 0)
-  const compTotalPres = ripios.reduce((s, r) => s + calcRipio(r).presupuesto, 0)
+  // ── Datos para composición (todos los proyectos visibles) ────────────────
+  const allVisibleRipios = proyectos
+    .filter(p => !hiddenProyIds.has(p.id))
+    .flatMap(p => p.ripios)
+
+  const ripiosComp = proyectos
+    .filter(p => !hiddenProyIds.has(p.id))
+    .flatMap(p => p.ripios.map(r => ({
+      id:             r.id,
+      nombre:         r.nombre,
+      an:             r.an,
+      l_m:            r.l_m,
+      coords:         r.coords ?? null,
+      color:          r.color ?? PALETTE[r.orden % PALETTE.length],
+      proyectoNombre: p.nombre,
+    })))
+
+  const compTotalTon  = allVisibleRipios.reduce((s, r) => s + calcRipio(r).W, 0)
+  const compTotalPres = allVisibleRipios.reduce((s, r) => s + calcRipio(r).presupuesto, 0)
+  const visiblePrjNames = proyectos.filter(p => !hiddenProyIds.has(p.id)).map(p => p.nombre)
+  const compNombre = visiblePrjNames.length === 1
+    ? visiblePrjNames[0]
+    : visiblePrjNames.length > 1 ? `${visiblePrjNames.length} proyectos` : 'Sin proyectos'
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -701,7 +713,7 @@ export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: Guard
         <div style={{ flex: 1, minHeight: 0 }}>
           <MapComposicionRipio
             ripios={ripiosComp}
-            proyectoNombre={activeProy?.nombre ?? 'Sin proyecto'}
+            proyectoNombre={compNombre}
             totalTon={compTotalTon}
             totalPres={compTotalPres}
             active={view === 'mapa'}
