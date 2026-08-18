@@ -21,12 +21,14 @@ export interface RipioTramo {
 }
 
 interface Props {
-  ripios:      RipioTramo[]
-  selectedId:  string | null
-  drawingId:   string | null          // ripio en modo dibujo activo
-  color:       string
-  onLineDraw:  (id: string, lengthM: number, coords: LatLng[]) => void
-  onDrawEnd:   () => void
+  ripios:          RipioTramo[]
+  selectedId:      string | null
+  drawingId:       string | null          // ripio en modo dibujo activo
+  color:           string
+  onLineDraw:      (id: string, lengthM: number, coords: LatLng[]) => void
+  onDrawEnd:       () => void
+  onSelectRipio?:  (id: string) => void   // seleccionar ripio al clicar en el mapa
+  onDeleteRipio?:  (id: string) => void   // eliminar ripio desde el mapa
 }
 
 // ── Geometría ──────────────────────────────────────────────────────────────────
@@ -134,6 +136,7 @@ function ripioColor(orden: number): string {
 // ── Componente ────────────────────────────────────────────────────────────────
 export default function RipioMapPanel({
   ripios, selectedId, drawingId, color, onLineDraw, onDrawEnd,
+  onSelectRipio, onDeleteRipio,
 }: Props) {
   const mapDivRef  = useRef<HTMLDivElement>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -147,12 +150,16 @@ export default function RipioMapPanel({
   const drawStateRef   = useRef<{ pts: LatLng[]; cleanup: () => void } | null>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const previewLayersRef = useRef<any[]>([])
-  const ripiosRef = useRef(ripios)
-  const drawingIdRef = useRef(drawingId)
-  const colorRef = useRef(color)
+  const ripiosRef        = useRef(ripios)
+  const drawingIdRef     = useRef(drawingId)
+  const colorRef         = useRef(color)
+  const onSelectRipioRef = useRef(onSelectRipio)
+  const onDeleteRipioRef = useRef(onDeleteRipio)
   useEffect(() => { ripiosRef.current = ripios }, [ripios])
   useEffect(() => { drawingIdRef.current = drawingId }, [drawingId])
   useEffect(() => { colorRef.current = color }, [color])
+  useEffect(() => { onSelectRipioRef.current = onSelectRipio }, [onSelectRipio])
+  useEffect(() => { onDeleteRipioRef.current = onDeleteRipio }, [onDeleteRipio])
 
   // ── Inicializar mapa ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -237,6 +244,34 @@ export default function RipioMapPanel({
       const hw  = r.an / 2
       const layers = []
 
+      // Click en mapa: seleccionar ripio + popup con opción eliminar
+      const fmtL = (m: number) => m >= 1000 ? `${(m/1000).toFixed(2)} km` : `${Math.round(m)} m`
+
+      const openRipioPopup = (latlng: any) => {
+        if (drawingIdRef.current) return  // ignorar en modo dibujo
+        onSelectRipioRef.current?.(r.id)
+
+        const wrap = document.createElement('div')
+        wrap.style.cssText = 'font-family:monospace;min-width:130px'
+
+        const title = document.createElement('div')
+        title.style.cssText = `color:${clr};font-weight:700;font-size:12px;margin-bottom:3px`
+        title.textContent = r.nombre
+
+        const info = document.createElement('div')
+        info.style.cssText = 'color:#888;font-size:10px;margin-bottom:8px'
+        info.textContent = `${fmtL(r.l_m)} · ${r.an}m ancho`
+
+        const btn = document.createElement('button')
+        btn.textContent = '✕ Eliminar ripio'
+        btn.style.cssText = 'font-family:monospace;font-size:10px;cursor:pointer;background:#1a0000;border:1px solid #550000;color:#ff6666;padding:4px 8px;width:100%'
+        btn.addEventListener('click', () => { map.closePopup(); onDeleteRipioRef.current?.(r.id) })
+
+        wrap.appendChild(title); wrap.appendChild(info); wrap.appendChild(btn)
+        Lf.popup({ closeButton: true, className: 'ripio-ctx-popup' })
+          .setContent(wrap).setLatLng(latlng).openOn(map)
+      }
+
       // Buffer de calzada
       const rings = roadBuffer(r.coords, hw)
       if (rings.length > 0) {
@@ -245,6 +280,8 @@ export default function RipioMapPanel({
           fillOpacity: r.id === selectedId ? 0.45 : 0.25,
           weight: r.id === selectedId ? 2 : 1, opacity: 0.9,
         }).addTo(map)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        poly.on('click', (e: any) => { Lf.DomEvent.stopPropagation(e); openRipioPopup(e.latlng) })
         layers.push(poly)
       }
 
@@ -254,7 +291,6 @@ export default function RipioMapPanel({
         opacity: r.id === selectedId ? 1 : 0.75, dashArray: '8 4',
       }).addTo(map)
 
-      const fmtL = (m: number) => m >= 1000 ? `${(m/1000).toFixed(2)} km` : `${Math.round(m)} m`
       line.bindTooltip(
         `<div style="font-family:monospace;font-size:10px">` +
         `<span style="color:${clr};font-weight:700">${r.nombre}</span>` +
@@ -262,6 +298,8 @@ export default function RipioMapPanel({
         `</div>`,
         { sticky: true, direction: 'top' }
       )
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      line.on('click', (e: any) => { Lf.DomEvent.stopPropagation(e); openRipioPopup(e.latlng) })
       layers.push(line)
       ripioLayersRef.current.set(r.id, layers)
     })
@@ -431,6 +469,15 @@ export default function RipioMapPanel({
         .leaflet-control-layers label { color: #777 !important; font-size: 10px !important; font-family: monospace !important; }
         .leaflet-control-layers-separator { border-top-color: #1a1a1a !important; }
         .leaflet-control-layers input[type=radio] { accent-color: #90A4AE; }
+        /* Popup de contexto de ripio */
+        .ripio-ctx-popup .leaflet-popup-content-wrapper {
+          background: #0d0d0d !important; border: 1px solid #222 !important;
+          border-radius: 0 !important; box-shadow: 0 2px 8px #00000088 !important;
+          color: #ccc !important; padding: 0 !important;
+        }
+        .ripio-ctx-popup .leaflet-popup-content { margin: 10px 12px !important; }
+        .ripio-ctx-popup .leaflet-popup-tip-container { display: none !important; }
+        .ripio-ctx-popup .leaflet-popup-close-button { color: #555 !important; font-size: 14px !important; top: 6px !important; right: 8px !important; }
       `}</style>
       <div ref={mapDivRef} style={{ width: '100%', height: '100%' }} />
 

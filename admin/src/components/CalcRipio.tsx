@@ -56,9 +56,9 @@ function NInp({ label, value, onChange, step = 0.1, min = 0, unit }: {
 // ── Fila de resultado ─────────────────────────────────────────────────────────
 function Res({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', borderBottom: '1px solid #0d0d0d' }}>
-      <span style={{ fontSize: 9, color: '#444', ...MONO }}>{label}</span>
-      <span style={{ fontSize: accent ? 11 : 9, color: accent ? COLOR : '#777', ...MONO, fontWeight: accent ? 700 : 400 }}>{value}</span>
+    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid #0d0d0d' }}>
+      <span style={{ fontSize: 11, color: '#666', ...MONO }}>{label}</span>
+      <span style={{ fontSize: accent ? 13 : 11, color: accent ? COLOR : '#999', ...MONO, fontWeight: accent ? 700 : 400 }}>{value}</span>
     </div>
   )
 }
@@ -302,20 +302,7 @@ export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: Guard
         })}
       </div>
 
-      {/* Botón resumen */}
-      <button
-        onClick={() => setPanel(p => p === 'resumen' ? 'form' : 'resumen')}
-        style={{
-          padding: '8px 10px', width: '100%', textAlign: 'left', cursor: 'pointer',
-          background: panel === 'resumen' ? `${COLOR}0d` : 'transparent',
-          border: 'none', borderTop: '1px solid #111',
-          borderLeft: `2px solid ${panel === 'resumen' ? COLOR : 'transparent'}`,
-          fontSize: 8, color: panel === 'resumen' ? COLOR : '#444', ...MONO,
-          textTransform: 'uppercase', letterSpacing: 1,
-        }}
-      >Σ Resumen presupuesto</button>
-
-      {/* Botón Guardar obra */}
+      {/* Botón Guardar obra — primero, más visible */}
       {onGuardarObra && activeProy && activeProy.ripios.length > 0 && (() => {
         const totalPres = activeProy.ripios.reduce((s, r) => s + calcRipio(r).presupuesto, 0)
         const totalTon  = activeProy.ripios.reduce((s, r) => s + calcRipio(r).W, 0)
@@ -325,7 +312,7 @@ export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: Guard
         const allCoords = activeProy.ripios.flatMap(r => (r.coords ?? []).map(([lat, lng]) => ({ lat, lng })))
         return (
           <button
-            onClick={() => onGuardarObra({
+            onClick={() => onGuardarObra?.({
               tipo: 'ripio',
               cantidad: totalTon,
               unidad: 't',
@@ -357,16 +344,29 @@ export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: Guard
               },
             })}
             style={{
-              padding: '8px 10px', width: '100%', textAlign: 'left', cursor: 'pointer',
-              background: '#F5C30010', border: 'none', borderTop: '1px solid #111',
-              borderLeft: '2px solid #F5C300',
-              fontSize: 9, color: '#F5C300', ...MONO, fontWeight: 700,
+              padding: '10px 12px', width: '100%', textAlign: 'left', cursor: 'pointer',
+              background: '#F5C30014', border: 'none', borderTop: '1px solid #222',
+              borderLeft: '3px solid #F5C300',
+              fontSize: 12, color: '#F5C300', ...MONO, fontWeight: 700,
             }}
           >
             💾 Guardar obra
           </button>
         )
       })()}
+
+      {/* Botón resumen — debajo de guardar */}
+      <button
+        onClick={() => setPanel(p => p === 'resumen' ? 'form' : 'resumen')}
+        style={{
+          padding: '10px 12px', width: '100%', textAlign: 'left', cursor: 'pointer',
+          background: panel === 'resumen' ? `${COLOR}0d` : 'transparent',
+          border: 'none', borderTop: '1px solid #111',
+          borderLeft: `3px solid ${panel === 'resumen' ? COLOR : 'transparent'}`,
+          fontSize: 11, color: panel === 'resumen' ? COLOR : '#666', ...MONO,
+          textTransform: 'uppercase', letterSpacing: 1,
+        }}
+      >Σ Resumen presupuesto</button>
     </div>
   )
 
@@ -443,7 +443,7 @@ export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: Guard
 
           {/* Ejecución */}
           <div style={{ marginTop: 12, paddingTop: 8, borderTop: '1px solid #0e0e0e' }}>
-            <span style={{ fontSize: 8, color: '#333', ...MONO, textTransform: 'uppercase', letterSpacing: 1 }}>Ejecución</span>
+            <span style={{ fontSize: 10, color: '#555', ...MONO, textTransform: 'uppercase', letterSpacing: 1 }}>Ejecución</span>
           </div>
           <label style={{ display: 'block' }}>
             <span style={lblS}>Empresa</span>
@@ -456,7 +456,7 @@ export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: Guard
 
           {/* Precio */}
           <div style={{ marginTop: 12, paddingTop: 8, borderTop: '1px solid #0e0e0e' }}>
-            <span style={{ fontSize: 8, color: '#333', ...MONO, textTransform: 'uppercase', letterSpacing: 1 }}>Presupuesto</span>
+            <span style={{ fontSize: 10, color: '#555', ...MONO, textTransform: 'uppercase', letterSpacing: 1 }}>Presupuesto</span>
           </div>
           <NInp label="Precio unitario" unit="$/t" value={selected.precio_unitario} onChange={v => saveRipio(selected.id, { precio_unitario: v })} step={100} />
           {presupuesto > 0 && (
@@ -561,6 +561,8 @@ export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: Guard
             color={COLOR}
             onLineDraw={handleLineDraw}
             onDrawEnd={() => setDrawingId(null)}
+            onSelectRipio={(id) => { setSelectedId(id); setPanel('form') }}
+            onDeleteRipio={deleteRipio}
           />
         ) : (
           <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#444', ...MONO, fontSize: 11 }}>
