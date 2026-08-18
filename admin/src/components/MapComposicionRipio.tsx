@@ -13,8 +13,6 @@ export interface RipioComp {
   proyectoNombre?: string
 }
 
-interface SigBlock { nombre: string; cargo: string; cc: string; dni: string }
-
 interface Props {
   ripios:         RipioComp[]
   proyectoNombre: string
@@ -187,9 +185,6 @@ export default function MapComposicionRipio({
   const [fOrganismo, setFOrganismo] = useState('')
   const [fZona,      setFZona]      = useState('')
   const [fObra,      setFObra]      = useState('Enripiado de Calles')
-  const [fUbicacion, setFUbicacion] = useState('')
-  const [fEjecuta,   setFEjecuta]   = useState('')
-  const [fPlazo,     setFPlazo]     = useState('06 MESES')
 
   // Selector de ripios visible en la composición (tipo capas QGIS)
   const [visibleIds, setVisibleIds] = useState<Set<string>>(() => new Set(ripios.map(r => r.id)))
@@ -214,15 +209,6 @@ export default function MapComposicionRipio({
   const activeRipios = ripios.filter(r => visibleIds.has(r.id))
   const activeWithCoords = activeRipios.filter(r => r.coords && r.coords.length >= 2)
 
-  // Firmas
-  const [sigs, setSigs] = useState<SigBlock[]>([
-    { nombre: '', cargo: 'Secretario',        cc: '', dni: '' },
-    { nombre: '', cargo: 'Presidente',         cc: '', dni: '' },
-    { nombre: '', cargo: 'Jefe/Sec. Técnica', cc: '', dni: '' },
-    { nombre: '', cargo: 'Jefe Delegación',   cc: '', dni: '' },
-  ])
-  const updateSig = (i: number, key: keyof SigBlock, val: string) =>
-    setSigs(p => p.map((s, j) => j === i ? { ...s, [key]: val } : s))
 
   // Map refs
   const mapDivRef = useRef<HTMLDivElement>(null)
@@ -467,28 +453,16 @@ export default function MapComposicionRipio({
 
           <div style={{ borderBottom: '2.5px solid #222', marginBottom: 8 }}/>
 
-          {/* ── Metadata ────────────────────────────────────────────────── */}
-          <div style={{ marginBottom: 10, fontSize: 12, lineHeight: 1.9 }}>
-            {([
-              { label: 'OBRA',      val: fObra,      set: setFObra,      ph: 'Enripiado de calles' },
-              { label: 'PROYECTO',  val: proyectoNombre, readOnly: true },
-              { label: 'UBICACIÓN', val: fUbicacion, set: setFUbicacion, ph: 'Departamento / localidad' },
-              { label: 'EJECUTA',   val: fEjecuta,   set: setFEjecuta,   ph: 'Empresa / CONSORCIO N° ...' },
-              { label: 'PLAZO',     val: fPlazo,     set: setFPlazo,     ph: '06 MESES' },
-            ] as const).map(f => (
-              <div key={f.label} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <strong style={{ minWidth: 90, flexShrink: 0 }}>{f.label}:</strong>
-                {('readOnly' in f && f.readOnly)
-                  ? <span style={{ fontSize: 12 }}>{f.val}</span>
-                  : <Editable value={f.val as string} onChange={(f as any).set} placeholder={(f as any).ph} style={{ fontSize: 12 }} />
-                }
-              </div>
-            ))}
+          {/* ── Metadata (solo OBRA) ───────────────────────────────────── */}
+          <div style={{ marginBottom: 8, fontSize: 12, lineHeight: 1.9 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <strong style={{ minWidth: 90, flexShrink: 0 }}>OBRA:</strong>
+              <Editable value={fObra} onChange={setFObra} placeholder="Enripiado de calles" style={{ fontSize: 12 }} />
+            </div>
           </div>
 
-          {/* ── Mapa ────────────────────────────────────────────────────── */}
-          {/* Altura fija para que Leaflet pueda medir correctamente */}
-          <div style={{ border: '2px solid #444', position: 'relative', height: 560 }}>
+          {/* ── Mapa (altura expandida, sin firmas) ─────────────────────── */}
+          <div style={{ border: '2px solid #444', position: 'relative', height: 920 }}>
 
             {/* Título inset */}
             <div style={{
@@ -502,7 +476,7 @@ export default function MapComposicionRipio({
                 {fObra || 'Enripiado'} — {proyectoNombre}
               </div>
               <div style={{ fontSize: 9.5, color: '#444' }}>
-                {fEjecuta || '—'} · {fmtL(selTotalM)} total
+                {proyectoNombre} · {fmtL(selTotalM)} total
               </div>
             </div>
 
@@ -590,29 +564,6 @@ export default function MapComposicionRipio({
             </div>
           </div>
 
-          {/* ── Firmas ──────────────────────────────────────────────────── */}
-          <div style={{
-            display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)',
-            gap: 12, marginTop: 14, paddingTop: 12, borderTop: '1px solid #ccc',
-          }}>
-            {sigs.map((s, i) => (
-              <div key={i} style={{ textAlign: 'center', fontSize: 10 }}>
-                <div style={{ height: 38, borderBottom: '1px solid #333', marginBottom: 4 }}/>
-                <input value={s.nombre} placeholder="Nombre Apellido"
-                  onChange={e => updateSig(i, 'nombre', e.target.value)}
-                  style={sigInp(true)} />
-                <input value={s.cargo}
-                  onChange={e => updateSig(i, 'cargo', e.target.value)}
-                  style={sigInp(false)} />
-                <input value={s.cc} placeholder="C°C° n°…"
-                  onChange={e => updateSig(i, 'cc', e.target.value)}
-                  style={sigInp(false)} />
-                <input value={s.dni} placeholder="DNI XX.XXX.XXX"
-                  onChange={e => updateSig(i, 'dni', e.target.value)}
-                  style={{ ...sigInp(false), fontSize: 9 }} />
-              </div>
-            ))}
-          </div>
 
         </div>{/* fin A4 */}
       </div>{/* fin scroll */}
@@ -645,9 +596,3 @@ const toolBtn: React.CSSProperties = {
   border: '1px solid #222', background: '#0d0d0d', color: '#666', borderRadius: 2,
 }
 
-const sigInp = (bold: boolean): React.CSSProperties => ({
-  border: 'none', outline: 'none', background: 'transparent', width: '100%',
-  textAlign: 'center', fontFamily: 'Arial, sans-serif',
-  fontSize: 10, fontWeight: bold ? 700 : 400, color: bold ? '#222' : '#666',
-  display: 'block', lineHeight: 1.4,
-})
