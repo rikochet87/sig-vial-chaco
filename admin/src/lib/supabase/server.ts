@@ -1,4 +1,5 @@
 import { createServerClient } from '@supabase/ssr'
+import { createClient as createSupabase } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 
 export async function createClient() {
@@ -14,7 +15,13 @@ export async function createClient() {
             cookiesToSet.forEach(({ name, value, options }) =>
               cookieStore.set(name, value, options)
             )
-          } catch {}
+          } catch (e) {
+            // En Server Components el set() lanza en contextos read-only — es esperado.
+            // Logueamos en desarrollo para detectar problemas reales.
+            if (process.env.NODE_ENV === 'development') {
+              console.warn('[supabase/server] cookie setAll:', e)
+            }
+          }
         },
       },
     }
@@ -22,8 +29,6 @@ export async function createClient() {
 }
 
 export function createServiceClient() {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { createClient: createSupabase } = require('@supabase/supabase-js')
   return createSupabase(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!

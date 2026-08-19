@@ -80,6 +80,9 @@ export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: Guard
   const [view,          setView]          = useState<'computo' | 'mapa'>('computo')
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // Limpia el timer al desmontar para evitar setState en componente desmontado
+  useEffect(() => () => { if (saveTimer.current) clearTimeout(saveTimer.current) }, [])
+
   // ── Carga ─────────────────────────────────────────────────────────────────
   useEffect(() => {
     fetch('/api/proyectos-ripio')
