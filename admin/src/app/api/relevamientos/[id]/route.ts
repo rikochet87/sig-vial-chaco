@@ -1,10 +1,14 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { requireAdmin } from '@/lib/apiAuth'
 
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await requireAdmin()
+  if (auth instanceof NextResponse) return auth
+
   const { id } = await params
   const body = await request.json()
 

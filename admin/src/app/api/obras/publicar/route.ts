@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
+import { requireAdmin } from '@/lib/apiAuth'
 
 // PATCH /api/obras/publicar
 // Body: { obra_id: string, tipo: 'todos' | 'seleccion' | 'despublicar', user_ids?: string[] }
 export async function PATCH(req: NextRequest) {
+  const auth = await requireAdmin()
+  if (auth instanceof NextResponse) return auth
   const { obra_id, tipo, user_ids = [] } = await req.json()
   if (!obra_id || !tipo) {
     return NextResponse.json({ error: 'obra_id y tipo son requeridos' }, { status: 400 })

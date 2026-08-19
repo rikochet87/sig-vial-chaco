@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
+import { requireAdmin } from '@/lib/apiAuth'
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireAdmin()
+  if (auth instanceof NextResponse) return auth
   const { id } = await params
   const supabase = createServiceClient()
 
@@ -23,6 +26,8 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireAdmin()
+  if (auth instanceof NextResponse) return auth
   const { id } = await params
   const body = await req.json()
   const supabase = createServiceClient()

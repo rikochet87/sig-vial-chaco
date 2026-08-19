@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
+import { requireAdmin } from '@/lib/apiAuth'
 
 // GET /api/tecnicos — devuelve todos los usuarios con nombre + email (usa service role)
 export async function GET() {
+  const auth = await requireAdmin()
+  if (auth instanceof NextResponse) return auth
   const supabase = createServiceClient()
   const [profilesRes, authRes] = await Promise.all([
     supabase.from('profiles').select('id,nombre,zona,rol'),
@@ -24,6 +27,8 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await requireAdmin()
+  if (auth instanceof NextResponse) return auth
   const { nombre, email, password, zona, rol } = await request.json()
   const supabase = createServiceClient()
   const { data: authData, error: authError } = await supabase.auth.admin.createUser({

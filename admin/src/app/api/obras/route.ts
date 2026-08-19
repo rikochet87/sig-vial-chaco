@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
+import { requireAdmin } from '@/lib/apiAuth'
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAdmin()
+  if (auth instanceof NextResponse) return auth
   const body = await req.json()
   const supabase = createServiceClient()
 
@@ -35,6 +38,8 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
+  const auth = await requireAdmin()
+  if (auth instanceof NextResponse) return auth
   const { searchParams } = new URL(req.url)
   const id = searchParams.get('id')
   const supabase = createServiceClient()
@@ -55,6 +60,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
+  const auth = await requireAdmin()
+  if (auth instanceof NextResponse) return auth
   const body = await req.json()
   const { id, ...fields } = body
   if (!id) return NextResponse.json({ error: 'id requerido' }, { status: 400 })
@@ -91,6 +98,8 @@ export async function PATCH(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  const auth = await requireAdmin()
+  if (auth instanceof NextResponse) return auth
   const { searchParams } = new URL(req.url)
   const id = searchParams.get('id')
   if (!id) return NextResponse.json({ error: 'id requerido' }, { status: 400 })
