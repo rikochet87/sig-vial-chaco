@@ -453,7 +453,7 @@ function RightPanel({
     stats[z][t]++
   })
   const zTotal = (z: string) => TIPOS_LIST.reduce((a, t) => a + (stats[z]?.[t] ?? 0), 0)
-  const tTotal = (t: string) => ZONAS_LIST.reduce((a, z) => a + (stats[z]?.[t] ?? 0), 0)
+  const tTotal = (t: string) => STATS_ZONAS.reduce((a, z) => a + (stats[z]?.[t] ?? 0), 0)
   const grand  = TIPOS_LIST.reduce((a, t) => a + tTotal(t), 0)
 
   const allZonesActive = activeZones.size === 0
