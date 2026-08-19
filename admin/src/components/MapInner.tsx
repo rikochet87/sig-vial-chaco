@@ -431,11 +431,26 @@ function RightPanel({
   const SEC: React.CSSProperties = { fontSize: 9, color: '#555', textTransform: 'uppercase', letterSpacing: 0.8, margin: '8px 0 4px', fontWeight: 600 }
 
   // Stats: contar por zona y tipo
+  // Normalizar zona: trim + uppercase para tolerar variantes de formato
+  const normalizeZona = (z: string | null | undefined): string => {
+    const s = (z ?? '').trim().toUpperCase().replace(/\s+/g, '')
+    // Mapear aliases comunes → clave canónica
+    const MAP: Record<string, string> = {
+      'ZI': 'ZI', 'Z1': 'ZI', 'ZONAI': 'ZI',
+      'ZII': 'ZII', 'Z2': 'ZII', 'ZONAII': 'ZII',
+      'ZIII': 'ZIII', 'Z3': 'ZIII', 'ZONAIII': 'ZIII',
+      'ZIV': 'ZIV', 'Z4': 'ZIV', 'ZONAIV': 'ZIV',
+      'ZV': 'ZV', 'Z5': 'ZV', 'ZONAV': 'ZV',
+    }
+    return MAP[s] ?? '?'
+  }
+  const STATS_ZONAS = [...ZONAS_LIST, '?'] as const
   const stats: Record<string, Record<string, number>> = {}
-  ZONAS_LIST.forEach(z => { stats[z] = {}; TIPOS_LIST.forEach(t => { stats[z][t] = 0 }) })
+  STATS_ZONAS.forEach(z => { stats[z] = {}; TIPOS_LIST.forEach(t => { stats[z][t] = 0 }) })
   relevamientos.forEach(r => {
-    const z = r.zona ?? ''
-    if (z in stats && r.tipo in stats[z]) stats[z][r.tipo]++
+    const z = normalizeZona(r.zona)
+    const t = (r.tipo && r.tipo in stats[z]) ? r.tipo : 'Otro'
+    stats[z][t]++
   })
   const zTotal = (z: string) => TIPOS_LIST.reduce((a, t) => a + (stats[z]?.[t] ?? 0), 0)
   const tTotal = (t: string) => ZONAS_LIST.reduce((a, z) => a + (stats[z]?.[t] ?? 0), 0)
@@ -513,6 +528,18 @@ function RightPanel({
                     </tr>
                   )
                 })}
+                {/* Fila para relevamientos sin zona válida */}
+                {zTotal('?') > 0 && (
+                  <tr title="Zona no reconocida / sin zona">
+                    <td style={{ color: '#555', padding: '2px 4px', fontWeight: 600, fontStyle: 'italic' }}>s/z</td>
+                    {TIPOS_LIST.map(t => (
+                      <td key={t} style={{ color: stats['?'][t] > 0 ? '#666' : '#333', textAlign: 'center', padding: '2px 3px' }}>
+                        {stats['?'][t] > 0 ? stats['?'][t] : '·'}
+                      </td>
+                    ))}
+                    <td style={{ color: '#666', textAlign: 'center', padding: '2px 3px', fontWeight: 700 }}>{zTotal('?')}</td>
+                  </tr>
+                )}
                 <tr style={{ borderTop: '1px solid #2a3450' }}>
                   <td style={{ color: '#e0e6f0', padding: '3px 4px', fontWeight: 700 }}>∑</td>
                   {TIPOS_LIST.map(t => (
