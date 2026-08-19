@@ -85,7 +85,8 @@ export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: Guard
 
   // ── Carga ─────────────────────────────────────────────────────────────────
   useEffect(() => {
-    fetch('/api/proyectos-ripio')
+    const ac = new AbortController()
+    fetch('/api/proyectos-ripio', { signal: ac.signal })
       .then(r => r.json())
       .then((data: Proyecto[]) => {
         setProyectos(data)
@@ -94,8 +95,9 @@ export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: Guard
           if (data[0].ripios.length > 0) setSelectedId(data[0].ripios[0].id)
         }
       })
-      .catch(console.error)
+      .catch(e => { if (e.name !== 'AbortError') console.error(e) })
       .finally(() => setLoading(false))
+    return () => ac.abort()
   }, [])
 
   const activeProy = proyectos.find(p => p.id === activeProyId) ?? null

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { requireAdmin } from '@/lib/apiAuth'
+import { requireAdmin, dbError, requireFields } from '@/lib/apiAuth'
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireAdmin()
@@ -12,7 +12,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     .select('*')
     .eq('proyecto_id', id)
     .order('orden', { ascending: true })
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+  if (error) return dbError(error)
   return NextResponse.json(data)
 }
 
@@ -21,6 +21,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (auth instanceof NextResponse) return auth
   const { id } = await params
   const body = await req.json()
+  const invalid = requireFields(body, ['nombre'])
+  if (invalid) return invalid
   const supabase = createServiceClient()
 
   // Determinar el siguiente orden
@@ -49,6 +51,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     .select()
     .single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+  if (error) return dbError(error)
   return NextResponse.json(data, { status: 201 })
 }

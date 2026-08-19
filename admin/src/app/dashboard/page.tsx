@@ -39,7 +39,9 @@ export default async function DashboardPage() {
     supabase.from('relevamientos').select('*', { count: 'exact', head: true }).is('sincronizado_en', null),
     supabase.from('profiles').select('*', { count: 'exact', head: true }),
     supabase.from('consorcios').select('*', { count: 'exact', head: true }),
-    supabase.from('relevamientos').select('id,fecha,tipo,tecnico_id,estado_calzada,coords_lat,coords_lng,coords_linea,cc_asociado,zona,ruta_tramo,observaciones,fotos,datos_especificos,sincronizado_en').limit(500),
+    // Sin limit: countByTipo se calcula de estos datos — un limit rompería el subtotal.
+    // Revisar paginación si el dataset supera ~5000 registros.
+    supabase.from('relevamientos').select('id,fecha,tipo,tecnico_id,estado_calzada,coords_lat,coords_lng,coords_linea,cc_asociado,zona,ruta_tramo,observaciones,fotos,datos_especificos,sincronizado_en'),
   ])
 
   // Conteo por tipo desde los datos ya traídos

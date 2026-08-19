@@ -1,6 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/apiAuth'
+import { requireAdmin, dbError } from '@/lib/apiAuth'
 
 export async function PATCH(
   request: Request,
@@ -30,9 +30,7 @@ export async function PATCH(
     .update(update)
     .eq('id', id)
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
-  }
+  if (error) return dbError(error, 500)
 
   return NextResponse.json({ ok: true })
 }

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { requireAdmin } from '@/lib/apiAuth'
+import { requireAdmin, dbError } from '@/lib/apiAuth'
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ numero: string }> }) {
   const auth = await requireAdmin()
@@ -11,6 +11,6 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   const { error } = await supabase.from('consorcios')
     .update({ ...body, updated_at: new Date().toISOString() })
     .eq('numero', parseInt(numero))
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+  if (error) return dbError(error)
   return NextResponse.json({ success: true })
 }
