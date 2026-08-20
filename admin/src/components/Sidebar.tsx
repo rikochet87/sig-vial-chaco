@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useUser } from '@/lib/UserContext'
 
 // Íconos SVG geométricos/técnicos inline
 const ICONS = {
@@ -78,6 +79,10 @@ export default function Sidebar() {
   const [obrasOpen, setObrasOpen]     = useState(false)
   const [relOpen,   setRelOpen]       = useState(false)
   const pathname = usePathname()
+  const { profile, hasPermiso } = useUser()
+  const isAdmin = profile.rol === 'admin'
+  // Obras accordion visible si tiene 'obras' o al menos una calculadora
+  const canSeeObras = hasPermiso('obras') || hasPermiso('calc_ripio') || hasPermiso('calc_desmalezado') || hasPermiso('calc_desbosque')
 
   // Auto-expandir acordeones
   useEffect(() => {
@@ -136,7 +141,12 @@ export default function Sidebar() {
       )}
 
       <nav style={{ flex: 1, padding: '4px 0' }}>
-        {NAV_ITEMS.map(item => {
+        {NAV_ITEMS.filter(item => {
+          if (item.href === '/dashboard/tecnicos') return isAdmin
+          if (item.href === '/dashboard') return hasPermiso('dashboard')
+          if (item.href === '/dashboard/consorcios') return hasPermiso('consorcios')
+          return true
+        }).map(item => {
           const isActive  = item.exact ? pathname === item.href : pathname.startsWith(item.href)
           const isHovered = hoveredHref === item.href && !isActive
           return (
@@ -161,165 +171,168 @@ export default function Sidebar() {
         })}
 
         {/* ── Relevamientos — acordeón ── */}
-        <button
-          onClick={() => setRelOpen(v => !v)}
-          onMouseEnter={() => setHoveredHref('relevamientos')}
-          onMouseLeave={() => setHoveredHref(null)}
-          style={{
-            ...linkBase,
-            width: '100%', border: 'none', cursor: 'pointer',
-            color: isRelActive ? '#F5C300' : hoveredHref === 'relevamientos' ? '#bbb' : '#555',
-            borderLeftColor: isRelActive ? '#F5C300' : hoveredHref === 'relevamientos' ? '#3a3a3a' : 'transparent',
-            background: isRelActive ? 'rgba(245,195,0,0.06)' : hoveredHref === 'relevamientos' ? 'rgba(255,255,255,0.025)' : 'transparent',
-          } as React.CSSProperties}
-        >
-          <span style={{ flexShrink: 0, opacity: isRelActive || hoveredHref === 'relevamientos' ? 0.9 : 0.6, color: isRelActive ? '#F5C300' : 'currentColor' }}>
-            {ICONS.relevamientos}
-          </span>
-          {!collapsed && (
-            <>
-              <span>Relevamientos</span>
-              <span style={{ marginLeft: 'auto', fontSize: 9, opacity: 0.5, transition: 'transform 0.15s', display: 'inline-block', transform: relOpen ? 'rotate(90deg)' : 'none' }}>▶</span>
-            </>
+        {hasPermiso('relevamientos') && (<>
+          <button
+            onClick={() => setRelOpen(v => !v)}
+            onMouseEnter={() => setHoveredHref('relevamientos')}
+            onMouseLeave={() => setHoveredHref(null)}
+            style={{
+              ...linkBase,
+              width: '100%', border: 'none', cursor: 'pointer',
+              color: isRelActive ? '#F5C300' : hoveredHref === 'relevamientos' ? '#bbb' : '#555',
+              borderLeftColor: isRelActive ? '#F5C300' : hoveredHref === 'relevamientos' ? '#3a3a3a' : 'transparent',
+              background: isRelActive ? 'rgba(245,195,0,0.06)' : hoveredHref === 'relevamientos' ? 'rgba(255,255,255,0.025)' : 'transparent',
+            } as React.CSSProperties}
+          >
+            <span style={{ flexShrink: 0, opacity: isRelActive || hoveredHref === 'relevamientos' ? 0.9 : 0.6, color: isRelActive ? '#F5C300' : 'currentColor' }}>
+              {ICONS.relevamientos}
+            </span>
+            {!collapsed && (
+              <>
+                <span>Relevamientos</span>
+                <span style={{ marginLeft: 'auto', fontSize: 9, opacity: 0.5, transition: 'transform 0.15s', display: 'inline-block', transform: relOpen ? 'rotate(90deg)' : 'none' }}>▶</span>
+              </>
+            )}
+          </button>
+          {relOpen && !collapsed && (
+            <div style={{ borderLeft: '1px solid #1e1e1e', marginLeft: 24, marginTop: 2, marginBottom: 2 }}>
+              {REL_ITEMS.map(item => {
+                const isActive  = item.id === 'lista' ? pathname === item.href || (pathname.startsWith('/dashboard/relevamientos') && !pathname.startsWith('/dashboard/relevamientos/revision')) : pathname.startsWith(item.href)
+                const isHovered = hoveredHref === item.id
+                return (
+                  <Link key={item.id} href={item.href}
+                    onMouseEnter={() => setHoveredHref(item.id)}
+                    onMouseLeave={() => setHoveredHref(null)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 8,
+                      padding: '7px 12px', textDecoration: 'none',
+                      fontSize: 11, fontFamily: '"DM Mono", ui-monospace, monospace',
+                      letterSpacing: 0.3, whiteSpace: 'nowrap',
+                      color: isActive ? '#F5C300' : isHovered ? '#bbb' : '#555',
+                      background: isHovered ? 'rgba(255,255,255,0.025)' : 'transparent',
+                      transition: 'color 0.15s, background 0.15s',
+                    }}>
+                    <span style={{ fontSize: 13, fontFamily: 'monospace' }}>{item.icon}</span>
+                    <span>{item.label}</span>
+                  </Link>
+                )
+              })}
+            </div>
           )}
-        </button>
-
-        {relOpen && !collapsed && (
-          <div style={{ borderLeft: '1px solid #1e1e1e', marginLeft: 24, marginTop: 2, marginBottom: 2 }}>
-            {REL_ITEMS.map(item => {
-              const isActive  = item.id === 'lista' ? pathname === item.href || (pathname.startsWith('/dashboard/relevamientos') && !pathname.startsWith('/dashboard/relevamientos/revision')) : pathname.startsWith(item.href)
-              const isHovered = hoveredHref === item.id
-              return (
-                <Link key={item.id} href={item.href}
-                  onMouseEnter={() => setHoveredHref(item.id)}
-                  onMouseLeave={() => setHoveredHref(null)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 8,
-                    padding: '7px 12px', textDecoration: 'none',
-                    fontSize: 11, fontFamily: '"DM Mono", ui-monospace, monospace',
-                    letterSpacing: 0.3, whiteSpace: 'nowrap',
-                    color: isActive ? '#F5C300' : isHovered ? '#bbb' : '#555',
-                    background: isHovered ? 'rgba(255,255,255,0.025)' : 'transparent',
-                    transition: 'color 0.15s, background 0.15s',
-                  }}>
-                  <span style={{ fontSize: 13, fontFamily: 'monospace' }}>{item.icon}</span>
-                  <span>{item.label}</span>
-                </Link>
-              )
-            })}
-          </div>
-        )}
+        </>)}
 
         {/* Separador */}
         <div style={{ margin: '8px 16px', borderTop: '1px solid #1e1e1e' }} />
 
         {/* ── Herramientas — acordeón ── */}
-        <button
-          onClick={() => setToolsOpen(v => !v)}
-          onMouseEnter={() => setHoveredHref('herramientas')}
-          onMouseLeave={() => setHoveredHref(null)}
-          style={{
-            ...linkBase,
-            width: '100%', border: 'none', cursor: 'pointer',
-            color: isToolsActive ? '#F5C300' : hoveredHref === 'herramientas' ? '#bbb' : '#555',
-            borderLeftColor: isToolsActive ? '#F5C300' : hoveredHref === 'herramientas' ? '#3a3a3a' : 'transparent',
-            background: isToolsActive ? 'rgba(245,195,0,0.06)' : hoveredHref === 'herramientas' ? 'rgba(255,255,255,0.025)' : 'transparent',
-            textShadow: hoveredHref === 'herramientas' && !isToolsActive ? '0 0 10px rgba(255,255,255,0.18)' : 'none',
-          } as React.CSSProperties}
-        >
-          <span style={{ flexShrink: 0, opacity: isToolsActive || hoveredHref === 'herramientas' ? 0.9 : 0.6, color: isToolsActive ? '#F5C300' : 'currentColor' }}>
-            {ICONS.herramientas}
-          </span>
-          {!collapsed && (
-            <>
-              <span>Herramientas</span>
-              <span style={{ marginLeft: 'auto', fontSize: 9, opacity: 0.5, transition: 'transform 0.15s', display: 'inline-block', transform: toolsOpen ? 'rotate(90deg)' : 'none' }}>▶</span>
-            </>
+        {hasPermiso('herramientas') && (<>
+          <button
+            onClick={() => setToolsOpen(v => !v)}
+            onMouseEnter={() => setHoveredHref('herramientas')}
+            onMouseLeave={() => setHoveredHref(null)}
+            style={{
+              ...linkBase,
+              width: '100%', border: 'none', cursor: 'pointer',
+              color: isToolsActive ? '#F5C300' : hoveredHref === 'herramientas' ? '#bbb' : '#555',
+              borderLeftColor: isToolsActive ? '#F5C300' : hoveredHref === 'herramientas' ? '#3a3a3a' : 'transparent',
+              background: isToolsActive ? 'rgba(245,195,0,0.06)' : hoveredHref === 'herramientas' ? 'rgba(255,255,255,0.025)' : 'transparent',
+              textShadow: hoveredHref === 'herramientas' && !isToolsActive ? '0 0 10px rgba(255,255,255,0.18)' : 'none',
+            } as React.CSSProperties}
+          >
+            <span style={{ flexShrink: 0, opacity: isToolsActive || hoveredHref === 'herramientas' ? 0.9 : 0.6, color: isToolsActive ? '#F5C300' : 'currentColor' }}>
+              {ICONS.herramientas}
+            </span>
+            {!collapsed && (
+              <>
+                <span>Herramientas</span>
+                <span style={{ marginLeft: 'auto', fontSize: 9, opacity: 0.5, transition: 'transform 0.15s', display: 'inline-block', transform: toolsOpen ? 'rotate(90deg)' : 'none' }}>▶</span>
+              </>
+            )}
+          </button>
+          {toolsOpen && !collapsed && (
+            <div style={{ borderLeft: '1px solid #1e1e1e', marginLeft: 24, marginTop: 2, marginBottom: 2 }}>
+              {TOOL_ITEMS.map(tool => {
+                const isActive  = pathname.startsWith('/dashboard/herramientas')
+                const isHovered = hoveredHref === tool.id
+                return (
+                  <Link
+                    key={tool.id} href={tool.href}
+                    onMouseEnter={() => setHoveredHref(tool.id)}
+                    onMouseLeave={() => setHoveredHref(null)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 8,
+                      padding: '7px 12px', textDecoration: 'none',
+                      fontSize: 11, fontFamily: '"DM Mono", ui-monospace, monospace',
+                      letterSpacing: 0.3, whiteSpace: 'nowrap',
+                      color: isActive ? '#F5C300' : isHovered ? '#bbb' : '#555',
+                      background: isHovered ? 'rgba(255,255,255,0.025)' : 'transparent',
+                      transition: 'color 0.15s, background 0.15s',
+                    }}
+                  >
+                    <span style={{ fontSize: 13 }}>{tool.icon}</span>
+                    <span>{tool.label}</span>
+                  </Link>
+                )
+              })}
+            </div>
           )}
-        </button>
-
-        {/* Sub-ítems de herramientas */}
-        {toolsOpen && !collapsed && (
-          <div style={{ borderLeft: '1px solid #1e1e1e', marginLeft: 24, marginTop: 2, marginBottom: 2 }}>
-            {TOOL_ITEMS.map(tool => {
-              const isActive  = pathname.startsWith('/dashboard/herramientas')
-              const isHovered = hoveredHref === tool.id
-              return (
-                <Link
-                  key={tool.id} href={tool.href}
-                  onMouseEnter={() => setHoveredHref(tool.id)}
-                  onMouseLeave={() => setHoveredHref(null)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 8,
-                    padding: '7px 12px', textDecoration: 'none',
-                    fontSize: 11, fontFamily: '"DM Mono", ui-monospace, monospace',
-                    letterSpacing: 0.3, whiteSpace: 'nowrap',
-                    color: isActive ? '#F5C300' : isHovered ? '#bbb' : '#555',
-                    background: isHovered ? 'rgba(255,255,255,0.025)' : 'transparent',
-                    transition: 'color 0.15s, background 0.15s',
-                  }}
-                >
-                  <span style={{ fontSize: 13 }}>{tool.icon}</span>
-                  <span>{tool.label}</span>
-                </Link>
-              )
-            })}
-          </div>
-        )}
+        </>)}
 
         {/* ── Obras — acordeón ── */}
-        <button
-          onClick={() => setObrasOpen(v => !v)}
-          onMouseEnter={() => setHoveredHref('obras')}
-          onMouseLeave={() => setHoveredHref(null)}
-          style={{
-            ...linkBase,
-            width: '100%', border: 'none', cursor: 'pointer',
-            color: isObrasActive ? '#F5C300' : hoveredHref === 'obras' ? '#bbb' : '#555',
-            borderLeftColor: isObrasActive ? '#F5C300' : hoveredHref === 'obras' ? '#3a3a3a' : 'transparent',
-            background: isObrasActive ? 'rgba(245,195,0,0.06)' : hoveredHref === 'obras' ? 'rgba(255,255,255,0.025)' : 'transparent',
-            textShadow: hoveredHref === 'obras' && !isObrasActive ? '0 0 10px rgba(255,255,255,0.18)' : 'none',
-          } as React.CSSProperties}
-        >
-          <span style={{ flexShrink: 0, opacity: isObrasActive || hoveredHref === 'obras' ? 0.9 : 0.6, color: isObrasActive ? '#F5C300' : 'currentColor' }}>
-            {ICONS.obras}
-          </span>
-          {!collapsed && (
-            <>
-              <span>Obras</span>
-              <span style={{ marginLeft: 'auto', fontSize: 9, opacity: 0.5, transition: 'transform 0.15s', display: 'inline-block', transform: obrasOpen ? 'rotate(90deg)' : 'none' }}>▶</span>
-            </>
+        {canSeeObras && (<>
+          <button
+            onClick={() => setObrasOpen(v => !v)}
+            onMouseEnter={() => setHoveredHref('obras')}
+            onMouseLeave={() => setHoveredHref(null)}
+            style={{
+              ...linkBase,
+              width: '100%', border: 'none', cursor: 'pointer',
+              color: isObrasActive ? '#F5C300' : hoveredHref === 'obras' ? '#bbb' : '#555',
+              borderLeftColor: isObrasActive ? '#F5C300' : hoveredHref === 'obras' ? '#3a3a3a' : 'transparent',
+              background: isObrasActive ? 'rgba(245,195,0,0.06)' : hoveredHref === 'obras' ? 'rgba(255,255,255,0.025)' : 'transparent',
+              textShadow: hoveredHref === 'obras' && !isObrasActive ? '0 0 10px rgba(255,255,255,0.18)' : 'none',
+            } as React.CSSProperties}
+          >
+            <span style={{ flexShrink: 0, opacity: isObrasActive || hoveredHref === 'obras' ? 0.9 : 0.6, color: isObrasActive ? '#F5C300' : 'currentColor' }}>
+              {ICONS.obras}
+            </span>
+            {!collapsed && (
+              <>
+                <span>Obras</span>
+                <span style={{ marginLeft: 'auto', fontSize: 9, opacity: 0.5, transition: 'transform 0.15s', display: 'inline-block', transform: obrasOpen ? 'rotate(90deg)' : 'none' }}>▶</span>
+              </>
+            )}
+          </button>
+          {obrasOpen && !collapsed && (
+            <div style={{ borderLeft: '1px solid #1e1e1e', marginLeft: 24, marginTop: 2, marginBottom: 2 }}>
+              {OBRA_ITEMS.filter(item =>
+                item.id === 'obras-lista' ? hasPermiso('obras') : true
+              ).map(item => {
+                const isActive  = pathname.startsWith(item.href)
+                const isHovered = hoveredHref === item.id
+                return (
+                  <Link
+                    key={item.id} href={item.href}
+                    onMouseEnter={() => setHoveredHref(item.id)}
+                    onMouseLeave={() => setHoveredHref(null)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 8,
+                      padding: '7px 12px', textDecoration: 'none',
+                      fontSize: 11, fontFamily: '"DM Mono", ui-monospace, monospace',
+                      letterSpacing: 0.3, whiteSpace: 'nowrap',
+                      color: isActive ? '#F5C300' : isHovered ? '#bbb' : '#555',
+                      background: isHovered ? 'rgba(255,255,255,0.025)' : 'transparent',
+                      transition: 'color 0.15s, background 0.15s',
+                    }}
+                  >
+                    <span style={{ fontSize: 14, fontFamily: 'monospace' }}>{item.icon}</span>
+                    <span>{item.label}</span>
+                  </Link>
+                )
+              })}
+            </div>
           )}
-        </button>
-
-        {/* Sub-ítems de obras */}
-        {obrasOpen && !collapsed && (
-          <div style={{ borderLeft: '1px solid #1e1e1e', marginLeft: 24, marginTop: 2, marginBottom: 2 }}>
-            {OBRA_ITEMS.map(item => {
-              const isActive  = pathname.startsWith(item.href)
-              const isHovered = hoveredHref === item.id
-              return (
-                <Link
-                  key={item.id} href={item.href}
-                  onMouseEnter={() => setHoveredHref(item.id)}
-                  onMouseLeave={() => setHoveredHref(null)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 8,
-                    padding: '7px 12px', textDecoration: 'none',
-                    fontSize: 11, fontFamily: '"DM Mono", ui-monospace, monospace',
-                    letterSpacing: 0.3, whiteSpace: 'nowrap',
-                    color: isActive ? '#F5C300' : isHovered ? '#bbb' : '#555',
-                    background: isHovered ? 'rgba(255,255,255,0.025)' : 'transparent',
-                    transition: 'color 0.15s, background 0.15s',
-                  }}
-                >
-                  <span style={{ fontSize: 14, fontFamily: 'monospace' }}>{item.icon}</span>
-                  <span>{item.label}</span>
-                </Link>
-              )
-            })}
-          </div>
-        )}
+        </>)}
       </nav>
 
       {/* Collapse toggle */}
