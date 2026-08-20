@@ -4,10 +4,13 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { Consorcio } from '@/types'
 
+const ZONAS = ['ZI', 'ZII', 'ZIII', 'ZIV', 'ZV'] as const
+
 export default function ConsorciosPage() {
   const router = useRouter()
   const [consorcios, setConsorcios] = useState<Consorcio[]>([])
   const [search, setSearch] = useState('')
+  const [zonaFiltro, setZonaFiltro] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -18,15 +21,19 @@ export default function ConsorciosPage() {
     })
   }, [])
 
-  const filtered = consorcios.filter(c =>
-    !search ||
-    c.nombre?.toLowerCase().includes(search.toLowerCase()) ||
-    String(c.numero).includes(search)
-  )
+  const countByZona = (z: string) => consorcios.filter(c => c.zona === z).length
+
+  const filtered = consorcios.filter(c => {
+    const matchSearch = !search ||
+      c.nombre?.toLowerCase().includes(search.toLowerCase()) ||
+      String(c.numero).includes(search)
+    const matchZona = !zonaFiltro || c.zona === zonaFiltro
+    return matchSearch && matchZona
+  })
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
         <h1 style={{ color: '#fff', fontSize: 22, fontWeight: 700 }}>Consorcios</h1>
         <input
           type="text"
@@ -35,6 +42,45 @@ export default function ConsorciosPage() {
           onChange={e => setSearch(e.target.value)}
           style={{ background: '#1a1a1a', border: '1px solid #252525', color: '#e0e0e0', padding: '7px 12px', fontSize: 12, width: 260 }}
         />
+      </div>
+
+      {/* Filtros de zona */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
+        {[null, ...ZONAS].map(z => {
+          const active = zonaFiltro === z
+          const count = z === null ? consorcios.length : countByZona(z)
+          return (
+            <button
+              key={z ?? 'todas'}
+              onClick={() => setZonaFiltro(z)}
+              style={{
+                background: active ? '#F5C300' : '#1a1a1a',
+                color: active ? '#141414' : '#888',
+                border: `1px solid ${active ? '#F5C300' : '#2a2a2a'}`,
+                padding: '5px 14px',
+                fontSize: 12,
+                fontWeight: active ? 700 : 400,
+                cursor: 'pointer',
+                borderRadius: 3,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+              }}
+            >
+              {z ?? 'Todas'}
+              <span style={{
+                background: active ? 'rgba(0,0,0,0.2)' : '#252525',
+                color: active ? '#141414' : '#555',
+                fontSize: 10,
+                fontWeight: 700,
+                padding: '1px 6px',
+                borderRadius: 10,
+              }}>
+                {count}
+              </span>
+            </button>
+          )
+        })}
       </div>
 
       <div style={{ background: '#191919', border: '1px solid #1e1e1e', overflow: 'hidden' }}>
