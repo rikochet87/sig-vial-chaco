@@ -629,6 +629,7 @@ export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: Guard
       coords:         r.coords ?? null,
       color:          r.color ?? PALETTE[r.orden % PALETTE.length],
       proyectoNombre: p.nombre,
+      empresa:        r.empresa || undefined,
     })))
 
   const compTotalTon  = allVisibleRipios.reduce((s, r) => s + calcRipio(r).W, 0)

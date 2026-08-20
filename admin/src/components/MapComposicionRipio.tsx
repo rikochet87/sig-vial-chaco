@@ -11,6 +11,7 @@ export interface RipioComp {
   coords:         [number, number][] | null
   color:          string        // color resuelto
   proyectoNombre?: string
+  empresa?:        string
 }
 
 interface Props {
@@ -518,48 +519,51 @@ export default function MapComposicionRipio({
             <div style={{
               position: 'absolute', bottom: 10, right: 10, zIndex: 1000,
               background: 'rgba(255,255,255,0.97)', border: '1.5px solid #555',
-              padding: '8px 14px', minWidth: 190, maxWidth: 230,
+              padding: '5px 10px', minWidth: 160, maxWidth: 200,
             }}>
               <div style={{
-                fontSize: 11, fontWeight: 700, textAlign: 'center', marginBottom: 8,
-                letterSpacing: 0.5, borderBottom: '1px solid #ccc', paddingBottom: 5,
+                fontSize: 9.5, fontWeight: 700, textAlign: 'center', marginBottom: 5,
+                letterSpacing: 0.5, borderBottom: '1px solid #ccc', paddingBottom: 4,
               }}>REFERENCIAS</div>
 
               {activeWithCoords.length > 0 && (
                 <>
-                  <div style={{ fontSize: 9, fontWeight: 700, color: '#444', marginBottom: 6 }}>
+                  <div style={{ fontSize: 8, fontWeight: 700, color: '#444', marginBottom: 4 }}>
                     Tramos a enripiar
                   </div>
                   {activeWithCoords.map(r => (
-                    <div key={r.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 7, marginBottom: 6 }}>
-                      <svg width="30" height="10" style={{ flexShrink: 0, marginTop: 2 }}>
-                        <rect width="30" height="10" rx="1" fill={r.color} opacity="0.45"/>
-                        <line x1="0" y1="5" x2="30" y2="5" stroke={r.color} strokeWidth="2" strokeDasharray="5 3"/>
+                    <div key={r.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 5, marginBottom: 4 }}>
+                      <svg width="26" height="8" style={{ flexShrink: 0, marginTop: 2 }}>
+                        <rect width="26" height="8" rx="1" fill={r.color} opacity="0.45"/>
+                        <line x1="0" y1="4" x2="26" y2="4" stroke={r.color} strokeWidth="1.5" strokeDasharray="4 2"/>
                       </svg>
                       <div>
-                        <div style={{ fontSize: 9.5, color: '#222', fontWeight: 700 }}>{r.nombre}</div>
+                        <div style={{ fontSize: 8.5, color: '#222', fontWeight: 700, lineHeight: 1.2 }}>{r.nombre}</div>
                         {r.proyectoNombre && (
-                          <div style={{ fontSize: 8, color: '#888' }}>{r.proyectoNombre}</div>
+                          <div style={{ fontSize: 7.5, color: '#888', lineHeight: 1.2 }}>{r.proyectoNombre}</div>
                         )}
-                        <div style={{ fontSize: 8.5, color: '#666' }}>
+                        {r.empresa && (
+                          <div style={{ fontSize: 7.5, color: '#555', lineHeight: 1.2 }}>{r.empresa}</div>
+                        )}
+                        <div style={{ fontSize: 7.5, color: '#666', lineHeight: 1.2 }}>
                           {fmtL(r.l_m)} · {r.an} m ancho
                         </div>
                       </div>
                     </div>
                   ))}
-                  <div style={{ borderTop: '1px solid #ddd', marginTop: 6, paddingTop: 6 }}/>
+                  <div style={{ borderTop: '1px solid #ddd', marginTop: 4, paddingTop: 4 }}/>
                 </>
               )}
 
               {/* Resumen */}
-              <div style={{ fontSize: 9, color: '#444', lineHeight: 1.6 }}>
+              <div style={{ fontSize: 8, color: '#444', lineHeight: 1.6 }}>
                 <div><strong>Total:</strong> {fmtL(selTotalM)}</div>
                 {selTotalTon > 0 && <div><strong>Tonelaje aprox.:</strong> {selTotalTon.toLocaleString('es-AR')} t</div>}
                 {selTotalPres > 0 && <div><strong>Presupuesto:</strong> {fmtP(selTotalPres)}</div>}
               </div>
 
               {activeWithCoords.length === 0 && (
-                <div style={{ fontSize: 9, color: '#ccc' }}>Sin tramos trazados</div>
+                <div style={{ fontSize: 8, color: '#ccc' }}>Sin tramos trazados</div>
               )}
             </div>
           </div>
