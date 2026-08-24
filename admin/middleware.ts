@@ -25,8 +25,10 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
   if (user && pathname.startsWith('/dashboard')) {
-    const { data: profile } = await supabase.from('profiles').select('rol').eq('id', user.id).single()
-    if (profile?.rol !== 'admin') {
+    const { data: profile } = await supabase.from('profiles').select('rol,permisos').eq('id', user.id).single()
+    const tieneAcceso = profile?.rol === 'admin' || profile?.rol === 'panel' ||
+      (Array.isArray(profile?.permisos) && (profile.permisos as string[]).length > 0)
+    if (!tieneAcceso) {
       return NextResponse.redirect(new URL('/acceso-denegado', request.url))
     }
   }
