@@ -19,8 +19,8 @@ export default async function TecnicosPage() {
     email: emailById[p.id] ?? '',
   }))
 
-  const panel    = rows.filter(r => r.rol === 'admin' || r.rol === 'usuario')
-  const tecnicos = rows.filter(r => r.rol === 'tecnico')
+  const panel    = rows.filter(r => r.rol === 'admin' || r.rol === 'panel')
+  const tecnicos = rows.filter(r => r.rol === 'tecnico' || r.rol === 'usuario')
 
   return <UsuariosTabs panel={panel} tecnicos={tecnicos} />
 }

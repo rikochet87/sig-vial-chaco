@@ -13,9 +13,10 @@ interface Props {
 }
 
 const ROL_BADGE: Record<string, { bg: string; color: string; label: string }> = {
-  admin:   { bg: '#F5C30022', color: '#F5C300', label: 'Admin'   },
-  usuario: { bg: '#4CAF5022', color: '#4CAF50', label: 'Usuario' },
-  tecnico: { bg: '#2196F322', color: '#2196F3', label: 'Técnico' },
+  admin:   { bg: '#F5C30022', color: '#F5C300', label: 'Admin'         },
+  panel:   { bg: '#9C27B022', color: '#CE93D8', label: 'Panel'         },
+  tecnico: { bg: '#2196F322', color: '#2196F3', label: 'Técnico'       },
+  usuario: { bg: '#26a69a22', color: '#4DB6AC', label: 'Usuario (app)' },
 }
 
 const TH = ({ children }: { children: string }) => (

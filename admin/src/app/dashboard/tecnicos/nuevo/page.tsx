@@ -19,7 +19,7 @@ export default function NuevoTecnicoPage() {
   const [nombre,   setNombre]   = useState('')
   const [email,    setEmail]    = useState('')
   const [zona,     setZona]     = useState('ZI')
-  const [rol,      setRol]      = useState<'tecnico' | 'admin' | 'usuario'>('usuario')
+  const [rol,      setRol]      = useState<'tecnico' | 'admin' | 'usuario' | 'panel'>('panel')
   const [permisos, setPermisos] = useState<string[]>([])
   const [loading,  setLoading]  = useState(false)
   const [error,    setError]    = useState('')
@@ -43,7 +43,7 @@ export default function NuevoTecnicoPage() {
         email,
         zona:     rol === 'tecnico' ? zona : null,
         rol,
-        permisos: rol === 'usuario' ? permisos : [],
+        permisos: rol === 'panel' ? permisos : [],
       }),
     })
     const body = await res.json()
@@ -123,8 +123,9 @@ export default function NuevoTecnicoPage() {
           <div style={{ marginBottom: rol === 'usuario' ? 8 : 24 }}>
             <label style={lbl}>Rol</label>
             <select value={rol} onChange={e => { setRol(e.target.value as typeof rol); setPermisos([]) }} style={inp}>
-              <option value="usuario">Usuario (acceso limitado)</option>
-              <option value="tecnico">Técnico (app móvil)</option>
+              <option value="panel">Usuario Panel (acceso limitado)</option>
+              <option value="tecnico">Técnico de campo (app móvil)</option>
+              <option value="usuario">Usuario (app móvil, oficina)</option>
               <option value="admin">Administrador (acceso total)</option>
             </select>
           </div>
@@ -139,8 +140,8 @@ export default function NuevoTecnicoPage() {
             </div>
           )}
 
-          {/* Permisos — solo usuarios */}
-          {rol === 'usuario' && (
+          {/* Permisos — solo usuarios panel */}
+          {rol === 'panel' && (
             <div style={{ marginBottom: 24 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                 <label style={{ ...lbl, marginBottom: 0 }}>Secciones habilitadas</label>

@@ -30,7 +30,7 @@ export interface Profile {
   email:    string
   nombre:   string
   zona:     string | null
-  rol:      'tecnico' | 'admin' | 'usuario'
+  rol:      'tecnico' | 'admin' | 'usuario' | 'panel'
   permisos: string[] | null
 }
 

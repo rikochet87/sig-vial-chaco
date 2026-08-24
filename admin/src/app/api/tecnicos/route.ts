@@ -50,8 +50,8 @@ export async function POST(request: NextRequest) {
     id:       data.user.id,
     nombre:   nombre || null,
     zona:     rol === 'tecnico' ? (zona || null) : null,
-    rol:      rol ?? 'usuario',
-    permisos: rol === 'usuario' ? (permisos ?? []) : [],
+    rol:      rol ?? 'panel',
+    permisos: rol === 'panel' ? (permisos ?? []) : [],
   })
   if (profileError) return dbError(profileError)
 

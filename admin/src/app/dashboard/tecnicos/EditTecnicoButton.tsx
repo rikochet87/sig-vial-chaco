@@ -19,7 +19,7 @@ interface Props {
   id:       string
   nombre:   string
   zona:     string | null
-  rol:      'tecnico' | 'admin' | 'usuario'
+  rol:      'tecnico' | 'admin' | 'usuario' | 'panel'
   permisos: string[]
 }
 
@@ -106,8 +106,9 @@ export default function EditTecnicoButton({ id, nombre, zona, rol, permisos: per
                 onChange={e => { setRol(e.target.value as Props['rol']); setZona(''); setPermisos([]) }}
                 style={inp}
               >
-                <option value="usuario">Usuario (acceso limitado)</option>
-                <option value="tecnico">Técnico (app móvil)</option>
+                <option value="panel">Usuario Panel (acceso limitado)</option>
+                <option value="tecnico">Técnico de campo (app móvil)</option>
+                <option value="usuario">Usuario (app móvil, oficina)</option>
                 <option value="admin">Administrador (acceso total)</option>
               </select>
             </div>
@@ -122,7 +123,7 @@ export default function EditTecnicoButton({ id, nombre, zona, rol, permisos: per
               </div>
             )}
 
-            {nRol === 'usuario' && (
+            {nRol === 'panel' && (
               <div style={{ marginBottom: 14 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                   <label style={{ ...lbl, marginBottom: 0 }}>Secciones habilitadas</label>

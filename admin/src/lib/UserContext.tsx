@@ -5,7 +5,7 @@ export type UserProfile = {
   id:       string
   email:    string
   nombre:   string | null
-  rol:      'admin' | 'tecnico' | 'usuario'
+  rol:      'admin' | 'tecnico' | 'usuario' | 'panel'
   permisos: string[]
 }
 
