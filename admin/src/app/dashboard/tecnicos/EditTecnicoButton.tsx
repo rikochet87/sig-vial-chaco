@@ -123,7 +123,7 @@ export default function EditTecnicoButton({ id, nombre, zona, rol, permisos: per
               </div>
             )}
 
-            {nRol === 'panel' && (
+            {nRol !== 'admin' && (
               <div style={{ marginBottom: 14 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                   <label style={{ ...lbl, marginBottom: 0 }}>Secciones habilitadas</label>

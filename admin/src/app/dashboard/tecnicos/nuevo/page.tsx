@@ -43,7 +43,7 @@ export default function NuevoTecnicoPage() {
         email,
         zona:     rol === 'tecnico' ? zona : null,
         rol,
-        permisos: rol === 'panel' ? permisos : [],
+        permisos: rol === 'admin' ? [] : permisos,
       }),
     })
     const body = await res.json()
@@ -140,8 +140,8 @@ export default function NuevoTecnicoPage() {
             </div>
           )}
 
-          {/* Permisos — solo usuarios panel */}
-          {rol === 'panel' && (
+          {/* Permisos — todos los roles excepto admin */}
+          {rol !== 'admin' && (
             <div style={{ marginBottom: 24 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                 <label style={{ ...lbl, marginBottom: 0 }}>Secciones habilitadas</label>

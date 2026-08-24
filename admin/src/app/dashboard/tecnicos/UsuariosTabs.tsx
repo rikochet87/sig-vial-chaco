@@ -62,7 +62,7 @@ export default function UsuariosTabs({ panel, tecnicos }: Props) {
           <span style={{ opacity: 0.5 }}>({panel.length})</span>
         </button>
         <button style={tabStyle(tab === 'tecnicos')} onClick={() => setTab('tecnicos')}>
-          Técnicos de campo&nbsp;
+          App de campo&nbsp;
           <span style={{ opacity: 0.5 }}>({tecnicos.length})</span>
         </button>
       </div>

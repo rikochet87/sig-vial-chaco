@@ -18,7 +18,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       nombre,
       zona:     zonaFinal,
       rol,
-      permisos: rol === 'panel' ? (permisos ?? []) : [],
+      permisos: rol === 'admin' ? [] : (permisos ?? []),
     })
     .eq('id', id)
 

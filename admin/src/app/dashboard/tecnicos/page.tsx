@@ -19,7 +19,8 @@ export default async function TecnicosPage() {
     email: emailById[p.id] ?? '',
   }))
 
-  const panel    = rows.filter(r => r.rol === 'admin' || r.rol === 'panel')
+  // Un usuario puede aparecer en ambos tabs al mismo tiempo
+  const panel    = rows.filter(r => r.rol === 'admin' || r.rol === 'panel' || (r.permisos ?? []).length > 0)
   const tecnicos = rows.filter(r => r.rol === 'tecnico' || r.rol === 'usuario')
 
   return <UsuariosTabs panel={panel} tecnicos={tecnicos} />

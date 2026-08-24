@@ -45,14 +45,14 @@ export async function POST(request: NextRequest) {
   })
   if (linkError) return dbError(linkError)
 
-  // Crear perfil en la tabla profiles
-  const { error: profileError } = await supabase.from('profiles').insert({
+  // Crear o actualizar perfil en la tabla profiles
+  const { error: profileError } = await supabase.from('profiles').upsert({
     id:       data.user.id,
     nombre:   nombre || null,
     zona:     rol === 'tecnico' ? (zona || null) : null,
     rol:      rol ?? 'panel',
-    permisos: rol === 'panel' ? (permisos ?? []) : [],
-  })
+    permisos: rol === 'admin' ? [] : (permisos ?? []),
+  }, { onConflict: 'id' })
   if (profileError) return dbError(profileError)
 
   return NextResponse.json({
