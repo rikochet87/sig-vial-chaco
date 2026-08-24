@@ -28,9 +28,7 @@ export async function requireAdmin(): Promise<{ userId: string } | NextResponse>
  * En desarrollo muestra el mensaje original; en producción devuelve un mensaje genérico.
  */
 export function dbError(error: { message: string }, status = 400): NextResponse {
-  const msg = process.env.NODE_ENV === 'development'
-    ? error.message
-    : 'Error en la operación'
+  const msg = error.message // temporal: siempre mostrar error real para debug
   return NextResponse.json({ error: msg }, { status })
 }
 
