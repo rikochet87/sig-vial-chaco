@@ -1,19 +1,15 @@
 import { createServiceClient } from '@/lib/supabase/server'
-import Link from 'next/link'
-import DeleteTecnicoButton from './DeleteTecnicoButton'
-import EditTecnicoButton from './EditTecnicoButton'
+import UsuariosTabs from './UsuariosTabs'
 import type { Profile } from '@/types'
 
 export default async function TecnicosPage() {
   const supabase = createServiceClient()
 
-  // Traer perfiles y usuarios auth en paralelo
   const [{ data: profiles }, { data: authData }] = await Promise.all([
-    supabase.from('profiles').select('*,permisos').order('nombre'),
+    supabase.from('profiles').select('*').order('nombre'),
     supabase.auth.admin.listUsers(),
   ])
 
-  // Mapear email desde auth.users por id
   const emailById = Object.fromEntries(
     (authData?.users ?? []).map((u: { id: string; email?: string }) => [u.id, u.email ?? ''])
   )
@@ -23,59 +19,8 @@ export default async function TecnicosPage() {
     email: emailById[p.id] ?? '',
   }))
 
-  return (
-    <div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
-        <h1 style={{ color: '#fff', fontSize: 22, fontWeight: 700 }}>Usuarios</h1>
-        <Link
-          href="/dashboard/tecnicos/nuevo"
-          className="glow-y"
-          style={{ background: '#F5C300', color: '#111', fontWeight: 700, padding: '9px 18px', textDecoration: 'none', fontSize: 12, letterSpacing: 1 }}
-        >
-          + NUEVO USUARIO
-        </Link>
-      </div>
+  const panel    = rows.filter(r => r.rol === 'admin' || r.rol === 'usuario')
+  const tecnicos = rows.filter(r => r.rol === 'tecnico')
 
-      <div style={{ background: '#191919', border: '1px solid #1e1e1e', overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr style={{ background: '#141414' }}>
-              {['Nombre', 'Email', 'Zona', 'Rol', 'Acciones'].map(h => (
-                <th key={h} style={{ padding: '10px 16px', color: '#444', fontSize: 10, fontWeight: 600, textAlign: 'left', textTransform: 'uppercase', letterSpacing: 1, borderBottom: '1px solid #1e1e1e' }}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((p, i) => (
-              <tr key={p.id} style={{ borderBottom: '1px solid #1e1e1e', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.01)' }}>
-                <td style={{ padding: '10px 16px', color: '#e0e0e0', fontSize: 12 }}>{p.nombre}</td>
-                <td style={{ padding: '10px 16px', color: '#555', fontSize: 12 }}>{p.email}</td>
-                <td style={{ padding: '10px 16px', color: '#555', fontSize: 12 }}>{p.zona}</td>
-                <td style={{ padding: '12px 16px' }}>
-                  <span style={{
-                    background: p.rol === 'admin' ? '#F5C30022' : p.rol === 'usuario' ? '#4CAF5022' : '#2196F322',
-                    color: p.rol === 'admin' ? '#F5C300' : p.rol === 'usuario' ? '#4CAF50' : '#2196F3',
-                    border: `1px solid ${p.rol === 'admin' ? '#F5C300' : p.rol === 'usuario' ? '#4CAF50' : '#2196F3'}`,
-                    borderRadius: 20,
-                    padding: '2px 10px',
-                    fontSize: 12,
-                    fontWeight: 600,
-                  }}>
-                    {p.rol === 'tecnico' ? 'Técnico' : p.rol === 'admin' ? 'Admin' : 'Usuario'}
-                  </span>
-                </td>
-                <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
-                  <EditTecnicoButton id={p.id} nombre={p.nombre} zona={p.zona} rol={p.rol} permisos={p.permisos ?? []} />
-                  <DeleteTecnicoButton id={p.id} nombre={p.nombre} />
-                </td>
-              </tr>
-            ))}
-            {rows.length === 0 && (
-              <tr><td colSpan={5} style={{ padding: 32, textAlign: 'center', color: '#9E9E9E' }}>Sin usuarios registrados</td></tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  )
+  return <UsuariosTabs panel={panel} tecnicos={tecnicos} />
 }
