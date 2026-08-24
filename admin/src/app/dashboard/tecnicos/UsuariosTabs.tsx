@@ -3,6 +3,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import EditTecnicoButton from './EditTecnicoButton'
 import DeleteTecnicoButton from './DeleteTecnicoButton'
+import ResendInviteButton from './ResendInviteButton'
 import type { Profile } from '@/types'
 
 type Row = Profile & { email: string }
@@ -140,6 +141,7 @@ export default function UsuariosTabs({ panel, tecnicos }: Props) {
                     }
                   </td>
                   <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
+                    <ResendInviteButton id={p.id} nombre={p.nombre} />
                     <EditTecnicoButton id={p.id} nombre={p.nombre} zona={p.zona} rol={p.rol} permisos={p.permisos ?? []} />
                     <DeleteTecnicoButton id={p.id} nombre={p.nombre} />
                   </td>
