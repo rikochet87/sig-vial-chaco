@@ -21,10 +21,12 @@ export default function LoginPage() {
       setLoading(false)
       return
     }
-    const { data: profile } = await supabase.from('profiles').select('rol').eq('id', data.user.id).single()
-    if (profile?.rol !== 'admin') {
+    const { data: profile } = await supabase.from('profiles').select('rol,permisos').eq('id', data.user.id).single()
+    const tieneAcceso = profile?.rol === 'admin' || profile?.rol === 'panel' ||
+      (Array.isArray(profile?.permisos) && profile.permisos.length > 0)
+    if (!tieneAcceso) {
       await supabase.auth.signOut()
-      setError('No tenés permisos de administrador.')
+      setError('No tenés permisos de acceso al panel.')
       setLoading(false)
       return
     }
