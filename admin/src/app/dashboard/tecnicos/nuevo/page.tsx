@@ -49,6 +49,9 @@ export default function NuevoTecnicoPage() {
     const body = await res.json()
     if (!res.ok) {
       setError(body.error || 'Error al crear el usuario.')
+    } else if (body.existing) {
+      // Usuario ya existía — solo se actualizaron sus permisos
+      setInviteLink('__existing__')
     } else {
       setInviteLink(body.inviteLink)
     }
@@ -57,6 +60,29 @@ export default function NuevoTecnicoPage() {
 
   const inp: React.CSSProperties = { width: '100%', padding: '9px 12px', background: '#1a1a1a', border: '1px solid #252525', color: '#e0e0e0', fontSize: 12, boxSizing: 'border-box' }
   const lbl: React.CSSProperties = { display: 'block', color: '#555', fontSize: 10, marginBottom: 6, letterSpacing: 1, textTransform: 'uppercase' }
+
+  // ── Pantalla de éxito: usuario existente actualizado ───────────────────────
+  if (inviteLink === '__existing__') {
+    return (
+      <div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
+          <Link href="/dashboard/tecnicos" style={{ color: '#F5C300', textDecoration: 'none', fontSize: 14 }}>← Volver</Link>
+          <h1 style={{ color: '#fff', fontSize: 22, fontWeight: 700 }}>Permisos actualizados</h1>
+        </div>
+        <div style={{ background: '#191919', border: '1px solid #1e1e1e', padding: 28, maxWidth: 520 }}>
+          <div style={{ color: '#4CAF50', fontSize: 13, marginBottom: 20, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 18 }}>✓</span> El usuario ya tenía cuenta. Se actualizaron sus permisos de acceso al panel.
+          </div>
+          <Link
+            href="/dashboard/tecnicos"
+            style={{ display: 'inline-block', padding: '10px 20px', background: '#F5C300', color: '#111', fontWeight: 700, fontSize: 12, textDecoration: 'none', letterSpacing: 1 }}
+          >
+            VER USUARIOS
+          </Link>
+        </div>
+      </div>
+    )
+  }
 
   // ── Pantalla de éxito con link ──────────────────────────────────────────────
   if (inviteLink) {

@@ -38,21 +38,37 @@ export async function POST(request: NextRequest) {
   const { nombre, email, zona, rol, permisos } = body
   const supabase = createServiceClient()
 
-  // Generar link de invitación — Supabase crea la cuenta y devuelve el link
-  const { data, error: linkError } = await supabase.auth.admin.generateLink({
-    type: 'invite',
-    email,
-  })
-  if (linkError) return dbError(linkError)
-
-  // Crear o actualizar perfil en la tabla profiles
-  const { error: profileError } = await supabase.from('profiles').upsert({
-    id:       data.user.id,
+  const profileData = {
     nombre:   nombre || null,
     zona:     rol === 'tecnico' ? (zona || null) : null,
     rol:      rol ?? 'panel',
     permisos: rol === 'admin' ? [] : (permisos ?? []),
-  }, { onConflict: 'id' })
+  }
+
+  // Intentar generar link de invitación
+  const { data, error: linkError } = await supabase.auth.admin.generateLink({
+    type: 'invite',
+    email,
+  })
+
+  // Si el usuario ya existe (email ya registrado), solo actualizar su perfil
+  if (linkError) {
+    const { data: authData } = await supabase.auth.admin.listUsers({ perPage: 1000 })
+    const existing = (authData?.users ?? []).find(u => u.email === email)
+    if (!existing) return dbError(linkError)
+
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .upsert({ id: existing.id, ...profileData }, { onConflict: 'id' })
+    if (profileError) return dbError(profileError)
+
+    return NextResponse.json({ success: true, existing: true }, { status: 200 })
+  }
+
+  // Usuario nuevo — crear perfil y devolver link
+  const { error: profileError } = await supabase
+    .from('profiles')
+    .upsert({ id: data.user.id, ...profileData }, { onConflict: 'id' })
   if (profileError) return dbError(profileError)
 
   return NextResponse.json({
