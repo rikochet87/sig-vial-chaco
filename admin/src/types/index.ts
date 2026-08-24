@@ -26,11 +26,12 @@ export interface Relevamiento {
 }
 
 export interface Profile {
-  id: string
-  email: string
-  nombre: string
-  zona: string | null
-  rol: 'tecnico' | 'admin' | 'usuario'
+  id:       string
+  email:    string
+  nombre:   string
+  zona:     string | null
+  rol:      'tecnico' | 'admin' | 'usuario'
+  permisos: string[] | null
 }
 
 export interface Consorcio {

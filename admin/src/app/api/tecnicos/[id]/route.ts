@@ -6,7 +6,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const auth = await requireAdmin()
   if (auth instanceof NextResponse) return auth
   const { id } = await params
-  const { nombre, zona, rol } = await req.json()
+  const { nombre, zona, rol, permisos } = await req.json()
   const supabase = createServiceClient()
 
   // zona solo aplica a técnicos; para otros roles se guarda null
@@ -14,7 +14,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const { error } = await supabase
     .from('profiles')
-    .update({ nombre, zona: zonaFinal, rol })
+    .update({
+      nombre,
+      zona:     zonaFinal,
+      rol,
+      permisos: rol === 'usuario' ? (permisos ?? []) : [],
+    })
     .eq('id', id)
 
   if (error) return dbError(error)

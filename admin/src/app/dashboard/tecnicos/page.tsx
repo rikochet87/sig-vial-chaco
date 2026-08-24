@@ -9,7 +9,7 @@ export default async function TecnicosPage() {
 
   // Traer perfiles y usuarios auth en paralelo
   const [{ data: profiles }, { data: authData }] = await Promise.all([
-    supabase.from('profiles').select('*').order('nombre'),
+    supabase.from('profiles').select('*,permisos').order('nombre'),
     supabase.auth.admin.listUsers(),
   ])
 
@@ -65,7 +65,7 @@ export default async function TecnicosPage() {
                   </span>
                 </td>
                 <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
-                  <EditTecnicoButton id={p.id} nombre={p.nombre} zona={p.zona} rol={p.rol} />
+                  <EditTecnicoButton id={p.id} nombre={p.nombre} zona={p.zona} rol={p.rol} permisos={p.permisos ?? []} />
                   <DeleteTecnicoButton id={p.id} nombre={p.nombre} />
                 </td>
               </tr>
