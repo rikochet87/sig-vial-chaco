@@ -6,8 +6,19 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const auth = await requireAdmin()
   if (auth instanceof NextResponse) return auth
   const { id } = await params
-  const { nombre, zona, rol, permisos } = await req.json()
+  const body = await req.json()
+  const { nombre, zona, rol, permisos } = body
   const supabase = createServiceClient()
+
+  // Si solo vienen permisos (ej: "Quitar acceso al panel"), hacer update parcial
+  if (permisos !== undefined && !nombre && !rol) {
+    const { error } = await supabase
+      .from('profiles')
+      .update({ permisos })
+      .eq('id', id)
+    if (error) return dbError(error)
+    return NextResponse.json({ success: true })
+  }
 
   // zona solo aplica a técnicos; para otros roles se guarda null
   const zonaFinal = rol === 'tecnico' ? (zona || null) : null

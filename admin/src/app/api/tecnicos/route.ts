@@ -35,8 +35,9 @@ export async function POST(request: NextRequest) {
   const invalid = requireFields(body, ['email'])
   if (invalid) return invalid
 
-  const { nombre, email, zona, rol, permisos } = body
+  const { nombre, email, password, zona, rol, permisos } = body
   const supabase = createServiceClient()
+  const esApp = rol === 'tecnico' || rol === 'usuario'
 
   const profileData = {
     nombre:   nombre || null,
@@ -45,13 +46,30 @@ export async function POST(request: NextRequest) {
     permisos: rol === 'admin' ? [] : (permisos ?? []),
   }
 
-  // Intentar generar link de invitación
+  // ── Usuarios de app (tecnico/usuario): crear con contraseña ─────────────────
+  if (esApp) {
+    const { data: userData, error: createError } = await supabase.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+    })
+    if (createError) return dbError(createError)
+
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .upsert({ id: userData.user.id, ...profileData }, { onConflict: 'id' })
+    if (profileError) return dbError(profileError)
+
+    return NextResponse.json({ success: true }, { status: 201 })
+  }
+
+  // ── Usuarios de panel (panel/admin): generar link de invitación ─────────────
   const { data, error: linkError } = await supabase.auth.admin.generateLink({
     type: 'invite',
     email,
   })
 
-  // Si el usuario ya existe (email ya registrado), solo actualizar su perfil
+  // Si el email ya existe, solo actualizar perfil
   if (linkError) {
     const { data: authData } = await supabase.auth.admin.listUsers({ perPage: 1000 })
     const existing = (authData?.users ?? []).find(u => u.email === email)
@@ -65,7 +83,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, existing: true }, { status: 200 })
   }
 
-  // Usuario nuevo — crear perfil y devolver link
   const { error: profileError } = await supabase
     .from('profiles')
     .upsert({ id: data.user.id, ...profileData }, { onConflict: 'id' })

@@ -1,10 +1,40 @@
 'use client'
 import { useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import EditTecnicoButton from './EditTecnicoButton'
 import DeleteTecnicoButton from './DeleteTecnicoButton'
 import ResendInviteButton from './ResendInviteButton'
 import type { Profile } from '@/types'
+
+// Quita acceso al panel sin eliminar el usuario (limpia permisos)
+function RemovePanelButton({ id }: { id: string }) {
+  const router = useRouter()
+  const [loading, setLoading] = useState(false)
+  async function handle() {
+    if (!confirm('¿Quitar acceso al panel para este usuario?')) return
+    setLoading(true)
+    await fetch(`/api/tecnicos/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ permisos: [] }),
+    })
+    setLoading(false)
+    router.refresh()
+  }
+  return (
+    <button
+      onClick={handle}
+      disabled={loading}
+      title="Quitar acceso al panel"
+      style={{ background: 'transparent', border: '1px solid #252525', color: '#444', padding: '4px 10px', fontSize: 11, cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.5 : 1 }}
+      onMouseEnter={e => { if (!loading) { (e.currentTarget as HTMLButtonElement).style.borderColor = '#f44336'; (e.currentTarget as HTMLButtonElement).style.color = '#f44336' } }}
+      onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#252525'; (e.currentTarget as HTMLButtonElement).style.color = '#444' }}
+    >
+      {loading ? '...' : 'Quitar acceso'}
+    </button>
+  )
+}
 
 type Row = Profile & { email: string }
 
@@ -103,8 +133,13 @@ export default function UsuariosTabs({ panel, tecnicos }: Props) {
                       }
                     </td>
                     <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
+                      <ResendInviteButton id={p.id} nombre={p.nombre} />
                       <EditTecnicoButton id={p.id} nombre={p.nombre} zona={p.zona} rol={p.rol} permisos={p.permisos ?? []} />
-                      <DeleteTecnicoButton id={p.id} nombre={p.nombre} />
+                      {/* Si es usuario de app con permisos, "eliminar del panel" = quitar permisos */}
+                      {(p.rol === 'tecnico' || p.rol === 'usuario')
+                        ? <RemovePanelButton id={p.id} />
+                        : <DeleteTecnicoButton id={p.id} nombre={p.nombre} />
+                      }
                     </td>
                   </tr>
                 )
