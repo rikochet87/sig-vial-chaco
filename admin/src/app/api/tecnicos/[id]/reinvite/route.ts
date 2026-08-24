@@ -15,11 +15,20 @@ export async function POST(_: NextRequest, { params }: { params: Promise<{ id: s
     return NextResponse.json({ error: 'Usuario no encontrado' }, { status: 404 })
   }
 
-  const { data, error } = await supabase.auth.admin.generateLink({
+  // Intentar invite; si el usuario ya está confirmado, usar recovery
+  let result = await supabase.auth.admin.generateLink({
     type: 'invite',
     email: userData.user.email,
   })
-  if (error) return dbError(error)
 
-  return NextResponse.json({ inviteLink: data.properties.action_link })
+  if (result.error) {
+    result = await supabase.auth.admin.generateLink({
+      type: 'recovery',
+      email: userData.user.email,
+    })
+  }
+
+  if (result.error) return dbError(result.error)
+
+  return NextResponse.json({ inviteLink: result.data.properties.action_link })
 }
