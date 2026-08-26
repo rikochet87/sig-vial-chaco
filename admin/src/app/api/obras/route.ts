@@ -31,6 +31,7 @@ export async function POST(req: NextRequest) {
       lat:                body.lat ?? null,
       lng:                body.lng ?? null,
       coords_linea:       body.coords_linea ?? null,
+      created_by:         auth.userId,
     })
     .select()
     .single()
@@ -69,6 +70,15 @@ export async function PATCH(req: NextRequest) {
   if (!id) return NextResponse.json({ error: 'id requerido' }, { status: 400 })
 
   const supabase = createServiceClient()
+
+  // Verificar propiedad (solo el creador o admin puede editar)
+  const { data: obraActual } = await supabase.from('obras').select('created_by').eq('id', id).single()
+  if (!obraActual) return NextResponse.json({ error: 'Obra no encontrada' }, { status: 404 })
+  const { data: profile } = await supabase.from('profiles').select('rol').eq('id', auth.userId).single()
+  if (profile?.rol !== 'admin' && obraActual.created_by !== auth.userId) {
+    return NextResponse.json({ error: 'No tenés permisos para editar esta obra' }, { status: 403 })
+  }
+
   const { data, error } = await supabase
     .from('obras')
     .update({
@@ -107,6 +117,15 @@ export async function DELETE(req: NextRequest) {
   if (!id) return NextResponse.json({ error: 'id requerido' }, { status: 400 })
 
   const supabase = createServiceClient()
+
+  // Verificar propiedad (solo el creador o admin puede eliminar)
+  const { data: obraActual } = await supabase.from('obras').select('created_by').eq('id', id).single()
+  if (!obraActual) return NextResponse.json({ error: 'Obra no encontrada' }, { status: 404 })
+  const { data: profile } = await supabase.from('profiles').select('rol').eq('id', auth.userId).single()
+  if (profile?.rol !== 'admin' && obraActual.created_by !== auth.userId) {
+    return NextResponse.json({ error: 'No tenés permisos para eliminar esta obra' }, { status: 403 })
+  }
+
   const { error } = await supabase.from('obras').delete().eq('id', id)
 
   if (error) return dbError(error)

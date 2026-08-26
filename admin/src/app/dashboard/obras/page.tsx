@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import { useUser } from '@/lib/UserContext'
 
 const TIPOS = ['', 'terraplen', 'excavacion', 'ripio', 'canal', 'limpieza'] as const
 const ESTADOS = ['', 'planificada', 'en_curso', 'ejecutada'] as const
@@ -45,6 +46,7 @@ interface Obra {
   visible_para: 'todos' | 'seleccion' | null
   datos_calculadora: Record<string, unknown> | null
   created_at: string
+  created_by: string | null
 }
 
 interface Tecnico {
@@ -625,6 +627,7 @@ function PushPanel({ obra, tecnicos, loadingTecnicos, onClose, onPublicada }: Pu
 // ── Página principal ───────────────────────────────────────────────────────────
 export default function ObrasPage() {
   const router = useRouter()
+  const { profile: currentUser } = useUser()
 
   const [obras, setObras]       = useState<Obra[]>([])
   const [filtered, setFiltered] = useState<Obra[]>([])
@@ -781,6 +784,7 @@ export default function ObrasPage() {
                   ? `CC Nº ${o.consorcio_numero}`
                   : (o.ubicacion ?? JURIS_LABELS[o.jurisdiccion] ?? '-')
                 const isActive   = panelObra?.id === o.id
+                const canEdit    = currentUser?.rol === 'admin' || o.created_by === currentUser?.id
 
                 return (
                   <tr key={o.id}
@@ -865,29 +869,33 @@ export default function ObrasPage() {
                           onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#252525'; (e.currentTarget as HTMLButtonElement).style.color = '#444' }}
                         >PDF</button>
                       )}
-                      {/* Editar: desde calculadora si tiene snapshot, sino modal genérico */}
-                      <button
-                        onClick={() => {
-                          if (o.datos_calculadora) {
-                            router.push(`/dashboard/obras/calculadoras?edit=${o.id}`)
-                          } else {
-                            setEditObra(o)
-                          }
-                        }}
-                        title={o.datos_calculadora ? 'Editar en calculadora' : 'Editar'}
-                        style={{ background: 'transparent', border: '1px solid #252525', color: '#444',
-                          padding: '4px 9px', fontSize: 11, lineHeight: 1, cursor: 'pointer', marginRight: 4 }}
-                        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#F5C300'; (e.currentTarget as HTMLButtonElement).style.color = '#F5C300' }}
-                        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#252525'; (e.currentTarget as HTMLButtonElement).style.color = '#444' }}
-                      >✎</button>
-                      <button
-                        onClick={e => handleDelete(o.id, e)}
-                        title="Eliminar"
-                        style={{ background: 'transparent', border: '1px solid #252525', color: '#444',
-                          padding: '4px 9px', fontSize: 11, lineHeight: 1, cursor: 'pointer' }}
-                        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#f44336'; (e.currentTarget as HTMLButtonElement).style.color = '#f44336' }}
-                        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#252525'; (e.currentTarget as HTMLButtonElement).style.color = '#444' }}
-                      >✕</button>
+                      {/* Editar y Eliminar: solo el creador o admin */}
+                      {canEdit && (
+                        <>
+                          <button
+                            onClick={() => {
+                              if (o.datos_calculadora) {
+                                router.push(`/dashboard/obras/calculadoras?edit=${o.id}`)
+                              } else {
+                                setEditObra(o)
+                              }
+                            }}
+                            title={o.datos_calculadora ? 'Editar en calculadora' : 'Editar'}
+                            style={{ background: 'transparent', border: '1px solid #252525', color: '#444',
+                              padding: '4px 9px', fontSize: 11, lineHeight: 1, cursor: 'pointer', marginRight: 4 }}
+                            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#F5C300'; (e.currentTarget as HTMLButtonElement).style.color = '#F5C300' }}
+                            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#252525'; (e.currentTarget as HTMLButtonElement).style.color = '#444' }}
+                          >✎</button>
+                          <button
+                            onClick={e => handleDelete(o.id, e)}
+                            title="Eliminar"
+                            style={{ background: 'transparent', border: '1px solid #252525', color: '#444',
+                              padding: '4px 9px', fontSize: 11, lineHeight: 1, cursor: 'pointer' }}
+                            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#f44336'; (e.currentTarget as HTMLButtonElement).style.color = '#f44336' }}
+                            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#252525'; (e.currentTarget as HTMLButtonElement).style.color = '#444' }}
+                          >✕</button>
+                        </>
+                      )}
                     </td>
                   </tr>
                 )
