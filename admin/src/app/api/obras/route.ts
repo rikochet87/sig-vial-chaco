@@ -47,17 +47,28 @@ export async function GET(req: NextRequest) {
   const id = searchParams.get('id')
   const supabase = createServiceClient()
 
+  // Admin ve todas las obras; los demás solo ven las propias
+  const { data: profile } = await supabase.from('profiles').select('rol').eq('id', auth.userId).single()
+  const isAdmin = profile?.rol === 'admin'
+
   if (id) {
     const { data, error } = await supabase.from('obras').select('*').eq('id', id).single()
     if (error) return NextResponse.json({ error: error.message }, { status: 404 })
+    // Non-admin no puede ver obras ajenas
+    if (!isAdmin && data.created_by !== auth.userId) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 403 })
+    }
     return NextResponse.json(data)
   }
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('obras')
     .select('*')
     .order('created_at', { ascending: false })
 
+  if (!isAdmin) query = query.eq('created_by', auth.userId)
+
+  const { data, error } = await query
   if (error) return dbError(error)
   return NextResponse.json(data)
 }
