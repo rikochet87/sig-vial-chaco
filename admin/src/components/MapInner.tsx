@@ -1367,9 +1367,8 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
         maxZoom: 21, maxNativeZoom: 19,
       }).addTo(map)
       mapRef.current = map
-      setMapReady(true)
 
-      // Pre-create all layer groups
+      // Pre-create all layer groups (antes de setMapReady para evitar race conditions)
       const keys: LayerKey[] = [
         'limite', 'zonas', 'departamentos',
         'rnNacional',
@@ -1386,6 +1385,8 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
 
       // Grupo separado para obras de la DB
       obrasGroupRef.current = L.layerGroup().addTo(map)
+
+      setMapReady(true)
     })
     return () => {
       cancelled = true
@@ -1397,6 +1398,7 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
         (containerRef.current as any)._leaflet_id = null
       }
       groupsRef.current = {}
+      obrasGroupRef.current = null
       setMapReady(false)
     }
   }, [])
