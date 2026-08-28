@@ -356,6 +356,28 @@ interface Props {
   circleActive?: boolean;  onCircleChange?:  (v: boolean) => void
 }
 
+// ── Obras de la DB ────────────────────────────────────────────────────────────
+interface ObraDB {
+  id: string
+  tipo: string
+  estado: string
+  descripcion: string | null
+  ubicacion: string | null
+  coords_linea: Array<{lat: number; lng: number}> | string | null
+  lat: number | null
+  lng: number | null
+  presupuesto_total: number | null
+}
+
+const OBRA_COLORS: Record<string, string> = {
+  terraplen: '#8D6E63', excavacion: '#FF7043', ripio: '#90A4AE',
+  canal: '#29B6F6', limpieza: '#66BB6A',
+}
+const OBRA_TIPO_LABELS: Record<string, string> = {
+  terraplen: 'Terraplén', excavacion: 'Excavación', ripio: 'Ripio',
+  canal: 'Canal', limpieza: 'Limpieza',
+}
+
 // ── RightPanel: panel flotante derecho para tipos de relevamiento ────────────
 
 const RELEV_ITEMS: [LayerKey, string, string][] = [
@@ -375,6 +397,7 @@ const TIPO_COLOR: Record<string, string> = { Puente: '#2196F3', Alcantarilla: '#
 function RightPanel({
   layers, toggle, relevamientos, activeZones, onToggleZone,
   relevColors, onRelevColorChange, relevSizes, onRelevSizeChange,
+  showObras, onToggleObras, obrasCount,
 }: {
   layers: LayerState
   toggle: (k: LayerKey) => void
@@ -385,6 +408,9 @@ function RightPanel({
   onRelevColorChange: (k: string, c: string) => void
   relevSizes: Record<string, number>
   onRelevSizeChange: (k: string, v: number) => void
+  showObras: boolean
+  onToggleObras: () => void
+  obrasCount: number
 }) {
   const [open, setOpen] = useState(true)
   const [rPanelWidth, setRPanelWidth]   = useState(210)
@@ -468,6 +494,15 @@ function RightPanel({
       </div>
       {open && (
         <div style={{ padding: '8px 10px 10px', overflowY: 'auto', flex: 1 }}>
+
+          {/* Obras guardadas */}
+          <div style={SEC}>Obras guardadas</div>
+          <label style={ITEM}>
+            <input type="checkbox" checked={showObras} onChange={onToggleObras} style={CB} />
+            <span style={{ width: 10, height: 10, background: '#90A4AE', borderRadius: 2, flexShrink: 0 }} />
+            Obras
+            <span style={{ marginLeft: 'auto', fontSize: 10, color: '#7a8aaa' }}>{obrasCount}</span>
+          </label>
 
           {/* Tipos */}
           <div style={SEC}>Tipo</div>
@@ -691,15 +726,19 @@ function ZoneRow({ zona, consorcios, isExpanded, isLayerOn, activeSet, onToggleE
 // ── Componente principal ─────────────────────────────────────────────────────
 
 export default function MapInner({ relevamientos, measureActive = false, onMeasureChange, areaActive = false, onAreaChange, circleActive = false, onCircleChange }: Props) {
-  const containerRef = useRef<HTMLDivElement>(null)
-  const mapRef       = useRef<import('leaflet').Map | null>(null)
+  const containerRef   = useRef<HTMLDivElement>(null)
+  const mapRef         = useRef<import('leaflet').Map | null>(null)
   // Leaflet layer groups keyed by LayerKey
-  const groupsRef    = useRef<Partial<Record<LayerKey, import('leaflet').LayerGroup>>>({})
-  const highlightRef = useRef<{ layer: import('leaflet').Path; style: import('leaflet').PathOptions } | null>(null)
+  const groupsRef      = useRef<Partial<Record<LayerKey, import('leaflet').LayerGroup>>>({})
+  const highlightRef   = useRef<{ layer: import('leaflet').Path; style: import('leaflet').PathOptions } | null>(null)
   // CC road layers per zona → Map<CC_number, Path[]> para filtrado por consorcio
-  const ccLayersRef  = useRef<Record<string, Map<number, import('leaflet').Path[]>>>({})
+  const ccLayersRef    = useRef<Record<string, Map<number, import('leaflet').Path[]>>>({})
+  // Obras DB layer group (separado del LayerKey system)
+  const obrasGroupRef  = useRef<import('leaflet').LayerGroup | null>(null)
 
   const [mapReady, setMapReady]   = useState(false)
+  const [obrasDB, setObrasDB]     = useState<ObraDB[]>([])
+  const [showObras, setShowObras] = useState(true)
   const [layers, setLayers]       = useState<LayerState>(DEFAULT_LAYERS)
   const [panelOpen, setPanelOpen]   = useState(true)
   const [panelWidth, setPanelWidth]   = useState(190)
@@ -1344,6 +1383,9 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
         groupsRef.current[k] = L.layerGroup()
         if (DEFAULT_LAYERS[k]) groupsRef.current[k]!.addTo(map)
       })
+
+      // Grupo separado para obras de la DB
+      obrasGroupRef.current = L.layerGroup().addTo(map)
     })
     return () => {
       cancelled = true
@@ -1755,6 +1797,79 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [relevamientos, mapReady, activeZones, customRelevColors.Puente, customRelevColors.Alcantarilla, customRelevColors.Tubos, customRelevColors.Lineal, customRelevColors.Otro, customRelevSizes.Puente, customRelevSizes.Alcantarilla, customRelevSizes.Tubos, customRelevSizes.Lineal, customRelevSizes.Otro])
 
+  // ── Fetch obras desde API ──
+  useEffect(() => {
+    fetch('/api/obras')
+      .then(r => r.ok ? r.json() : [])
+      .then((data: ObraDB[]) => setObrasDB(Array.isArray(data) ? data : []))
+      .catch(() => {})
+  }, [])
+
+  // ── Render obras en el mapa ──
+  useEffect(() => {
+    if (!mapReady || !obrasGroupRef.current) return
+    import('leaflet').then(L => {
+      obrasGroupRef.current!.clearLayers()
+      obrasDB.forEach(o => {
+        const color = OBRA_COLORS[o.tipo] ?? '#90A4AE'
+        const label = OBRA_TIPO_LABELS[o.tipo] ?? o.tipo
+        const estadoLabel = o.estado === 'planificada' ? 'Planificada' : o.estado === 'en_curso' ? 'En curso' : o.estado === 'ejecutada' ? 'Ejecutada' : o.estado
+        const popHtml = `<div style="padding:8px 10px;font-family:monospace;min-width:180px">
+          <div style="font-size:12px;font-weight:700;color:${color};margin-bottom:4px">${label}</div>
+          ${o.descripcion ? `<div style="font-size:10px;color:#aaa;margin-bottom:3px">${o.descripcion}</div>` : ''}
+          ${o.ubicacion   ? `<div style="font-size:10px;color:#666;margin-bottom:3px">${o.ubicacion}</div>`   : ''}
+          <div style="font-size:9px;color:#555;text-transform:uppercase;letter-spacing:.5px">${estadoLabel}</div>
+          ${o.presupuesto_total ? `<div style="font-size:10px;color:#888;margin-top:3px">$ ${Math.round(o.presupuesto_total).toLocaleString('es-AR')}</div>` : ''}
+          <div style="margin-top:6px;text-align:right"><a href="/dashboard/obras" style="color:#F5C300;font-size:10px;font-weight:700;text-decoration:none">Ver obras →</a></div>
+        </div>`
+
+        // Parseo defensivo de coords_linea (puede llegar como JSONB array o string)
+        const rawLinea = o.coords_linea
+        const linea: Array<{lat: number; lng: number}> | null = Array.isArray(rawLinea)
+          ? rawLinea as Array<{lat: number; lng: number}>
+          : (typeof rawLinea === 'string'
+              ? (() => { try { return JSON.parse(rawLinea) } catch { return null } })()
+              : null)
+
+        if (linea && linea.length >= 2) {
+          // Obra lineal → polyline + marcadores inicio/fin
+          const positions = linea.map(p => [p.lat, p.lng] as [number, number])
+          L.polyline(positions, { color, weight: 4, opacity: 0.95, lineCap: 'round', lineJoin: 'round' })
+            .bindPopup(popHtml, { maxWidth: 260, className: 'dark-popup' })
+            .addTo(obrasGroupRef.current!)
+          const dot = 20
+          const mkHtml = (lbl: string, bg: string) =>
+            `<div style="width:${dot}px;height:${dot}px;border-radius:50%;background:${bg};border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:800;color:#fff">${lbl}</div>`
+          const [s0, s1] = positions[0]
+          const [e0, e1] = positions[positions.length - 1]
+          L.marker([s0, s1] as [number,number], { icon: L.divIcon({ className: '', html: mkHtml('INI', color), iconSize: [dot,dot], iconAnchor: [dot/2,dot/2] }) })
+            .bindPopup(popHtml, { maxWidth: 260, className: 'dark-popup' }).addTo(obrasGroupRef.current!)
+          L.marker([e0, e1] as [number,number], { icon: L.divIcon({ className: '', html: mkHtml('FIN', '#333'), iconSize: [dot,dot], iconAnchor: [dot/2,dot/2] }) })
+            .bindPopup(popHtml, { maxWidth: 260, className: 'dark-popup' }).addTo(obrasGroupRef.current!)
+
+        } else if (o.lat != null && o.lng != null) {
+          // Obra puntual → marcador tipo "pin"
+          const sz = 22
+          L.marker([o.lat, o.lng] as [number,number], { icon: L.divIcon({
+            className: '',
+            html: `<div style="position:relative;width:${sz}px;height:${sz+4}px">
+              <div style="width:${sz}px;height:${sz}px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:${color};border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.7);position:absolute;top:0;left:0"></div>
+            </div>`,
+            iconSize: [sz, sz+4], iconAnchor: [sz/2, sz+4],
+          }) }).bindPopup(popHtml, { maxWidth: 260, className: 'dark-popup' }).addTo(obrasGroupRef.current!)
+        }
+      })
+    })
+  }, [obrasDB, mapReady])
+
+  // ── Mostrar / ocultar capa de obras ──
+  useEffect(() => {
+    const map = mapRef.current; const og = obrasGroupRef.current
+    if (!map || !og) return
+    if (showObras) { if (!map.hasLayer(og)) og.addTo(map) }
+    else           { if (map.hasLayer(og))  map.removeLayer(og) }
+  }, [showObras, mapReady])
+
   // ── Toggle layer visibility ──
   useEffect(() => {
     const map = mapRef.current
@@ -2107,6 +2222,7 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
         activeZones={activeZones} onToggleZone={onToggleZone}
         relevColors={customRelevColors} onRelevColorChange={(k, c) => setRelevColor(k as RCK, c)}
         relevSizes={customRelevSizes}   onRelevSizeChange={(k, v) => setRelevSize(k as RSK, v)}
+        showObras={showObras} onToggleObras={() => setShowObras(v => !v)} obrasCount={obrasDB.length}
       />
 
       {/* ── Panel de medición de distancia ── */}
