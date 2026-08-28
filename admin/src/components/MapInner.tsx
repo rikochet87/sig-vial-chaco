@@ -1809,9 +1809,19 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
 
   // ── Render obras en el mapa ──
   useEffect(() => {
-    if (!mapReady || !obrasGroupRef.current) return
+    if (!mapReady) return
+    const og = obrasGroupRef.current
+    if (!og) return
+    if (obrasDB.length === 0) { og.clearLayers(); return }
+
     import('leaflet').then(L => {
-      obrasGroupRef.current!.clearLayers()
+      // re-check ref after async gap
+      const group = obrasGroupRef.current
+      if (!group) return
+      group.clearLayers()
+
+      console.log('[MapInner] Renderizando obras:', obrasDB.length, obrasDB.map(o => ({ id: o.id, tipo: o.tipo, coords_linea: o.coords_linea, lat: o.lat, lng: o.lng })))
+
       obrasDB.forEach(o => {
         const color = OBRA_COLORS[o.tipo] ?? '#90A4AE'
         const label = OBRA_TIPO_LABELS[o.tipo] ?? o.tipo
@@ -1828,7 +1838,7 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
         // Parseo defensivo de coords_linea (puede llegar como JSONB array o string)
         const rawLinea = o.coords_linea
         const linea: Array<{lat: number; lng: number}> | null = Array.isArray(rawLinea)
-          ? rawLinea as Array<{lat: number; lng: number}>
+          ? (rawLinea as Array<{lat: number; lng: number}>).filter(p => p && p.lat != null && p.lng != null)
           : (typeof rawLinea === 'string'
               ? (() => { try { return JSON.parse(rawLinea) } catch { return null } })()
               : null)
@@ -1836,29 +1846,33 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
         if (linea && linea.length >= 2) {
           // Obra lineal → polyline + marcadores inicio/fin
           const positions = linea.map(p => [p.lat, p.lng] as [number, number])
-          L.polyline(positions, { color, weight: 4, opacity: 0.95, lineCap: 'round', lineJoin: 'round' })
+          L.polyline(positions, { color, weight: 5, opacity: 0.95, lineCap: 'round', lineJoin: 'round' })
             .bindPopup(popHtml, { maxWidth: 260, className: 'dark-popup' })
-            .addTo(obrasGroupRef.current!)
-          const dot = 20
+            .addTo(group)
+          const dot = 22
           const mkHtml = (lbl: string, bg: string) =>
-            `<div style="width:${dot}px;height:${dot}px;border-radius:50%;background:${bg};border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:800;color:#fff">${lbl}</div>`
+            `<div style="width:${dot}px;height:${dot}px;border-radius:50%;background:${bg};border:2.5px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;color:#fff">${lbl}</div>`
           const [s0, s1] = positions[0]
           const [e0, e1] = positions[positions.length - 1]
           L.marker([s0, s1] as [number,number], { icon: L.divIcon({ className: '', html: mkHtml('INI', color), iconSize: [dot,dot], iconAnchor: [dot/2,dot/2] }) })
-            .bindPopup(popHtml, { maxWidth: 260, className: 'dark-popup' }).addTo(obrasGroupRef.current!)
-          L.marker([e0, e1] as [number,number], { icon: L.divIcon({ className: '', html: mkHtml('FIN', '#333'), iconSize: [dot,dot], iconAnchor: [dot/2,dot/2] }) })
-            .bindPopup(popHtml, { maxWidth: 260, className: 'dark-popup' }).addTo(obrasGroupRef.current!)
+            .bindPopup(popHtml, { maxWidth: 260, className: 'dark-popup' }).addTo(group)
+          L.marker([e0, e1] as [number,number], { icon: L.divIcon({ className: '', html: mkHtml('FIN', '#444'), iconSize: [dot,dot], iconAnchor: [dot/2,dot/2] }) })
+            .bindPopup(popHtml, { maxWidth: 260, className: 'dark-popup' }).addTo(group)
 
         } else if (o.lat != null && o.lng != null) {
           // Obra puntual → marcador tipo "pin"
-          const sz = 22
+          const sz = 24
           L.marker([o.lat, o.lng] as [number,number], { icon: L.divIcon({
             className: '',
             html: `<div style="position:relative;width:${sz}px;height:${sz+4}px">
-              <div style="width:${sz}px;height:${sz}px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:${color};border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.7);position:absolute;top:0;left:0"></div>
+              <div style="width:${sz}px;height:${sz}px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:${color};border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.8);position:absolute;top:0;left:0"></div>
             </div>`,
             iconSize: [sz, sz+4], iconAnchor: [sz/2, sz+4],
-          }) }).bindPopup(popHtml, { maxWidth: 260, className: 'dark-popup' }).addTo(obrasGroupRef.current!)
+          }) }).bindPopup(popHtml, { maxWidth: 260, className: 'dark-popup' }).addTo(group)
+
+        } else {
+          // Sin coords: marcador genérico en centro del Chaco como fallback visible
+          console.warn('[MapInner] Obra sin coordenadas:', o.id, o.tipo, o.descripcion)
         }
       })
     })
