@@ -6,11 +6,20 @@ export async function GET() {
   const auth = await requireAdmin()
   if (auth instanceof NextResponse) return auth
   const supabase = createServiceClient()
-  const { data, error } = await supabase
+
+  // Admin ve todos; los demás solo ven sus propios proyectos
+  const { data: profile } = await supabase.from('profiles').select('rol').eq('id', auth.userId).single()
+  const isAdmin = profile?.rol === 'admin'
+
+  let query = supabase
     .from('proyectos_ripio')
     .select('*, ripios(*)')
     .order('created_at', { ascending: true })
     .order('orden', { ascending: true, referencedTable: 'ripios' })
+
+  if (!isAdmin) query = query.eq('user_id', auth.userId)
+
+  const { data, error } = await query
   if (error) return dbError(error)
   return NextResponse.json(data)
 }
@@ -24,7 +33,7 @@ export async function POST(req: NextRequest) {
   const supabase = createServiceClient()
   const { data, error } = await supabase
     .from('proyectos_ripio')
-    .insert({ nombre: body.nombre })
+    .insert({ nombre: body.nombre, user_id: auth.userId })
     .select()
     .single()
   if (error) return dbError(error)

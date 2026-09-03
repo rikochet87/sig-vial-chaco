@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { requireAdmin, dbError } from '@/lib/apiAuth'
+import { requireAdmin, dbError, checkOwnerOrAdmin } from '@/lib/apiAuth'
 
 // PATCH /api/obras/publicar
 // Body: { obra_id: string, tipo: 'todos' | 'seleccion' | 'despublicar', user_ids?: string[] }
@@ -13,6 +13,11 @@ export async function PATCH(req: NextRequest) {
   }
 
   const supabase = createServiceClient()
+
+  // Verificar que el caller sea el creador de la obra o admin
+  const { data: obra } = await supabase.from('obras').select('created_by').eq('id', obra_id).single()
+  const denied = await checkOwnerOrAdmin(auth.userId, obra?.created_by)
+  if (denied) return denied
 
   if (tipo === 'despublicar') {
     // Quitar publicación: limpiar visible_para y destinatarios

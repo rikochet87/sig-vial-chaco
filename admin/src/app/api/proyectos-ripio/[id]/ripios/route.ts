@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { requireAdmin, dbError, requireFields } from '@/lib/apiAuth'
+import { requireAdmin, dbError, requireFields, checkOwnerOrAdmin } from '@/lib/apiAuth'
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireAdmin()
@@ -24,6 +24,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const invalid = requireFields(body, ['nombre'])
   if (invalid) return invalid
   const supabase = createServiceClient()
+
+  // Verificar que el caller sea dueño del proyecto o admin
+  const { data: proyecto } = await supabase.from('proyectos_ripio').select('user_id').eq('id', id).single()
+  const denied = await checkOwnerOrAdmin(auth.userId, proyecto?.user_id)
+  if (denied) return denied
 
   // Determinar el siguiente orden
   const { count } = await supabase

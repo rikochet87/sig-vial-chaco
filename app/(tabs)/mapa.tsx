@@ -18,6 +18,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Relevamiento } from '@/types/relevamiento';
+import { LEAFLET_JS, LEAFLET_CSS } from '@/constants/leafletBundle';
 
 // expo-location: importación condicional para evitar crash si no está instalado aún
 let Location: any = null;
@@ -183,8 +184,8 @@ function buildMapHtml(sedesZonas: SedesZonas, layers: Layers, sedesOverride?: Se
 <html>
 <head>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script>
+<style>${LEAFLET_CSS}<\/style>
+<script>${LEAFLET_JS}<\/script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 html,body,#map{width:100%;height:100vh;background:#f0ebe3}

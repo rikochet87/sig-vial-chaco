@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { requireAdmin, dbError } from '@/lib/apiAuth'
+import { requireAdminRole, dbError } from '@/lib/apiAuth'
 
 export async function POST(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireAdmin()
+  const auth = await requireAdminRole()
   if (auth instanceof NextResponse) return auth
 
   const { id } = await params

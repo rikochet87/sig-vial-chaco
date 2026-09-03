@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 
 /**
  * Verifica que el request tenga una sesión de Supabase válida.
@@ -24,11 +24,51 @@ export async function requireAdmin(): Promise<{ userId: string } | NextResponse>
 }
 
 /**
+ * Verifica que el request tenga sesión válida Y rol === 'admin'.
+ * Usar en endpoints que solo pueden ejecutar administradores.
+ */
+export async function requireAdminRole(): Promise<{ userId: string } | NextResponse> {
+  const auth = await requireAdmin()
+  if (auth instanceof NextResponse) return auth
+  const supabase = createServiceClient()
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('rol')
+    .eq('id', auth.userId)
+    .single()
+  if (profile?.rol !== 'admin') {
+    return NextResponse.json({ error: 'Se requiere rol de administrador' }, { status: 403 })
+  }
+  return auth
+}
+
+/**
+ * Verifica que el caller sea admin o el dueño del recurso.
+ * Devuelve NextResponse 403 si no tiene acceso, null si está permitido.
+ */
+export async function checkOwnerOrAdmin(
+  callerId: string,
+  ownerId: string | null | undefined
+): Promise<NextResponse | null> {
+  const supabase = createServiceClient()
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('rol')
+    .eq('id', callerId)
+    .single()
+  if (profile?.rol === 'admin') return null
+  if (ownerId && ownerId === callerId) return null
+  return NextResponse.json({ error: 'No tenés permisos para esta operación' }, { status: 403 })
+}
+
+/**
  * Sanitiza errores de Supabase antes de enviarlos al cliente.
  * En desarrollo muestra el mensaje original; en producción devuelve un mensaje genérico.
  */
 export function dbError(error: { message: string }, status = 400): NextResponse {
-  const msg = error.message // temporal: siempre mostrar error real para debug
+  const msg = process.env.NODE_ENV === 'development'
+    ? error.message
+    : 'Error en la operación'
   return NextResponse.json({ error: msg }, { status })
 }
 

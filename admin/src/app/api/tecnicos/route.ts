@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { requireAdmin, dbError, requireFields } from '@/lib/apiAuth'
+import { requireAdminRole, dbError, requireFields } from '@/lib/apiAuth'
 
 // GET /api/tecnicos — devuelve todos los usuarios con nombre, email y permisos
 export async function GET() {
-  const auth = await requireAdmin()
+  const auth = await requireAdminRole()
   if (auth instanceof NextResponse) return auth
   const supabase = createServiceClient()
   const [profilesRes, authRes] = await Promise.all([
@@ -29,7 +29,7 @@ export async function GET() {
 
 // POST /api/tecnicos — crea usuario con link de invitación (sin password)
 export async function POST(request: NextRequest) {
-  const auth = await requireAdmin()
+  const auth = await requireAdminRole()
   if (auth instanceof NextResponse) return auth
   const body = await request.json()
   const invalid = requireFields(body, ['email'])
