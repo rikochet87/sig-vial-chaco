@@ -2,6 +2,8 @@ import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '@/context/ThemeContext';
+import ConexionBadge from '@/components/ConexionBadge';
+import { useAutoSync } from '@/hooks/useAutoSync';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -30,6 +32,10 @@ export default function TabsLayout() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
 
+  // Reintenta subir los relevamientos pendientes al recuperar señal,
+  // sin depender de que el técnico entre a la pestaña Relevamientos
+  useAutoSync();
+
   const TAB_HEIGHT = 52 + insets.bottom;
 
   return (
@@ -57,6 +63,8 @@ export default function TabsLayout() {
         headerStyle: { backgroundColor: colors.primary, borderBottomWidth: 1, borderBottomColor: '#1e1e1e' },
         headerTintColor: colors.textPrimary,
         headerTitleStyle: { fontWeight: '700', fontSize: 14, fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: 1 },
+        // Estado de conexión + pendientes de sync, visible en todas las pestañas
+        headerRight: () => <ConexionBadge />,
       }}
     >
       <Tabs.Screen

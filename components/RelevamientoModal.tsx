@@ -21,6 +21,10 @@ import * as ImagePicker from 'expo-image-picker';
 let Location: any = null;
 try { Location = require('expo-location'); } catch (_) {}
 
+// Grabación de track en segundo plano (sobrevive a pantalla apagada / app en background)
+import * as BgTrack from '@/lib/backgroundTrack';
+import { AppState } from 'react-native';
+
 // ── Contexto interno de estilos y colores ─────────────────────────────────────
 type SType = ReturnType<typeof makeStyles>;
 const SCtx = createContext<SType | null>(null);
@@ -437,9 +441,11 @@ function GPSTrackPanel({
   const [lastSegM,      setLastSegM]      = useState<number>(0);
   const [skipped,       setSkipped]       = useState(0);
   const [intervaloM,    setIntervaloM]    = useState<number>(10);
-  const trackSubRef = useRef<any>(null);
+  // ¿La grabación tiene permiso de segundo plano? Si es false el track se corta
+  // al apagar la pantalla, así que hay que avisarlo en el HUD.
+  const [bgOn,          setBgOn]          = useState(true);
   const trackPtsRef = useRef<LatLngPunto[]>([]);
-  const skippedRef  = useRef(0);
+  const pollRef     = useRef<any>(null);
 
   const INTERVALOS = [
     { label: '3 m',   value: 3   },
@@ -449,7 +455,10 @@ function GPSTrackPanel({
     { label: '50 m',  value: 50  },
     { label: '100 m', value: 100 },
   ];
-  const MAX_ACC = 30; // descartar si precisión GPS peor que 30 m
+  // Descartar lecturas con precisión peor a este umbral.
+  // 50 m (antes 30) porque sin señal celular no hay A-GPS: el fix inicial es más
+  // lento y menos preciso, y con 30 m se perdían tramos enteros en el campo.
+  const MAX_ACC = 50;
   const RTK_THRESHOLD = 0.5; // m — por debajo de esta precisión se considera RTK
 
   // ¿El track completo fue capturado con precisión RTK (< 0.5 m)?
@@ -460,57 +469,116 @@ function GPSTrackPanel({
   // ¿La lectura actual de precisión es RTK? (para HUD durante grabación)
   const liveIsRTK = lastAcc !== null && lastAcc < RTK_THRESHOLD;
 
-  const startTrack = async () => {
-    if (!Location) { Alert.alert('GPS no disponible', 'expo-location no está instalado.'); return; }
-    const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== 'granted') { Alert.alert('Permiso denegado', 'Se necesita GPS para grabar el track.'); return; }
-    trackPtsRef.current = [];
-    skippedRef.current  = 0;
-    setTrackPts([]); setSkipped(0); setLastAcc(null); setLastAlt(null); setLastSegM(0);
-    setTrackPhase('recording');
-    trackSubRef.current = await Location.watchPositionAsync(
-      { accuracy: Location.Accuracy.BestForNavigation, distanceInterval: intervaloM, timeInterval: 2000 },
-      (loc: any) => {
-        const acc = loc.coords.accuracy ?? null;
-        const alt = loc.coords.altitude ?? null;
-        setLastAcc(acc); setLastAlt(alt);
-        if (acc !== null && acc > MAX_ACC) {
-          skippedRef.current++; setSkipped(skippedRef.current); return;
-        }
-        const prev = trackPtsRef.current;
-        // Calcular progresiva acumulada
-        let prog = 0;
-        if (prev.length > 0) {
-          const lastProg = prev[prev.length - 1].prog ?? 0;
-          const seg = haversine(prev[prev.length - 1], { lat: loc.coords.latitude, lng: loc.coords.longitude });
-          prog = lastProg + seg;
-          setLastSegM(seg);
-        }
-        const pt: LatLngPunto = {
-          lat:  loc.coords.latitude,
-          lng:  loc.coords.longitude,
-          alt:  alt ?? undefined,
-          acc:  acc ?? undefined,
-          ts:   loc.timestamp ?? Date.now(),
-          prog,
-        };
-        const next = [...prev, pt];
-        trackPtsRef.current = next;
-        setTrackPts(next);
+  /** Vuelca el buffer de la tarea de background al estado del HUD. */
+  const syncDesdeBuffer = async () => {
+    const buf = await BgTrack.readBuffer();
+    trackPtsRef.current = buf.puntos;
+    setTrackPts(buf.puntos);
+    setSkipped(buf.descartados);
+    setLastAcc(buf.ultimaAcc);
+    setLastAlt(buf.ultimaAlt);
+    if (buf.puntos.length >= 2) {
+      const a = buf.puntos[buf.puntos.length - 2];
+      const b = buf.puntos[buf.puntos.length - 1];
+      setLastSegM(haversine(a, b));
+    }
+    return buf;
+  };
+
+  // Mientras graba: refrescar el HUD periódicamente y al volver a primer plano.
+  // Los puntos los escribe la tarea de background, acá sólo se leen.
+  useEffect(() => {
+    if (trackPhase !== 'recording') return;
+
+    syncDesdeBuffer();
+    pollRef.current = setInterval(syncDesdeBuffer, 1500);
+    const sub = AppState.addEventListener('change', st => {
+      if (st === 'active') syncDesdeBuffer();
+    });
+
+    return () => {
+      if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+      sub.remove();
+    };
+  }, [trackPhase]);
+
+  // Al montar: si quedó un track corriendo (la app se cerró o el SO la mató
+  // mientras el técnico recorría), retomarlo en vez de perderlo.
+  useEffect(() => {
+    let vivo = true;
+    (async () => {
+      if (!BgTrack.trackDisponible) return;
+      if (await BgTrack.isTracking()) {
+        if (!vivo) return;
+        setTrackPhase('recording');
       }
-    );
+    })();
+    return () => { vivo = false; };
+  }, []);
+
+  const startTrack = async () => {
+    if (!BgTrack.trackDisponible) {
+      Alert.alert('GPS no disponible', 'expo-location / expo-task-manager no están instalados.');
+      return;
+    }
+
+    const res = await BgTrack.startTrack({ intervaloM, maxAcc: MAX_ACC });
+
+    if (!res.ok) {
+      if (res.motivo === 'permiso-foreground') {
+        Alert.alert('Permiso denegado', 'Se necesita acceso al GPS para grabar el track.');
+      } else if (res.motivo === 'sin-modulo') {
+        Alert.alert('GPS no disponible', 'expo-location / expo-task-manager no están instalados.');
+      } else {
+        Alert.alert('No se pudo iniciar', res.detalle ?? 'Error desconocido al arrancar el GPS.');
+      }
+      return;
+    }
+
+    trackPtsRef.current = [];
+    setTrackPts([]); setSkipped(0); setLastAcc(null); setLastAlt(null); setLastSegM(0);
+    setBgOn(res.background);
+    setTrackPhase('recording');
+
+    if (!res.background) {
+      Alert.alert(
+        'Permiso limitado',
+        'Sin permiso de ubicación en segundo plano el track se corta al apagar la pantalla. ' +
+        'Dejá la app abierta y la pantalla encendida, o habilitá "Permitir siempre" en los ajustes de la app.'
+      );
+    }
   };
 
-  const stopTrack = () => {
-    trackSubRef.current?.remove(); trackSubRef.current = null;
-    const pts = trackPtsRef.current;
-    if (pts.length >= 2) { setTrackPhase('done'); setTrackPts(pts); onCoordsChange(pts); }
-    else { setTrackPhase('idle'); Alert.alert('Track muy corto', 'Se necesitan al menos 2 puntos GPS.'); }
+  const stopTrack = async () => {
+    // Cortar el polling antes de tocar el buffer: si el interval llegara a
+    // dispararse después del clearBuffer, pisaría los puntos con un array vacío.
+    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+
+    const buf = await BgTrack.stopTrack();
+    const pts = buf.puntos;
+    await BgTrack.clearBuffer();
+
+    if (pts.length >= 2) {
+      trackPtsRef.current = pts;
+      setTrackPts(pts);
+      setSkipped(buf.descartados);
+      setTrackPhase('done');
+      onCoordsChange(pts);
+    } else {
+      setTrackPhase('idle');
+      Alert.alert(
+        'Track muy corto',
+        buf.descartados > 0
+          ? `Se necesitan al menos 2 puntos GPS. Se descartaron ${buf.descartados} lecturas por precisión insuficiente — esperá a tener mejor señal GPS antes de arrancar.`
+          : 'Se necesitan al menos 2 puntos GPS.'
+      );
+    }
   };
 
-  const cancelTrack = () => {
-    trackSubRef.current?.remove(); trackSubRef.current = null;
+  const cancelTrack = async () => {
+    await BgTrack.cancelTrack();
     trackPtsRef.current = []; setTrackPhase('idle'); setTrackPts([]);
+    setSkipped(0); setLastSegM(0);
   };
 
   const resetTrack = () => { setTrackPhase('idle'); setTrackPts([]); onCoordsChange([]); };
@@ -645,6 +713,38 @@ function GPSTrackPanel({
             )}
           </View>
 
+          {/* Aviso: GPS impreciso, se están perdiendo puntos */}
+          {lastAcc != null && lastAcc > MAX_ACC && (
+            <View style={{
+              backgroundColor: '#2a1a00', borderWidth: 1, borderColor: '#7a4b00',
+              padding: 8, marginBottom: 8,
+            }}>
+              <Text style={{ fontSize: 10, color: '#F5C300', fontFamily: 'monospace', fontWeight: '700', letterSpacing: 0.5 }}>
+                ⚠ GPS IMPRECISO — DESCARTANDO PUNTOS
+              </Text>
+              <Text style={{ fontSize: 9, color: '#a88', fontFamily: 'monospace', marginTop: 3, lineHeight: 13 }}>
+                Precisión actual ±{Math.round(lastAcc)} m (límite {MAX_ACC} m). {skipped} lectura{skipped === 1 ? '' : 's'} descartada{skipped === 1 ? '' : 's'}.
+                Salí a cielo abierto y esperá unos segundos a que el GPS mejore.
+              </Text>
+            </View>
+          )}
+
+          {/* Aviso: sin permiso de segundo plano el track se corta */}
+          {!bgOn && (
+            <View style={{
+              backgroundColor: '#2a0f0f', borderWidth: 1, borderColor: '#7a2020',
+              padding: 8, marginBottom: 8,
+            }}>
+              <Text style={{ fontSize: 10, color: '#e74c3c', fontFamily: 'monospace', fontWeight: '700', letterSpacing: 0.5 }}>
+                ⚠ SIN PERMISO EN SEGUNDO PLANO
+              </Text>
+              <Text style={{ fontSize: 9, color: '#a88', fontFamily: 'monospace', marginTop: 3, lineHeight: 13 }}>
+                No apagues la pantalla ni cambies de app: el track se cortaría y el tramo
+                quedaría como una recta. Habilitá "Permitir siempre" en los ajustes de ubicación.
+              </Text>
+            </View>
+          )}
+
           <View style={s.trackPanelBtns}>
             <TouchableOpacity style={[s.trackPanelBtn, s.trackBtnStop]} onPress={stopTrack}>
               <Text style={s.trackPanelBtnTxt}>■  FIN — guardar tramo</Text>
@@ -682,6 +782,7 @@ function GPSTrackPanel({
                 <Text style={s.metodoCardTitle}>GPS Track</Text>
                 <Text style={s.metodoCardDesc}>
                   Registra un punto GPS cada vez que avanzás la distancia configurada. Incluye altitud, precisión y progresivas.
+                  Sigue grabando aunque apagues la pantalla o salgas de la app.
                 </Text>
                 <Text style={{ fontSize: 10, color: '#666', marginTop: 8, marginBottom: 4, fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: 0.8 }}>
                   Intervalo entre puntos

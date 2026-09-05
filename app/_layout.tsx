@@ -1,4 +1,4 @@
-import { useEffect, Component, ReactNode } from 'react';
+import { useEffect, useState, Component, ReactNode } from 'react';
 import { Stack, router, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
@@ -6,7 +6,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider } from '@/context/ThemeContext';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
-import { View, Text, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
 
 // Error Boundary: captura crashes de JS y muestra el error en pantalla
 // (solo para debug — remover antes de producción final)
@@ -40,7 +40,24 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
   }
 }
 
-SplashScreen.preventAutoHideAsync();
+SplashScreen.preventAutoHideAsync().catch(() => {});
+
+/**
+ * El splash se oculta una sola vez, venga de donde venga la orden.
+ *
+ * Antes la única salida era que `loading` pasara a false, lo que dependía de una
+ * llamada de red sin timeout: si esa llamada se colgaba, la app quedaba trabada
+ * en la pantalla negra con el logo. Ahora hay además un límite duro: pase lo que
+ * pase con la sesión, a los SPLASH_MAX_MS el splash se va y el técnico entra a
+ * la app (la navegación se acomoda sola cuando auth termina de resolver).
+ */
+const SPLASH_MAX_MS = 6000;
+let splashOculto = false;
+function ocultarSplash() {
+  if (splashOculto) return;
+  splashOculto = true;
+  SplashScreen.hideAsync().catch(() => {});
+}
 
 // Maneja redirección según estado de sesión
 function RouteGuard() {
@@ -58,17 +75,44 @@ function RouteGuard() {
     }
   }, [session, profile, loading, segments]);
 
+  // Camino normal: auth resolvió, damos un respiro a la navegación y salimos
   useEffect(() => {
     if (!loading) {
-      // Dar tiempo suficiente para que la navegación complete antes de ocultar el splash
-      const t = setTimeout(() => SplashScreen.hideAsync(), 600);
+      const t = setTimeout(ocultarSplash, 600);
       return () => clearTimeout(t);
     }
   }, [loading]);
 
-  // Mientras carga, overlay oscuro para evitar pantalla negra
+  // Red de seguridad: aunque auth nunca resuelva, el splash igual se va
+  useEffect(() => {
+    const t = setTimeout(ocultarSplash, SPLASH_MAX_MS);
+    return () => clearTimeout(t);
+  }, []);
+
+  // Si la sesión tarda más de lo normal, mostrar que la app está viva en vez
+  // de un rectángulo negro mudo (el técnico no puede distinguir "cargando" de
+  // "colgada", y termina cerrando la app).
+  const [tardando, setTardando] = useState(false);
+  useEffect(() => {
+    if (!loading) { setTardando(false); return; }
+    const t = setTimeout(() => setTardando(true), 2500);
+    return () => clearTimeout(t);
+  }, [loading]);
+
   if (loading) {
-    return <View style={styles.loadingOverlay} />;
+    return (
+      <View style={styles.loadingOverlay}>
+        {tardando && (
+          <>
+            <ActivityIndicator size="large" color="#F5C300" />
+            <Text style={styles.loadingTxt}>Verificando sesión…</Text>
+            <Text style={styles.loadingSub}>
+              Si no hay señal puede demorar unos segundos
+            </Text>
+          </>
+        )}
+      </View>
+    );
   }
 
   return null;
@@ -78,7 +122,16 @@ const styles = StyleSheet.create({
   loadingOverlay: {
     position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
     backgroundColor: '#0d0d0d',
+    alignItems: 'center', justifyContent: 'center',
     zIndex: 999,
+  },
+  loadingTxt: {
+    color: '#F5C300', fontSize: 13, fontFamily: 'monospace',
+    letterSpacing: 1, marginTop: 16, textTransform: 'uppercase',
+  },
+  loadingSub: {
+    color: '#555', fontSize: 11, fontFamily: 'monospace',
+    marginTop: 6, textAlign: 'center', paddingHorizontal: 40,
   },
 });
 

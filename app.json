@@ -14,7 +14,10 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.rosello.sigvialchaco"
+      "bundleIdentifier": "com.rosello.sigvialchaco",
+      "infoPlist": {
+        "UIBackgroundModes": ["location"]
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -27,6 +30,9 @@
       "permissions": [
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_LOCATION",
         "android.permission.CAMERA",
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.WRITE_EXTERNAL_STORAGE"
@@ -74,9 +80,14 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "La app necesita tu ubicacion para mostrarte en el mapa vial del Chaco."
+          "locationAlwaysAndWhenInUsePermission": "La app necesita tu ubicacion para mostrarte en el mapa vial del Chaco y para grabar tracks GPS de tramos mientras recorres el camino.",
+          "locationWhenInUsePermission": "La app necesita tu ubicacion para mostrarte en el mapa vial del Chaco.",
+          "locationAlwaysPermission": "La app necesita tu ubicacion en segundo plano para seguir grabando el track del tramo aunque apagues la pantalla mientras recorres el camino.",
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
         }
       ],
+      "expo-task-manager",
       [
         "expo-image-picker",
         {

@@ -78,7 +78,12 @@ export async function syncPendientes(
   userId: string,
   onUpdate: (id: string, status: 'sincronizado' | 'error', fotosPublicas?: string[]) => void,
 ): Promise<void> {
-  const pendientes = relevamientos.filter(r => r.syncStatus === 'pendiente');
+  // Incluye 'error': un relevamiento que falló una vez (típicamente por falta
+  // de señal) quedaba en 'error' y no se reintentaba nunca más, así que el
+  // trabajo del técnico no llegaba al servidor aunque después hubiera red.
+  const pendientes = relevamientos.filter(
+    r => r.syncStatus === 'pendiente' || r.syncStatus === 'error'
+  );
   for (const r of pendientes) {
     try {
       const fotosPublicas = await syncOne(r, userId);
