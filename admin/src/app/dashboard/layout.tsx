@@ -32,7 +32,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <Sidebar />
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <Header userEmail={user.email ?? ''} />
-          <main style={{ flex: 1, overflowY: 'auto', padding: '1.5rem' }}>
+          {/* id usado por TamanoTexto para aplicar el zoom de accesibilidad.
+              Solo el contenido: el header queda fuera para que el control de
+              tamaño no se escale a sí mismo y siga siendo clickeable. */}
+          <main id="panel-contenido" style={{ flex: 1, overflowY: 'auto', padding: '1.5rem' }}>
             {children}
           </main>
         </div>

@@ -65,21 +65,21 @@ const JURIS_EDIT: Jurisdiccion[] = ['consorcio', 'ruta_provincial', 'metropolita
 const mono: React.CSSProperties = { fontFamily: 'monospace' }
 const selectStyle: React.CSSProperties = {
   background: '#1a1a1a', border: '1px solid #252525', color: '#e0e0e0',
-  padding: '6px 10px', fontSize: 12,
+  padding: '6px 10px', fontSize: 13,
 }
 const labelStyle: React.CSSProperties = {
-  color: '#555', fontSize: 10, letterSpacing: 1, textTransform: 'uppercase',
+  color: '#555', fontSize: 12, letterSpacing: 1, textTransform: 'uppercase',
 }
 const wrapStyle: React.CSSProperties = { display: 'flex', flexDirection: 'column', gap: 4 }
 
 const inpStyle: React.CSSProperties = {
   width: '100%', boxSizing: 'border-box',
   background: '#0a0a0a', border: '1px solid #222',
-  color: '#ddd', padding: '6px 9px', fontSize: 12,
+  color: '#ddd', padding: '6px 9px', fontSize: 13,
   fontFamily: 'monospace', outline: 'none', borderRadius: 2,
 }
 const lbl: React.CSSProperties = {
-  display: 'block', fontSize: 9, color: '#555',
+  display: 'block', fontSize: 12, color: '#555',
   textTransform: 'uppercase', letterSpacing: 0.8,
   fontFamily: 'monospace', marginBottom: 3, marginTop: 10,
 }
@@ -180,7 +180,7 @@ function EditModal({ obra, onClose, onSaved }: EditModalProps) {
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 18 }}>
           <div style={{ borderLeft: `3px solid ${color}`, paddingLeft: 10 }}>
-            <div style={{ fontSize: 9, color: '#444', ...mono, textTransform: 'uppercase', letterSpacing: 1 }}>Editar obra</div>
+            <div style={{ fontSize: 12, color: '#444', ...mono, textTransform: 'uppercase', letterSpacing: 1 }}>Editar obra</div>
             <div style={{ fontSize: 15, fontWeight: 700, color, ...mono, marginTop: 2 }}>
               {TIPO_LABELS[obra.tipo] ?? obra.tipo}
             </div>
@@ -194,7 +194,7 @@ function EditModal({ obra, onClose, onSaved }: EditModalProps) {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 5 }}>
           {TIPOS_EDIT.map(t => (
             <button key={t} onClick={() => setTipo(t)}
-              style={{ padding: '6px 4px', fontSize: 10, ...mono, cursor: 'pointer', borderRadius: 2,
+              style={{ padding: '6px 4px', fontSize: 12, ...mono, cursor: 'pointer', borderRadius: 2,
                 border: `1px solid ${tipo === t ? (TIPO_COLORS[t] ?? '#607D8B') : '#1e1e1e'}`,
                 background: tipo === t ? `${TIPO_COLORS[t] ?? '#607D8B'}18` : '#0a0a0a',
                 color: tipo === t ? (TIPO_COLORS[t] ?? '#607D8B') : '#555' }}>
@@ -208,7 +208,7 @@ function EditModal({ obra, onClose, onSaved }: EditModalProps) {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 5 }}>
           {JURIS_EDIT.map(j => (
             <button key={j} onClick={() => setJuris(j)}
-              style={{ padding: '6px 4px', fontSize: 10, ...mono, cursor: 'pointer', borderRadius: 2,
+              style={{ padding: '6px 4px', fontSize: 12, ...mono, cursor: 'pointer', borderRadius: 2,
                 textAlign: 'left', paddingLeft: 8,
                 border: `1px solid ${juris === j ? color : '#1e1e1e'}`,
                 background: juris === j ? `${color}18` : '#0a0a0a',
@@ -286,7 +286,7 @@ function EditModal({ obra, onClose, onSaved }: EditModalProps) {
         {/* Error */}
         {error && (
           <div style={{ marginTop: 12, padding: '7px 10px', background: '#ff525211',
-            border: '1px solid #ff5252', color: '#ff5252', fontSize: 11, ...mono }}>
+            border: '1px solid #ff5252', color: '#ff5252', fontSize: 13, ...mono }}>
             {error}
           </div>
         )}
@@ -295,13 +295,13 @@ function EditModal({ obra, onClose, onSaved }: EditModalProps) {
         <div style={{ display: 'flex', gap: 10, marginTop: 20, justifyContent: 'flex-end' }}>
           <button onClick={onClose}
             style={{ ...mono, background: 'none', border: '1px solid #222',
-              color: '#555', padding: '8px 18px', cursor: 'pointer', fontSize: 11 }}>
+              color: '#555', padding: '8px 18px', cursor: 'pointer', fontSize: 13 }}>
             Cancelar
           </button>
           <button onClick={handleSave} disabled={saving}
             style={{ ...mono, background: color, border: 'none',
               color: '#000', fontWeight: 700, padding: '8px 22px',
-              cursor: saving ? 'not-allowed' : 'pointer', fontSize: 11,
+              cursor: saving ? 'not-allowed' : 'pointer', fontSize: 13,
               opacity: saving ? 0.6 : 1 }}>
             {saving ? 'Guardando...' : 'Guardar cambios'}
           </button>
@@ -323,7 +323,7 @@ function PublicadaBadge({ visible_para }: { visible_para: Obra['visible_para'] }
   return (
     <span style={{
       background: '#1a2e1a', color: '#4CAF50', border: '1px solid #4CAF5044',
-      borderRadius: 20, padding: '1px 7px', fontSize: 9, fontWeight: 700,
+      borderRadius: 20, padding: '1px 7px', fontSize: 12, fontWeight: 700,
       ...mono, letterSpacing: 0.5, whiteSpace: 'nowrap',
     }}>
       ▲ {label}
@@ -444,13 +444,13 @@ function PushPanel({ obra, tecnicos, loadingTecnicos, onClose, onPublicada }: Pu
         <div style={{ padding: '18px 20px 14px', borderBottom: '1px solid #1e1e1e', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
             <div>
-              <div style={{ fontSize: 9, color: '#444', ...mono, textTransform: 'uppercase', letterSpacing: 1 }}>
+              <div style={{ fontSize: 12, color: '#444', ...mono, textTransform: 'uppercase', letterSpacing: 1 }}>
                 Publicar en app
               </div>
               <div style={{ fontSize: 15, fontWeight: 700, color, ...mono, marginTop: 3 }}>
                 {TIPO_LABELS[obra.tipo] ?? obra.tipo}
               </div>
-              <div style={{ fontSize: 10, color: '#555', ...mono, marginTop: 2 }}>
+              <div style={{ fontSize: 12, color: '#555', ...mono, marginTop: 2 }}>
                 {obra.consorcio_numero ? `CC Nº ${obra.consorcio_numero}` : obra.ubicacion ?? '—'}
                 {obra.descripcion ? ` · ${obra.descripcion}` : ''}
               </div>
@@ -466,12 +466,12 @@ function PushPanel({ obra, tecnicos, loadingTecnicos, onClose, onPublicada }: Pu
             <div style={{ marginTop: 10, padding: '6px 10px', background: '#0d1f0d',
               border: '1px solid #4CAF5033', borderRadius: 2, display: 'flex',
               alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: 10, color: '#4CAF50', ...mono }}>
+              <span style={{ fontSize: 12, color: '#4CAF50', ...mono }}>
                 ▲ Publicada para {obra.visible_para === 'todos' ? 'todos' : 'selección'}
               </span>
               <button onClick={handleDespublicar} disabled={saving}
                 style={{ background: 'none', border: '1px solid #f4433633', color: '#f44336',
-                  fontSize: 9, padding: '2px 8px', cursor: 'pointer', ...mono }}>
+                  fontSize: 12, padding: '2px 8px', cursor: 'pointer', ...mono }}>
                 Despublicar
               </button>
             </div>
@@ -480,7 +480,7 @@ function PushPanel({ obra, tecnicos, loadingTecnicos, onClose, onPublicada }: Pu
 
         {/* Selector de modo */}
         <div style={{ padding: '16px 20px 0', flexShrink: 0 }}>
-          <div style={{ fontSize: 9, color: '#444', ...mono, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>
+          <div style={{ fontSize: 12, color: '#444', ...mono, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>
             Destinatarios
           </div>
           <div style={{ display: 'flex', gap: 6 }}>
@@ -490,7 +490,7 @@ function PushPanel({ obra, tecnicos, loadingTecnicos, onClose, onPublicada }: Pu
             ] as const).map(m => (
               <button key={m.id} onClick={() => setModo(m.id)}
                 style={{
-                  flex: 1, padding: '8px 6px', fontSize: 10, ...mono, cursor: 'pointer',
+                  flex: 1, padding: '8px 6px', fontSize: 12, ...mono, cursor: 'pointer',
                   borderRadius: 2, border: `1px solid ${modo === m.id ? '#4CAF50' : '#1e1e1e'}`,
                   background: modo === m.id ? '#0d1f0d' : '#0a0a0a',
                   color: modo === m.id ? '#4CAF50' : '#444',
@@ -511,13 +511,13 @@ function PushPanel({ obra, tecnicos, loadingTecnicos, onClose, onPublicada }: Pu
               onChange={e => setBusqueda(e.target.value)}
               style={{
                 background: '#0a0a0a', border: '1px solid #222', color: '#ccc',
-                padding: '6px 10px', fontSize: 11, ...mono, outline: 'none',
+                padding: '6px 10px', fontSize: 13, ...mono, outline: 'none',
                 borderRadius: 2, marginBottom: 8, flexShrink: 0,
               }}
             />
 
             {loadingTecnicos ? (
-              <div style={{ color: '#333', fontSize: 11, ...mono, textAlign: 'center', padding: 20 }}>
+              <div style={{ color: '#333', fontSize: 13, ...mono, textAlign: 'center', padding: 20 }}>
                 Cargando usuarios...
               </div>
             ) : (
@@ -531,7 +531,7 @@ function PushPanel({ obra, tecnicos, loadingTecnicos, onClose, onPublicada }: Pu
                         const allSelected = allIds.every(id => seleccion.has(id))
                         setSeleccion(allSelected ? new Set() : new Set(allIds))
                       }}
-                      style={{ background: 'none', border: 'none', color: '#555', fontSize: 9, ...mono, cursor: 'pointer' }}>
+                      style={{ background: 'none', border: 'none', color: '#555', fontSize: 12, ...mono, cursor: 'pointer' }}>
                       {tecnicosFiltrados.every(t => seleccion.has(t.id)) ? 'Deseleccionar todos' : 'Seleccionar todos'}
                     </button>
                   </div>
@@ -559,15 +559,15 @@ function PushPanel({ obra, tecnicos, loadingTecnicos, onClose, onPublicada }: Pu
                         background: selected ? '#4CAF50' : 'transparent',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                       }}>
-                        {selected && <span style={{ fontSize: 9, color: '#000', lineHeight: 1 }}>✓</span>}
+                        {selected && <span style={{ fontSize: 12, color: '#000', lineHeight: 1 }}>✓</span>}
                       </div>
 
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 11, color: selected ? '#ccc' : '#888', ...mono,
+                        <div style={{ fontSize: 13, color: selected ? '#ccc' : '#888', ...mono,
                           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {t.nombre}
                         </div>
-                        <div style={{ fontSize: 9, color: '#444', ...mono, marginTop: 1 }}>
+                        <div style={{ fontSize: 12, color: '#444', ...mono, marginTop: 1 }}>
                           {t.zona ?? '—'} · {t.rol}
                         </div>
                       </div>
@@ -576,7 +576,7 @@ function PushPanel({ obra, tecnicos, loadingTecnicos, onClose, onPublicada }: Pu
                 })}
 
                 {tecnicosFiltrados.length === 0 && (
-                  <div style={{ color: '#333', fontSize: 11, ...mono, textAlign: 'center', padding: 20 }}>
+                  <div style={{ color: '#333', fontSize: 13, ...mono, textAlign: 'center', padding: 20 }}>
                     Sin resultados
                   </div>
                 )}
@@ -584,7 +584,7 @@ function PushPanel({ obra, tecnicos, loadingTecnicos, onClose, onPublicada }: Pu
             )}
 
             {seleccion.size > 0 && (
-              <div style={{ fontSize: 9, color: '#4CAF50', ...mono, padding: '6px 0', flexShrink: 0 }}>
+              <div style={{ fontSize: 12, color: '#4CAF50', ...mono, padding: '6px 0', flexShrink: 0 }}>
                 {seleccion.size} usuario{seleccion.size !== 1 ? 's' : ''} seleccionado{seleccion.size !== 1 ? 's' : ''}
               </div>
             )}
@@ -593,7 +593,7 @@ function PushPanel({ obra, tecnicos, loadingTecnicos, onClose, onPublicada }: Pu
 
         {modo === 'todos' && (
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div style={{ textAlign: 'center', color: '#333', fontSize: 11, ...mono, lineHeight: 1.8 }}>
+            <div style={{ textAlign: 'center', color: '#333', fontSize: 13, ...mono, lineHeight: 1.8 }}>
               La obra será visible para<br />todos los usuarios de la app
             </div>
           </div>
@@ -602,7 +602,7 @@ function PushPanel({ obra, tecnicos, loadingTecnicos, onClose, onPublicada }: Pu
         {/* Footer con botón de acción */}
         <div style={{ padding: '14px 20px', borderTop: '1px solid #1e1e1e', flexShrink: 0 }}>
           {error && (
-            <div style={{ fontSize: 10, color: '#f44336', ...mono, marginBottom: 8,
+            <div style={{ fontSize: 12, color: '#f44336', ...mono, marginBottom: 8,
               padding: '6px 8px', background: '#f4433611', border: '1px solid #f4433633' }}>
               {error}
             </div>
@@ -611,7 +611,7 @@ function PushPanel({ obra, tecnicos, loadingTecnicos, onClose, onPublicada }: Pu
             onClick={handlePublicar}
             disabled={saving || (modo === 'seleccion' && seleccion.size === 0)}
             style={{
-              width: '100%', padding: '10px', fontSize: 12, fontWeight: 700, ...mono,
+              width: '100%', padding: '10px', fontSize: 13, fontWeight: 700, ...mono,
               cursor: saving ? 'not-allowed' : 'pointer', borderRadius: 2,
               background: '#4CAF50', border: 'none', color: '#000',
               opacity: (saving || (modo === 'seleccion' && seleccion.size === 0)) ? 0.4 : 1,
@@ -706,7 +706,7 @@ export default function ObrasPage() {
         <h1 style={{ color: '#e0e0e0', fontSize: 20, fontWeight: 700, letterSpacing: 0.5, ...mono, margin: 0 }}>
           Obras
         </h1>
-        <span style={{ color: '#333', fontSize: 12, ...mono }}>{filtered.length} registros</span>
+        <span style={{ color: '#333', fontSize: 13, ...mono }}>{filtered.length} registros</span>
       </div>
 
       {/* Filtros */}
@@ -750,7 +750,7 @@ export default function ObrasPage() {
           ].map(({ label, val, color }) => (
             <div key={label} style={{ background: '#191919', border: '1px solid #1e1e1e',
               borderLeft: `3px solid ${color}`, padding: '8px 14px' }}>
-              <div style={{ color: '#555', fontSize: 9, letterSpacing: 1, textTransform: 'uppercase', ...mono }}>{label}</div>
+              <div style={{ color: '#555', fontSize: 12, letterSpacing: 1, textTransform: 'uppercase', ...mono }}>{label}</div>
               <div style={{ color, fontSize: 16, fontWeight: 700, ...mono, marginTop: 2 }}>
                 ${fmt(val)}
               </div>
@@ -768,7 +768,7 @@ export default function ObrasPage() {
             <thead>
               <tr style={{ background: '#141414' }}>
                 {['', 'Tipo', 'Consorcio / Ubicación', 'Tramo / Desc.', 'Cantidad', 'Presupuesto', 'DVP', 'CCC', 'Estado', 'Fecha inicio', ''].map((h, i) => (
-                  <th key={i} style={{ padding: '10px 14px', color: '#444', fontSize: 10, fontWeight: 600,
+                  <th key={i} style={{ padding: '10px 14px', color: '#444', fontSize: 12, fontWeight: 600,
                     textAlign: 'left', textTransform: 'uppercase', letterSpacing: 1,
                     borderBottom: '1px solid #1e1e1e', whiteSpace: 'nowrap', ...mono }}>
                     {h}
@@ -806,7 +806,7 @@ export default function ObrasPage() {
                           background: isActive ? '#4CAF5022' : 'transparent',
                           border: `1px solid ${isActive ? '#4CAF5066' : '#252525'}`,
                           color: isActive ? '#4CAF50' : '#555',
-                          padding: '4px 8px', fontSize: 11, cursor: 'pointer',
+                          padding: '4px 8px', fontSize: 13, cursor: 'pointer',
                           borderRadius: 2, lineHeight: 1, whiteSpace: 'nowrap',
                         }}
                         onMouseEnter={e => { if (!isActive) { (e.currentTarget as HTMLButtonElement).style.borderColor = '#4CAF5066'; (e.currentTarget as HTMLButtonElement).style.color = '#4CAF50' } }}
@@ -819,7 +819,7 @@ export default function ObrasPage() {
                     <td style={{ padding: '10px 14px' }}>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                         <span style={{ background: `${color}22`, color, border: `1px solid ${color}55`,
-                          borderRadius: 2, padding: '2px 8px', fontSize: 11, fontWeight: 700, ...mono,
+                          borderRadius: 2, padding: '2px 8px', fontSize: 13, fontWeight: 700, ...mono,
                           whiteSpace: 'nowrap' }}>
                           {TIPO_LABELS[o.tipo] ?? o.tipo}
                         </span>
@@ -827,34 +827,34 @@ export default function ObrasPage() {
                       </div>
                     </td>
 
-                    <td style={{ padding: '10px 14px', color: '#aaa', fontSize: 12, ...mono,
+                    <td style={{ padding: '10px 14px', color: '#aaa', fontSize: 13, ...mono,
                       maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {lugar}
                     </td>
-                    <td style={{ padding: '10px 14px', color: '#666', fontSize: 11, ...mono,
+                    <td style={{ padding: '10px 14px', color: '#666', fontSize: 13, ...mono,
                       maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {o.descripcion ?? '-'}
                     </td>
-                    <td style={{ padding: '10px 14px', color: '#888', fontSize: 12, ...mono, whiteSpace: 'nowrap' }}>
+                    <td style={{ padding: '10px 14px', color: '#888', fontSize: 13, ...mono, whiteSpace: 'nowrap' }}>
                       {o.cantidad != null ? `${o.cantidad.toLocaleString('es-AR', { maximumFractionDigits: 2 })} ${o.unidad ?? ''}` : '-'}
                     </td>
-                    <td style={{ padding: '10px 14px', color, fontSize: 12, fontWeight: 700, ...mono, whiteSpace: 'nowrap' }}>
+                    <td style={{ padding: '10px 14px', color, fontSize: 13, fontWeight: 700, ...mono, whiteSpace: 'nowrap' }}>
                       {o.presupuesto_total != null ? `$${fmt(o.presupuesto_total)}` : '-'}
                     </td>
-                    <td style={{ padding: '10px 14px', color: '#4CAF50', fontSize: 12, ...mono, whiteSpace: 'nowrap' }}>
+                    <td style={{ padding: '10px 14px', color: '#4CAF50', fontSize: 13, ...mono, whiteSpace: 'nowrap' }}>
                       {o.aporte_dvp != null ? `$${fmt(o.aporte_dvp)}` : '-'}
                     </td>
-                    <td style={{ padding: '10px 14px', color: '#2196F3', fontSize: 12, ...mono, whiteSpace: 'nowrap' }}>
+                    <td style={{ padding: '10px 14px', color: '#2196F3', fontSize: 13, ...mono, whiteSpace: 'nowrap' }}>
                       {o.aporte_ccc != null ? `$${fmt(o.aporte_ccc)}` : '-'}
                     </td>
                     <td style={{ padding: '10px 14px' }}>
                       <span style={{ background: `${estadoColor}22`, color: estadoColor,
                         border: `1px solid ${estadoColor}55`, borderRadius: 20,
-                        padding: '2px 10px', fontSize: 11, fontWeight: 600, ...mono }}>
+                        padding: '2px 10px', fontSize: 13, fontWeight: 600, ...mono }}>
                         {ESTADO_LABELS[o.estado] ?? o.estado}
                       </span>
                     </td>
-                    <td style={{ padding: '10px 14px', color: '#555', fontSize: 12, ...mono, whiteSpace: 'nowrap' }}>
+                    <td style={{ padding: '10px 14px', color: '#555', fontSize: 13, ...mono, whiteSpace: 'nowrap' }}>
                       {o.fecha_inicio ?? '-'}
                     </td>
                     <td style={{ padding: '8px 8px 8px 4px', whiteSpace: 'nowrap' }} onClick={e => e.stopPropagation()}>
@@ -864,7 +864,7 @@ export default function ObrasPage() {
                           onClick={() => window.open(`/dashboard/obras/${o.id}/print`, '_blank')}
                           title="Imprimir / PDF"
                           style={{ background: 'transparent', border: '1px solid #252525', color: '#444',
-                            padding: '4px 9px', fontSize: 10, lineHeight: 1, cursor: 'pointer', marginRight: 4 }}
+                            padding: '4px 9px', fontSize: 12, lineHeight: 1, cursor: 'pointer', marginRight: 4 }}
                           onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#90A4AE'; (e.currentTarget as HTMLButtonElement).style.color = '#90A4AE' }}
                           onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#252525'; (e.currentTarget as HTMLButtonElement).style.color = '#444' }}
                         >PDF</button>
@@ -882,7 +882,7 @@ export default function ObrasPage() {
                             }}
                             title={o.datos_calculadora ? 'Editar en calculadora' : 'Editar'}
                             style={{ background: 'transparent', border: '1px solid #252525', color: '#444',
-                              padding: '4px 9px', fontSize: 11, lineHeight: 1, cursor: 'pointer', marginRight: 4 }}
+                              padding: '4px 9px', fontSize: 13, lineHeight: 1, cursor: 'pointer', marginRight: 4 }}
                             onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#F5C300'; (e.currentTarget as HTMLButtonElement).style.color = '#F5C300' }}
                             onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#252525'; (e.currentTarget as HTMLButtonElement).style.color = '#444' }}
                           >✎</button>
@@ -890,7 +890,7 @@ export default function ObrasPage() {
                             onClick={e => handleDelete(o.id, e)}
                             title="Eliminar"
                             style={{ background: 'transparent', border: '1px solid #252525', color: '#444',
-                              padding: '4px 9px', fontSize: 11, lineHeight: 1, cursor: 'pointer' }}
+                              padding: '4px 9px', fontSize: 13, lineHeight: 1, cursor: 'pointer' }}
                             onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#f44336'; (e.currentTarget as HTMLButtonElement).style.color = '#f44336' }}
                             onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#252525'; (e.currentTarget as HTMLButtonElement).style.color = '#444' }}
                           >✕</button>
@@ -916,20 +916,20 @@ export default function ObrasPage() {
         {totalPages > 1 && (
           <div style={{ padding: '10px 16px', display: 'flex', gap: 8, alignItems: 'center',
             borderTop: '1px solid #1e1e1e' }}>
-            <span style={{ color: '#444', fontSize: 12, ...mono }}>{filtered.length} resultados</span>
+            <span style={{ color: '#444', fontSize: 13, ...mono }}>{filtered.length} resultados</span>
             <div style={{ flex: 1 }} />
             <button disabled={page === 0} onClick={() => setPage(p => p - 1)}
               style={{ background: '#1e1e1e', border: '1px solid #252525',
                 color: page === 0 ? '#333' : '#888', padding: '6px 14px',
-                cursor: page === 0 ? 'not-allowed' : 'pointer', opacity: page === 0 ? 0.4 : 1, ...mono, fontSize: 12 }}>
+                cursor: page === 0 ? 'not-allowed' : 'pointer', opacity: page === 0 ? 0.4 : 1, ...mono, fontSize: 13 }}>
               ← Anterior
             </button>
-            <span style={{ color: '#444', fontSize: 12, ...mono }}>Pág {page + 1} / {totalPages}</span>
+            <span style={{ color: '#444', fontSize: 13, ...mono }}>Pág {page + 1} / {totalPages}</span>
             <button disabled={page >= totalPages - 1} onClick={() => setPage(p => p + 1)}
               style={{ background: '#1e1e1e', border: '1px solid #252525',
                 color: page >= totalPages - 1 ? '#333' : '#888', padding: '6px 14px',
                 cursor: page >= totalPages - 1 ? 'not-allowed' : 'pointer',
-                opacity: page >= totalPages - 1 ? 0.4 : 1, ...mono, fontSize: 12 }}>
+                opacity: page >= totalPages - 1 ? 0.4 : 1, ...mono, fontSize: 13 }}>
               Siguiente →
             </button>
           </div>

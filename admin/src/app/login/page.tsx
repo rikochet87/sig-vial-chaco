@@ -40,11 +40,11 @@ export default function LoginPage() {
           <div style={{ display: 'inline-block', background: '#F5C300', color: '#111', fontWeight: 800, fontSize: 18, padding: '5px 16px', letterSpacing: 3, fontFamily: 'monospace' }}>
             SIG / VIAL
           </div>
-          <p style={{ color: '#444', marginTop: 12, fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase' }}>Panel de Administración — Chaco</p>
+          <p style={{ color: '#444', marginTop: 12, fontSize: 13, letterSpacing: 1.5, textTransform: 'uppercase' }}>Panel de Administración — Chaco</p>
         </div>
         <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: 16 }}>
-            <label style={{ display: 'block', color: '#555', fontSize: 10, marginBottom: 6, letterSpacing: 1, textTransform: 'uppercase' }}>Email</label>
+            <label style={{ display: 'block', color: '#555', fontSize: 12, marginBottom: 6, letterSpacing: 1, textTransform: 'uppercase' }}>Email</label>
             <input
               type="email"
               value={email}
@@ -54,7 +54,7 @@ export default function LoginPage() {
             />
           </div>
           <div style={{ marginBottom: 24 }}>
-            <label style={{ display: 'block', color: '#555', fontSize: 10, marginBottom: 6, letterSpacing: 1, textTransform: 'uppercase' }}>Contraseña</label>
+            <label style={{ display: 'block', color: '#555', fontSize: 12, marginBottom: 6, letterSpacing: 1, textTransform: 'uppercase' }}>Contraseña</label>
             <input
               type="password"
               value={password}
@@ -63,7 +63,7 @@ export default function LoginPage() {
               style={{ width: '100%', padding: '9px 12px', background: '#1a1a1a', border: '1px solid #252525', color: '#e0e0e0', fontSize: 13, boxSizing: 'border-box' }}
             />
           </div>
-          {error && <p style={{ color: '#f44336', fontSize: 12, marginBottom: 16, letterSpacing: 0.3 }}>{error}</p>}
+          {error && <p style={{ color: '#f44336', fontSize: 13, marginBottom: 16, letterSpacing: 0.3 }}>{error}</p>}
           <button
             type="submit"
             disabled={loading}

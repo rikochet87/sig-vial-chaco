@@ -226,7 +226,7 @@ const inpS: React.CSSProperties = {
   boxSizing: 'border-box',
 }
 const lblS: React.CSSProperties = {
-  fontSize: 9, color: '#444', textTransform: 'uppercase', letterSpacing: 1,
+  fontSize: 12, color: '#444', textTransform: 'uppercase', letterSpacing: 1,
   fontFamily: 'monospace', marginBottom: 2, display: 'block', marginTop: 8,
 }
 
@@ -273,7 +273,7 @@ function ParamsForm({ type, p, onChange }: {
         {n('Ab', 'Ancho banquina (m)')}
         <label style={{ display: 'block' }}>
           <span style={lblS}>Lados</span>
-          <select value={p.lados as number} onChange={e => onChange('lados', parseInt(e.target.value))} style={{ ...inpS, fontSize: 12 }}>
+          <select value={p.lados as number} onChange={e => onChange('lados', parseInt(e.target.value))} style={{ ...inpS, fontSize: 13 }}>
             <option value={1}>1 lado</option>
             <option value={2}>2 lados</option>
           </select>
@@ -973,7 +973,7 @@ export default function PlantaPage() {
         <div style={{ flex: 1, overflowY: 'auto', padding: '12px 12px 0' }}>
 
           {/* Tipo de obra */}
-          <div style={{ fontSize: 9, color: '#444', letterSpacing: 1.5, textTransform: 'uppercase', ...MONO, marginBottom: 8 }}>
+          <div style={{ fontSize: 12, color: '#444', letterSpacing: 1.5, textTransform: 'uppercase', ...MONO, marginBottom: 8 }}>
             Tipo de obra
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 6 }}>
@@ -981,7 +981,7 @@ export default function PlantaPage() {
               const tc = obraColors[t.id]
               return (
                 <button key={t.id} onClick={() => setObraType(t.id)} style={{
-                  padding: '6px 8px', fontSize: 11, ...MONO, cursor: 'pointer',
+                  padding: '6px 8px', fontSize: 13, ...MONO, cursor: 'pointer',
                   textAlign: 'left', border: `1px solid ${obraType===t.id ? tc : '#1e1e1e'}`,
                   background: obraType===t.id ? `${tc}18` : 'transparent',
                   color: obraType===t.id ? tc : '#555',
@@ -997,7 +997,7 @@ export default function PlantaPage() {
 
           {/* Color picker para el tipo activo */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, padding: '5px 8px', border: '1px solid #1a1a1a', background: '#0a0a0a' }}>
-            <span style={{ fontSize: 9, color: '#444', ...MONO, textTransform: 'uppercase', letterSpacing: 1, flex: 1 }}>Color</span>
+            <span style={{ fontSize: 12, color: '#444', ...MONO, textTransform: 'uppercase', letterSpacing: 1, flex: 1 }}>Color</span>
             <input
               type="color"
               value={currentColor}
@@ -1007,7 +1007,7 @@ export default function PlantaPage() {
             />
             <button
               onClick={() => setObraColors(prev => ({ ...prev, [obraType]: currentColor }))}
-              style={{ fontSize: 8, color: '#333', background: 'transparent', border: 'none', cursor: 'pointer', ...MONO, letterSpacing: 0.5, padding: '2px 4px' }}
+              style={{ fontSize: 11, color: '#333', background: 'transparent', border: 'none', cursor: 'pointer', ...MONO, letterSpacing: 0.5, padding: '2px 4px' }}
               title="Resetear color"
             >
               ↺
@@ -1024,13 +1024,13 @@ export default function PlantaPage() {
                 style={{ ...inpS, paddingRight: L > 0 ? 54 : 8, color: L > 0 ? currentColor : '#444' }}
               />
               {L > 0 && (
-                <span style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', fontSize: 8, color: currentColor, ...MONO, pointerEvents: 'none' }}>
+                <span style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', fontSize: 11, color: currentColor, ...MONO, pointerEvents: 'none' }}>
                   del mapa
                 </span>
               )}
             </div>
             {L > 0 && (
-              <div style={{ fontSize: 9, color: '#333', ...MONO, marginTop: 2 }}>{(L / 1000).toFixed(3)} km</div>
+              <div style={{ fontSize: 12, color: '#333', ...MONO, marginTop: 2 }}>{(L / 1000).toFixed(3)} km</div>
             )}
           </div>
 
@@ -1039,7 +1039,7 @@ export default function PlantaPage() {
 
           {/* Buffer info */}
           <div style={{ marginTop: 10, padding: '6px 8px', background: '#0a0a0a', border: '1px solid #1a1a1a' }}>
-            <div style={{ fontSize: 9, color: '#333', ...MONO, lineHeight: 1.7 }}>
+            <div style={{ fontSize: 12, color: '#333', ...MONO, lineHeight: 1.7 }}>
               Buffer en mapa: ±{halfWidth.toFixed(1)} m<br />
               Ancho total: {(halfWidth*2).toFixed(1)} m
             </div>
@@ -1055,18 +1055,18 @@ export default function PlantaPage() {
               style={{ ...inpS, color: precioUnitario > 0 ? currentColor : '#444' }}
             />
             {precioUnitario > 0 && (
-              <div style={{ fontSize: 9, color: '#333', ...MONO, marginTop: 2 }}>ARS</div>
+              <div style={{ fontSize: 12, color: '#333', ...MONO, marginTop: 2 }}>ARS</div>
             )}
           </div>
 
           {/* Superficies guardadas (solo en modo Desbosque por lado) */}
           {pendingSide && refPolygons.length > 0 && (
             <div style={{ marginTop: 12 }}>
-              <div style={{ fontSize: 9, color: '#444', letterSpacing: 1.5, textTransform: 'uppercase', ...MONO, marginBottom: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ fontSize: 12, color: '#444', letterSpacing: 1.5, textTransform: 'uppercase', ...MONO, marginBottom: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span>Superficies ({refPolygons.length})</span>
                 <button
                   onClick={() => { setRefPolygons([]); sessionStorage.removeItem('planta_prevPolygons') }}
-                  style={{ background: 'transparent', border: 'none', color: '#333', ...MONO, fontSize: 9, cursor: 'pointer', padding: 0 }}
+                  style={{ background: 'transparent', border: 'none', color: '#333', ...MONO, fontSize: 12, cursor: 'pointer', padding: 0 }}
                 >
                   limpiar
                 </button>
@@ -1077,8 +1077,8 @@ export default function PlantaPage() {
                 return (
                   <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 8px', background: '#0a0a0a', border: '1px solid #1a1a1a', borderLeft: `2px solid ${sideColor}`, marginBottom: 3 }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 9, color: sideColor, ...MONO }}>Sup. {i + 1} — Lado {rp.side.toUpperCase()}</div>
-                      <div style={{ fontSize: 10, color: '#888', fontWeight: 700, ...MONO }}>{area.toFixed(4)} ha</div>
+                      <div style={{ fontSize: 12, color: sideColor, ...MONO }}>Sup. {i + 1} — Lado {rp.side.toUpperCase()}</div>
+                      <div style={{ fontSize: 12, color: '#888', fontWeight: 700, ...MONO }}>{area.toFixed(4)} ha</div>
                     </div>
                     <button onClick={() => deleteRefPolygon(i)}
                       style={{ background: 'transparent', border: 'none', color: '#2a2a2a', cursor: 'pointer', fontSize: 15, padding: '0 2px', flexShrink: 0, lineHeight: 1 }}
@@ -1093,13 +1093,13 @@ export default function PlantaPage() {
           {/* Resultados live */}
           {results.length > 0 && (
             <div style={{ marginTop: 12 }}>
-              <div style={{ fontSize: 9, color: '#444', letterSpacing: 1.5, textTransform: 'uppercase', ...MONO, marginBottom: 6 }}>
+              <div style={{ fontSize: 12, color: '#444', letterSpacing: 1.5, textTransform: 'uppercase', ...MONO, marginBottom: 6 }}>
                 Resultado
               </div>
               <div style={{ background: '#0a0a0a', border: `1px solid #1e1e1e`, borderLeft: `3px solid ${currentColor}`, padding: '8px 10px' }}>
                 {results.map(r => (
                   <div key={r.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 5 }}>
-                    <span style={{ fontSize: 10, color: '#555', ...MONO }}>{r.label}</span>
+                    <span style={{ fontSize: 12, color: '#555', ...MONO }}>{r.label}</span>
                     <span style={{ fontSize: r.accent ? 14 : 11, fontWeight: r.accent ? 700 : 400, color: r.accent ? currentColor : '#888', ...MONO }}>
                       {r.value}
                     </span>
@@ -1112,7 +1112,7 @@ export default function PlantaPage() {
                   const total = accent.numericValue * precioUnitario
                   return (
                     <div style={{ marginTop: 6, paddingTop: 6, borderTop: `1px solid ${currentColor}22` }}>
-                      <div style={{ fontSize: 9, color: '#444', ...MONO }}>Total estimado</div>
+                      <div style={{ fontSize: 12, color: '#444', ...MONO }}>Total estimado</div>
                       <div style={{ fontSize: 13, fontWeight: 700, color: currentColor, ...MONO }}>
                         {Math.round(total).toLocaleString('es-AR')} ARS
                       </div>
@@ -1127,7 +1127,7 @@ export default function PlantaPage() {
         {/* Botón dibujar + capas */}
         <div style={{ padding: 12, borderTop: '1px solid #1e1e1e', flexShrink: 0 }}>
           <button onClick={drawing ? undefined : (pendingSide ? startPolygonDraw : startDraw)} style={{
-            width: '100%', padding: '9px', fontSize: 11, ...MONO, cursor: drawing ? 'not-allowed' : 'pointer',
+            width: '100%', padding: '9px', fontSize: 13, ...MONO, cursor: drawing ? 'not-allowed' : 'pointer',
             fontWeight: 700, letterSpacing: 0.5,
             border: `1px solid ${drawing ? '#222' : currentColor}`,
             background: drawing ? '#111' : `${currentColor}22`,
@@ -1138,7 +1138,7 @@ export default function PlantaPage() {
               : '✏ DIBUJAR EN MAPA'}
           </button>
           {drawing && !ctxMenu && !saveModal && !polyResult && (
-            <div style={{ fontSize: 9, color: '#555', ...MONO, marginTop: 6, lineHeight: 1.7, textAlign: 'center' }}>
+            <div style={{ fontSize: 12, color: '#555', ...MONO, marginTop: 6, lineHeight: 1.7, textAlign: 'center' }}>
               {pendingSide ? <>Clic → agregar vértice<br />Click derecho → cerrar y medir</> : <>Clic → agregar punto<br />Click derecho → finalizar</>}
             </div>
           )}
@@ -1147,7 +1147,7 @@ export default function PlantaPage() {
           <div style={{ display: 'flex', gap: 4, marginTop: 8 }}>
             {[{ v: true, label: 'Satélite' }, { v: false, label: 'OSM' }].map(({ v, label }) => (
               <button key={label} onClick={() => setSatellite(v)} style={{
-                flex: 1, padding: '4px', fontSize: 9, ...MONO, cursor: 'pointer',
+                flex: 1, padding: '4px', fontSize: 12, ...MONO, cursor: 'pointer',
                 border: `1px solid ${satellite===v ? '#F5C300' : '#1e1e1e'}`,
                 background: satellite===v ? '#F5C30012' : 'transparent',
                 color: satellite===v ? '#F5C300' : '#444',
@@ -1161,9 +1161,9 @@ export default function PlantaPage() {
         {/* Lista de obras guardadas */}
         {obras.length > 0 && (
           <div style={{ borderTop: '1px solid #1e1e1e', maxHeight: 220, overflowY: 'auto', flexShrink: 0 }}>
-            <div style={{ padding: '8px 12px 4px', fontSize: 9, color: '#333', letterSpacing: 1, textTransform: 'uppercase', ...MONO, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ padding: '8px 12px 4px', fontSize: 12, color: '#333', letterSpacing: 1, textTransform: 'uppercase', ...MONO, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span>Obras ({obras.length})</span>
-              <button onClick={clearAll} style={{ background: 'transparent', border: 'none', color: '#333', ...MONO, fontSize: 9, cursor: 'pointer' }}>
+              <button onClick={clearAll} style={{ background: 'transparent', border: 'none', color: '#333', ...MONO, fontSize: 12, cursor: 'pointer' }}>
                 Limpiar todo
               </button>
             </div>
@@ -1175,16 +1175,16 @@ export default function PlantaPage() {
                 <div key={o.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 6, padding: '6px 12px', borderTop: '1px solid #111' }}>
                   <span style={{ width: 6, height: 6, background: oc, flexShrink: 0, marginTop: 4 }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 10, color: oc, ...MONO }}>{t.label}</div>
-                    {o.descripcion && <div style={{ fontSize: 9, color: '#666', ...MONO, lineHeight: 1.3 }}>{o.descripcion}</div>}
-                    <div style={{ fontSize: 9, color: '#444', ...MONO, lineHeight: 1.5 }}>
+                    <div style={{ fontSize: 12, color: oc, ...MONO }}>{t.label}</div>
+                    {o.descripcion && <div style={{ fontSize: 12, color: '#666', ...MONO, lineHeight: 1.3 }}>{o.descripcion}</div>}
+                    <div style={{ fontSize: 12, color: '#444', ...MONO, lineHeight: 1.5 }}>
                       {(o.lengthM/1000).toFixed(3)} km
                     </div>
                     {accent && (
-                      <div style={{ fontSize: 10, color: '#888', ...MONO }}>{accent.label}: {accent.value}</div>
+                      <div style={{ fontSize: 12, color: '#888', ...MONO }}>{accent.label}: {accent.value}</div>
                     )}
                     {o.precioUnitario && accent?.numericValue && (
-                      <div style={{ fontSize: 9, color: '#555', ...MONO }}>
+                      <div style={{ fontSize: 12, color: '#555', ...MONO }}>
                         {Math.round(accent.numericValue * o.precioUnitario).toLocaleString('es-AR')} ARS
                       </div>
                     )}
@@ -1209,7 +1209,7 @@ export default function PlantaPage() {
             position: 'absolute', top: 12, left: '50%', transform: 'translateX(-50%)',
             zIndex: 800, background: 'rgba(10,10,10,0.9)',
             border: `1px solid ${currentColor}`, padding: '6px 16px',
-            fontSize: 11, ...MONO, color: currentColor,
+            fontSize: 13, ...MONO, color: currentColor,
             pointerEvents: 'none', whiteSpace: 'nowrap',
           }}>
             {pendingSide
@@ -1228,13 +1228,13 @@ export default function PlantaPage() {
             backdropFilter: 'blur(6px)',
           }}>
             {/* Header */}
-            <div style={{ fontSize: 8, color: currentColor, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ fontSize: 11, color: currentColor, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span>▶ Geometría — Lado {pendingSide === 'izq' ? 'IZQ' : 'DER'}</span>
               {/* Unit toggle */}
               <div style={{ display: 'flex', gap: 2 }}>
                 {(['ha','m2','km2'] as const).map(u => (
                   <button key={u} onClick={() => setHudUnit(u)} style={{
-                    fontSize: 7, padding: '1px 5px', fontFamily: 'monospace', cursor: 'pointer',
+                    fontSize: 11, padding: '1px 5px', fontFamily: 'monospace', cursor: 'pointer',
                     border: `1px solid ${hudUnit === u ? currentColor : '#333'}`,
                     background: hudUnit === u ? `${currentColor}22` : 'transparent',
                     color: hudUnit === u ? currentColor : '#444',
@@ -1251,7 +1251,7 @@ export default function PlantaPage() {
               { label: 'Últ. segmento', value: polyHUD.lastSegM > 0 ? (polyHUD.lastSegM >= 1000 ? `${(polyHUD.lastSegM/1000).toFixed(3)} km` : `${Math.round(polyHUD.lastSegM)} m`) : '—' },
             ].map(r => (
               <div key={r.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
-                <span style={{ fontSize: 9, color: '#444' }}>{r.label}</span>
+                <span style={{ fontSize: 12, color: '#444' }}>{r.label}</span>
                 <span style={{ fontSize: r.accent ? 14 : 10, fontWeight: r.accent ? 700 : 400, color: r.accent ? currentColor : '#888' }}>
                   {r.value}
                 </span>
@@ -1260,23 +1260,23 @@ export default function PlantaPage() {
 
             {/* Monte selector + vol. arbóreo */}
             <div style={{ borderTop: `1px solid ${currentColor}22`, marginTop: 6, paddingTop: 6 }}>
-              <div style={{ fontSize: 8, color: '#333', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>Tipo de monte</div>
+              <div style={{ fontSize: 11, color: '#333', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>Tipo de monte</div>
               <select value={hudMonte} onChange={e => setHudMonte(e.target.value)}
-                style={{ width: '100%', background: '#080808', border: `1px solid #222`, color: '#888', fontFamily: 'monospace', fontSize: 9, padding: '3px 4px', outline: 'none', marginBottom: 5 }}>
+                style={{ width: '100%', background: '#080808', border: `1px solid #222`, color: '#888', fontFamily: 'monospace', fontSize: 12, padding: '3px 4px', outline: 'none', marginBottom: 5 }}>
                 {Object.entries(MONTE_LABELS).map(([k, label]) => (
                   <option key={k} value={k}>{label}</option>
                 ))}
               </select>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                <span style={{ fontSize: 9, color: '#444' }}>Vol. arbóreo</span>
-                <span style={{ fontSize: 10, color: '#666' }}>
+                <span style={{ fontSize: 12, color: '#444' }}>Vol. arbóreo</span>
+                <span style={{ fontSize: 12, color: '#666' }}>
                   {Math.round(polyHUD.areaHa * (MONTE_FACTORS[hudMonte] ?? 150)).toLocaleString('es-AR')} m³
                 </span>
               </div>
             </div>
 
             {/* Instrucción snap */}
-            <div style={{ marginTop: 8, fontSize: 8, color: '#333', lineHeight: 1.7 }}>
+            <div style={{ marginTop: 8, fontSize: 11, color: '#333', lineHeight: 1.7 }}>
               Clic cerca del 1.er punto → cerrar
               <br />Click derecho → cerrar y medir
             </div>
@@ -1298,7 +1298,7 @@ export default function PlantaPage() {
             }}
             style={{
               background: 'rgba(10,10,10,0.88)', border: '1px solid #2a2a2a',
-              color: '#777', fontFamily: 'monospace', fontSize: 11,
+              color: '#777', fontFamily: 'monospace', fontSize: 13,
               padding: '5px 10px', cursor: 'pointer', letterSpacing: 0.3,
               transition: 'border-color 0.15s, color 0.15s',
             }}
@@ -1315,7 +1315,7 @@ export default function PlantaPage() {
               title="Capas base"
               style={{
                 background: 'rgba(10,10,10,0.88)', border: `1px solid ${layerPanelOpen ? '#F5C300' : '#2a2a2a'}`,
-                color: layerPanelOpen ? '#F5C300' : '#777', fontFamily: 'monospace', fontSize: 10,
+                color: layerPanelOpen ? '#F5C300' : '#777', fontFamily: 'monospace', fontSize: 12,
                 padding: '5px 10px', cursor: 'pointer', letterSpacing: 0.5,
                 transition: 'border-color 0.15s, color 0.15s',
               }}
@@ -1328,26 +1328,26 @@ export default function PlantaPage() {
                 padding: '8px 10px', maxHeight: 340, overflowY: 'auto', minWidth: 148,
               }}>
                 {/* Base */}
-                <div style={{ fontSize: 8, color: '#333', letterSpacing: 1.2, fontFamily: 'monospace', textTransform: 'uppercase', marginBottom: 5 }}>Base</div>
+                <div style={{ fontSize: 11, color: '#333', letterSpacing: 1.2, fontFamily: 'monospace', textTransform: 'uppercase', marginBottom: 5 }}>Base</div>
                 {(['limite','zonas','sedes'] as BaseLayerKey[]).map(k => (
-                  <label key={k} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', marginBottom: 5, fontSize: 10, fontFamily: 'monospace', color: baseLayers[k] ? LAYER_COLORS[k] : '#444' }}>
+                  <label key={k} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', marginBottom: 5, fontSize: 12, fontFamily: 'monospace', color: baseLayers[k] ? LAYER_COLORS[k] : '#444' }}>
                     <input type="checkbox" checked={baseLayers[k]} onChange={e => setBaseLayers(prev => ({ ...prev, [k]: e.target.checked }))} style={{ accentColor: LAYER_COLORS[k], width: 11, height: 11, flexShrink: 0 }} />
                     {LAYER_LABELS[k]}
                   </label>
                 ))}
                 {/* Rutas Prov. */}
-                <div style={{ fontSize: 8, color: '#333', letterSpacing: 1.2, fontFamily: 'monospace', textTransform: 'uppercase', marginTop: 8, marginBottom: 5, borderTop: '1px solid #1a1a1a', paddingTop: 6 }}>Rutas Prov.</div>
+                <div style={{ fontSize: 11, color: '#333', letterSpacing: 1.2, fontFamily: 'monospace', textTransform: 'uppercase', marginTop: 8, marginBottom: 5, borderTop: '1px solid #1a1a1a', paddingTop: 6 }}>Rutas Prov.</div>
                 {(['rpPavimentada','rpMejorada','rpEnObra','rpTierra'] as BaseLayerKey[]).map(k => (
-                  <label key={k} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', marginBottom: 5, fontSize: 10, fontFamily: 'monospace', color: baseLayers[k] ? LAYER_COLORS[k] : '#444' }}>
+                  <label key={k} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', marginBottom: 5, fontSize: 12, fontFamily: 'monospace', color: baseLayers[k] ? LAYER_COLORS[k] : '#444' }}>
                     <input type="checkbox" checked={baseLayers[k]} onChange={e => setBaseLayers(prev => ({ ...prev, [k]: e.target.checked }))} style={{ accentColor: LAYER_COLORS[k], width: 11, height: 11, flexShrink: 0 }} />
                     <span style={{ display: 'inline-block', width: 14, height: 2, background: LAYER_COLORS[k], flexShrink: 0 }} />
                     {LAYER_LABELS[k]}
                   </label>
                 ))}
                 {/* Red CC */}
-                <div style={{ fontSize: 8, color: '#333', letterSpacing: 1.2, fontFamily: 'monospace', textTransform: 'uppercase', marginTop: 8, marginBottom: 5, borderTop: '1px solid #1a1a1a', paddingTop: 6 }}>Red CC</div>
+                <div style={{ fontSize: 11, color: '#333', letterSpacing: 1.2, fontFamily: 'monospace', textTransform: 'uppercase', marginTop: 8, marginBottom: 5, borderTop: '1px solid #1a1a1a', paddingTop: 6 }}>Red CC</div>
                 {(['ccZI','ccZII','ccZIII','ccZIV','ccZV'] as BaseLayerKey[]).map(k => (
-                  <label key={k} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', marginBottom: 5, fontSize: 10, fontFamily: 'monospace', color: baseLayers[k] ? LAYER_COLORS[k] : '#444' }}>
+                  <label key={k} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', marginBottom: 5, fontSize: 12, fontFamily: 'monospace', color: baseLayers[k] ? LAYER_COLORS[k] : '#444' }}>
                     <input type="checkbox" checked={baseLayers[k]} onChange={e => setBaseLayers(prev => ({ ...prev, [k]: e.target.checked }))} style={{ accentColor: LAYER_COLORS[k], width: 11, height: 11, flexShrink: 0 }} />
                     <span style={{ display: 'inline-block', width: 14, height: 2, background: LAYER_COLORS[k], flexShrink: 0 }} />
                     {LAYER_LABELS[k]}
@@ -1363,7 +1363,7 @@ export default function PlantaPage() {
           <div style={{
             position: 'absolute', bottom: 36, left: 10, zIndex: 799,
             background: 'rgba(10,10,10,0.85)', border: '1px solid #1e1e1e',
-            padding: '8px 12px', fontSize: 10, ...MONO, lineHeight: 1.8,
+            padding: '8px 12px', fontSize: 12, ...MONO, lineHeight: 1.8,
           }}>
             {obras.map(o => {
               const t = OBRA_TYPES.find(x => x.id === o.type)!
@@ -1403,7 +1403,7 @@ export default function PlantaPage() {
                 style={{
                   display: 'block', width: '100%', padding: '10px 16px', textAlign: 'left',
                   background: 'transparent', border: 'none', borderBottom: '1px solid #1a1a1a',
-                  color: currentColor, fontFamily: 'monospace', fontSize: 12,
+                  color: currentColor, fontFamily: 'monospace', fontSize: 13,
                   cursor: 'pointer', fontWeight: 700, letterSpacing: 0.3,
                 }}
                 onMouseEnter={e => (e.currentTarget.style.background = `${currentColor}18`)}
@@ -1416,7 +1416,7 @@ export default function PlantaPage() {
                 style={{
                   display: 'block', width: '100%', padding: '10px 16px', textAlign: 'left',
                   background: 'transparent', border: 'none',
-                  color: '#666', fontFamily: 'monospace', fontSize: 12, cursor: 'pointer',
+                  color: '#666', fontFamily: 'monospace', fontSize: 13, cursor: 'pointer',
                 }}
                 onMouseEnter={e => (e.currentTarget.style.background = '#1a1a1a')}
                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
@@ -1456,13 +1456,13 @@ export default function PlantaPage() {
                     style={{ width: 18, height: 18, background: 'transparent', border: 'none', cursor: 'pointer', padding: 0, flexShrink: 0 }}
                     title="Cambiar color"
                   />
-                  <span style={{ fontSize: 12, color: mc, fontWeight: 700, letterSpacing: 1.2 }}>
+                  <span style={{ fontSize: 13, color: mc, fontWeight: 700, letterSpacing: 1.2 }}>
                     NUEVA OBRA · {mt.label.toUpperCase()}
                   </span>
                 </div>
 
                 {/* Info básica */}
-                <div style={{ fontSize: 10, color: '#555', marginBottom: 12, lineHeight: 1.8 }}>
+                <div style={{ fontSize: 12, color: '#555', marginBottom: 12, lineHeight: 1.8 }}>
                   {(saveModal.lengthM/1000).toFixed(3)} km · Buffer ±{saveModal.halfWidth.toFixed(1)} m
                 </div>
 
@@ -1473,7 +1473,7 @@ export default function PlantaPage() {
                 }}>
                   {saveModal.results.map(r => (
                     <div key={r.label} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                      <span style={{ fontSize: 10, color: '#555' }}>{r.label}</span>
+                      <span style={{ fontSize: 12, color: '#555' }}>{r.label}</span>
                       <span style={{
                         fontSize: r.accent ? 13 : 11, fontWeight: r.accent ? 700 : 400,
                         color: r.accent ? mc : '#888',
@@ -1484,7 +1484,7 @@ export default function PlantaPage() {
 
                 {/* Descripción */}
                 <label style={{ display: 'block', marginBottom: 12 }}>
-                  <span style={{ fontSize: 9, color: '#444', letterSpacing: 1, textTransform: 'uppercase', display: 'block', marginBottom: 3 }}>
+                  <span style={{ fontSize: 12, color: '#444', letterSpacing: 1, textTransform: 'uppercase', display: 'block', marginBottom: 3 }}>
                     Descripción (opcional)
                   </span>
                   <input
@@ -1499,7 +1499,7 @@ export default function PlantaPage() {
 
                 {/* Precio unitario */}
                 <label style={{ display: 'block', marginBottom: 12 }}>
-                  <span style={{ fontSize: 9, color: '#444', letterSpacing: 1, textTransform: 'uppercase', display: 'block', marginBottom: 3 }}>
+                  <span style={{ fontSize: 12, color: '#444', letterSpacing: 1, textTransform: 'uppercase', display: 'block', marginBottom: 3 }}>
                     Precio unitario ({saveModal.unidad})
                   </span>
                   <input
@@ -1517,11 +1517,11 @@ export default function PlantaPage() {
                     background: `${mc}0e`, border: `1px solid ${mc}33`,
                     padding: '8px 12px', marginBottom: 14,
                   }}>
-                    <div style={{ fontSize: 9, color: '#444', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 2 }}>Total estimado</div>
+                    <div style={{ fontSize: 12, color: '#444', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 2 }}>Total estimado</div>
                     <div style={{ fontSize: 18, fontWeight: 700, color: mc }}>
                       {Math.round(total).toLocaleString('es-AR')} ARS
                     </div>
-                    <div style={{ fontSize: 9, color: '#444', marginTop: 2 }}>
+                    <div style={{ fontSize: 12, color: '#444', marginTop: 2 }}>
                       {accent.numericValue.toFixed(2)} {saveModal.unidad.replace('$/', '')} × {saveModal.precioModal.toLocaleString('es-AR')} ARS
                     </div>
                   </div>
@@ -1532,7 +1532,7 @@ export default function PlantaPage() {
                   <button
                     onClick={handleSaveObra}
                     style={{
-                      flex: 1, padding: '10px', fontSize: 12, fontWeight: 700,
+                      flex: 1, padding: '10px', fontSize: 13, fontWeight: 700,
                       fontFamily: 'monospace', cursor: 'pointer',
                       border: `1px solid ${mc}`, background: `${mc}22`,
                       color: mc, letterSpacing: 0.5,
@@ -1543,7 +1543,7 @@ export default function PlantaPage() {
                   <button
                     onClick={handleDiscardObra}
                     style={{
-                      flex: 1, padding: '10px', fontSize: 12,
+                      flex: 1, padding: '10px', fontSize: 13,
                       fontFamily: 'monospace', cursor: 'pointer',
                       border: '1px solid #2a2a2a', background: 'transparent', color: '#555',
                     }}
@@ -1570,7 +1570,7 @@ export default function PlantaPage() {
             boxShadow: `0 0 40px ${currentColor}22`,
             fontFamily: 'monospace',
           }}>
-            <div style={{ fontSize: 12, color: currentColor, fontWeight: 700, letterSpacing: 1.2, marginBottom: 16 }}>
+            <div style={{ fontSize: 13, color: currentColor, fontWeight: 700, letterSpacing: 1.2, marginBottom: 16 }}>
               ÁREA DEL POLÍGONO — LADO {pendingSide === 'izq' ? 'IZQUIERDO' : 'DERECHO'}
             </div>
 
@@ -1579,7 +1579,7 @@ export default function PlantaPage() {
               <div style={{ display: 'flex', gap: 4, marginBottom: 10, justifyContent: 'flex-end' }}>
                 {(['ha','m2','km2'] as const).map(u => (
                   <button key={u} onClick={() => setHudUnit(u)} style={{
-                    fontSize: 8, padding: '2px 7px', fontFamily: 'monospace', cursor: 'pointer',
+                    fontSize: 11, padding: '2px 7px', fontFamily: 'monospace', cursor: 'pointer',
                     border: `1px solid ${hudUnit === u ? currentColor : '#333'}`,
                     background: hudUnit === u ? `${currentColor}22` : 'transparent',
                     color: hudUnit === u ? currentColor : '#555',
@@ -1588,47 +1588,47 @@ export default function PlantaPage() {
               </div>
               {/* Primary value */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
-                <span style={{ fontSize: 10, color: '#555' }}>Superficie</span>
+                <span style={{ fontSize: 12, color: '#555' }}>Superficie</span>
                 <span style={{ fontSize: 22, fontWeight: 700, color: currentColor }}>{fmtArea(polyResult.area_ha, hudUnit)}</span>
               </div>
               {/* Secondary values */}
               {hudUnit !== 'ha' && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
-                  <span style={{ fontSize: 9, color: '#444' }}>ha</span>
-                  <span style={{ fontSize: 10, color: '#555' }}>{polyResult.area_ha.toFixed(4)} ha</span>
+                  <span style={{ fontSize: 12, color: '#444' }}>ha</span>
+                  <span style={{ fontSize: 12, color: '#555' }}>{polyResult.area_ha.toFixed(4)} ha</span>
                 </div>
               )}
               {hudUnit !== 'km2' && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
-                  <span style={{ fontSize: 9, color: '#444' }}>km²</span>
-                  <span style={{ fontSize: 10, color: '#555' }}>{(polyResult.area_ha / 100).toFixed(6)} km²</span>
+                  <span style={{ fontSize: 12, color: '#444' }}>km²</span>
+                  <span style={{ fontSize: 12, color: '#555' }}>{(polyResult.area_ha / 100).toFixed(6)} km²</span>
                 </div>
               )}
               {hudUnit !== 'm2' && (
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ fontSize: 9, color: '#444' }}>m²</span>
-                  <span style={{ fontSize: 10, color: '#555' }}>{Math.round(polyResult.area_ha * 10000).toLocaleString('es-AR')} m²</span>
+                  <span style={{ fontSize: 12, color: '#444' }}>m²</span>
+                  <span style={{ fontSize: 12, color: '#555' }}>{Math.round(polyResult.area_ha * 10000).toLocaleString('es-AR')} m²</span>
                 </div>
               )}
               {/* Perimeter */}
               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, paddingTop: 6, borderTop: `1px solid ${currentColor}22` }}>
-                <span style={{ fontSize: 9, color: '#444' }}>Perímetro</span>
-                <span style={{ fontSize: 10, color: '#666' }}>
+                <span style={{ fontSize: 12, color: '#444' }}>Perímetro</span>
+                <span style={{ fontSize: 12, color: '#666' }}>
                   {(() => { const p = totalLen([...polyResult.pts, polyResult.pts[0]]); return p >= 1000 ? `${(p/1000).toFixed(3)} km` : `${Math.round(p)} m` })()}
                 </span>
               </div>
               {/* Vol. arbóreo con selector monte */}
               <div style={{ marginTop: 8 }}>
-                <div style={{ fontSize: 8, color: '#333', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>Tipo de monte</div>
+                <div style={{ fontSize: 11, color: '#333', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>Tipo de monte</div>
                 <select value={hudMonte} onChange={e => setHudMonte(e.target.value)}
-                  style={{ width: '100%', background: '#080808', border: '1px solid #222', color: '#888', fontFamily: 'monospace', fontSize: 9, padding: '3px 4px', outline: 'none', marginBottom: 5 }}>
+                  style={{ width: '100%', background: '#080808', border: '1px solid #222', color: '#888', fontFamily: 'monospace', fontSize: 12, padding: '3px 4px', outline: 'none', marginBottom: 5 }}>
                   {Object.entries(MONTE_LABELS).map(([k, label]) => (
                     <option key={k} value={k}>{label}</option>
                   ))}
                 </select>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ fontSize: 9, color: '#444' }}>Vol. arbóreo estimado</span>
-                  <span style={{ fontSize: 10, color: currentColor, fontWeight: 600 }}>
+                  <span style={{ fontSize: 12, color: '#444' }}>Vol. arbóreo estimado</span>
+                  <span style={{ fontSize: 12, color: currentColor, fontWeight: 600 }}>
                     {Math.round(polyResult.area_ha * (MONTE_FACTORS[hudMonte] ?? 150)).toLocaleString('es-AR')} m³
                   </span>
                 </div>
@@ -1648,7 +1648,7 @@ export default function PlantaPage() {
                 router.push('/dashboard/obras/calculadoras')
               }}
               style={{
-                width: '100%', padding: '11px', fontSize: 12, fontWeight: 700,
+                width: '100%', padding: '11px', fontSize: 13, fontWeight: 700,
                 fontFamily: 'monospace', cursor: 'pointer', marginBottom: 8,
                 border: `1px solid ${currentColor}`, background: `${currentColor}22`,
                 color: currentColor, letterSpacing: 0.3,
@@ -1660,7 +1660,7 @@ export default function PlantaPage() {
             <button
               onClick={handleDiscardPoly}
               style={{
-                width: '100%', padding: '8px', fontSize: 11,
+                width: '100%', padding: '8px', fontSize: 13,
                 fontFamily: 'monospace', cursor: 'pointer',
                 border: '1px solid #2a2a2a', background: 'transparent', color: '#555',
               }}

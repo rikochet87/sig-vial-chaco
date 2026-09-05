@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import TamanoTexto from './TamanoTexto'
 
 interface HeaderProps {
   userEmail: string
@@ -40,15 +41,16 @@ export default function Header({ userEmail, title }: HeaderProps) {
       borderBottom: '1px solid #222',
       flexShrink: 0,
     }}>
-      <span style={{ fontWeight: 600, fontSize: 11, color: '#e0e0e0', letterSpacing: 0.3 }}>
+      <span style={{ fontWeight: 600, fontSize: 13, color: '#e0e0e0', letterSpacing: 0.3 }}>
         {title || 'SIG Vial Chaco — Panel Admin'}
       </span>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <TamanoTexto />
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <div style={{ width: 18, height: 18, borderRadius: '50%', background: '#2a2a2a', border: '1px solid #333', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <span style={{ fontSize: 8, color: '#9E9E9E' }}>▲</span>
+            <span style={{ fontSize: 11, color: '#9E9E9E' }}>▲</span>
           </div>
-          <span style={{ color: '#9E9E9E', fontSize: 10, fontFamily: 'monospace' }}>{displayName}</span>
+          <span style={{ color: '#9E9E9E', fontSize: 12, fontFamily: 'monospace' }}>{displayName}</span>
         </div>
         <button
           onClick={handleLogout}
@@ -59,7 +61,7 @@ export default function Header({ userEmail, title }: HeaderProps) {
             color: '#666',
             padding: '3px 8px',
             cursor: 'pointer',
-            fontSize: 10,
+            fontSize: 12,
             fontFamily: 'monospace',
             letterSpacing: 0.5,
             transition: 'border-color 0.15s, color 0.15s',

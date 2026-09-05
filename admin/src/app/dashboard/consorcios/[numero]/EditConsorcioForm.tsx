@@ -42,8 +42,8 @@ export default function EditConsorcioForm({ consorcio }: Props) {
     setLoading(false)
   }
 
-  const inputStyle = { width: '100%', padding: '8px 10px', background: '#1a1a1a', border: '1px solid #252525', color: '#e0e0e0', fontSize: 12, boxSizing: 'border-box' as const }
-  const labelStyle = { display: 'block' as const, color: '#555', fontSize: 10, textTransform: 'uppercase' as const, letterSpacing: 0.8, marginBottom: 5 }
+  const inputStyle = { width: '100%', padding: '8px 10px', background: '#1a1a1a', border: '1px solid #252525', color: '#e0e0e0', fontSize: 13, boxSizing: 'border-box' as const }
+  const labelStyle = { display: 'block' as const, color: '#555', fontSize: 12, textTransform: 'uppercase' as const, letterSpacing: 0.8, marginBottom: 5 }
 
   return (
     <div style={{ background: '#191919', border: '1px solid #1e1e1e', padding: 24, position: 'relative' }}>
@@ -106,7 +106,7 @@ export default function EditConsorcioForm({ consorcio }: Props) {
           type="submit"
           disabled={loading}
           className="glow-y"
-          style={{ background: '#F5C300', color: '#111', fontWeight: 700, padding: '9px 20px', border: 'none', cursor: loading ? 'not-allowed' : 'pointer', fontSize: 11, letterSpacing: 1, opacity: loading ? 0.6 : 1 }}
+          style={{ background: '#F5C300', color: '#111', fontWeight: 700, padding: '9px 20px', border: 'none', cursor: loading ? 'not-allowed' : 'pointer', fontSize: 13, letterSpacing: 1, opacity: loading ? 0.6 : 1 }}
         >
           {loading ? 'GUARDANDO...' : 'GUARDAR CAMBIOS'}
         </button>

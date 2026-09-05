@@ -582,7 +582,7 @@ export default function InlineLineDraw({ color, halfWidth, onConfirm, onCancel }
   const fmtDist = (m: number) => m >= 1000 ? `${(m/1000).toFixed(3)} km` : `${Math.round(m)} m`
   const mono: React.CSSProperties = { fontFamily: 'monospace' }
   const toolBtn = (active?: boolean): React.CSSProperties => ({
-    padding: '4px 10px', fontSize: 10, ...mono, cursor: 'pointer', borderRadius: 2,
+    padding: '4px 10px', fontSize: 12, ...mono, cursor: 'pointer', borderRadius: 2,
     border: `1px solid ${active ? color+'99' : '#252525'}`,
     background: active ? `${color}1a` : '#0c0c0c',
     color: active ? color : '#555',
@@ -604,12 +604,12 @@ export default function InlineLineDraw({ color, halfWidth, onConfirm, onCancel }
           <>
             <button onClick={startDraw} style={{
               ...toolBtn(), color, borderColor: `${color}66`,
-              background: `${color}15`, padding: '5px 16px', fontSize: 11, fontWeight: 700,
+              background: `${color}15`, padding: '5px 16px', fontSize: 13, fontWeight: 700,
             }}>
               ↔ Trazar línea
             </button>
             <button onClick={() => fileInputRef.current?.click()} style={{
-              ...toolBtn(), fontSize: 10, padding: '4px 10px', color: '#888', borderColor: '#2a2a2a',
+              ...toolBtn(), fontSize: 12, padding: '4px 10px', color: '#888', borderColor: '#2a2a2a',
             }}>
               ↑ Importar KML / GeoJSON
             </button>
@@ -618,7 +618,7 @@ export default function InlineLineDraw({ color, halfWidth, onConfirm, onCancel }
 
         {drawing && (
           <>
-            <span style={{ fontSize: 9, color: `${color}cc`, ...mono }}>
+            <span style={{ fontSize: 12, color: `${color}cc`, ...mono }}>
               ● Clic para agregar punto · Clic derecho para terminar
             </span>
             {canUndo && (
@@ -632,12 +632,12 @@ export default function InlineLineDraw({ color, halfWidth, onConfirm, onCancel }
 
         {lineResult && (
           <>
-            <span style={{ fontSize: 10, color: '#888', ...mono }}>
+            <span style={{ fontSize: 12, color: '#888', ...mono }}>
               {fmtDist(lineResult.lengthM)} · {lineResult.pts.length} vértices
             </span>
             <button onClick={cancelDraw} style={{ ...toolBtn(), color: '#555' }}>↺ Redibujar</button>
             <button onClick={handleUse} style={{
-              ...toolBtn(true), padding: '5px 16px', fontSize: 11, fontWeight: 700,
+              ...toolBtn(true), padding: '5px 16px', fontSize: 13, fontWeight: 700,
             }}>
               ✓ Usar → {fmtDist(lineResult.lengthM)}
             </button>
@@ -646,9 +646,9 @@ export default function InlineLineDraw({ color, halfWidth, onConfirm, onCancel }
 
         {hasLine && !drawing && !lineResult && (
           <>
-            <span style={{ fontSize: 9, color: '#555', ...mono }}>Longitud confirmada</span>
-            <button onClick={startDraw} style={{ ...toolBtn(), fontSize: 10, color: '#666' }}>↺ Redibujar</button>
-            <button onClick={() => fileInputRef.current?.click()} style={{ ...toolBtn(), fontSize: 9, color: '#555' }}>
+            <span style={{ fontSize: 12, color: '#555', ...mono }}>Longitud confirmada</span>
+            <button onClick={startDraw} style={{ ...toolBtn(), fontSize: 12, color: '#666' }}>↺ Redibujar</button>
+            <button onClick={() => fileInputRef.current?.click()} style={{ ...toolBtn(), fontSize: 12, color: '#555' }}>
               ↑ Importar
             </button>
           </>
@@ -658,11 +658,11 @@ export default function InlineLineDraw({ color, halfWidth, onConfirm, onCancel }
 
         {/* Basemap */}
         <div style={{ display: 'flex', gap: 2 }}>
-          <button onClick={() => setBasemap('osm')} style={{ ...toolBtn(basemap === 'osm'), fontSize: 9 }}>OSM</button>
-          <button onClick={() => setBasemap('sat')} style={{ ...toolBtn(basemap === 'sat'), fontSize: 9 }}>Satélite</button>
+          <button onClick={() => setBasemap('osm')} style={{ ...toolBtn(basemap === 'osm'), fontSize: 12 }}>OSM</button>
+          <button onClick={() => setBasemap('sat')} style={{ ...toolBtn(basemap === 'sat'), fontSize: 12 }}>Satélite</button>
         </div>
         {onCancel && (
-          <button onClick={onCancel} style={{ ...toolBtn(), color: '#444', fontSize: 9 }}>✕ Cerrar</button>
+          <button onClick={onCancel} style={{ ...toolBtn(), color: '#444', fontSize: 12 }}>✕ Cerrar</button>
         )}
       </div>
 
@@ -676,9 +676,9 @@ export default function InlineLineDraw({ color, halfWidth, onConfirm, onCancel }
             position: 'absolute', bottom: 12, left: 12, zIndex: 999,
             background: '#0a0a0aee', border: `1px solid ${color}55`,
             borderRadius: 4, padding: '8px 12px', ...mono,
-            fontSize: 10, lineHeight: 1.8, color: '#888', minWidth: 190,
+            fontSize: 12, lineHeight: 1.8, color: '#888', minWidth: 190,
           }}>
-            <div style={{ fontSize: 8, color: '#444', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>
+            <div style={{ fontSize: 11, color: '#444', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>
               Trayecto en tiempo real
             </div>
             {lineHUD && (
@@ -696,9 +696,9 @@ export default function InlineLineDraw({ color, halfWidth, onConfirm, onCancel }
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, marginTop: 4, paddingTop: 4, borderTop: `1px solid ${color}33` }}>
               <span style={{ color }}>Longitud</span>
               <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <span style={{ color, fontWeight: 700, fontSize: 12 }}>{fmtLen(hudLen)}</span>
+                <span style={{ color, fontWeight: 700, fontSize: 13 }}>{fmtLen(hudLen)}</span>
                 <select value={hudUnit} onChange={e => setHudUnit(e.target.value as 'm' | 'km')}
-                  style={{ fontSize: 8, background: '#000', border: `1px solid ${color}33`, color: '#555', outline: 'none', padding: '1px 2px' }}>
+                  style={{ fontSize: 11, background: '#000', border: `1px solid ${color}33`, color: '#555', outline: 'none', padding: '1px 2px' }}>
                   <option value="m">m</option>
                   <option value="km">km</option>
                 </select>
@@ -713,7 +713,7 @@ export default function InlineLineDraw({ color, halfWidth, onConfirm, onCancel }
             position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
             zIndex: 998, textAlign: 'center', pointerEvents: 'none',
           }}>
-            <div style={{ background: '#0a0a0acc', border: `1px solid ${color}33`, borderRadius: 4, padding: '10px 18px', ...mono, fontSize: 10, color: '#444' }}>
+            <div style={{ background: '#0a0a0acc', border: `1px solid ${color}33`, borderRadius: 4, padding: '10px 18px', ...mono, fontSize: 12, color: '#444' }}>
               Navegá hasta el tramo de obra<br />
               luego presioná <span style={{ color }}>↔ Trazar línea</span>
             </div>
@@ -725,7 +725,7 @@ export default function InlineLineDraw({ color, halfWidth, onConfirm, onCancel }
           <div style={{
             position: 'absolute', bottom: 12, right: 12, zIndex: 998,
             background: '#0a0a0acc', border: `1px solid #1e1e1e`,
-            borderRadius: 3, padding: '5px 10px', ...mono, fontSize: 9, color: '#444',
+            borderRadius: 3, padding: '5px 10px', ...mono, fontSize: 12, color: '#444',
             pointerEvents: 'none',
           }}>
             Longitud enviada a la calculadora
@@ -739,7 +739,7 @@ export default function InlineLineDraw({ color, halfWidth, onConfirm, onCancel }
               onClick={() => setLayerPanelOpen(v => !v)}
               style={{
                 background: 'rgba(10,10,10,0.88)', border: `1px solid ${layerPanelOpen ? '#F5C300' : '#252525'}`,
-                color: layerPanelOpen ? '#F5C300' : '#666', ...mono, fontSize: 9,
+                color: layerPanelOpen ? '#F5C300' : '#666', ...mono, fontSize: 12,
                 padding: '4px 9px', cursor: 'pointer', letterSpacing: 0.8, textTransform: 'uppercase',
               }}
             >
@@ -750,26 +750,26 @@ export default function InlineLineDraw({ color, halfWidth, onConfirm, onCancel }
                 background: 'rgba(10,10,10,0.94)', border: '1px solid #1e1e1e',
                 padding: '8px 10px', minWidth: 148, maxHeight: 320, overflowY: 'auto',
               }}>
-                <div style={{ fontSize: 8, color: '#444', letterSpacing: 1.2, ...mono, textTransform: 'uppercase', marginBottom: 5 }}>Base</div>
+                <div style={{ fontSize: 11, color: '#444', letterSpacing: 1.2, ...mono, textTransform: 'uppercase', marginBottom: 5 }}>Base</div>
                 {(['zonas','sedes'] as LayerKey[]).map(k => (
-                  <label key={k} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', marginBottom: 5, fontSize: 10, ...mono, color: layerVis[k] ? LAYER_COLORS[k] : '#444', opacity: layerLoading[k] ? 0.5 : 1 }}>
+                  <label key={k} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', marginBottom: 5, fontSize: 12, ...mono, color: layerVis[k] ? LAYER_COLORS[k] : '#444', opacity: layerLoading[k] ? 0.5 : 1 }}>
                     <input type="checkbox" checked={layerVis[k]} disabled={layerLoading[k]} onChange={() => void toggleLayer(k)}
                       style={{ accentColor: LAYER_COLORS[k], width: 11, height: 11, flexShrink: 0, cursor: 'pointer' }} />
                     {layerLoading[k] ? '…' : LAYER_LABELS[k]}
                   </label>
                 ))}
-                <div style={{ fontSize: 8, color: '#444', letterSpacing: 1.2, ...mono, textTransform: 'uppercase', marginTop: 8, marginBottom: 5, borderTop: '1px solid #1a1a1a', paddingTop: 6 }}>Rutas Prov.</div>
+                <div style={{ fontSize: 11, color: '#444', letterSpacing: 1.2, ...mono, textTransform: 'uppercase', marginTop: 8, marginBottom: 5, borderTop: '1px solid #1a1a1a', paddingTop: 6 }}>Rutas Prov.</div>
                 {(['rpPavimentada','rpMejorada','rpEnObra','rpTierra'] as LayerKey[]).map(k => (
-                  <label key={k} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', marginBottom: 5, fontSize: 10, ...mono, color: layerVis[k] ? LAYER_COLORS[k] : '#444', opacity: layerLoading[k] ? 0.5 : 1 }}>
+                  <label key={k} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', marginBottom: 5, fontSize: 12, ...mono, color: layerVis[k] ? LAYER_COLORS[k] : '#444', opacity: layerLoading[k] ? 0.5 : 1 }}>
                     <input type="checkbox" checked={layerVis[k]} disabled={layerLoading[k]} onChange={() => void toggleLayer(k)}
                       style={{ accentColor: LAYER_COLORS[k], width: 11, height: 11, flexShrink: 0, cursor: 'pointer' }} />
                     <span style={{ display: 'inline-block', width: 14, height: 2, background: LAYER_COLORS[k], flexShrink: 0 }} />
                     {layerLoading[k] ? '…' : LAYER_LABELS[k]}
                   </label>
                 ))}
-                <div style={{ fontSize: 8, color: '#444', letterSpacing: 1.2, ...mono, textTransform: 'uppercase', marginTop: 8, marginBottom: 5, borderTop: '1px solid #1a1a1a', paddingTop: 6 }}>Red CC</div>
+                <div style={{ fontSize: 11, color: '#444', letterSpacing: 1.2, ...mono, textTransform: 'uppercase', marginTop: 8, marginBottom: 5, borderTop: '1px solid #1a1a1a', paddingTop: 6 }}>Red CC</div>
                 {(['ccZI','ccZII','ccZIII','ccZIV','ccZV'] as LayerKey[]).map(k => (
-                  <label key={k} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', marginBottom: 5, fontSize: 10, ...mono, color: layerVis[k] ? LAYER_COLORS[k] : '#444', opacity: layerLoading[k] ? 0.5 : 1 }}>
+                  <label key={k} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', marginBottom: 5, fontSize: 12, ...mono, color: layerVis[k] ? LAYER_COLORS[k] : '#444', opacity: layerLoading[k] ? 0.5 : 1 }}>
                     <input type="checkbox" checked={layerVis[k]} disabled={layerLoading[k]} onChange={() => void toggleLayer(k)}
                       style={{ accentColor: LAYER_COLORS[k], width: 11, height: 11, flexShrink: 0, cursor: 'pointer' }} />
                     <span style={{ display: 'inline-block', width: 14, height: 2, background: LAYER_COLORS[k], flexShrink: 0 }} />
@@ -785,7 +785,7 @@ export default function InlineLineDraw({ color, halfWidth, onConfirm, onCancel }
           <div style={{
             position: 'absolute', inset: 0, zIndex: 997,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: '#0e0e0e', ...mono, fontSize: 11, color: '#333',
+            background: '#0e0e0e', ...mono, fontSize: 13, color: '#333',
           }}>
             Cargando mapa…
           </div>

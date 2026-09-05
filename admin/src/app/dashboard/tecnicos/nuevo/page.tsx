@@ -59,8 +59,8 @@ export default function NuevoTecnicoPage() {
     setLoading(false)
   }
 
-  const inp: React.CSSProperties = { width: '100%', padding: '9px 12px', background: '#1a1a1a', border: '1px solid #252525', color: '#e0e0e0', fontSize: 12, boxSizing: 'border-box' }
-  const lbl: React.CSSProperties = { display: 'block', color: '#555', fontSize: 10, marginBottom: 6, letterSpacing: 1, textTransform: 'uppercase' }
+  const inp: React.CSSProperties = { width: '100%', padding: '9px 12px', background: '#1a1a1a', border: '1px solid #252525', color: '#e0e0e0', fontSize: 13, boxSizing: 'border-box' }
+  const lbl: React.CSSProperties = { display: 'block', color: '#555', fontSize: 12, marginBottom: 6, letterSpacing: 1, textTransform: 'uppercase' }
 
   // ── Pantalla de éxito: usuario existente ────────────────────────────────────
   if (resultado?.tipo === 'existente') {
@@ -74,7 +74,7 @@ export default function NuevoTecnicoPage() {
           <div style={{ color: '#4CAF50', fontSize: 13, marginBottom: 20, display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ fontSize: 18 }}>✓</span> El usuario ya tenía cuenta. Se actualizaron sus accesos.
           </div>
-          <Link href="/dashboard/tecnicos" style={{ display: 'inline-block', padding: '10px 20px', background: '#F5C300', color: '#111', fontWeight: 700, fontSize: 12, textDecoration: 'none', letterSpacing: 1 }}>
+          <Link href="/dashboard/tecnicos" style={{ display: 'inline-block', padding: '10px 20px', background: '#F5C300', color: '#111', fontWeight: 700, fontSize: 13, textDecoration: 'none', letterSpacing: 1 }}>
             VER USUARIOS
           </Link>
         </div>
@@ -94,7 +94,7 @@ export default function NuevoTecnicoPage() {
           <div style={{ color: '#4CAF50', fontSize: 13, marginBottom: 20, display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ fontSize: 18 }}>✓</span> Cuenta creada. El usuario puede iniciar sesión con el email y la contraseña que definiste.
           </div>
-          <Link href="/dashboard/tecnicos" style={{ display: 'inline-block', padding: '10px 20px', background: '#F5C300', color: '#111', fontWeight: 700, fontSize: 12, textDecoration: 'none', letterSpacing: 1 }}>
+          <Link href="/dashboard/tecnicos" style={{ display: 'inline-block', padding: '10px 20px', background: '#F5C300', color: '#111', fontWeight: 700, fontSize: 13, textDecoration: 'none', letterSpacing: 1 }}>
             VER USUARIOS
           </Link>
         </div>
@@ -115,21 +115,21 @@ export default function NuevoTecnicoPage() {
           <div style={{ color: '#4CAF50', fontSize: 13, marginBottom: 20, display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ fontSize: 18 }}>✓</span> Enviá este enlace al usuario para que defina su contraseña y acceda al panel.
           </div>
-          <div style={{ background: '#111', border: '1px solid #2a2a2a', padding: '10px 14px', fontSize: 11, color: '#888', wordBreak: 'break-all', marginBottom: 12, fontFamily: 'monospace' }}>
+          <div style={{ background: '#111', border: '1px solid #2a2a2a', padding: '10px 14px', fontSize: 13, color: '#888', wordBreak: 'break-all', marginBottom: 12, fontFamily: 'monospace' }}>
             {link}
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
             <button
               onClick={() => { navigator.clipboard.writeText(link); setCopied(true) }}
-              style={{ flex: 1, padding: '10px', background: copied ? '#4CAF50' : '#F5C300', color: '#111', fontWeight: 700, fontSize: 12, border: 'none', cursor: 'pointer', letterSpacing: 1 }}
+              style={{ flex: 1, padding: '10px', background: copied ? '#4CAF50' : '#F5C300', color: '#111', fontWeight: 700, fontSize: 13, border: 'none', cursor: 'pointer', letterSpacing: 1 }}
             >
               {copied ? '✓ COPIADO' : 'COPIAR ENLACE'}
             </button>
-            <Link href="/dashboard/tecnicos" style={{ padding: '10px 18px', background: 'transparent', color: '#555', fontSize: 12, border: '1px solid #252525', textDecoration: 'none', display: 'flex', alignItems: 'center' }}>
+            <Link href="/dashboard/tecnicos" style={{ padding: '10px 18px', background: 'transparent', color: '#555', fontSize: 13, border: '1px solid #252525', textDecoration: 'none', display: 'flex', alignItems: 'center' }}>
               Volver
             </Link>
           </div>
-          <p style={{ color: '#444', fontSize: 11, marginTop: 16 }}>El enlace expira en 24 horas.</p>
+          <p style={{ color: '#444', fontSize: 13, marginTop: 16 }}>El enlace expira en 24 horas.</p>
         </div>
       </div>
     )
@@ -191,12 +191,12 @@ export default function NuevoTecnicoPage() {
                 <label style={{ ...lbl, marginBottom: 0 }}>
                   {esApp ? 'Acceso al panel web (opcional)' : 'Secciones habilitadas'}
                 </label>
-                <button type="button" onClick={toggleTodos} style={{ background: 'none', border: 'none', color: '#F5C300', fontSize: 10, cursor: 'pointer', letterSpacing: 0.5 }}>
+                <button type="button" onClick={toggleTodos} style={{ background: 'none', border: 'none', color: '#F5C300', fontSize: 12, cursor: 'pointer', letterSpacing: 0.5 }}>
                   {permisos.length === PERMISOS_OPCIONES.length ? 'Ninguno' : 'Todos'}
                 </button>
               </div>
               {esApp && permisos.length === 0 && (
-                <p style={{ color: '#444', fontSize: 11, marginBottom: 8 }}>Sin secciones seleccionadas → solo accede a la app móvil.</p>
+                <p style={{ color: '#444', fontSize: 13, marginBottom: 8 }}>Sin secciones seleccionadas → solo accede a la app móvil.</p>
               )}
               <div style={{ background: '#111', border: '1px solid #252525', padding: '4px 0' }}>
                 {PERMISOS_OPCIONES.map(p => (
@@ -206,7 +206,7 @@ export default function NuevoTecnicoPage() {
                   >
                     <input type="checkbox" checked={permisos.includes(p.key)} onChange={() => togglePermiso(p.key)}
                       style={{ accentColor: '#F5C300', width: 14, height: 14, cursor: 'pointer' }} />
-                    <span style={{ fontSize: 12, color: permisos.includes(p.key) ? '#e0e0e0' : '#666' }}>{p.label}</span>
+                    <span style={{ fontSize: 13, color: permisos.includes(p.key) ? '#e0e0e0' : '#666' }}>{p.label}</span>
                   </label>
                 ))}
               </div>
@@ -216,7 +216,7 @@ export default function NuevoTecnicoPage() {
           {error && <p style={{ color: '#ff5252', fontSize: 13, marginBottom: 16 }}>{error}</p>}
 
           <button type="submit" disabled={loading} className="glow-y"
-            style={{ width: '100%', padding: '11px', background: '#F5C300', color: '#111', fontWeight: 700, fontSize: 12, border: 'none', cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.6 : 1, letterSpacing: 1.5 }}
+            style={{ width: '100%', padding: '11px', background: '#F5C300', color: '#111', fontWeight: 700, fontSize: 13, border: 'none', cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.6 : 1, letterSpacing: 1.5 }}
           >
             {loading ? 'CREANDO...' : esPanel ? 'CREAR Y GENERAR ENLACE' : 'CREAR USUARIO'}
           </button>

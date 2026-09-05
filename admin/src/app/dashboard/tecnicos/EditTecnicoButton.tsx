@@ -25,10 +25,10 @@ export default function EditTecnicoButton({ id, nombre, zona, rol, permisos: per
 
   const inp: React.CSSProperties = {
     width: '100%', padding: '8px 10px', background: '#111', border: '1px solid #252525',
-    color: '#e0e0e0', fontSize: 12, boxSizing: 'border-box', fontFamily: 'inherit',
+    color: '#e0e0e0', fontSize: 13, boxSizing: 'border-box', fontFamily: 'inherit',
   }
   const lbl: React.CSSProperties = {
-    display: 'block', color: '#555', fontSize: 10, marginBottom: 5,
+    display: 'block', color: '#555', fontSize: 12, marginBottom: 5,
     letterSpacing: 1, textTransform: 'uppercase',
   }
 
@@ -65,7 +65,7 @@ export default function EditTecnicoButton({ id, nombre, zona, rol, permisos: per
     <>
       <button
         onClick={handleOpen}
-        style={{ background: 'transparent', border: '1px solid #252525', color: '#444', padding: '4px 12px', fontSize: 11, letterSpacing: 0.5, cursor: 'pointer', marginRight: 6 }}
+        style={{ background: 'transparent', border: '1px solid #252525', color: '#444', padding: '4px 12px', fontSize: 13, letterSpacing: 0.5, cursor: 'pointer', marginRight: 6 }}
         onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#F5C300'; (e.currentTarget as HTMLButtonElement).style.color = '#F5C300' }}
         onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#252525'; (e.currentTarget as HTMLButtonElement).style.color = '#444' }}
       >
@@ -120,7 +120,7 @@ export default function EditTecnicoButton({ id, nombre, zona, rol, permisos: per
                   <button
                     type="button"
                     onClick={toggleTodos}
-                    style={{ background: 'none', border: 'none', color: '#F5C300', fontSize: 10, cursor: 'pointer', letterSpacing: 0.5 }}
+                    style={{ background: 'none', border: 'none', color: '#F5C300', fontSize: 12, cursor: 'pointer', letterSpacing: 0.5 }}
                   >
                     {nPermisos.length === PERMISOS_OPCIONES.length ? 'Ninguno' : 'Todos'}
                   </button>
@@ -139,26 +139,26 @@ export default function EditTecnicoButton({ id, nombre, zona, rol, permisos: per
                         onChange={() => togglePermiso(p.key)}
                         style={{ accentColor: '#F5C300', width: 14, height: 14, cursor: 'pointer' }}
                       />
-                      <span style={{ fontSize: 12, color: nPermisos.includes(p.key) ? '#e0e0e0' : '#666' }}>{p.label}</span>
+                      <span style={{ fontSize: 13, color: nPermisos.includes(p.key) ? '#e0e0e0' : '#666' }}>{p.label}</span>
                     </label>
                   ))}
                 </div>
               </div>
             )}
 
-            {error && <p style={{ color: '#f44336', fontSize: 12, marginBottom: 12 }}>{error}</p>}
+            {error && <p style={{ color: '#f44336', fontSize: 13, marginBottom: 12 }}>{error}</p>}
 
             <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
               <button
                 onClick={handleSave}
                 disabled={loading}
-                style={{ flex: 1, padding: '9px', background: '#F5C300', color: '#111', fontWeight: 700, fontSize: 12, border: 'none', cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.6 : 1, letterSpacing: 1 }}
+                style={{ flex: 1, padding: '9px', background: '#F5C300', color: '#111', fontWeight: 700, fontSize: 13, border: 'none', cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.6 : 1, letterSpacing: 1 }}
               >
                 {loading ? 'GUARDANDO...' : 'GUARDAR'}
               </button>
               <button
                 onClick={() => setOpen(false)}
-                style={{ padding: '9px 18px', background: 'transparent', color: '#555', fontSize: 12, border: '1px solid #252525', cursor: 'pointer' }}
+                style={{ padding: '9px 18px', background: 'transparent', color: '#555', fontSize: 13, border: '1px solid #252525', cursor: 'pointer' }}
               >
                 Cancelar
               </button>

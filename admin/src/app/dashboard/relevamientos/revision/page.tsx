@@ -260,10 +260,10 @@ export default function RevisionCampoPage() {
 
           {/* Header */}
           <div style={{ padding: '12px 14px', borderBottom: '1px solid #1a1a1a', flexShrink: 0 }}>
-            <div style={{ fontSize: 9, color: '#444', letterSpacing: 1.5, textTransform: 'uppercase' }}>Relevamientos</div>
+            <div style={{ fontSize: 12, color: '#444', letterSpacing: 1.5, textTransform: 'uppercase' }}>Relevamientos</div>
             <div style={{ fontSize: 15, fontWeight: 700, color: '#e0e0e0', marginTop: 2 }}>Revisión de campo</div>
             {!loading && (
-              <div style={{ fontSize: 10, color: '#444', marginTop: 3 }}>
+              <div style={{ fontSize: 12, color: '#444', marginTop: 3 }}>
                 {filtered.length} de {all.length} relevamientos
               </div>
             )}
@@ -275,20 +275,20 @@ export default function RevisionCampoPage() {
               placeholder="Buscar ruta, CC…"
               value={fSearch}
               onChange={e => setFSearch(e.target.value)}
-              style={{ background: '#111', border: '1px solid #222', color: '#ccc', padding: '4px 8px', fontSize: 10, borderRadius: 2, width: '100%', boxSizing: 'border-box', ...MONO }}
+              style={{ background: '#111', border: '1px solid #222', color: '#ccc', padding: '4px 8px', fontSize: 12, borderRadius: 2, width: '100%', boxSizing: 'border-box', ...MONO }}
             />
             <div style={{ display: 'flex', gap: 4 }}>
               <select
                 value={fTipo}
                 onChange={e => setFTipo(e.target.value)}
-                style={{ flex: 1, background: '#111', border: '1px solid #222', color: '#ccc', padding: '3px 4px', fontSize: 9, borderRadius: 2, ...MONO }}>
+                style={{ flex: 1, background: '#111', border: '1px solid #222', color: '#ccc', padding: '3px 4px', fontSize: 12, borderRadius: 2, ...MONO }}>
                 <option value=''>Tipo: todos</option>
                 {TODOS_TIPOS.map(t => <option key={t} value={t}>{TIPO_LABEL[t]}</option>)}
               </select>
               <select
                 value={fZona}
                 onChange={e => setFZona(e.target.value)}
-                style={{ flex: 1, background: '#111', border: '1px solid #222', color: '#ccc', padding: '3px 4px', fontSize: 9, borderRadius: 2, ...MONO }}>
+                style={{ flex: 1, background: '#111', border: '1px solid #222', color: '#ccc', padding: '3px 4px', fontSize: 12, borderRadius: 2, ...MONO }}>
                 <option value=''>Zona: todas</option>
                 {zonas.map(z => <option key={z} value={z}>{z}</option>)}
               </select>
@@ -297,16 +297,16 @@ export default function RevisionCampoPage() {
               placeholder="Filtrar por consorcio…"
               value={fCC}
               onChange={e => setFCC(e.target.value)}
-              style={{ background: '#111', border: '1px solid #222', color: '#ccc', padding: '4px 8px', fontSize: 10, borderRadius: 2, width: '100%', boxSizing: 'border-box', ...MONO }}
+              style={{ background: '#111', border: '1px solid #222', color: '#ccc', padding: '4px 8px', fontSize: 12, borderRadius: 2, width: '100%', boxSizing: 'border-box', ...MONO }}
             />
           </div>
 
           {/* Lista scrollable */}
           <div style={{ flex: 1, overflowY: 'auto' }}>
             {loading ? (
-              <div style={{ padding: 20, fontSize: 11, color: '#444' }}>Cargando…</div>
+              <div style={{ padding: 20, fontSize: 13, color: '#444' }}>Cargando…</div>
             ) : filtered.length === 0 ? (
-              <div style={{ padding: 20, fontSize: 11, color: '#444' }}>Sin resultados.</div>
+              <div style={{ padding: 20, fontSize: 13, color: '#444' }}>Sin resultados.</div>
             ) : filtered.map(r => {
               const isActive  = selected?.id === r.id
               const tipo      = efectiveTipo(r)
@@ -324,23 +324,23 @@ export default function RevisionCampoPage() {
                     border: 'none', borderBottom: '1px solid #111', cursor: 'pointer',
                   }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 }}>
-                    <span style={{ fontSize: 11, color: isActive ? color : '#bbb', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 155 }}>
+                    <span style={{ fontSize: 13, color: isActive ? color : '#bbb', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 155 }}>
                       {r.ruta_tramo || 'Sin nombre'}
                     </span>
-                    <span style={{ fontSize: 9, color: color, padding: '1px 5px', border: `1px solid ${color}44`, borderRadius: 2, flexShrink: 0, marginLeft: 4 }}>
+                    <span style={{ fontSize: 12, color: color, padding: '1px 5px', border: `1px solid ${color}44`, borderRadius: 2, flexShrink: 0, marginLeft: 4 }}>
                       {tipo === 'lineal' ? subtipoLineal(r) : TIPO_LABEL[tipo]}
                     </span>
                   </div>
-                  <div style={{ fontSize: 9, color: '#555' }}>
+                  <div style={{ fontSize: 12, color: '#555' }}>
                     {r.fecha?.slice(0, 10)} · {r.zona ?? '—'} · CC {r.cc_asociado ?? '—'}
                   </div>
                   {isLineal && (
-                    <div style={{ fontSize: 10, color: isActive ? '#aaa' : '#444', marginTop: 2 }}>
+                    <div style={{ fontSize: 12, color: isActive ? '#aaa' : '#444', marginTop: 2 }}>
                       {fmtDist(lon)} · {linea!.length} pts
                     </div>
                   )}
                   {nFotos > 0 && (
-                    <div style={{ fontSize: 9, color: '#555', marginTop: 1 }}>
+                    <div style={{ fontSize: 12, color: '#555', marginTop: 1 }}>
                       📷 {nFotos} foto{nFotos !== 1 ? 's' : ''}
                     </div>
                   )}
@@ -356,11 +356,11 @@ export default function RevisionCampoPage() {
           {/* Barra superior — sólo cuando hay selección */}
           {selected && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 14px', borderBottom: '1px solid #1a1a1a', flexShrink: 0, background: '#0a0a0a' }}>
-              <span style={{ fontSize: 9, color: selColor, border: `1px solid ${selColor}44`, padding: '2px 7px', borderRadius: 2, flexShrink: 0 }}>
+              <span style={{ fontSize: 12, color: selColor, border: `1px solid ${selColor}44`, padding: '2px 7px', borderRadius: 2, flexShrink: 0 }}>
                 {selTipo === 'lineal' && selected ? subtipoLineal(selected) : TIPO_LABEL[selTipo]}
               </span>
               <div style={{ overflow: 'hidden' }}>
-                <div style={{ fontSize: 9, color: '#444', letterSpacing: 1, textTransform: 'uppercase' }}>
+                <div style={{ fontSize: 12, color: '#444', letterSpacing: 1, textTransform: 'uppercase' }}>
                   {selected.zona ?? '—'} · CC {selected.cc_asociado ?? '—'}
                 </div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: '#e0e0e0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -371,26 +371,26 @@ export default function RevisionCampoPage() {
               {selTipo === 'lineal' && editPts.length >= 2 && (
                 <>
                   <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: 8, color: '#444', textTransform: 'uppercase', letterSpacing: 0.8 }}>Longitud</div>
+                    <div style={{ fontSize: 11, color: '#444', textTransform: 'uppercase', letterSpacing: 0.8 }}>Longitud</div>
                     <div style={{ fontSize: 13, color: '#F5C300', fontWeight: 700 }}>{fmtDist(longTotal)}</div>
                   </div>
                   <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: 8, color: '#444', textTransform: 'uppercase', letterSpacing: 0.8 }}>Puntos</div>
+                    <div style={{ fontSize: 11, color: '#444', textTransform: 'uppercase', letterSpacing: 0.8 }}>Puntos</div>
                     <div style={{ fontSize: 13, color: '#F5C300', fontWeight: 700 }}>{editPts.length}</div>
                   </div>
                 </>
               )}
               <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: 8, color: '#444', textTransform: 'uppercase', letterSpacing: 0.8 }}>Fecha</div>
+                <div style={{ fontSize: 11, color: '#444', textTransform: 'uppercase', letterSpacing: 0.8 }}>Fecha</div>
                 <div style={{ fontSize: 13, color: '#F5C300', fontWeight: 700 }}>{selected.fecha?.slice(0, 10)}</div>
               </div>
               {dirty && (
                 <button onClick={saveTrack} disabled={saving}
-                  style={{ padding: '6px 16px', background: '#F5C300', color: '#111', border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 700, ...MONO, letterSpacing: 0.5, opacity: saving ? 0.6 : 1, flexShrink: 0 }}>
+                  style={{ padding: '6px 16px', background: '#F5C300', color: '#111', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 700, ...MONO, letterSpacing: 0.5, opacity: saving ? 0.6 : 1, flexShrink: 0 }}>
                   {saving ? 'Guardando…' : '↑ Guardar cambios'}
                 </button>
               )}
-              {msg && <span style={{ fontSize: 11, color: '#27ae60', flexShrink: 0 }}>{msg}</span>}
+              {msg && <span style={{ fontSize: 13, color: '#27ae60', flexShrink: 0 }}>{msg}</span>}
             </div>
           )}
 
@@ -411,13 +411,13 @@ export default function RevisionCampoPage() {
               />
               {!selected && (
                 <div style={{ position: 'absolute', bottom: 20, left: '50%', transform: 'translateX(-50%)', zIndex: 500, pointerEvents: 'none', textAlign: 'center' }}>
-                  <div style={{ fontSize: 12, color: '#ccc', background: '#0e0e0ecc', padding: '6px 14px', borderRadius: 4, backdropFilter: 'blur(4px)', border: '1px solid #1e1e1e', whiteSpace: 'nowrap' }}>
+                  <div style={{ fontSize: 13, color: '#ccc', background: '#0e0e0ecc', padding: '6px 14px', borderRadius: 4, backdropFilter: 'blur(4px)', border: '1px solid #1e1e1e', whiteSpace: 'nowrap' }}>
                     Seleccioná un relevamiento de la lista
                   </div>
                 </div>
               )}
               {selTipo === 'lineal' && editPts.length >= 2 && (
-                <div style={{ position: 'absolute', bottom: 10, left: 10, zIndex: 1000, background: '#0e0e0ecc', border: '1px solid #1e1e1e', borderRadius: 4, padding: '6px 10px', fontSize: 9, color: '#666', backdropFilter: 'blur(4px)' }}>
+                <div style={{ position: 'absolute', bottom: 10, left: 10, zIndex: 1000, background: '#0e0e0ecc', border: '1px solid #1e1e1e', borderRadius: 4, padding: '6px 10px', fontSize: 12, color: '#666', backdropFilter: 'blur(4px)' }}>
                   Arrastrá un vértice para corregirlo · Clic derecho → eliminar
                 </div>
               )}
@@ -435,14 +435,14 @@ export default function RevisionCampoPage() {
                 /* ── Planilla topográfica (ripio) ── */
                 <>
                   <div style={{ padding: '8px 12px', borderBottom: '1px solid #1a1a1a', flexShrink: 0 }}>
-                    <div style={{ fontSize: 9, color: '#444', textTransform: 'uppercase', letterSpacing: 1 }}>Planilla topográfica</div>
-                    <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{editPts.length} vértices · {fmtDist(longTotal)}</div>
+                    <div style={{ fontSize: 12, color: '#444', textTransform: 'uppercase', letterSpacing: 1 }}>Planilla topográfica</div>
+                    <div style={{ fontSize: 13, color: '#888', marginTop: 2 }}>{editPts.length} vértices · {fmtDist(longTotal)}</div>
                   </div>
 
                   {/* Header tabla */}
                   <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr 0.7fr 0.7fr 0.5fr', padding: '4px 8px', borderBottom: '1px solid #1a1a1a', background: '#0a0a0a', flexShrink: 0 }}>
                     {['PK', 'Latitud', 'Longitud', 'Alt', '±Acc', ''].map(h => (
-                      <span key={h} style={{ fontSize: 8, color: '#444', textTransform: 'uppercase', letterSpacing: 0.6 }}>{h}</span>
+                      <span key={h} style={{ fontSize: 11, color: '#444', textTransform: 'uppercase', letterSpacing: 0.6 }}>{h}</span>
                     ))}
                   </div>
 
@@ -462,15 +462,15 @@ export default function RevisionCampoPage() {
                             background: hov ? '#1c1a0a' : hi ? '#0f0f0f' : i % 2 === 0 ? '#080808' : '#0a0a0a',
                             transition: 'background 0.08s',
                           }}>
-                          <span style={{ fontSize: 9, fontWeight: hi ? 700 : 400, color: hov ? '#F5C300' : hi ? '#c9a200' : '#666' }}>
+                          <span style={{ fontSize: 12, fontWeight: hi ? 700 : 400, color: hov ? '#F5C300' : hi ? '#c9a200' : '#666' }}>
                             {fmtPK(pt.prog ?? 0)}
                           </span>
-                          <span style={{ fontSize: 8, color: hov ? '#bbb' : '#555' }}>{pt.lat.toFixed(5)}</span>
-                          <span style={{ fontSize: 8, color: hov ? '#bbb' : '#555' }}>{pt.lng.toFixed(5)}</span>
-                          <span style={{ fontSize: 9, color: hov ? '#aaa' : '#555' }}>{pt.alt != null ? pt.alt.toFixed(0) : '—'}</span>
-                          <span style={{ fontSize: 9, color: hov ? accColor(pt.acc) : '#444' }}>{pt.acc != null ? `±${Math.round(pt.acc)}` : '—'}</span>
+                          <span style={{ fontSize: 11, color: hov ? '#bbb' : '#555' }}>{pt.lat.toFixed(5)}</span>
+                          <span style={{ fontSize: 11, color: hov ? '#bbb' : '#555' }}>{pt.lng.toFixed(5)}</span>
+                          <span style={{ fontSize: 12, color: hov ? '#aaa' : '#555' }}>{pt.alt != null ? pt.alt.toFixed(0) : '—'}</span>
+                          <span style={{ fontSize: 12, color: hov ? accColor(pt.acc) : '#444' }}>{pt.acc != null ? `±${Math.round(pt.acc)}` : '—'}</span>
                           <button onClick={() => handleDeleteVertex(i)}
-                            style={{ fontSize: 12, color: hov ? '#e74c3c' : '#222', background: 'transparent', border: 'none', cursor: 'pointer', padding: 0, lineHeight: 1, transition: 'color 0.1s', ...MONO }}
+                            style={{ fontSize: 13, color: hov ? '#e74c3c' : '#222', background: 'transparent', border: 'none', cursor: 'pointer', padding: 0, lineHeight: 1, transition: 'color 0.1s', ...MONO }}
                             title="Eliminar punto">×</button>
                         </div>
                       )
@@ -479,18 +479,18 @@ export default function RevisionCampoPage() {
 
                   {/* Footer */}
                   <div style={{ borderTop: '1px solid #1a1a1a', padding: '8px 12px', flexShrink: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: 9, color: '#444' }}>
+                    <span style={{ fontSize: 12, color: '#444' }}>
                       {selected?.fecha?.slice(0, 10)} · {fmtTs(editPts[0]?.ts)} → {fmtTs(editPts[editPts.length - 1]?.ts)}
                     </span>
                     {dirty && (
-                      <span style={{ fontSize: 9, color: '#F5C300', border: '1px solid #F5C30044', padding: '2px 6px', borderRadius: 2 }}>● Modificado</span>
+                      <span style={{ fontSize: 12, color: '#F5C300', border: '1px solid #F5C30044', padding: '2px 6px', borderRadius: 2 }}>● Modificado</span>
                     )}
                   </div>
 
                   {/* Fotos (ripio) */}
                   {fotos.length > 0 && (
                     <div style={{ borderTop: '1px solid #1a1a1a', padding: '8px 12px', flexShrink: 0 }}>
-                      <div style={{ fontSize: 9, color: '#444', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>
+                      <div style={{ fontSize: 12, color: '#444', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>
                         Fotos ({fotos.length})
                       </div>
                       <div style={{ display: 'flex', gap: 5, overflowX: 'auto', paddingBottom: 2 }}>
@@ -514,7 +514,7 @@ export default function RevisionCampoPage() {
 
                   {/* Header */}
                   <div style={{ padding: '8px 12px', borderBottom: '1px solid #1a1a1a' }}>
-                    <div style={{ fontSize: 9, color: '#444', textTransform: 'uppercase', letterSpacing: 1 }}>Datos técnicos</div>
+                    <div style={{ fontSize: 12, color: '#444', textTransform: 'uppercase', letterSpacing: 1 }}>Datos técnicos</div>
                   </div>
 
                   {/* Campos del tipo */}
@@ -523,25 +523,25 @@ export default function RevisionCampoPage() {
                       Object.entries(datosActivos).map(([k, v]) =>
                         v != null && v !== '' ? (
                           <div key={k} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '4px 0', borderBottom: '1px solid #0f0f0f', gap: 8 }}>
-                            <span style={{ fontSize: 9, color: '#555', textTransform: 'uppercase', letterSpacing: 0.5, flexShrink: 0, paddingTop: 1 }}>
+                            <span style={{ fontSize: 12, color: '#555', textTransform: 'uppercase', letterSpacing: 0.5, flexShrink: 0, paddingTop: 1 }}>
                               {k.replace(/_/g, ' ')}
                             </span>
-                            <span style={{ fontSize: 10, color: '#ccc', textAlign: 'right', wordBreak: 'break-word', maxWidth: 180 }}>
+                            <span style={{ fontSize: 12, color: '#ccc', textAlign: 'right', wordBreak: 'break-word', maxWidth: 180 }}>
                               {String(v)}
                             </span>
                           </div>
                         ) : null
                       )
                     ) : (
-                      <div style={{ fontSize: 10, color: '#333', padding: '8px 0' }}>Sin datos técnicos registrados.</div>
+                      <div style={{ fontSize: 12, color: '#333', padding: '8px 0' }}>Sin datos técnicos registrados.</div>
                     )}
                   </div>
 
                   {/* Ubicación */}
                   {selected.coords_lat != null && selected.coords_lng != null && (
                     <div style={{ padding: '6px 12px', borderBottom: '1px solid #111' }}>
-                      <div style={{ fontSize: 8, color: '#444', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 4 }}>Ubicación GPS</div>
-                      <div style={{ fontSize: 9, color: '#666', ...MONO }}>
+                      <div style={{ fontSize: 11, color: '#444', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 4 }}>Ubicación GPS</div>
+                      <div style={{ fontSize: 12, color: '#666', ...MONO }}>
                         {selected.coords_lat.toFixed(6)}, {selected.coords_lng.toFixed(6)}
                       </div>
                     </div>
@@ -549,7 +549,7 @@ export default function RevisionCampoPage() {
 
                   {/* Fotos */}
                   <div style={{ padding: '8px 12px' }}>
-                    <div style={{ fontSize: 9, color: '#444', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>
+                    <div style={{ fontSize: 12, color: '#444', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>
                       Fotos adjuntas {fotos.length > 0 ? `(${fotos.length})` : ''}
                     </div>
                     {fotos.length > 0 ? (
@@ -564,7 +564,7 @@ export default function RevisionCampoPage() {
                         ))}
                       </div>
                     ) : (
-                      <div style={{ fontSize: 10, color: '#2e2e2e' }}>Sin fotos adjuntas.</div>
+                      <div style={{ fontSize: 12, color: '#2e2e2e' }}>Sin fotos adjuntas.</div>
                     )}
                   </div>
                 </div>

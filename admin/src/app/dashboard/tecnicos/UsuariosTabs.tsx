@@ -27,7 +27,7 @@ function RemovePanelButton({ id }: { id: string }) {
       onClick={handle}
       disabled={loading}
       title="Quitar acceso al panel"
-      style={{ background: 'transparent', border: '1px solid #252525', color: '#444', padding: '4px 10px', fontSize: 11, cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.5 : 1 }}
+      style={{ background: 'transparent', border: '1px solid #252525', color: '#444', padding: '4px 10px', fontSize: 13, cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.5 : 1 }}
       onMouseEnter={e => { if (!loading) { (e.currentTarget as HTMLButtonElement).style.borderColor = '#f44336'; (e.currentTarget as HTMLButtonElement).style.color = '#f44336' } }}
       onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#252525'; (e.currentTarget as HTMLButtonElement).style.color = '#444' }}
     >
@@ -51,7 +51,7 @@ const ROL_BADGE: Record<string, { bg: string; color: string; label: string }> = 
 }
 
 const TH = ({ children }: { children: string }) => (
-  <th style={{ padding: '10px 16px', color: '#444', fontSize: 10, fontWeight: 600, textAlign: 'left', textTransform: 'uppercase', letterSpacing: 1, borderBottom: '1px solid #1e1e1e' }}>
+  <th style={{ padding: '10px 16px', color: '#444', fontSize: 12, fontWeight: 600, textAlign: 'left', textTransform: 'uppercase', letterSpacing: 1, borderBottom: '1px solid #1e1e1e' }}>
     {children}
   </th>
 )
@@ -61,7 +61,7 @@ export default function UsuariosTabs({ panel, tecnicos }: Props) {
 
   const tabStyle = (active: boolean): React.CSSProperties => ({
     padding: '9px 20px',
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: 700,
     letterSpacing: 0.8,
     background: 'transparent',
@@ -80,7 +80,7 @@ export default function UsuariosTabs({ panel, tecnicos }: Props) {
         <Link
           href="/dashboard/tecnicos/nuevo"
           className="glow-y"
-          style={{ background: '#F5C300', color: '#111', fontWeight: 700, padding: '9px 18px', textDecoration: 'none', fontSize: 12, letterSpacing: 1 }}
+          style={{ background: '#F5C300', color: '#111', fontWeight: 700, padding: '9px 18px', textDecoration: 'none', fontSize: 13, letterSpacing: 1 }}
         >
           + NUEVO
         </Link>
@@ -117,19 +117,19 @@ export default function UsuariosTabs({ panel, tecnicos }: Props) {
                 const nPermisos = p.permisos?.length ?? 0
                 return (
                   <tr key={p.id} style={{ borderBottom: '1px solid #1e1e1e', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.01)' }}>
-                    <td style={{ padding: '10px 16px', color: '#e0e0e0', fontSize: 12 }}>{p.nombre}</td>
-                    <td style={{ padding: '10px 16px', color: '#555', fontSize: 12 }}>{p.email}</td>
+                    <td style={{ padding: '10px 16px', color: '#e0e0e0', fontSize: 13 }}>{p.nombre}</td>
+                    <td style={{ padding: '10px 16px', color: '#555', fontSize: 13 }}>{p.email}</td>
                     <td style={{ padding: '12px 16px' }}>
-                      <span style={{ background: b.bg, color: b.color, border: `1px solid ${b.color}`, borderRadius: 20, padding: '2px 10px', fontSize: 11, fontWeight: 600 }}>
+                      <span style={{ background: b.bg, color: b.color, border: `1px solid ${b.color}`, borderRadius: 20, padding: '2px 10px', fontSize: 13, fontWeight: 600 }}>
                         {b.label}
                       </span>
                     </td>
-                    <td style={{ padding: '10px 16px', color: '#555', fontSize: 12 }}>
+                    <td style={{ padding: '10px 16px', color: '#555', fontSize: 13 }}>
                       {p.rol === 'admin'
-                        ? <span style={{ color: '#F5C300', fontSize: 11 }}>Acceso total</span>
+                        ? <span style={{ color: '#F5C300', fontSize: 13 }}>Acceso total</span>
                         : nPermisos === 0
-                          ? <span style={{ color: '#444', fontSize: 11 }}>Sin secciones</span>
-                          : <span style={{ color: '#4CAF50', fontSize: 11 }}>{nPermisos} sección{nPermisos !== 1 ? 'es' : ''}</span>
+                          ? <span style={{ color: '#444', fontSize: 13 }}>Sin secciones</span>
+                          : <span style={{ color: '#4CAF50', fontSize: 13 }}>{nPermisos} sección{nPermisos !== 1 ? 'es' : ''}</span>
                       }
                     </td>
                     <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
@@ -145,7 +145,7 @@ export default function UsuariosTabs({ panel, tecnicos }: Props) {
                 )
               })}
               {panel.length === 0 && (
-                <tr><td colSpan={5} style={{ padding: 32, textAlign: 'center', color: '#555', fontSize: 12 }}>Sin usuarios del panel registrados</td></tr>
+                <tr><td colSpan={5} style={{ padding: 32, textAlign: 'center', color: '#555', fontSize: 13 }}>Sin usuarios del panel registrados</td></tr>
               )}
             </tbody>
           </table>
@@ -167,11 +167,11 @@ export default function UsuariosTabs({ panel, tecnicos }: Props) {
             <tbody>
               {tecnicos.map((p, i) => (
                 <tr key={p.id} style={{ borderBottom: '1px solid #1e1e1e', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.01)' }}>
-                  <td style={{ padding: '10px 16px', color: '#e0e0e0', fontSize: 12 }}>{p.nombre}</td>
-                  <td style={{ padding: '10px 16px', color: '#555', fontSize: 12 }}>{p.email}</td>
-                  <td style={{ padding: '10px 16px', color: '#555', fontSize: 12 }}>
+                  <td style={{ padding: '10px 16px', color: '#e0e0e0', fontSize: 13 }}>{p.nombre}</td>
+                  <td style={{ padding: '10px 16px', color: '#555', fontSize: 13 }}>{p.email}</td>
+                  <td style={{ padding: '10px 16px', color: '#555', fontSize: 13 }}>
                     {p.zona
-                      ? <span style={{ background: '#2196F311', color: '#2196F3', border: '1px solid #2196F3', borderRadius: 20, padding: '2px 10px', fontSize: 11, fontWeight: 600 }}>{p.zona}</span>
+                      ? <span style={{ background: '#2196F311', color: '#2196F3', border: '1px solid #2196F3', borderRadius: 20, padding: '2px 10px', fontSize: 13, fontWeight: 600 }}>{p.zona}</span>
                       : <span style={{ color: '#333' }}>—</span>
                     }
                   </td>
@@ -183,7 +183,7 @@ export default function UsuariosTabs({ panel, tecnicos }: Props) {
                 </tr>
               ))}
               {tecnicos.length === 0 && (
-                <tr><td colSpan={4} style={{ padding: 32, textAlign: 'center', color: '#555', fontSize: 12 }}>Sin técnicos registrados</td></tr>
+                <tr><td colSpan={4} style={{ padding: 32, textAlign: 'center', color: '#555', fontSize: 13 }}>Sin técnicos registrados</td></tr>
               )}
             </tbody>
           </table>

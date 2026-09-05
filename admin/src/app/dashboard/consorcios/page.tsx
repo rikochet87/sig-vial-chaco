@@ -40,7 +40,7 @@ export default function ConsorciosPage() {
           placeholder="Buscar por nombre o número..."
           value={search}
           onChange={e => setSearch(e.target.value)}
-          style={{ background: '#1a1a1a', border: '1px solid #252525', color: '#e0e0e0', padding: '7px 12px', fontSize: 12, width: 260 }}
+          style={{ background: '#1a1a1a', border: '1px solid #252525', color: '#e0e0e0', padding: '7px 12px', fontSize: 13, width: 260 }}
         />
       </div>
 
@@ -58,7 +58,7 @@ export default function ConsorciosPage() {
                 color: active ? '#141414' : '#888',
                 border: `1px solid ${active ? '#F5C300' : '#2a2a2a'}`,
                 padding: '5px 14px',
-                fontSize: 12,
+                fontSize: 13,
                 fontWeight: active ? 700 : 400,
                 cursor: 'pointer',
                 borderRadius: 3,
@@ -71,7 +71,7 @@ export default function ConsorciosPage() {
               <span style={{
                 background: active ? 'rgba(0,0,0,0.2)' : '#252525',
                 color: active ? '#141414' : '#555',
-                fontSize: 10,
+                fontSize: 12,
                 fontWeight: 700,
                 padding: '1px 6px',
                 borderRadius: 10,
@@ -91,7 +91,7 @@ export default function ConsorciosPage() {
             <thead>
               <tr style={{ background: '#141414' }}>
                 {['Nº', 'Nombre', 'Localidad', 'Zona', 'Red (km)', 'Color'].map(h => (
-                  <th key={h} style={{ padding: '10px 16px', color: '#444', fontSize: 10, fontWeight: 600, textAlign: 'left', textTransform: 'uppercase', letterSpacing: 1, borderBottom: '1px solid #1e1e1e' }}>{h}</th>
+                  <th key={h} style={{ padding: '10px 16px', color: '#444', fontSize: 12, fontWeight: 600, textAlign: 'left', textTransform: 'uppercase', letterSpacing: 1, borderBottom: '1px solid #1e1e1e' }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -104,11 +104,11 @@ export default function ConsorciosPage() {
                   onMouseEnter={e => (e.currentTarget.style.background = 'rgba(245,195,0,0.05)')}
                   onMouseLeave={e => (e.currentTarget.style.background = i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.01)')}
                 >
-                  <td style={{ padding: '10px 16px', color: '#F5C300', fontSize: 12, fontWeight: 700 }}>{c.numero}</td>
-                  <td style={{ padding: '10px 16px', color: '#e0e0e0', fontSize: 12 }}>{c.nombre}</td>
-                  <td style={{ padding: '10px 16px', color: '#666', fontSize: 12 }}>{c.localidad}</td>
-                  <td style={{ padding: '10px 16px', color: '#666', fontSize: 12 }}>{c.zona}</td>
-                  <td style={{ padding: '10px 16px', color: '#666', fontSize: 12 }}>{c.red_km ?? '-'}</td>
+                  <td style={{ padding: '10px 16px', color: '#F5C300', fontSize: 13, fontWeight: 700 }}>{c.numero}</td>
+                  <td style={{ padding: '10px 16px', color: '#e0e0e0', fontSize: 13 }}>{c.nombre}</td>
+                  <td style={{ padding: '10px 16px', color: '#666', fontSize: 13 }}>{c.localidad}</td>
+                  <td style={{ padding: '10px 16px', color: '#666', fontSize: 13 }}>{c.zona}</td>
+                  <td style={{ padding: '10px 16px', color: '#666', fontSize: 13 }}>{c.red_km ?? '-'}</td>
                   <td style={{ padding: '12px 16px' }}>
                     {c.color && (
                       <span style={{ display: 'inline-block', width: 20, height: 20, borderRadius: 4, background: c.color, border: '1px solid #4C4C4C' }} />

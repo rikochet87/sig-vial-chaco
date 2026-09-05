@@ -486,7 +486,7 @@ export default function RipioMapPanel({
         <div style={{
           position: 'absolute', top: 10, left: '50%', transform: 'translateX(-50%)',
           zIndex: 999, background: '#0a0a0aee', border: `1px solid ${color}55`,
-          padding: '6px 14px', fontFamily: 'monospace', fontSize: 10, color: `${color}cc`,
+          padding: '6px 14px', fontFamily: 'monospace', fontSize: 12, color: `${color}cc`,
           pointerEvents: 'none',
         }}>
           ● Clic para agregar punto · Clic derecho para finalizar
@@ -497,7 +497,7 @@ export default function RipioMapPanel({
         <div style={{
           position: 'absolute', inset: 0, display: 'flex',
           alignItems: 'center', justifyContent: 'center',
-          background: '#0d0d0d', fontFamily: 'monospace', fontSize: 11, color: '#333',
+          background: '#0d0d0d', fontFamily: 'monospace', fontSize: 13, color: '#333',
         }}>
           Cargando mapa…
         </div>

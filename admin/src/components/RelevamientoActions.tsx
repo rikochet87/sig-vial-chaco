@@ -80,7 +80,7 @@ function baseName(rel: Relevamiento) {
 
 const GHOST: React.CSSProperties = {
   background: 'transparent', border: '1px solid #252525', color: '#555',
-  padding: '7px 14px', fontSize: 11, fontWeight: 600,
+  padding: '7px 14px', fontSize: 13, fontWeight: 600,
   cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, letterSpacing: 0.5,
 }
 

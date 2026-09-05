@@ -40,11 +40,11 @@ const inpStyle: React.CSSProperties = {
   outline: 'none', boxSizing: 'border-box',
 }
 const lbl: React.CSSProperties = {
-  fontSize: 12, color: '#555', textTransform: 'uppercase', letterSpacing: 0.8,
+  fontSize: 13, color: '#555', textTransform: 'uppercase', letterSpacing: 0.8,
   fontFamily: 'monospace', marginBottom: 3, marginTop: 10, display: 'block',
 }
 const th: React.CSSProperties = {
-  padding: '4px 8px', fontWeight: 400, fontSize: 9, color: '#555',
+  padding: '4px 8px', fontWeight: 400, fontSize: 12, color: '#555',
   textTransform: 'uppercase', letterSpacing: 0.8, textAlign: 'left', fontFamily: 'monospace',
 }
 
@@ -106,10 +106,10 @@ function Inp({ label, unit, value, onChange, step = 0.1, min = 0 }: {
 function Res({ label, value, unit, accent }: { label: string; value: string; unit: string; accent?: boolean }) {
   return (
     <div style={{ marginBottom: 6, paddingBottom: 6, borderBottom: '1px solid #141414' }}>
-      <div style={{ fontSize: 10, color: '#444', textTransform: 'uppercase', letterSpacing: 0.8, fontFamily: 'monospace' }}>{label}</div>
+      <div style={{ fontSize: 12, color: '#444', textTransform: 'uppercase', letterSpacing: 0.8, fontFamily: 'monospace' }}>{label}</div>
       <div style={{ marginTop: 1 }}>
         <span style={{ fontSize: accent ? 16 : 13, fontWeight: 700, color: accent ? '#F5C300' : '#bbb', fontFamily: 'monospace' }}>{value}</span>
-        <span style={{ fontSize: 10, color: '#444', marginLeft: 3, fontFamily: 'monospace' }}>{unit}</span>
+        <span style={{ fontSize: 12, color: '#444', marginLeft: 3, fontFamily: 'monospace' }}>{unit}</span>
       </div>
     </div>
   )
@@ -126,7 +126,7 @@ function Pipeline({ steps, color }: {
 }) {
   return (
     <div style={{ borderTop: '1px solid #1a1a1a', paddingTop: 12, marginTop: 8 }}>
-      <div style={{ fontSize: 9, color: '#333', textTransform: 'uppercase', letterSpacing: 1.2, fontFamily: 'monospace', marginBottom: 8 }}>
+      <div style={{ fontSize: 12, color: '#333', textTransform: 'uppercase', letterSpacing: 1.2, fontFamily: 'monospace', marginBottom: 8 }}>
         Procedimiento de cálculo
       </div>
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -137,9 +137,9 @@ function Pipeline({ steps, color }: {
               border: `1px solid ${s.accent ? color + '44' : '#1a1a1a'}`,
               borderRadius: 4, padding: '8px 10px', minWidth: 110,
             }}>
-              <div style={{ fontSize: 9, color: '#444', fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 4 }}>{s.label}</div>
-              <div style={{ fontSize: 10, color: '#2a2a2a', fontFamily: 'monospace', lineHeight: 1.4 }}>{s.formula}</div>
-              <div style={{ fontSize: 10, color: '#383838', fontFamily: 'monospace', marginTop: 3, lineHeight: 1.4 }}>= {s.sub}</div>
+              <div style={{ fontSize: 12, color: '#444', fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 4 }}>{s.label}</div>
+              <div style={{ fontSize: 12, color: '#2a2a2a', fontFamily: 'monospace', lineHeight: 1.4 }}>{s.formula}</div>
+              <div style={{ fontSize: 12, color: '#383838', fontFamily: 'monospace', marginTop: 3, lineHeight: 1.4 }}>= {s.sub}</div>
               <div style={{ fontSize: 14, fontWeight: 700, color: s.accent ? color : '#666', fontFamily: 'monospace', marginTop: 4 }}>{s.result}</div>
             </div>
             {i < steps.length - 1 && (
@@ -214,7 +214,7 @@ function CalcTerraplen({ paramsRef }: { paramsRef?: React.MutableRefObject<Param
         <Inp label="Densidad" unit="t/m³"      value={rho} onChange={setRho} step={0.05} min={1} />
         <Inp label="Esponjamiento" unit="%"    value={Fe}  onChange={setFe}  step={1} />
         <Inp label="Compactación" unit="%"     value={Fc}  onChange={setFc}  step={1} min={50} />
-        <div style={{ marginTop: 12, padding: '8px', background: '#0a0a0a', borderRadius: 4, fontSize: 9, color: '#333', fontFamily: 'monospace', lineHeight: 1.6 }}>
+        <div style={{ marginTop: 12, padding: '8px', background: '#0a0a0a', borderRadius: 4, fontSize: 12, color: '#333', fontFamily: 'monospace', lineHeight: 1.6 }}>
           Ancho base = {Bb.toFixed(2)} m<br />
           A sección  = {A.toFixed(3)} m²
         </div>
@@ -255,7 +255,7 @@ function CalcTerraplen({ paramsRef }: { paramsRef?: React.MutableRefObject<Param
         <Res label="Material en banco"   value={fmt(Vbanco)}   unit="m³" />
         <Res label="Volumen esponjado"   value={fmt(Vesp)}     unit="m³" />
         <Res label="Peso total"          value={fmt(W)}        unit="t" accent />
-        <div style={{ marginTop: 8, fontSize: 11, color: '#333', fontFamily: 'monospace', lineHeight: 1.8 }}>
+        <div style={{ marginTop: 8, fontSize: 13, color: '#333', fontFamily: 'monospace', lineHeight: 1.8 }}>
           Camiones 15t: ~{Math.ceil(W/15).toLocaleString('es-AR')}<br/>
           Camiones 20t: ~{Math.ceil(W/20).toLocaleString('es-AR')}
         </div>
@@ -302,7 +302,7 @@ function CalcExcavacion({ paramsRef }: { paramsRef?: React.MutableRefObject<Para
         <div style={secLabel}>Material extraído</div>
         <Inp label="Densidad natural"   unit="t/m³" value={rho} onChange={setRho} step={0.05} min={1} />
         <Inp label="Esponjamiento"      unit="%"   value={Fe}  onChange={setFe}  step={1} />
-        <div style={{ marginTop: 12, padding: '8px', background: '#0a0a0a', borderRadius: 4, fontSize: 9, color: '#333', fontFamily: 'monospace', lineHeight: 1.6 }}>
+        <div style={{ marginTop: 12, padding: '8px', background: '#0a0a0a', borderRadius: 4, fontSize: 12, color: '#333', fontFamily: 'monospace', lineHeight: 1.6 }}>
           Ancho boca = {Bb.toFixed(2)} m<br />
           A sección  = {A.toFixed(3)} m²
         </div>
@@ -345,7 +345,7 @@ function CalcExcavacion({ paramsRef }: { paramsRef?: React.MutableRefObject<Para
         <Res label="Volumen de corte"   value={fmt(Vc)}       unit="m³" />
         <Res label="Vol. esponjado"     value={fmt(Ves)}      unit="m³" />
         <Res label="Peso a transportar" value={fmt(W)}        unit="t" accent />
-        <div style={{ marginTop: 8, fontSize: 11, color: '#333', fontFamily: 'monospace', lineHeight: 1.8 }}>
+        <div style={{ marginTop: 8, fontSize: 13, color: '#333', fontFamily: 'monospace', lineHeight: 1.8 }}>
           Camiones 15t: ~{Math.ceil(W/15).toLocaleString('es-AR')}<br/>
           Camiones 20t: ~{Math.ceil(W/20).toLocaleString('es-AR')}
         </div>
@@ -690,7 +690,7 @@ function CalcDesmalezado({ paramsRef, onGuardarObra, initialData }: { paramsRef?
           {subTabs.map(st => (
             <button key={st.id} onClick={() => { if (st.id === 'mapa') setMapaCompActivated(true); setView(st.id) }}
               style={{
-                padding: '4px 12px', fontSize: 10, fontFamily: 'monospace', cursor: 'pointer',
+                padding: '4px 12px', fontSize: 12, fontFamily: 'monospace', cursor: 'pointer',
                 border: `1px solid ${view === st.id ? color + '88' : '#1e1e1e'}`,
                 background: view === st.id ? `${color}18` : '#0a0a0a',
                 color: view === st.id ? color : '#555', borderRadius: 2,
@@ -707,7 +707,7 @@ function CalcDesmalezado({ paramsRef, onGuardarObra, initialData }: { paramsRef?
               {METHODS.map(m => (
                 <button key={m.id} onClick={() => { if (m.id === 'mapa') setMapaActivated(true); setMethod(m.id) }}
                   style={{
-                    padding: '4px 10px', fontSize: 9, ...mono, cursor: 'pointer',
+                    padding: '4px 10px', fontSize: 12, ...mono, cursor: 'pointer',
                     border: `1px solid ${method === m.id ? color + '66' : '#1a1a1a'}`,
                     background: method === m.id ? `${color}15` : '#080808',
                     color: method === m.id ? color : '#444', borderRadius: 2,
@@ -717,7 +717,7 @@ function CalcDesmalezado({ paramsRef, onGuardarObra, initialData }: { paramsRef?
               ))}
             </div>
             <div style={{ flex: 1 }} />
-            <div style={{ fontFamily: 'monospace', fontSize: 11 }}>
+            <div style={{ fontFamily: 'monospace', fontSize: 13 }}>
               <span style={{ color: '#555' }}>Sup. total</span>
               <span style={{ color, fontWeight: 700, marginLeft: 8, fontSize: 13 }}>{Sup_ha.toFixed(4)} ha</span>
             </div>
@@ -818,7 +818,7 @@ function CalcDesmalezado({ paramsRef, onGuardarObra, initialData }: { paramsRef?
                 },
               },
             })}
-            style={{ padding: '4px 14px', fontSize: 10, fontFamily: 'monospace', fontWeight: 700,
+            style={{ padding: '4px 14px', fontSize: 12, fontFamily: 'monospace', fontWeight: 700,
               letterSpacing: 0.8, cursor: 'pointer', border: '1px solid #F5C300',
               background: '#F5C30022', color: '#F5C300', borderRadius: 2 }}
           >
@@ -842,14 +842,14 @@ function CalcDesmalezado({ paramsRef, onGuardarObra, initialData }: { paramsRef?
                 <input value={fmRuta} onChange={e => setFmRuta(e.target.value)}
                   placeholder="ej. RP 1"
                   style={{ width: '100%', boxSizing: 'border-box', background: '#0a0a0a', border: '1px solid #222',
-                    color: '#ccc', padding: '5px 8px', fontSize: 11, ...mono, borderRadius: 2, outline: 'none' }} />
+                    color: '#ccc', padding: '5px 8px', fontSize: 13, ...mono, borderRadius: 2, outline: 'none' }} />
               </div>
               <div>
                 <span style={lbl}>Lados</span>
                 <div style={{ display: 'flex', gap: 4 }}>
                   {([1, 2] as const).map(l => (
                     <button key={l} onClick={() => setFmLados(l)}
-                      style={{ flex: 1, padding: '5px 4px', fontSize: 11, ...mono, cursor: 'pointer',
+                      style={{ flex: 1, padding: '5px 4px', fontSize: 13, ...mono, cursor: 'pointer',
                         borderRadius: 2, border: `1px solid ${fmLados === l ? color : '#222'}`,
                         background: fmLados === l ? `${color}22` : '#080808',
                         color: fmLados === l ? color : '#555' }}>
@@ -865,7 +865,7 @@ function CalcDesmalezado({ paramsRef, onGuardarObra, initialData }: { paramsRef?
                 <div style={{ display: 'flex', gap: 4 }}>
                   {(['auto', 'manual'] as const).map(m => (
                     <button key={m} onClick={() => setFmProgMode(m)}
-                      style={{ flex: 1, padding: '5px 4px', fontSize: 11, ...mono, cursor: 'pointer',
+                      style={{ flex: 1, padding: '5px 4px', fontSize: 13, ...mono, cursor: 'pointer',
                         borderRadius: 2, border: `1px solid ${fmProgMode === m ? color : '#222'}`,
                         background: fmProgMode === m ? `${color}22` : '#080808',
                         color: fmProgMode === m ? color : '#555' }}>
@@ -873,7 +873,7 @@ function CalcDesmalezado({ paramsRef, onGuardarObra, initialData }: { paramsRef?
                     </button>
                   ))}
                 </div>
-                <div style={{ fontSize: 9, color: '#444', ...mono, marginTop: 3, lineHeight: 1.4 }}>
+                <div style={{ fontSize: 12, color: '#444', ...mono, marginTop: 3, lineHeight: 1.4 }}>
                   {fmProgMode === 'auto'
                     ? 'La longitud del trazado llena las progresivas'
                     : 'Progresivas manuales; trazado solo visual'}
@@ -882,26 +882,26 @@ function CalcDesmalezado({ paramsRef, onGuardarObra, initialData }: { paramsRef?
 
               {/* Estado de tramo pendiente */}
               {pendingCoords.length >= 2 && (
-                <div style={{ fontSize: 9, ...mono, color, padding: '4px 8px',
+                <div style={{ fontSize: 12, ...mono, color, padding: '4px 8px',
                   background: `${color}11`, border: `1px solid ${color}33`, borderRadius: 2,
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <span>↗ {(pendingLong / 1000).toFixed(3)} km trazados</span>
                   <button onClick={() => { setPendingCoords([]); setPendingLong(0) }}
-                    style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: 9 }}>✕</button>
+                    style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: 12 }}>✕</button>
                 </div>
               )}
 
               {/* Lado Izquierdo */}
               <div style={{ borderLeft: `2px solid ${sColor('izq')}`, paddingLeft: 8, marginTop: 4 }}>
-                <div style={{ fontSize: 8, color: sColor('izq'), ...mono, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>Lado Izquierdo</div>
+                <div style={{ fontSize: 11, color: sColor('izq'), ...mono, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>Lado Izquierdo</div>
                 <Inp label="Prog. desde" unit="m" value={fmDesdeIzq} onChange={setFmDesdeIzq} step={100} min={0} />
                 <Inp label="Prog. hasta" unit="m" value={fmHastaIzq} onChange={setFmHastaIzq} step={100} min={0} />
-                <div style={{ fontSize: 9, ...mono, color: '#555', marginTop: -2, marginBottom: 4 }}>
+                <div style={{ fontSize: 12, ...mono, color: '#555', marginTop: -2, marginBottom: 4 }}>
                   Long: {fmHastaIzq > fmDesdeIzq ? ((fmHastaIzq - fmDesdeIzq) / 1000).toFixed(3) : '0.000'} km
                 </div>
                 <Inp label="Ancho banquina" unit="m" value={fmAnchoIzq} onChange={setFmAnchoIzq} step={0.5} min={0.5} />
                 {fmHastaIzq > fmDesdeIzq && (
-                  <div style={{ fontSize: 9, ...mono, color: sColor('izq'), marginTop: 2 }}>
+                  <div style={{ fontSize: 12, ...mono, color: sColor('izq'), marginTop: 2 }}>
                     = {((fmHastaIzq - fmDesdeIzq) * fmAnchoIzq / 10000).toFixed(4)} ha
                   </div>
                 )}
@@ -910,15 +910,15 @@ function CalcDesmalezado({ paramsRef, onGuardarObra, initialData }: { paramsRef?
               {/* Lado Derecho */}
               {fmLados === 2 && (
                 <div style={{ borderLeft: `2px solid ${sColor('der')}`, paddingLeft: 8, marginTop: 4 }}>
-                  <div style={{ fontSize: 8, color: sColor('der'), ...mono, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>Lado Derecho</div>
+                  <div style={{ fontSize: 11, color: sColor('der'), ...mono, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>Lado Derecho</div>
                   <Inp label="Prog. desde" unit="m" value={fmDesdeDer} onChange={setFmDesdeDer} step={100} min={0} />
                   <Inp label="Prog. hasta" unit="m" value={fmHastaDer} onChange={setFmHastaDer} step={100} min={0} />
-                  <div style={{ fontSize: 9, ...mono, color: '#555', marginTop: -2, marginBottom: 4 }}>
+                  <div style={{ fontSize: 12, ...mono, color: '#555', marginTop: -2, marginBottom: 4 }}>
                     Long: {fmHastaDer > fmDesdeDer ? ((fmHastaDer - fmDesdeDer) / 1000).toFixed(3) : '0.000'} km
                   </div>
                   <Inp label="Ancho banquina" unit="m" value={fmAnchoDer} onChange={setFmAnchoDer} step={0.5} min={0.5} />
                   {fmHastaDer > fmDesdeDer && (
-                    <div style={{ fontSize: 9, ...mono, color: sColor('der'), marginTop: 2 }}>
+                    <div style={{ fontSize: 12, ...mono, color: sColor('der'), marginTop: 2 }}>
                       = {((fmHastaDer - fmDesdeDer) * fmAnchoDer / 10000).toFixed(4)} ha
                     </div>
                   )}
@@ -927,7 +927,7 @@ function CalcDesmalezado({ paramsRef, onGuardarObra, initialData }: { paramsRef?
 
               {/* Preview total */}
               {fmHastaIzq > fmDesdeIzq && (
-                <div style={{ fontSize: 9, ...mono, color, padding: '4px 8px', background: '#0a0a0a',
+                <div style={{ fontSize: 12, ...mono, color, padding: '4px 8px', background: '#0a0a0a',
                   borderRadius: 2, border: `1px solid ${color}22`, lineHeight: 1.7, marginTop: 4 }}>
                   <strong>Total tramo: {(
                     (fmHastaIzq - fmDesdeIzq) * fmAnchoIzq / 10000 +
@@ -936,14 +936,14 @@ function CalcDesmalezado({ paramsRef, onGuardarObra, initialData }: { paramsRef?
                 </div>
               )}
               <button onClick={addTramo}
-                style={{ padding: '7px', fontSize: 11, ...mono, cursor: 'pointer', borderRadius: 2,
+                style={{ padding: '7px', fontSize: 13, ...mono, cursor: 'pointer', borderRadius: 2,
                   border: `1px solid ${color}66`, background: `${color}15`, color, fontWeight: 700, marginTop: 4 }}>
                 + Agregar tramo
               </button>
 
               {tramos.length > 0 && (
                 <div style={{ borderTop: '1px solid #1a1a1a', paddingTop: 10, marginTop: 6 }}>
-                  <div style={{ fontSize: 8, color: '#444', ...mono, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>
+                  <div style={{ fontSize: 11, color: '#444', ...mono, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>
                     Resumen por lado
                   </div>
                   {(['izq', 'der'] as const).map(s => {
@@ -951,7 +951,7 @@ function CalcDesmalezado({ paramsRef, onGuardarObra, initialData }: { paramsRef?
                       ? tramos.reduce((a, t) => a + tramoHaIzq(t), 0)
                       : tramos.filter(t => t.lados === 2).reduce((a, t) => a + tramoHaDer(t), 0)
                     return haS > 0 ? (
-                      <div key={s} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, ...mono, marginBottom: 4 }}>
+                      <div key={s} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, ...mono, marginBottom: 4 }}>
                         <span style={{ color: sColor(s) }}>{s === 'izq' ? 'Izquierdo' : 'Derecho'}</span>
                         <span style={{ color: '#aaa' }}>{haS.toFixed(4)} ha</span>
                       </div>
@@ -963,7 +963,7 @@ function CalcDesmalezado({ paramsRef, onGuardarObra, initialData }: { paramsRef?
                     <span style={{ color }}>{Sup_ha.toFixed(4)} ha</span>
                   </div>
                   <button onClick={() => setTramos([])}
-                    style={{ marginTop: 10, width: '100%', padding: '4px', fontSize: 9, ...mono,
+                    style={{ marginTop: 10, width: '100%', padding: '4px', fontSize: 12, ...mono,
                       cursor: 'pointer', borderRadius: 2, border: '1px solid #1a1a1a',
                       background: '#080808', color: '#333' }}>
                     ✕ Limpiar todo
@@ -985,11 +985,11 @@ function CalcDesmalezado({ paramsRef, onGuardarObra, initialData }: { paramsRef?
               {/* Tabla de tramos compacta */}
               <div style={{ ...panel, maxHeight: 140, overflowY: 'auto', flexShrink: 0 }}>
                 {tramos.length === 0 ? (
-                  <div style={{ padding: '8px', ...mono, fontSize: 9, color: '#333', textAlign: 'center' }}>
+                  <div style={{ padding: '8px', ...mono, fontSize: 12, color: '#333', textAlign: 'center' }}>
                     Trazá un tramo en el mapa y agregalo desde el panel izquierdo
                   </div>
                 ) : (
-                  <table style={{ width: '100%', borderCollapse: 'collapse', ...mono, fontSize: 10 }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', ...mono, fontSize: 12 }}>
                     <thead>
                       <tr style={{ borderBottom: '1px solid #222' }}>
                         <th style={th} />
@@ -1009,7 +1009,7 @@ function CalcDesmalezado({ paramsRef, onGuardarObra, initialData }: { paramsRef?
                         return (
                           <React.Fragment key={`ruta-${ruta}`}>
                             <tr>
-                              <td colSpan={10} style={{ padding: '10px 8px 2px', color, fontWeight: 700, fontSize: 10 }}>
+                              <td colSpan={10} style={{ padding: '10px 8px 2px', color, fontWeight: 700, fontSize: 12 }}>
                                 {ruta}
                               </td>
                             </tr>
@@ -1020,10 +1020,10 @@ function CalcDesmalezado({ paramsRef, onGuardarObra, initialData }: { paramsRef?
                                   <td style={{ padding: '2px 4px 2px 8px' }}>
                                     <button onClick={() => setTramos(p => p.filter(x => x.id !== t.id))}
                                       title="Eliminar"
-                                      style={{ background: 'none', border: 'none', color: '#2a2a2a', cursor: 'pointer', fontSize: 9, padding: 0 }}>✕</button>
+                                      style={{ background: 'none', border: 'none', color: '#2a2a2a', cursor: 'pointer', fontSize: 12, padding: 0 }}>✕</button>
                                   </td>
-                                  <td style={{ padding: '2px 8px', color: '#555', fontSize: 9 }}>{ruta}</td>
-                                  <td style={{ padding: '2px 4px', fontSize: 9 }}>
+                                  <td style={{ padding: '2px 8px', color: '#555', fontSize: 12 }}>{ruta}</td>
+                                  <td style={{ padding: '2px 4px', fontSize: 12 }}>
                                     <div style={{ color: sColor('izq') }}>
                                       {t.desdeIzq > 0 ? fmt(t.desdeIzq) : '0'} – {fmt(t.hastaIzq)} m
                                     </div>
@@ -1033,15 +1033,15 @@ function CalcDesmalezado({ paramsRef, onGuardarObra, initialData }: { paramsRef?
                                       </div>
                                     )}
                                   </td>
-                                  <td style={{ padding: '2px 4px', fontSize: 9, textAlign: 'right' }}>
+                                  <td style={{ padding: '2px 4px', fontSize: 12, textAlign: 'right' }}>
                                     <div style={{ color: sColor('izq') }}>{fmt(t.hastaIzq - t.desdeIzq)} m</div>
                                     {t.lados === 2 && <div style={{ color: sColor('der') }}>{fmt(t.hastaDer - t.desdeDer)} m</div>}
                                   </td>
                                   <td style={{ padding: '2px 4px', textAlign: 'center' }}>
-                                    <span style={{ color: sColor('izq'), fontSize: 8 }}>IZQ</span>
-                                    {t.lados === 2 && <><span style={{ color: '#333', margin: '0 2px' }}>+</span><span style={{ color: sColor('der'), fontSize: 8 }}>DER</span></>}
+                                    <span style={{ color: sColor('izq'), fontSize: 11 }}>IZQ</span>
+                                    {t.lados === 2 && <><span style={{ color: '#333', margin: '0 2px' }}>+</span><span style={{ color: sColor('der'), fontSize: 11 }}>DER</span></>}
                                   </td>
-                                  <td style={{ padding: '2px 4px', fontSize: 9, textAlign: 'right' }}>
+                                  <td style={{ padding: '2px 4px', fontSize: 12, textAlign: 'right' }}>
                                     <div style={{ color: sColor('izq') }}>{t.anchoIzq} m</div>
                                     {t.lados === 2 && <div style={{ color: sColor('der') }}>{t.anchoDer} m</div>}
                                   </td>
@@ -1050,7 +1050,7 @@ function CalcDesmalezado({ paramsRef, onGuardarObra, initialData }: { paramsRef?
                               )
                             })}
                             <tr style={{ borderTop: `1px solid ${color}22` }}>
-                              <td colSpan={7} style={{ padding: '3px 8px', textAlign: 'right', fontSize: 9, color: '#444' }}>
+                              <td colSpan={7} style={{ padding: '3px 8px', textAlign: 'right', fontSize: 12, color: '#444' }}>
                                 Total {ruta}
                               </td>
                               <td style={{ padding: '3px 8px 8px', textAlign: 'right', color: '#888', fontWeight: 700 }}>
@@ -1062,7 +1062,7 @@ function CalcDesmalezado({ paramsRef, onGuardarObra, initialData }: { paramsRef?
                       })}
                       {Sup_ha > 0 && (
                         <tr style={{ borderTop: `2px solid ${color}55` }}>
-                          <td colSpan={7} style={{ padding: '8px', textAlign: 'right', fontSize: 12, color: '#666', fontWeight: 700 }}>
+                          <td colSpan={7} style={{ padding: '8px', textAlign: 'right', fontSize: 13, color: '#666', fontWeight: 700 }}>
                             TOTAL GENERAL
                           </td>
                           <td style={{ padding: '8px', textAlign: 'right', color, fontSize: 14, fontWeight: 700 }}>
@@ -1081,7 +1081,7 @@ function CalcDesmalezado({ paramsRef, onGuardarObra, initialData }: { paramsRef?
               <SectionTitle>Cómputo</SectionTitle>
               <Res label="Hectáreas total" value={Sup_ha.toFixed(4)} unit="ha" accent />
               {Sup_ha > 0 && (
-                <div style={{ marginTop: 8, fontSize: 11, color: '#555', ...mono, lineHeight: 1.9 }}>
+                <div style={{ marginTop: 8, fontSize: 13, color: '#555', ...mono, lineHeight: 1.9 }}>
                   <div style={{ color: sColor('izq') }}>Izq: {haIzqPres.toFixed(4)} ha</div>
                   <div style={{ color: sColor('der') }}>Der: {haDerPres.toFixed(4)} ha</div>
                   <div style={{ color: '#444', marginTop: 4 }}>
@@ -1101,7 +1101,7 @@ function CalcDesmalezado({ paramsRef, onGuardarObra, initialData }: { paramsRef?
             <div style={{ ...panel, width: 200, flexShrink: 0, overflowY: 'auto' }}>
               <SectionTitle>Superficie por lado</SectionTitle>
               {mapEntries.length === 0 && (
-                <div style={{ fontSize: 9, color: '#333', fontFamily: 'monospace', lineHeight: 1.8, marginTop: 4 }}>
+                <div style={{ fontSize: 12, color: '#333', fontFamily: 'monospace', lineHeight: 1.8, marginTop: 4 }}>
                   Dibujá polígonos en el mapa para agregar superficies.
                   <br /><br />
                   <span style={{ color: '#2a2a2a' }}>Ideal para relevamiento con drone (mayor exactitud).</span>
@@ -1114,19 +1114,19 @@ function CalcDesmalezado({ paramsRef, onGuardarObra, initialData }: { paramsRef?
                 const subtotal = entries.reduce((acc, e) => acc + e.ha, 0)
                 return (
                   <div key={s} style={{ marginBottom: 14 }}>
-                    <div style={{ fontSize: 8, color: sColor, letterSpacing: 1, textTransform: 'uppercase',
+                    <div style={{ fontSize: 11, color: sColor, letterSpacing: 1, textTransform: 'uppercase',
                       fontFamily: 'monospace', marginBottom: 6 }}>{sLbl}</div>
                     {entries.length === 0
-                      ? <div style={{ fontSize: 9, color: '#2a2a2a', fontFamily: 'monospace' }}>Sin polígonos</div>
+                      ? <div style={{ fontSize: 12, color: '#2a2a2a', fontFamily: 'monospace' }}>Sin polígonos</div>
                       : entries.map((e, i) => (
                           <div key={e.id} style={{ display: 'flex', justifyContent: 'space-between',
-                            fontSize: 10, fontFamily: 'monospace', marginBottom: 3 }}>
+                            fontSize: 12, fontFamily: 'monospace', marginBottom: 3 }}>
                             <span style={{ color: '#555' }}>Sup. {i + 1}</span>
                             <span style={{ color: '#aaa' }}>{e.ha.toFixed(4)} ha</span>
                           </div>
                         ))
                     }
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11,
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13,
                       fontFamily: 'monospace', marginTop: 5, paddingTop: 5, borderTop: '1px solid #1a1a1a' }}>
                       <span style={{ color: '#555' }}>Subtotal {s === 'izq' ? 'Izq.' : 'Der.'}</span>
                       <span style={{ color: sColor, fontWeight: 700 }}>{subtotal.toFixed(4)} ha</span>
@@ -1137,7 +1137,7 @@ function CalcDesmalezado({ paramsRef, onGuardarObra, initialData }: { paramsRef?
               {mapEntries.length > 0 && (
                 <div style={{ borderTop: '1px solid #252525', paddingTop: 8, marginTop: 4 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between',
-                    fontSize: 12, fontFamily: 'monospace', fontWeight: 700 }}>
+                    fontSize: 13, fontFamily: 'monospace', fontWeight: 700 }}>
                     <span style={{ color: '#777' }}>Total</span>
                     <span style={{ color }}>{Sup_ha.toFixed(4)} ha</span>
                   </div>
@@ -1170,7 +1170,7 @@ function CalcDesmalezado({ paramsRef, onGuardarObra, initialData }: { paramsRef?
             <div style={{ ...panel, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
 
               <SectionTitle>Equipos</SectionTitle>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10, ...mono }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, ...mono }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid #1a1a1a' }}>
                     <th style={th}>Equipo</th>
@@ -1185,23 +1185,23 @@ function CalcDesmalezado({ paramsRef, onGuardarObra, initialData }: { paramsRef?
                       <td style={{ padding: '2px 2px' }}>
                         <input value={eq.nombre}
                           onChange={e => setApEquipos(p => p.map(x => x.id === eq.id ? {...x, nombre: e.target.value} : x))}
-                          style={{ background: 'none', border: 'none', color: '#999', ...mono, fontSize: 10, width: '100%', outline: 'none' }} />
+                          style={{ background: 'none', border: 'none', color: '#999', ...mono, fontSize: 12, width: '100%', outline: 'none' }} />
                       </td>
                       <td style={{ padding: '2px 2px' }}>
                         <input type="number" value={eq.hp}
                           onChange={e => setApEquipos(p => p.map(x => x.id === eq.id ? {...x, hp: +e.target.value} : x))}
                           style={{ background: 'none', border: '1px solid #1a1a1a', color: '#777', ...mono,
-                            fontSize: 10, width: 36, textAlign: 'right', padding: '1px 3px', outline: 'none' }} />
+                            fontSize: 12, width: 36, textAlign: 'right', padding: '1px 3px', outline: 'none' }} />
                       </td>
                       <td style={{ padding: '2px 2px' }}>
                         <input type="number" value={eq.valor}
                           onChange={e => setApEquipos(p => p.map(x => x.id === eq.id ? {...x, valor: +e.target.value} : x))}
                           style={{ background: 'none', border: '1px solid #1a1a1a', color: '#777', ...mono,
-                            fontSize: 10, width: 88, textAlign: 'right', padding: '1px 3px', outline: 'none' }} />
+                            fontSize: 12, width: 88, textAlign: 'right', padding: '1px 3px', outline: 'none' }} />
                       </td>
                       <td>
                         <button onClick={() => setApEquipos(p => p.filter(x => x.id !== eq.id))}
-                          style={{ background: 'none', border: 'none', color: '#2a2a2a', cursor: 'pointer', fontSize: 9 }}>✕</button>
+                          style={{ background: 'none', border: 'none', color: '#2a2a2a', cursor: 'pointer', fontSize: 12 }}>✕</button>
                       </td>
                     </tr>
                   ))}
@@ -1209,10 +1209,10 @@ function CalcDesmalezado({ paramsRef, onGuardarObra, initialData }: { paramsRef?
               </table>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
                 <button onClick={() => setApEquipos(p => [...p, { id: Math.random().toString(36).slice(2,6), nombre: 'Equipo nuevo', hp: 0, valor: 0 }])}
-                  style={{ fontSize: 9, ...mono, background: 'none', border: '1px solid #1a1a1a', color: '#444', cursor: 'pointer', borderRadius: 2, padding: '2px 8px' }}>
+                  style={{ fontSize: 12, ...mono, background: 'none', border: '1px solid #1a1a1a', color: '#444', cursor: 'pointer', borderRadius: 2, padding: '2px 8px' }}>
                   + equipo
                 </button>
-                <span style={{ fontSize: 9, ...mono, color: '#444' }}>
+                <span style={{ fontSize: 12, ...mono, color: '#444' }}>
                   {apEquipos.reduce((s,e)=>s+e.hp,0)} HP · ${apTotalV.toLocaleString('es-AR')}
                 </span>
               </div>
@@ -1233,7 +1233,7 @@ function CalcDesmalezado({ paramsRef, onGuardarObra, initialData }: { paramsRef?
               <Inp label="Lubricantes"     unit="% comb"  value={apPctLub}       onChange={setApPctLub}       step={5} />
 
               <SectionTitle>Mano de Obra</SectionTitle>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 9, ...mono }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, ...mono }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid #1a1a1a' }}>
                     <th style={th}>Cargo</th>
@@ -1248,23 +1248,23 @@ function CalcDesmalezado({ paramsRef, onGuardarObra, initialData }: { paramsRef?
                       <td style={{ padding: '2px 2px' }}>
                         <input value={row.cargo}
                           onChange={e => setApMO(p => p.map(x => x.id === row.id ? {...x, cargo: e.target.value} : x))}
-                          style={{ background: 'none', border: 'none', color: '#777', ...mono, fontSize: 9, width: '100%', outline: 'none' }} />
+                          style={{ background: 'none', border: 'none', color: '#777', ...mono, fontSize: 12, width: '100%', outline: 'none' }} />
                       </td>
                       <td><input type="number" value={row.n}
                         onChange={e => setApMO(p => p.map(x => x.id === row.id ? {...x, n: +e.target.value} : x))}
-                        style={{ background: 'none', border: '1px solid #1a1a1a', color: '#666', ...mono, fontSize: 9, width: 20, textAlign: 'center', padding: 1, outline: 'none' }} /></td>
+                        style={{ background: 'none', border: '1px solid #1a1a1a', color: '#666', ...mono, fontSize: 12, width: 20, textAlign: 'center', padding: 1, outline: 'none' }} /></td>
                       <td><input type="number" value={row.tarifa}
                         onChange={e => setApMO(p => p.map(x => x.id === row.id ? {...x, tarifa: +e.target.value} : x))}
-                        style={{ background: 'none', border: '1px solid #1a1a1a', color: '#666', ...mono, fontSize: 9, width: 70, textAlign: 'right', padding: '1px 2px', outline: 'none' }} /></td>
+                        style={{ background: 'none', border: '1px solid #1a1a1a', color: '#666', ...mono, fontSize: 12, width: 70, textAlign: 'right', padding: '1px 2px', outline: 'none' }} /></td>
                       <td><input type="number" value={row.coef}
                         onChange={e => setApMO(p => p.map(x => x.id === row.id ? {...x, coef: +e.target.value} : x))}
-                        style={{ background: 'none', border: '1px solid #1a1a1a', color: '#666', ...mono, fontSize: 9, width: 46, textAlign: 'right', padding: '1px 2px', outline: 'none' }} /></td>
+                        style={{ background: 'none', border: '1px solid #1a1a1a', color: '#666', ...mono, fontSize: 12, width: 46, textAlign: 'right', padding: '1px 2px', outline: 'none' }} /></td>
                     </tr>
                   ))}
                 </tbody>
               </table>
               <button onClick={() => setApMO(p => [...p, { id: Math.random().toString(36).slice(2,6), cargo: 'Operario', n: 1, tarifa: 0, coef: 0, hs: 8 }])}
-                style={{ fontSize: 9, ...mono, background: 'none', border: '1px solid #1a1a1a', color: '#444', cursor: 'pointer', borderRadius: 2, padding: '2px 8px', marginTop: 4, alignSelf: 'flex-start' }}>
+                style={{ fontSize: 12, ...mono, background: 'none', border: '1px solid #1a1a1a', color: '#444', cursor: 'pointer', borderRadius: 2, padding: '2px 8px', marginTop: 4, alignSelf: 'flex-start' }}>
                 + cargo
               </button>
 
@@ -1280,16 +1280,16 @@ function CalcDesmalezado({ paramsRef, onGuardarObra, initialData }: { paramsRef?
               {/* Equipos summary */}
               <div style={{ marginBottom: 10, paddingBottom: 8, borderBottom: '1px solid #111' }}>
                 {apEquipos.map(eq => (
-                  <div key={eq.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, ...mono, marginBottom: 2 }}>
+                  <div key={eq.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, ...mono, marginBottom: 2 }}>
                     <span style={{ color: '#555' }}>↳ {eq.nombre}{eq.hp > 0 ? ` (${eq.hp} HP)` : ''}</span>
                     <span style={{ color: '#777' }}>$ {eq.valor.toLocaleString('es-AR')}</span>
                   </div>
                 ))}
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, ...mono, borderTop: '1px solid #1a1a1a', paddingTop: 4, marginTop: 4 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, ...mono, borderTop: '1px solid #1a1a1a', paddingTop: 4, marginTop: 4 }}>
                   <span style={{ color: '#555' }}>Total {apEquipos.reduce((s,e)=>s+e.hp,0)} HP</span>
                   <span style={{ color: '#aaa', fontWeight: 700 }}>$ {apTotalV.toLocaleString('es-AR')}</span>
                 </div>
-                <div style={{ fontSize: 8, ...mono, color: '#333', marginTop: 3 }}>
+                <div style={{ fontSize: 11, ...mono, color: '#333', marginTop: 3 }}>
                   Vida útil: {apVidaHs.toLocaleString('es-AR')} hs · {Math.round(apVidaHs/apHsAnio)} años · V. Residual {0}%
                 </div>
               </div>
@@ -1316,10 +1316,10 @@ function CalcDesmalezado({ paramsRef, onGuardarObra, initialData }: { paramsRef?
                   val: apMOTotal },
               ].map(({ label, sub, val, ref }) => (
                 <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
-                  fontSize: 10, ...mono, marginBottom: 6, paddingBottom: 6, borderBottom: '1px solid #0d0d0d' }}>
+                  fontSize: 12, ...mono, marginBottom: 6, paddingBottom: 6, borderBottom: '1px solid #0d0d0d' }}>
                   <div style={{ flex: 1, minWidth: 0, paddingRight: 12 }}>
                     <div style={{ color: ref ? '#555' : '#777' }}>{label}</div>
-                    {sub && <div style={{ color: '#2a2a2a', fontSize: 8, marginTop: 1 }}>{sub}</div>}
+                    {sub && <div style={{ color: '#2a2a2a', fontSize: 11, marginTop: 1 }}>{sub}</div>}
                   </div>
                   <span style={{ color: val > 0 ? (ref ? '#555' : '#aaa') : '#2a2a2a', fontWeight: val > 0 ? 700 : 400, whiteSpace: 'nowrap' }}>
                     $ {Math.round(val).toLocaleString('es-AR')} $/d
@@ -1328,7 +1328,7 @@ function CalcDesmalezado({ paramsRef, onGuardarObra, initialData }: { paramsRef?
               ))}
 
               {/* Subtotal */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, ...mono,
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, ...mono,
                 fontWeight: 700, paddingTop: 4, borderTop: '1px solid #222', marginBottom: 8 }}>
                 <span style={{ color: '#666' }}>Subtotal</span>
                 <span style={{ color: '#aaa' }}>$ {Math.round(apSubtotal).toLocaleString('es-AR')} $/d</span>
@@ -1338,7 +1338,7 @@ function CalcDesmalezado({ paramsRef, onGuardarObra, initialData }: { paramsRef?
                 { label: `Incidencia equipos menores (${apPctEqMen}%)`, val: apEqMen },
                 { label: `Gastos generales (${apPctGG}%)`,              val: apGG   },
               ].map(({ label, val }) => (
-                <div key={label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, ...mono, marginBottom: 4 }}>
+                <div key={label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, ...mono, marginBottom: 4 }}>
                   <span style={{ color: '#555' }}>{label}</span>
                   <span style={{ color: '#777' }}>$ {Math.round(val).toLocaleString('es-AR')} $/d</span>
                 </div>
@@ -1353,22 +1353,22 @@ function CalcDesmalezado({ paramsRef, onGuardarObra, initialData }: { paramsRef?
 
               {/* Rendimiento */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
-                <span style={{ fontSize: 10, ...mono, color: '#555' }}>Rendimiento:</span>
+                <span style={{ fontSize: 12, ...mono, color: '#555' }}>Rendimiento:</span>
                 <input type="number" value={apRendHa}  onChange={e => setApRendHa(+e.target.value)}
                   style={{ width: 55, background: '#0a0a0a', border: '1px solid #222', color: '#ccc',
-                    ...mono, fontSize: 11, padding: '3px 6px', textAlign: 'right', outline: 'none' }} />
-                <span style={{ fontSize: 10, ...mono, color: '#444' }}>Ha en</span>
+                    ...mono, fontSize: 13, padding: '3px 6px', textAlign: 'right', outline: 'none' }} />
+                <span style={{ fontSize: 12, ...mono, color: '#444' }}>Ha en</span>
                 <input type="number" value={apRendDias} onChange={e => setApRendDias(+e.target.value)}
                   style={{ width: 36, background: '#0a0a0a', border: '1px solid #222', color: '#ccc',
-                    ...mono, fontSize: 11, padding: '3px 6px', textAlign: 'right', outline: 'none' }} />
-                <span style={{ fontSize: 10, ...mono, color: '#444' }}>días =</span>
-                <span style={{ fontSize: 12, ...mono, color: '#888', fontWeight: 700 }}>
+                    ...mono, fontSize: 13, padding: '3px 6px', textAlign: 'right', outline: 'none' }} />
+                <span style={{ fontSize: 12, ...mono, color: '#444' }}>días =</span>
+                <span style={{ fontSize: 13, ...mono, color: '#888', fontWeight: 700 }}>
                   {apRendDiaHa.toFixed(2)} Ha/d
                 </span>
               </div>
 
               {/* Costo unitario */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, ...mono, marginBottom: 6 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, ...mono, marginBottom: 6 }}>
                 <span style={{ color: '#666' }}>Costo unitario</span>
                 <span style={{ color: '#999' }}>$ {apCU.toFixed(2)} $/Ha</span>
               </div>
@@ -1378,15 +1378,15 @@ function CalcDesmalezado({ paramsRef, onGuardarObra, initialData }: { paramsRef?
                 borderTop: `2px solid ${color}55`, paddingTop: 14, marginTop: 6 }}>
                 <span style={{ fontSize: 13, ...mono, fontWeight: 700, color: '#888' }}>ADOPTADO</span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontSize: 11, ...mono, color: '#555' }}>$</span>
+                  <span style={{ fontSize: 13, ...mono, color: '#555' }}>$</span>
                   <input type="number" value={apAdoptado} onChange={e => setApAdoptado(+e.target.value)}
                     style={{ width: 110, background: '#0a0a0a', border: `1px solid ${color}55`, color,
                       ...mono, fontSize: 20, fontWeight: 700, padding: '5px 8px',
                       textAlign: 'right', outline: 'none', borderRadius: 2 }} />
-                  <span style={{ fontSize: 11, ...mono, color: '#666' }}>$/Ha</span>
+                  <span style={{ fontSize: 13, ...mono, color: '#666' }}>$/Ha</span>
                   <button onClick={() => setApAdoptado(Math.round(apCU))}
                     title="Sincronizar con costo calculado"
-                    style={{ fontSize: 9, ...mono, background: `${color}11`, border: `1px solid ${color}33`,
+                    style={{ fontSize: 12, ...mono, background: `${color}11`, border: `1px solid ${color}33`,
                       color, cursor: 'pointer', padding: '4px 10px', borderRadius: 2 }}>
                     ↺ Recalc.
                   </button>
@@ -1407,17 +1407,17 @@ function CalcDesmalezado({ paramsRef, onGuardarObra, initialData }: { paramsRef?
                 <span style={lbl}>Tramo / Descripción</span>
                 <input value={prespDescTramo} onChange={e => setPrespDescTramo(e.target.value)}
                   style={{ width: '100%', boxSizing: 'border-box', background: '#0a0a0a', border: '1px solid #222',
-                    color: '#ccc', padding: '5px 8px', fontSize: 11, ...mono, borderRadius: 2, outline: 'none' }} />
+                    color: '#ccc', padding: '5px 8px', fontSize: 13, ...mono, borderRadius: 2, outline: 'none' }} />
               </div>
               <Inp label="Plazo"         unit="meses" value={prespPlazo}  onChange={setPrespPlazo}  step={1} min={1} />
               <Inp label="Aporte DVP"    unit="%"     value={prespPctDVP} onChange={setPrespPctDVP} step={5} min={0} />
-              <div style={{ marginTop: 12, padding: '8px', background: '#0a0a0a', borderRadius: 4, fontSize: 9, ...mono, color: '#444', lineHeight: 1.8 }}>
+              <div style={{ marginTop: 12, padding: '8px', background: '#0a0a0a', borderRadius: 4, fontSize: 12, ...mono, color: '#444', lineHeight: 1.8 }}>
                 Aporte CCC: {100 - prespPctDVP}%<br/>
                 Precio unit.: ${apAdoptado.toLocaleString('es-AR')}/Ha
               </div>
 
               <SectionTitle>Origen de cantidades</SectionTitle>
-              <div style={{ fontSize: 9, ...mono, color: '#444', lineHeight: 1.9 }}>
+              <div style={{ fontSize: 12, ...mono, color: '#444', lineHeight: 1.9 }}>
                 {method === 'formula' && `∑ Fórmula: ${tramos.length} tramo${tramos.length !== 1 ? 's' : ''}\n${formulaHaEarly.toFixed(4)} ha totales`}
                 {method === 'mapa'    && `◈ Dibujar: ${mapEntries.length} polígono${mapEntries.length !== 1 ? 's' : ''}\n${mapaHaEarly.toFixed(4)} ha totales`}
                 <br/>
@@ -1426,14 +1426,14 @@ function CalcDesmalezado({ paramsRef, onGuardarObra, initialData }: { paramsRef?
 
               {subtotalPres > 0 && (
                 <div style={{ marginTop: 'auto', borderTop: `1px solid ${color}22`, paddingTop: 12 }}>
-                  <div style={{ fontSize: 8, ...mono, color: '#444', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Resumen</div>
+                  <div style={{ fontSize: 11, ...mono, color: '#444', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Resumen</div>
                   {[
                     { label: 'Obra',    val: subtotalPres },
                     { label: `DVP ${prespPctDVP}%`, val: montoDVP },
                     { label: `CCC ${100-prespPctDVP}%`, val: montoCCC },
                     { label: `Total (×${prespPlazo} m)`, val: totalPres, accent: true },
                   ].map(({ label, val, accent }) => (
-                    <div key={label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, ...mono, marginBottom: 4 }}>
+                    <div key={label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, ...mono, marginBottom: 4 }}>
                       <span style={{ color: accent ? color : '#555' }}>{label}</span>
                       <span style={{ color: accent ? color : '#888', fontWeight: accent ? 700 : 400 }}>
                         ${Math.round(val).toLocaleString('es-AR')}
@@ -1453,7 +1453,7 @@ function CalcDesmalezado({ paramsRef, onGuardarObra, initialData }: { paramsRef?
               </div>
 
               {/* Tabla */}
-              <table style={{ width: '100%', borderCollapse: 'collapse', ...mono, fontSize: 10 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', ...mono, fontSize: 12 }}>
                 <thead>
                   <tr style={{ borderBottom: '2px solid #222' }}>
                     <th style={{ ...th, width: 36 }}>ÍTEM</th>
@@ -1475,7 +1475,7 @@ function CalcDesmalezado({ paramsRef, onGuardarObra, initialData }: { paramsRef?
                   </tr>
                   <tr>
                     <td />
-                    <td colSpan={6} style={{ padding: '2px 8px 8px 16px', color: '#666', fontSize: 9 }}>
+                    <td colSpan={6} style={{ padding: '2px 8px 8px 16px', color: '#666', fontSize: 12 }}>
                       Tramo: {prespDescTramo}
                     </td>
                   </tr>
@@ -1521,7 +1521,7 @@ function CalcDesmalezado({ paramsRef, onGuardarObra, initialData }: { paramsRef?
                   {/* Subtotal obra */}
                   <tr style={{ borderTop: '1px solid #1a1a1a' }}>
                     <td colSpan={6} />
-                    <td style={{ padding: '6px 4px 16px', textAlign: 'right', color: '#bbb', fontWeight: 700, fontSize: 11 }}>
+                    <td style={{ padding: '6px 4px 16px', textAlign: 'right', color: '#bbb', fontWeight: 700, fontSize: 13 }}>
                       $ {subtotalPres.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
                     </td>
                   </tr>
@@ -1529,7 +1529,7 @@ function CalcDesmalezado({ paramsRef, onGuardarObra, initialData }: { paramsRef?
                   {/* Fila financiamiento */}
                   <tr style={{ borderTop: '1px solid #222' }}>
                     <td />
-                    <td colSpan={3} style={{ padding: '8px 8px', color: '#666', fontSize: 10 }}>
+                    <td colSpan={3} style={{ padding: '8px 8px', color: '#666', fontSize: 12 }}>
                       $ {subtotalPres.toLocaleString('es-AR', { minimumFractionDigits: 2 })} × {prespPlazo} meses
                     </td>
                     <td />
@@ -1542,7 +1542,7 @@ function CalcDesmalezado({ paramsRef, onGuardarObra, initialData }: { paramsRef?
                   {/* DVP */}
                   <tr>
                     <td />
-                    <td style={{ padding: '4px 8px', color: '#555', fontSize: 10 }}>
+                    <td style={{ padding: '4px 8px', color: '#555', fontSize: 12 }}>
                       Aporte D.V.P. ···· {prespPctDVP}%
                     </td>
                     <td colSpan={3} />
@@ -1555,7 +1555,7 @@ function CalcDesmalezado({ paramsRef, onGuardarObra, initialData }: { paramsRef?
                   {/* CCC */}
                   <tr>
                     <td />
-                    <td style={{ padding: '4px 8px 12px', color: '#555', fontSize: 10 }}>
+                    <td style={{ padding: '4px 8px 12px', color: '#555', fontSize: 12 }}>
                       Aporte C°C° ···· {100 - prespPctDVP}%
                     </td>
                     <td colSpan={3} />
@@ -1567,7 +1567,7 @@ function CalcDesmalezado({ paramsRef, onGuardarObra, initialData }: { paramsRef?
 
                   {/* TOTAL */}
                   <tr style={{ borderTop: '2px solid #2a2a2a' }}>
-                    <td colSpan={5} style={{ padding: '10px 8px', textAlign: 'right', fontSize: 11, color: '#777', fontWeight: 700, letterSpacing: 1 }}>
+                    <td colSpan={5} style={{ padding: '10px 8px', textAlign: 'right', fontSize: 13, color: '#777', fontWeight: 700, letterSpacing: 1 }}>
                       $
                     </td>
                     <td style={{ padding: '10px 4px', textAlign: 'right', color, fontWeight: 700, fontSize: 14 }}>
@@ -1581,7 +1581,7 @@ function CalcDesmalezado({ paramsRef, onGuardarObra, initialData }: { paramsRef?
               {/* En letras */}
               {totalPres > 0 && (
                 <div style={{ marginTop: 20, padding: '10px 14px', background: '#080808',
-                  border: '1px solid #1a1a1a', borderRadius: 3, fontSize: 10, ...mono, color: '#666',
+                  border: '1px solid #1a1a1a', borderRadius: 3, fontSize: 12, ...mono, color: '#666',
                   lineHeight: 1.6, fontStyle: 'italic' }}>
                   {pesosEnLetras(totalPres)}
                 </div>
@@ -1590,9 +1590,9 @@ function CalcDesmalezado({ paramsRef, onGuardarObra, initialData }: { paramsRef?
               {/* Vacío */}
               {subtotalPres === 0 && (
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  flex: 1, ...mono, fontSize: 10, color: '#2a2a2a', textAlign: 'center' }}>
+                  flex: 1, ...mono, fontSize: 12, color: '#2a2a2a', textAlign: 'center' }}>
                   Completá el Cómputo y el Análisis de Precio<br />
-                  <span style={{ fontSize: 8, color: '#222', marginTop: 4 }}>para ver el presupuesto calculado</span>
+                  <span style={{ fontSize: 11, color: '#222', marginTop: 4 }}>para ver el presupuesto calculado</span>
                 </div>
               )}
 
@@ -1832,8 +1832,8 @@ function CalcDesbosque({ paramsRef, onGuardarObra, initialData }: { paramsRef?: 
       head: [['Tipo de Monte', 'Ha Izq.', 'Ha Der.', 'Total Ha', 'rend.', '$/Ha', 'Días', 'Subtotal']],
       body: computoBody,
       foot: [['TOTAL', Sup_ha_izq.toFixed(4), Sup_ha_der.toFixed(4), Sup_ha.toFixed(4), '', '', diasTrab.toFixed(1), fmtM(CostoTotal)]],
-      styles:           { fontSize: 8, cellPadding: { top: 2, bottom: 2, left: 3, right: 3 } },
-      headStyles:       { fillColor: [30, 30, 30], textColor: [200, 200, 200], fontStyle: 'bold', fontSize: 7 },
+      styles:           { fontSize: 11, cellPadding: { top: 2, bottom: 2, left: 3, right: 3 } },
+      headStyles:       { fillColor: [30, 30, 30], textColor: [200, 200, 200], fontStyle: 'bold', fontSize: 11 },
       footStyles:       { fillColor: [20, 20, 20], textColor: [180, 180, 180], fontStyle: 'bold' },
       alternateRowStyles: { fillColor: [248, 248, 248] },
       columnStyles: {
@@ -1902,8 +1902,8 @@ function CalcDesbosque({ paramsRef, onGuardarObra, initialData }: { paramsRef?: 
         `$${fmt(Math.round(r.cant * r.precioUnit))}`,
       ]),
       foot: [['', 'TOTAL OBRA', '', '', '', `$${fmt(Math.round(presTotal))}`]],
-      styles:           { fontSize: 7.5, fontFamily: 'monospace', cellPadding: { top: 2, bottom: 2, left: 3, right: 3 } },
-      headStyles:       { fillColor: [30, 30, 30], textColor: [200, 200, 200], fontStyle: 'bold', fontSize: 7 },
+      styles:           { fontSize: 11, fontFamily: 'monospace', cellPadding: { top: 2, bottom: 2, left: 3, right: 3 } },
+      headStyles:       { fillColor: [30, 30, 30], textColor: [200, 200, 200], fontStyle: 'bold', fontSize: 11 },
       footStyles:       { fillColor: [20, 20, 20], textColor: [200, 200, 200], fontStyle: 'bold' },
       alternateRowStyles: { fillColor: [248, 248, 248] },
       columnStyles: {
@@ -2040,27 +2040,27 @@ function CalcDesbosque({ paramsRef, onGuardarObra, initialData }: { paramsRef?: 
   ]
 
   // ── Shared styles ─────────────────────────────────────────────
-  const TH: React.CSSProperties = { padding: '4px 6px', fontSize: 11, color: '#666', fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: 0.4, borderBottom: '1px solid #222', fontWeight: 500, whiteSpace: 'nowrap' }
+  const TH: React.CSSProperties = { padding: '4px 6px', fontSize: 13, color: '#666', fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: 0.4, borderBottom: '1px solid #222', fontWeight: 500, whiteSpace: 'nowrap' }
   const TD: React.CSSProperties = { padding: '2px 4px' }
   const TDr: React.CSSProperties = { padding: '2px 4px', textAlign: 'right' as const }
-  const cellInp = (w: number): React.CSSProperties => ({ width: w, background: '#080808', border: '1px solid #1e1e1e', color: '#ccc', fontFamily: 'monospace', fontSize: 11, padding: '2px 4px', outline: 'none', textAlign: 'right' as const, boxSizing: 'border-box' as const })
-  const labelInp: React.CSSProperties = { width: '100%', background: 'transparent', border: 'none', color: '#888', fontFamily: 'monospace', fontSize: 11, outline: 'none', padding: '2px 0' }
-  const addBtn: React.CSSProperties = { marginTop: 5, fontSize: 9, color: '#555', background: 'transparent', border: '1px solid #252525', cursor: 'pointer', fontFamily: 'monospace', padding: '2px 7px' }
-  const rmBtn:  React.CSSProperties = { fontSize: 11, color: '#444', background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: 'monospace', padding: '0 3px', lineHeight: 1 }
+  const cellInp = (w: number): React.CSSProperties => ({ width: w, background: '#080808', border: '1px solid #1e1e1e', color: '#ccc', fontFamily: 'monospace', fontSize: 13, padding: '2px 4px', outline: 'none', textAlign: 'right' as const, boxSizing: 'border-box' as const })
+  const labelInp: React.CSSProperties = { width: '100%', background: 'transparent', border: 'none', color: '#888', fontFamily: 'monospace', fontSize: 13, outline: 'none', padding: '2px 0' }
+  const addBtn: React.CSSProperties = { marginTop: 5, fontSize: 12, color: '#555', background: 'transparent', border: '1px solid #252525', cursor: 'pointer', fontFamily: 'monospace', padding: '2px 7px' }
+  const rmBtn:  React.CSSProperties = { fontSize: 13, color: '#444', background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: 'monospace', padding: '0 3px', lineHeight: 1 }
 
   // ── Entry list per side ───────────────────────────────────────
   const renderSide = (side: 'izq' | 'der', entries: MonteEntry[]) => {
     const subtotal = entries.reduce((s, e) => s + (e.ha || 0), 0)
     return (
       <>
-        <div style={{ fontSize: 9, color: color, textTransform: 'uppercase' as const, letterSpacing: 1, fontFamily: 'monospace', marginTop: side === 'der' ? 14 : 4, marginBottom: 5 }}>
+        <div style={{ fontSize: 12, color: color, textTransform: 'uppercase' as const, letterSpacing: 1, fontFamily: 'monospace', marginTop: side === 'der' ? 14 : 4, marginBottom: 5 }}>
           Lado {side === 'izq' ? 'Izquierdo' : 'Derecho'}
         </div>
         {entries.map(e => (
           <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 3, marginBottom: 4 }}>
             <select value={e.monte}
               onChange={ev => updEntry(side, e.id, 'monte', ev.target.value as MonteKey)}
-              style={{ flex: 1, background: '#080808', border: '1px solid #1a1a1a', color: '#888', fontFamily: 'monospace', fontSize: 9, padding: '3px 2px', outline: 'none', minWidth: 0 }}>
+              style={{ flex: 1, background: '#080808', border: '1px solid #1a1a1a', color: '#888', fontFamily: 'monospace', fontSize: 12, padding: '3px 2px', outline: 'none', minWidth: 0 }}>
               <option value="ralo">Ralo</option>
               <option value="semitupido">Semi-tupido</option>
               <option value="tupido">Tupido</option>
@@ -2068,14 +2068,14 @@ function CalcDesbosque({ paramsRef, onGuardarObra, initialData }: { paramsRef?: 
             <input type="number" min={0} step={0.1} value={e.ha || ''}
               onChange={ev => { const v = parseFloat(ev.target.value); if (!isNaN(v) && v >= 0) updEntry(side, e.id, 'ha', v) }}
               placeholder="0"
-              style={{ width: 50, background: '#080808', border: '1px solid #1a1a1a', color: '#ccc', fontFamily: 'monospace', fontSize: 10, padding: '3px 4px', textAlign: 'right' as const, outline: 'none' }} />
-            <span style={{ fontSize: 8, color: '#444', fontFamily: 'monospace', flexShrink: 0 }}>ha</span>
-            {e.fromMap && <span style={{ fontSize: 7, color: color, border: `1px solid ${color}44`, padding: '1px 3px', borderRadius: 1, flexShrink: 0 }}>↗</span>}
+              style={{ width: 50, background: '#080808', border: '1px solid #1a1a1a', color: '#ccc', fontFamily: 'monospace', fontSize: 12, padding: '3px 4px', textAlign: 'right' as const, outline: 'none' }} />
+            <span style={{ fontSize: 11, color: '#444', fontFamily: 'monospace', flexShrink: 0 }}>ha</span>
+            {e.fromMap && <span style={{ fontSize: 11, color: color, border: `1px solid ${color}44`, padding: '1px 3px', borderRadius: 1, flexShrink: 0 }}>↗</span>}
             <button onClick={() => rmEntry(side, e.id)}
               style={{ fontSize: 13, color: '#333', background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: 'monospace', padding: '0 2px', lineHeight: 1 }}>×</button>
           </div>
         ))}
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#666', fontFamily: 'monospace', marginTop: 3, marginBottom: 3, borderTop: '1px solid #1a1a1a', paddingTop: 4 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#666', fontFamily: 'monospace', marginTop: 3, marginBottom: 3, borderTop: '1px solid #1a1a1a', paddingTop: 4 }}>
           <span>Subtotal {side === 'izq' ? 'Izq.' : 'Der.'}</span>
           <span style={{ color: subtotal > 0 ? color : '#333', fontWeight: subtotal > 0 ? 700 : 400 }}>{subtotal.toFixed(3)} ha</span>
         </div>
@@ -2093,7 +2093,7 @@ function CalcDesbosque({ paramsRef, onGuardarObra, initialData }: { paramsRef?: 
           const labels: Record<string, string> = { computo: 'Cómputo', jornales: 'Jornales y Coeficientes', presupuesto: 'Presupuesto' }
           return (
             <button key={v} onClick={() => setView(v)}
-              style={{ padding: '3px 12px', fontSize: 11, fontFamily: 'monospace', cursor: 'pointer',
+              style={{ padding: '3px 12px', fontSize: 13, fontFamily: 'monospace', cursor: 'pointer',
                 border: 'none', borderBottom: `2px solid ${view === v ? color : 'transparent'}`,
                 background: 'transparent', color: view === v ? color : '#444',
                 letterSpacing: 0.5, marginBottom: -5 }}>
@@ -2102,7 +2102,7 @@ function CalcDesbosque({ paramsRef, onGuardarObra, initialData }: { paramsRef?: 
           )
         })}
         <div style={{ flex: 1 }} />
-        <span style={{ fontSize: 9, color: '#555', fontFamily: 'monospace', paddingRight: 4 }}>
+        <span style={{ fontSize: 12, color: '#555', fontFamily: 'monospace', paddingRight: 4 }}>
           Eq: <span style={{ color: '#777' }}>${fmt(Math.round(cEquipos))}</span>/d · MO: <span style={{ color: '#777' }}>${fmt(Math.round(cMO))}</span>/d · Total: <span style={{ color: color }}>${fmt(Math.round(costoDiario))}</span>/d
         </span>
         <button
@@ -2110,7 +2110,7 @@ function CalcDesbosque({ paramsRef, onGuardarObra, initialData }: { paramsRef?: 
           disabled={Sup_ha === 0}
           title={Sup_ha === 0 ? 'Dibujá al menos un polígono para generar el informe' : 'Generar informe PDF'}
           style={{
-            padding: '4px 12px', fontSize: 10, fontFamily: 'monospace', cursor: Sup_ha > 0 ? 'pointer' : 'not-allowed',
+            padding: '4px 12px', fontSize: 12, fontFamily: 'monospace', cursor: Sup_ha > 0 ? 'pointer' : 'not-allowed',
             border: `1px solid ${Sup_ha > 0 ? color + '88' : '#222'}`,
             background: Sup_ha > 0 ? `${color}18` : '#0a0a0a',
             color: Sup_ha > 0 ? color : '#333', borderRadius: 3, letterSpacing: 0.5,
@@ -2176,7 +2176,7 @@ function CalcDesbosque({ paramsRef, onGuardarObra, initialData }: { paramsRef?: 
                 },
               },
             })}
-            style={{ padding: '4px 14px', fontSize: 10, fontFamily: 'monospace', fontWeight: 700,
+            style={{ padding: '4px 14px', fontSize: 12, fontFamily: 'monospace', fontWeight: 700,
               letterSpacing: 0.8, cursor: 'pointer', border: '1px solid #F5C300',
               background: '#F5C30022', color: '#F5C300', borderRadius: 3, marginLeft: 6 }}
           >
@@ -2222,7 +2222,7 @@ function CalcDesbosque({ paramsRef, onGuardarObra, initialData }: { paramsRef?: 
                       <td style={TDr}><input type="number" min={0} step={1} value={r.n}
                         onChange={e => { const v=parseFloat(e.target.value); if(!isNaN(v)&&v>=0) setMONum(r.id,'n',v) }}
                         style={cellInp(28)} /></td>
-                      <td style={{ ...TDr, color: '#777', fontSize: 10, fontFamily: 'monospace', whiteSpace: 'nowrap' }}>${fmt(Math.round(dCost))}</td>
+                      <td style={{ ...TDr, color: '#777', fontSize: 12, fontFamily: 'monospace', whiteSpace: 'nowrap' }}>${fmt(Math.round(dCost))}</td>
                       <td style={TD}><button onClick={() => setMoRows(rs => rs.filter(x => x.id !== r.id))} style={rmBtn}>×</button></td>
                     </tr>
                   )
@@ -2230,7 +2230,7 @@ function CalcDesbosque({ paramsRef, onGuardarObra, initialData }: { paramsRef?: 
               </tbody>
               <tfoot>
                 <tr>
-                  <td colSpan={5} style={{ paddingTop: 6, fontSize: 9, color: '#666', borderTop: '1px solid #222', textAlign: 'right', fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: 0.5 }}>Sub-total MO</td>
+                  <td colSpan={5} style={{ paddingTop: 6, fontSize: 12, color: '#666', borderTop: '1px solid #222', textAlign: 'right', fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: 0.5 }}>Sub-total MO</td>
                   <td style={{ paddingTop: 6, textAlign: 'right', fontWeight: 700, color: color, fontSize: 13, fontFamily: 'monospace', borderTop: '1px solid #1a1a1a' }}>${fmt(Math.round(cMO))}</td>
                   <td style={{ borderTop: '1px solid #1a1a1a' }}></td>
                 </tr>
@@ -2246,15 +2246,15 @@ function CalcDesbosque({ paramsRef, onGuardarObra, initialData }: { paramsRef?: 
             <div style={{ background: '#080808', border: '1px solid #1a1a1a', borderRadius: 3, padding: '8px 10px' }}>
               {crFields.map(({ key, val, set, step }) => (
                 <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
-                  <span style={{ fontSize: 9, color: '#777', fontFamily: 'monospace', width: 28, flexShrink: 0 }}>{key}</span>
+                  <span style={{ fontSize: 12, color: '#777', fontFamily: 'monospace', width: 28, flexShrink: 0 }}>{key}</span>
                   <input type="number" min={0} step={step} value={val}
                     onChange={e => { const v=parseFloat(e.target.value); if(!isNaN(v)&&v>=0) set(v) }}
                     style={{ flex: 1, background: '#0a0a0a', border: '1px solid #1e1e1e', color: '#e0e0e0', fontFamily: 'monospace', fontSize: 13, padding: '3px 6px', outline: 'none', minWidth: 0 }} />
-                  <span style={{ fontSize: 9, color: '#555', fontFamily: 'monospace' }}>%</span>
+                  <span style={{ fontSize: 12, color: '#555', fontFamily: 'monospace' }}>%</span>
                 </div>
               ))}
               <div style={{ borderTop: '1px solid #1a1a1a', marginTop: 4, paddingTop: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: 9, color: '#777', fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: 0.5 }}>CR adoptado</span>
+                <span style={{ fontSize: 12, color: '#777', fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: 0.5 }}>CR adoptado</span>
                 <span style={{ fontSize: 15, fontWeight: 700, color: color, fontFamily: 'monospace' }}>{CR.toFixed(4)}</span>
               </div>
             </div>
@@ -2284,7 +2284,7 @@ function CalcDesbosque({ paramsRef, onGuardarObra, initialData }: { paramsRef?: 
                         <input type="number" min={0} step={1000000} value={r.capUnit}
                           onChange={e => { const v=parseFloat(e.target.value); if(!isNaN(v)&&v>=0) setEqNum(r.id,'capUnit',v) }}
                           style={cellInp(96)} />
-                        <div style={{ fontSize: 10, color: '#888', fontFamily: 'monospace', textAlign: 'right' }}>${fmt(r.capUnit)}</div>
+                        <div style={{ fontSize: 12, color: '#888', fontFamily: 'monospace', textAlign: 'right' }}>${fmt(r.capUnit)}</div>
                       </td>
                       <td style={TDr}><input type="number" min={0} step={1} value={r.hp}
                         onChange={e => { const v=parseFloat(e.target.value); if(!isNaN(v)&&v>=0) setEqNum(r.id,'hp',v) }}
@@ -2319,15 +2319,15 @@ function CalcDesbosque({ paramsRef, onGuardarObra, initialData }: { paramsRef?: 
                   <span style={lbl}>Amort+int coef/día</span>
                   <input type="number" min={0} step={0.0001} value={amortCoef}
                     onChange={e => { const v=parseFloat(e.target.value); if(!isNaN(v)&&v>0) setAmortCoef(v) }}
-                    style={{ ...inpStyle, fontSize: 12 }} />
-                  <span style={{ fontSize: 9, color: '#555', fontFamily: 'monospace' }}>= 8/10000 + tasa·8/(2·hs/año)</span>
+                    style={{ ...inpStyle, fontSize: 13 }} />
+                  <span style={{ fontSize: 12, color: '#555', fontFamily: 'monospace' }}>= 8/10000 + tasa·8/(2·hs/año)</span>
                 </label>
                 <label style={{ display: 'block' }}>
                   <span style={lbl}>Repuestos coef/día</span>
                   <input type="number" min={0} step={0.00001} value={repCoef}
                     onChange={e => { const v=parseFloat(e.target.value); if(!isNaN(v)&&v>=0) setRepCoef(v) }}
-                    style={{ ...inpStyle, fontSize: 12 }} />
-                  <span style={{ fontSize: 9, color: '#555', fontFamily: 'monospace' }}>= amort_dep × 70%</span>
+                    style={{ ...inpStyle, fontSize: 13 }} />
+                  <span style={{ fontSize: 12, color: '#555', fontFamily: 'monospace' }}>= amort_dep × 70%</span>
                 </label>
               </div>
 
@@ -2337,30 +2337,30 @@ function CalcDesbosque({ paramsRef, onGuardarObra, initialData }: { paramsRef?: 
                   <span style={lbl}>Consumo (l/HP·h)</span>
                   <input type="number" min={0} step={0.01} value={consumoLHpH}
                     onChange={e => { const v=parseFloat(e.target.value); if(!isNaN(v)&&v>=0) setConsumoLHpH(v) }}
-                    style={{ ...inpStyle, fontSize: 12 }} />
+                    style={{ ...inpStyle, fontSize: 13 }} />
                 </label>
                 <label style={{ display: 'block' }}>
                   <span style={lbl}>hs/día</span>
                   <input type="number" min={1} step={1} value={hsDiaComb}
                     onChange={e => { const v=parseFloat(e.target.value); if(!isNaN(v)&&v>0) setHsDiaComb(v) }}
-                    style={{ ...inpStyle, fontSize: 12 }} />
+                    style={{ ...inpStyle, fontSize: 13 }} />
                 </label>
                 <label style={{ display: 'block' }}>
                   <span style={lbl}>Precio combustible ($/l)</span>
                   <input type="number" min={0} step={50} value={precioLitro}
                     onChange={e => { const v=parseFloat(e.target.value); if(!isNaN(v)&&v>=0) setPrecioLitro(v) }}
-                    style={{ ...inpStyle, fontSize: 12, borderColor: `${color}55` }} />
+                    style={{ ...inpStyle, fontSize: 13, borderColor: `${color}55` }} />
                 </label>
                 <label style={{ display: 'block' }}>
                   <span style={lbl}>Coef. lubricantes</span>
                   <input type="number" min={1} step={0.05} value={coefLubri}
                     onChange={e => { const v=parseFloat(e.target.value); if(!isNaN(v)&&v>=1) setCoefLubri(v) }}
-                    style={{ ...inpStyle, fontSize: 12 }} />
+                    style={{ ...inpStyle, fontSize: 13 }} />
                 </label>
               </div>
 
               {/* Resumen equipos */}
-              <div style={{ marginTop: 10, background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: 3, padding: '7px 10px', fontSize: 10, fontFamily: 'monospace', lineHeight: 2 }}>
+              <div style={{ marginTop: 10, background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: 3, padding: '7px 10px', fontSize: 12, fontFamily: 'monospace', lineHeight: 2 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ color: '#666' }}>Comb/HP·día</span>
                   <span style={{ color: '#999' }}>${fmt(Math.round(combPerHpD))}</span>
@@ -2379,7 +2379,7 @@ function CalcDesbosque({ paramsRef, onGuardarObra, initialData }: { paramsRef?: 
                 </div>
                 <div style={{ borderTop: '1px solid #1a1a1a', marginTop: 4, paddingTop: 5, display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ color: '#888', textTransform: 'uppercase', letterSpacing: 0.5 }}>Subtotal equipos</span>
-                  <span style={{ color: color, fontWeight: 700, fontSize: 12 }}>${fmt(Math.round(cEquipos))}/día</span>
+                  <span style={{ color: color, fontWeight: 700, fontSize: 13 }}>${fmt(Math.round(cEquipos))}/día</span>
                 </div>
               </div>
             </div>
@@ -2388,7 +2388,7 @@ function CalcDesbosque({ paramsRef, onGuardarObra, initialData }: { paramsRef?: 
 
           {/* ═══ RESUMEN (Ae-9) ═══════════════════════════════ */}
           <div style={{ background: '#0e0e0e', border: '1px solid #1e1e1e', borderRadius: 6, padding: '10px 14px', flexShrink: 0 }}>
-            <div style={{ fontSize: 11, color: '#777', textTransform: 'uppercase', letterSpacing: 0.8, fontFamily: 'monospace', marginBottom: 8 }}>Resumen — Ae-9</div>
+            <div style={{ fontSize: 13, color: '#777', textTransform: 'uppercase', letterSpacing: 0.8, fontFamily: 'monospace', marginBottom: 8 }}>Resumen — Ae-9</div>
             <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 10 }}>
               <thead>
                 <tr>
@@ -2410,14 +2410,14 @@ function CalcDesbosque({ paramsRef, onGuardarObra, initialData }: { paramsRef?: 
                   const pHa = costoDir * CR
                   return (
                     <tr key={k} style={{ opacity: ha > 0 ? 1 : 0.5 }}>
-                      <td style={{ ...TD, fontFamily: 'monospace', fontSize: 10, color: ha > 0 ? '#ccc' : '#777' }}>{v.label}</td>
-                      <td style={{ ...TD, textAlign: 'right', fontFamily: 'monospace', fontSize: 10, color: ha > 0 ? '#ddd' : '#666' }}>{ha.toFixed(4)}</td>
-                      <td style={{ ...TD, textAlign: 'right', fontFamily: 'monospace', fontSize: 10, color: '#888' }}>{v.rendimientoDia}</td>
-                      <td style={{ ...TD, textAlign: 'right', fontFamily: 'monospace', fontSize: 10, color: '#999' }}>${fmt(Math.round(ejecHa))}</td>
-                      <td style={{ ...TD, textAlign: 'right', fontFamily: 'monospace', fontSize: 10, color: '#777' }}>${fmt(Math.round(materiales + transpInt))}</td>
-                      <td style={{ ...TD, textAlign: 'right', fontFamily: 'monospace', fontSize: 10, color: '#777' }}>×{CR.toFixed(2)}</td>
-                      <td style={{ ...TD, textAlign: 'right', fontFamily: 'monospace', fontSize: 10, color: ha > 0 ? color : '#555' }}>${fmt(Math.round(pHa))}</td>
-                      <td style={{ ...TD, textAlign: 'right', fontFamily: 'monospace', fontSize: 10, color: ha > 0 ? '#ccc' : '#555' }}>{ha > 0 ? fmtM(ha * pHa) : '—'}</td>
+                      <td style={{ ...TD, fontFamily: 'monospace', fontSize: 12, color: ha > 0 ? '#ccc' : '#777' }}>{v.label}</td>
+                      <td style={{ ...TD, textAlign: 'right', fontFamily: 'monospace', fontSize: 12, color: ha > 0 ? '#ddd' : '#666' }}>{ha.toFixed(4)}</td>
+                      <td style={{ ...TD, textAlign: 'right', fontFamily: 'monospace', fontSize: 12, color: '#888' }}>{v.rendimientoDia}</td>
+                      <td style={{ ...TD, textAlign: 'right', fontFamily: 'monospace', fontSize: 12, color: '#999' }}>${fmt(Math.round(ejecHa))}</td>
+                      <td style={{ ...TD, textAlign: 'right', fontFamily: 'monospace', fontSize: 12, color: '#777' }}>${fmt(Math.round(materiales + transpInt))}</td>
+                      <td style={{ ...TD, textAlign: 'right', fontFamily: 'monospace', fontSize: 12, color: '#777' }}>×{CR.toFixed(2)}</td>
+                      <td style={{ ...TD, textAlign: 'right', fontFamily: 'monospace', fontSize: 12, color: ha > 0 ? color : '#555' }}>${fmt(Math.round(pHa))}</td>
+                      <td style={{ ...TD, textAlign: 'right', fontFamily: 'monospace', fontSize: 12, color: ha > 0 ? '#ccc' : '#555' }}>{ha > 0 ? fmtM(ha * pHa) : '—'}</td>
                     </tr>
                   )
                 })}
@@ -2427,24 +2427,24 @@ function CalcDesbosque({ paramsRef, onGuardarObra, initialData }: { paramsRef?: 
                   <td style={{ ...TH, borderTop: '1px solid #1a1a1a', paddingTop: 5 }}>Total</td>
                   <td style={{ ...TH, textAlign: 'right', borderTop: '1px solid #1a1a1a', paddingTop: 5, color: '#aaa' }}>{Sup_ha.toFixed(4)}</td>
                   <td colSpan={5} style={{ borderTop: '1px solid #1a1a1a' }}></td>
-                  <td style={{ ...TH, textAlign: 'right', borderTop: '1px solid #1a1a1a', paddingTop: 5, color: color, fontSize: 12 }}>{fmtM(CostoTotal)}</td>
+                  <td style={{ ...TH, textAlign: 'right', borderTop: '1px solid #1a1a1a', paddingTop: 5, color: color, fontSize: 13 }}>{fmtM(CostoTotal)}</td>
                 </tr>
               </tfoot>
             </table>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', alignItems: 'center', gap: '5px 14px', fontFamily: 'monospace', fontSize: 11, marginBottom: 10 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', alignItems: 'center', gap: '5px 14px', fontFamily: 'monospace', fontSize: 13, marginBottom: 10 }}>
               <span style={{ color: '#888' }}>II) Materiales</span>
               <input type="number" min={0} step={1000} value={materiales}
                 onChange={e => { const v=parseFloat(e.target.value); if(!isNaN(v)&&v>=0) setMateriales(v) }}
-                style={{ background: '#0a0a0a', border: '1px solid #222', color: '#e0e0e0', fontFamily: 'monospace', fontSize: 11, padding: '2px 6px', textAlign: 'right' as const, outline: 'none', width: 120 }} />
-              <span style={{ color: '#666', fontSize: 9 }}>/Ha</span>
+                style={{ background: '#0a0a0a', border: '1px solid #222', color: '#e0e0e0', fontFamily: 'monospace', fontSize: 13, padding: '2px 6px', textAlign: 'right' as const, outline: 'none', width: 120 }} />
+              <span style={{ color: '#666', fontSize: 12 }}>/Ha</span>
               <span style={{ color: '#888' }}>III) Transp. Interno</span>
               <input type="number" min={0} step={1000} value={transpInt}
                 onChange={e => { const v=parseFloat(e.target.value); if(!isNaN(v)&&v>=0) setTranspInt(v) }}
-                style={{ background: '#0a0a0a', border: '1px solid #222', color: '#e0e0e0', fontFamily: 'monospace', fontSize: 11, padding: '2px 6px', textAlign: 'right' as const, outline: 'none', width: 120 }} />
-              <span style={{ color: '#666', fontSize: 9 }}>/Ha</span>
+                style={{ background: '#0a0a0a', border: '1px solid #222', color: '#e0e0e0', fontFamily: 'monospace', fontSize: 13, padding: '2px 6px', textAlign: 'right' as const, outline: 'none', width: 120 }} />
+              <span style={{ color: '#666', fontSize: 12 }}>/Ha</span>
             </div>
             <div style={{ padding: '8px 14px', background: `${color}15`, border: `1px solid ${color}55`, borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: 10, color: color, fontFamily: 'monospace', textTransform: 'uppercase' as const, letterSpacing: 1 }}>Costo Total Adoptado</span>
+              <span style={{ fontSize: 12, color: color, fontFamily: 'monospace', textTransform: 'uppercase' as const, letterSpacing: 1 }}>Costo Total Adoptado</span>
               <span style={{ fontSize: 20, fontWeight: 700, color: color, fontFamily: 'monospace' }}>{fmtM(CostoTotal)}</span>
             </div>
           </div>
@@ -2456,13 +2456,13 @@ function CalcDesbosque({ paramsRef, onGuardarObra, initialData }: { paramsRef?: 
           {/* Precios de referencia por tipo */}
           <div style={{ ...panel, flexShrink: 0 }}>
             <SectionTitle>Precios de Referencia por Tipo de Monte</SectionTitle>
-            <div style={{ fontSize: 10, color: '#444', fontFamily: 'monospace', marginBottom: 6 }}>incluye ejec. + mat. + transp.int. × CR</div>
+            <div style={{ fontSize: 12, color: '#444', fontFamily: 'monospace', marginBottom: 6 }}>incluye ejec. + mat. + transp.int. × CR</div>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' as const }}>
               {Object.entries(MONTE).map(([k, v]) => (
                 <div key={k} style={{ background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: 3, padding: '6px 12px', minWidth: 130 }}>
-                  <div style={{ fontSize: 10, color: '#555', textTransform: 'uppercase' as const, fontFamily: 'monospace' }}>{v.label} — {v.desc}</div>
+                  <div style={{ fontSize: 12, color: '#555', textTransform: 'uppercase' as const, fontFamily: 'monospace' }}>{v.label} — {v.desc}</div>
                   <div style={{ color: color, fontWeight: 700, fontFamily: 'monospace', fontSize: 15, marginTop: 3 }}>${fmt(Math.round(precioHaPorTipo[k]))}/Ha</div>
-                  <div style={{ fontSize: 10, color: '#444', fontFamily: 'monospace' }}>{v.rendimientoDia} Ha/día · {(haByType[k]??0).toFixed(2)} Ha total</div>
+                  <div style={{ fontSize: 12, color: '#444', fontFamily: 'monospace' }}>{v.rendimientoDia} Ha/día · {(haByType[k]??0).toFixed(2)} Ha total</div>
                 </div>
               ))}
             </div>
@@ -2491,7 +2491,7 @@ function CalcDesbosque({ paramsRef, onGuardarObra, initialData }: { paramsRef?: 
                   })
                   if (rows.length > 0) setPresRows(rows)
                 }}
-                style={{ fontSize: 9, color: color, background: `${color}15`, border: `1px solid ${color}55`, cursor: 'pointer', fontFamily: 'monospace', padding: '3px 10px', letterSpacing: 0.5 }}>
+                style={{ fontSize: 12, color: color, background: `${color}15`, border: `1px solid ${color}55`, cursor: 'pointer', fontFamily: 'monospace', padding: '3px 10px', letterSpacing: 0.5 }}>
                 ← Calcular desde cómputo
               </button>
             </div>
@@ -2510,7 +2510,7 @@ function CalcDesbosque({ paramsRef, onGuardarObra, initialData }: { paramsRef?: 
               <tbody>
                 {presRows.map(r => (
                   <tr key={r.id}>
-                    <td style={{ ...TD, textAlign: 'center', color: '#444', fontFamily: 'monospace', fontSize: 10 }}>{r.num}</td>
+                    <td style={{ ...TD, textAlign: 'center', color: '#444', fontFamily: 'monospace', fontSize: 12 }}>{r.num}</td>
                     <td style={TD}><input value={r.desc} onChange={e => setPresText(r.id, 'desc', e.target.value)} style={{ ...labelInp, width: '100%' }} /></td>
                     <td style={TD}><input value={r.unit} onChange={e => setPresText(r.id, 'unit', e.target.value)} style={{ ...labelInp, width: 34, textAlign: 'center' as const }} /></td>
                     <td style={TD}><input type="number" min={0} step={0.5} value={r.cant}
@@ -2519,14 +2519,14 @@ function CalcDesbosque({ paramsRef, onGuardarObra, initialData }: { paramsRef?: 
                     <td style={TD}><input type="number" min={0} step={1000} value={r.precioUnit}
                       onChange={e => { const v=parseFloat(e.target.value); if(!isNaN(v)&&v>=0) setPresNum(r.id,'precioUnit',v) }}
                       style={cellInp(100)} /></td>
-                    <td style={{ ...TD, textAlign: 'right', color: '#666', fontFamily: 'monospace', fontSize: 11, whiteSpace: 'nowrap' }}>${fmt(Math.round(r.cant * r.precioUnit))}</td>
+                    <td style={{ ...TD, textAlign: 'right', color: '#666', fontFamily: 'monospace', fontSize: 13, whiteSpace: 'nowrap' }}>${fmt(Math.round(r.cant * r.precioUnit))}</td>
                     <td style={TD}><button onClick={() => setPresRows(rs => rs.filter(x => x.id !== r.id))} style={rmBtn}>×</button></td>
                   </tr>
                 ))}
               </tbody>
               <tfoot>
                 <tr>
-                  <td colSpan={5} style={{ paddingTop: 8, textAlign: 'right', fontFamily: 'monospace', fontSize: 10, color: '#444', borderTop: '1px solid #1a1a1a', textTransform: 'uppercase', letterSpacing: 0.5 }}>Total Obra</td>
+                  <td colSpan={5} style={{ paddingTop: 8, textAlign: 'right', fontFamily: 'monospace', fontSize: 12, color: '#444', borderTop: '1px solid #1a1a1a', textTransform: 'uppercase', letterSpacing: 0.5 }}>Total Obra</td>
                   <td style={{ paddingTop: 8, textAlign: 'right', fontWeight: 700, color: color, fontSize: 15, fontFamily: 'monospace', borderTop: '1px solid #1a1a1a' }}>${fmt(Math.round(presTotal))}</td>
                   <td style={{ borderTop: '1px solid #1a1a1a' }}></td>
                 </tr>
@@ -2540,15 +2540,15 @@ function CalcDesbosque({ paramsRef, onGuardarObra, initialData }: { paramsRef?: 
             {/* Financiamiento */}
             <div style={{ marginTop: 14, display: 'grid', gridTemplateColumns: '260px 1fr', gap: 10 }}>
               <div style={{ background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: 3, padding: '10px 14px' }}>
-                <div style={{ fontSize: 9, color: '#444', textTransform: 'uppercase' as const, letterSpacing: 0.5, fontFamily: 'monospace', marginBottom: 8 }}>Financiamiento</div>
+                <div style={{ fontSize: 12, color: '#444', textTransform: 'uppercase' as const, letterSpacing: 0.5, fontFamily: 'monospace', marginBottom: 8 }}>Financiamiento</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                  <span style={{ fontSize: 10, color: '#555', fontFamily: 'monospace', flex: 1 }}>Org. financiador %</span>
+                  <span style={{ fontSize: 12, color: '#555', fontFamily: 'monospace', flex: 1 }}>Org. financiador %</span>
                   <input type="number" min={0} max={100} step={5} value={dvpPct}
                     onChange={e => { const v=parseFloat(e.target.value); if(!isNaN(v)&&v>=0&&v<=100) setDvpPct(v) }}
                     style={{ background: '#080808', border: `1px solid ${color}44`, color: '#e0e0e0', fontFamily: 'monospace', fontSize: 13, padding: '3px 6px', outline: 'none', width: 64, textAlign: 'right' as const }} />
-                  <span style={{ fontSize: 9, color: '#444', fontFamily: 'monospace' }}>%</span>
+                  <span style={{ fontSize: 12, color: '#444', fontFamily: 'monospace' }}>%</span>
                 </div>
-                <div style={{ fontFamily: 'monospace', fontSize: 11, lineHeight: 2 }}>
+                <div style={{ fontFamily: 'monospace', fontSize: 13, lineHeight: 2 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <span style={{ color: '#444' }}>Org. financiador ({dvpPct}%)</span>
                     <span style={{ color: color, fontWeight: 700 }}>${fmt(Math.round(aporteDVP))}</span>
@@ -2617,14 +2617,14 @@ function CalcDesbosque({ paramsRef, onGuardarObra, initialData }: { paramsRef?: 
                     const dias = v.rendimientoDia > 0 ? ha / v.rendimientoDia : 0
                     return (
                       <tr key={k} style={{ opacity: ha > 0 ? 1 : 0.3 }}>
-                        <td style={{ ...TD, fontFamily: 'monospace', fontSize: 10, color: ha > 0 ? '#888' : '#333', paddingLeft: 10 }}>{v.label}</td>
-                        <td style={{ ...TD, textAlign: 'right', fontFamily: 'monospace', fontSize: 10, color: '#555' }}>{haIzq > 0 ? haIzq.toFixed(3) : '—'}</td>
-                        <td style={{ ...TD, textAlign: 'right', fontFamily: 'monospace', fontSize: 10, color: '#555' }}>{haDer > 0 ? haDer.toFixed(3) : '—'}</td>
-                        <td style={{ ...TD, textAlign: 'right', fontFamily: 'monospace', fontSize: 10, color: ha > 0 ? '#aaa' : '#333' }}>{ha > 0 ? ha.toFixed(3) : '—'}</td>
-                        <td style={{ ...TD, textAlign: 'right', fontFamily: 'monospace', fontSize: 10, color: '#444' }}>{v.rendimientoDia}</td>
-                        <td style={{ ...TD, textAlign: 'right', fontFamily: 'monospace', fontSize: 10, color: ha > 0 ? color : '#333' }}>${fmt(Math.round(precioHaPorTipo[k]))}</td>
-                        <td style={{ ...TD, textAlign: 'right', fontFamily: 'monospace', fontSize: 10, color: '#555' }}>{ha > 0 ? dias.toFixed(1) : '—'}</td>
-                        <td style={{ ...TD, textAlign: 'right', fontFamily: 'monospace', fontSize: 10, color: ha > 0 ? '#aaa' : '#222', paddingRight: 10 }}>{ha > 0 ? fmtM(costoByType[k]) : '—'}</td>
+                        <td style={{ ...TD, fontFamily: 'monospace', fontSize: 12, color: ha > 0 ? '#888' : '#333', paddingLeft: 10 }}>{v.label}</td>
+                        <td style={{ ...TD, textAlign: 'right', fontFamily: 'monospace', fontSize: 12, color: '#555' }}>{haIzq > 0 ? haIzq.toFixed(3) : '—'}</td>
+                        <td style={{ ...TD, textAlign: 'right', fontFamily: 'monospace', fontSize: 12, color: '#555' }}>{haDer > 0 ? haDer.toFixed(3) : '—'}</td>
+                        <td style={{ ...TD, textAlign: 'right', fontFamily: 'monospace', fontSize: 12, color: ha > 0 ? '#aaa' : '#333' }}>{ha > 0 ? ha.toFixed(3) : '—'}</td>
+                        <td style={{ ...TD, textAlign: 'right', fontFamily: 'monospace', fontSize: 12, color: '#444' }}>{v.rendimientoDia}</td>
+                        <td style={{ ...TD, textAlign: 'right', fontFamily: 'monospace', fontSize: 12, color: ha > 0 ? color : '#333' }}>${fmt(Math.round(precioHaPorTipo[k]))}</td>
+                        <td style={{ ...TD, textAlign: 'right', fontFamily: 'monospace', fontSize: 12, color: '#555' }}>{ha > 0 ? dias.toFixed(1) : '—'}</td>
+                        <td style={{ ...TD, textAlign: 'right', fontFamily: 'monospace', fontSize: 12, color: ha > 0 ? '#aaa' : '#222', paddingRight: 10 }}>{ha > 0 ? fmtM(costoByType[k]) : '—'}</td>
                       </tr>
                     )
                   })}
@@ -2638,7 +2638,7 @@ function CalcDesbosque({ paramsRef, onGuardarObra, initialData }: { paramsRef?: 
                     <td style={{ borderTop: '1px solid #1a1a1a' }}></td>
                     <td style={{ borderTop: '1px solid #1a1a1a' }}></td>
                     <td style={{ ...TH, textAlign: 'right', borderTop: '1px solid #1a1a1a', paddingTop: 5, color: '#666' }}>{diasTrab.toFixed(1)}</td>
-                    <td style={{ ...TH, textAlign: 'right', borderTop: '1px solid #1a1a1a', paddingTop: 5, color, fontSize: 12, paddingRight: 10 }}>{fmtM(CostoTotal)}</td>
+                    <td style={{ ...TH, textAlign: 'right', borderTop: '1px solid #1a1a1a', paddingTop: 5, color, fontSize: 13, paddingRight: 10 }}>{fmtM(CostoTotal)}</td>
                   </tr>
                 </tfoot>
               </table>
@@ -2688,7 +2688,7 @@ function CalcLimpiezaVial({ paramsRef, onGuardarObra, initialData }: { paramsRef
         ]).map((t, i) => (
           <button key={t.id} onClick={() => setTipo(t.id)}
             style={{
-              padding: '7px 18px', fontSize: 11, fontFamily: 'monospace', cursor: 'pointer',
+              padding: '7px 18px', fontSize: 13, fontFamily: 'monospace', cursor: 'pointer',
               border: `1px solid ${tipo === t.id ? t.c : '#1e1e1e'}`,
               borderLeft: i === 1 ? 'none' : undefined,
               background: tipo === t.id ? `${t.c}1a` : '#080808',
@@ -2796,7 +2796,7 @@ export default function CalculadorasPage() {
     }}>
       {/* Header */}
       <div style={{ flexShrink: 0, marginBottom: 6 }}>
-        <span style={{ fontSize: 9, color: '#444', letterSpacing: 1.5, textTransform: 'uppercase', marginRight: 8 }}>Obras · Etapa 1</span>
+        <span style={{ fontSize: 12, color: '#444', letterSpacing: 1.5, textTransform: 'uppercase', marginRight: 8 }}>Obras · Etapa 1</span>
         <span style={{ fontSize: 15, fontWeight: 700, color: '#e0e0e0', letterSpacing: 0.5 }}>Calculadoras de Ingeniería Vial</span>
       </div>
 
@@ -2805,12 +2805,12 @@ export default function CalculadorasPage() {
         {TABS.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)}
             style={{
-              padding: '6px 14px', fontSize: 11, fontFamily: 'monospace', cursor: 'pointer',
+              padding: '6px 14px', fontSize: 13, fontFamily: 'monospace', cursor: 'pointer',
               border: 'none', borderBottom: `2px solid ${tab === t.id ? CLR[t.id] : 'transparent'}`,
               background: 'transparent', letterSpacing: 0.5, transition: 'all 0.15s',
               color: tab === t.id ? CLR[t.id] : '#555', marginBottom: -1,
             }}>
-            <span style={{ marginRight: 5, fontSize: 11 }}>{t.icon}</span>
+            <span style={{ marginRight: 5, fontSize: 13 }}>{t.icon}</span>
             {t.label}
           </button>
         ))}
@@ -2823,7 +2823,7 @@ export default function CalculadorasPage() {
         padding: '8px 0 10px', borderBottom: '1px solid #141414', flexShrink: 0,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: 9, color: '#444', letterSpacing: 1, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+          <span style={{ fontSize: 12, color: '#444', letterSpacing: 1, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
             Precio unit. ({UNIDADES[tab]})
           </span>
           <input
@@ -2838,7 +2838,7 @@ export default function CalculadorasPage() {
           />
         </div>
         {precio > 0 && (
-          <span style={{ fontSize: 9, color: '#333', fontFamily: 'monospace' }}>
+          <span style={{ fontSize: 12, color: '#333', fontFamily: 'monospace' }}>
             ARS
           </span>
         )}
@@ -2846,7 +2846,7 @@ export default function CalculadorasPage() {
         <button
           onClick={handleDraw}
           style={{
-            padding: '7px 18px', fontSize: 11, fontFamily: 'monospace',
+            padding: '7px 18px', fontSize: 13, fontFamily: 'monospace',
             fontWeight: 700, letterSpacing: 0.8, cursor: 'pointer',
             border: `1px solid ${color}`, background: `${color}22`,
             color: color, transition: 'background 0.15s',
@@ -2858,7 +2858,7 @@ export default function CalculadorasPage() {
         <button
           onClick={handleGuardarObra}
           style={{
-            padding: '7px 18px', fontSize: 11, fontFamily: 'monospace',
+            padding: '7px 18px', fontSize: 13, fontFamily: 'monospace',
             fontWeight: 700, letterSpacing: 0.8, cursor: 'pointer',
             border: '1px solid #F5C300', background: '#F5C30022',
             color: '#F5C300', transition: 'background 0.15s',
@@ -2879,7 +2879,7 @@ export default function CalculadorasPage() {
         {tab === 'ripio'      && <CalcRipioComponent onGuardarObra={(d) => { setGuardarData(d); setGuardarOpen(true) }} />}
         {tab === 'canal'      && <CalcCanal      paramsRef={paramsRef} />}
         {tab === 'limpieza'   && !editLoading && <CalcLimpiezaVial key={editId ?? 'new'} paramsRef={paramsRef} onGuardarObra={(d) => { setGuardarData(d); setGuardarOpen(true) }} initialData={editDC ?? undefined} />}
-        {tab === 'limpieza'   && editLoading  && <div style={{ color: '#555', fontFamily: 'monospace', fontSize: 12, padding: 20 }}>Cargando obra...</div>}
+        {tab === 'limpieza'   && editLoading  && <div style={{ color: '#555', fontFamily: 'monospace', fontSize: 13, padding: 20 }}>Cargando obra...</div>}
       </div>
 
       <GuardarObraModal

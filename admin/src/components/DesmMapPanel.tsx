@@ -562,7 +562,7 @@ export default function DesmMapPanel({ tramosMap, pendingColor, onLineDone, onDr
   const fmtDist = (m: number) => m >= 1000 ? `${(m/1000).toFixed(3)} km` : `${Math.round(m).toLocaleString('es-AR')} m`
   const mono: React.CSSProperties = { fontFamily: 'monospace' }
   const toolBtn = (active?: boolean, c?: string): React.CSSProperties => ({
-    padding: '4px 10px', fontSize: 10, ...mono, cursor: 'pointer', borderRadius: 2,
+    padding: '4px 10px', fontSize: 12, ...mono, cursor: 'pointer', borderRadius: 2,
     border:  `1px solid ${active ? (c ?? pendingColor)+'99' : '#252525'}`,
     background: active ? `${c ?? pendingColor}1a` : '#0c0c0c',
     color: active ? (c ?? pendingColor) : '#555',
@@ -591,7 +591,7 @@ export default function DesmMapPanel({ tramosMap, pendingColor, onLineDone, onDr
         {/* Dibujando */}
         {drawing && (
           <>
-            <span style={{ fontSize: 9, color: `${pendingColor}cc`, ...mono }}>
+            <span style={{ fontSize: 12, color: `${pendingColor}cc`, ...mono }}>
               ● Clic para agregar punto · Clic derecho para terminar
             </span>
             {canUndo && (
@@ -604,11 +604,11 @@ export default function DesmMapPanel({ tramosMap, pendingColor, onLineDone, onDr
         {/* Línea pendiente (dibujada, esperando "Agregar tramo") */}
         {pendingResult && !drawing && (
           <>
-            <span style={{ fontSize: 10, color: pendingColor, ...mono, fontWeight: 700 }}>
+            <span style={{ fontSize: 12, color: pendingColor, ...mono, fontWeight: 700 }}>
               ✓ {fmtDist(pendingResult.lengthM)} · {pendingResult.coords.length} vért.
             </span>
             <button onClick={cancelDraw} style={toolBtn()}>↺ Redibujar</button>
-            <span style={{ fontSize: 9, color: '#444', ...mono }}>← Completá el formulario y presioná + Agregar tramo</span>
+            <span style={{ fontSize: 12, color: '#444', ...mono }}>← Completá el formulario y presioná + Agregar tramo</span>
           </>
         )}
 
@@ -616,10 +616,10 @@ export default function DesmMapPanel({ tramosMap, pendingColor, onLineDone, onDr
 
         {/* Intervalo de progresivas */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <span style={{ fontSize: 8, color: '#444', fontFamily: 'monospace', marginRight: 2 }}>Prog.</span>
+          <span style={{ fontSize: 11, color: '#444', fontFamily: 'monospace', marginRight: 2 }}>Prog.</span>
           {([50, 100, 250, 500, 1000] as const).map(v => (
             <button key={v} onClick={() => setProgInterval(v)}
-              style={{ ...toolBtn(progInterval === v, '#888'), fontSize: 8, padding: '2px 5px' }}>
+              style={{ ...toolBtn(progInterval === v, '#888'), fontSize: 11, padding: '2px 5px' }}>
               {v >= 1000 ? '1km' : `${v}m`}
             </button>
           ))}
@@ -627,14 +627,14 @@ export default function DesmMapPanel({ tramosMap, pendingColor, onLineDone, onDr
 
         {/* Basemap */}
         <div style={{ display: 'flex', gap: 2 }}>
-          <button onClick={() => setBasemap('osm')} style={{ ...toolBtn(basemap === 'osm', '#888'), fontSize: 9 }}>OSM</button>
-          <button onClick={() => setBasemap('sat')} style={{ ...toolBtn(basemap === 'sat', '#888'), fontSize: 9 }}>Sat.</button>
+          <button onClick={() => setBasemap('osm')} style={{ ...toolBtn(basemap === 'osm', '#888'), fontSize: 12 }}>OSM</button>
+          <button onClick={() => setBasemap('sat')} style={{ ...toolBtn(basemap === 'sat', '#888'), fontSize: 12 }}>Sat.</button>
         </div>
 
         {/* Capas */}
         <button
           onClick={() => setLayerPanelOpen(v => !v)}
-          style={{ ...toolBtn(layerPanelOpen, '#F5C300'), fontSize: 9 }}
+          style={{ ...toolBtn(layerPanelOpen, '#F5C300'), fontSize: 12 }}
         >
           ⊞ Capas{activeLayerCount > 0 ? ` (${activeLayerCount})` : ''}
         </button>
@@ -649,9 +649,9 @@ export default function DesmMapPanel({ tramosMap, pendingColor, onLineDone, onDr
           <div style={{
             position: 'absolute', bottom: 12, left: 12, zIndex: 999,
             background: '#0a0a0aee', border: `1px solid ${pendingColor}55`,
-            borderRadius: 4, padding: '8px 12px', ...mono, fontSize: 10, lineHeight: 1.8, color: '#888', minWidth: 175,
+            borderRadius: 4, padding: '8px 12px', ...mono, fontSize: 12, lineHeight: 1.8, color: '#888', minWidth: 175,
           }}>
-            <div style={{ fontSize: 8, color: '#444', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>
+            <div style={{ fontSize: 11, color: '#444', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>
               Trayecto en curso
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16 }}>
@@ -664,7 +664,7 @@ export default function DesmMapPanel({ tramosMap, pendingColor, onLineDone, onDr
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, marginTop: 4, paddingTop: 4, borderTop: `1px solid ${pendingColor}33` }}>
               <span style={{ color: pendingColor }}>Total</span>
-              <span style={{ color: pendingColor, fontWeight: 700, fontSize: 12 }}>{fmtDist(hudInfo.totalM)}</span>
+              <span style={{ color: pendingColor, fontWeight: 700, fontSize: 13 }}>{fmtDist(hudInfo.totalM)}</span>
             </div>
           </div>
         )}
@@ -678,7 +678,7 @@ export default function DesmMapPanel({ tramosMap, pendingColor, onLineDone, onDr
           }}>
             <div style={{
               background: '#0a0a0acc', border: `1px solid ${pendingColor}33`,
-              borderRadius: 4, padding: '10px 18px', ...mono, fontSize: 10, color: '#444',
+              borderRadius: 4, padding: '10px 18px', ...mono, fontSize: 12, color: '#444',
             }}>
               Navegá hasta el tramo de obra<br/>
               y presioná <span style={{ color: pendingColor }}>↗ Trazar tramo</span>
@@ -693,26 +693,26 @@ export default function DesmMapPanel({ tramosMap, pendingColor, onLineDone, onDr
             background: 'rgba(10,10,10,0.94)', border: '1px solid #1e1e1e',
             padding: '8px 10px', minWidth: 148, maxHeight: 300, overflowY: 'auto',
           }}>
-            <div style={{ fontSize: 8, color: '#444', letterSpacing: 1.2, ...mono, textTransform: 'uppercase', marginBottom: 5 }}>Base</div>
+            <div style={{ fontSize: 11, color: '#444', letterSpacing: 1.2, ...mono, textTransform: 'uppercase', marginBottom: 5 }}>Base</div>
             {(['zonas','sedes'] as LayerKey[]).map(k => (
-              <label key={k} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', marginBottom: 5, fontSize: 10, ...mono, color: layerVis[k] ? LAYER_COLORS[k] : '#444', opacity: layerLoading[k] ? 0.5 : 1 }}>
+              <label key={k} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', marginBottom: 5, fontSize: 12, ...mono, color: layerVis[k] ? LAYER_COLORS[k] : '#444', opacity: layerLoading[k] ? 0.5 : 1 }}>
                 <input type="checkbox" checked={layerVis[k]} disabled={layerLoading[k]} onChange={() => void toggleLayer(k)}
                   style={{ accentColor: LAYER_COLORS[k], width: 11, height: 11, flexShrink: 0, cursor: 'pointer' }} />
                 {layerLoading[k] ? '…' : LAYER_LABELS[k]}
               </label>
             ))}
-            <div style={{ fontSize: 8, color: '#444', letterSpacing: 1.2, ...mono, textTransform: 'uppercase', marginTop: 8, marginBottom: 5, borderTop: '1px solid #1a1a1a', paddingTop: 6 }}>Rutas Prov.</div>
+            <div style={{ fontSize: 11, color: '#444', letterSpacing: 1.2, ...mono, textTransform: 'uppercase', marginTop: 8, marginBottom: 5, borderTop: '1px solid #1a1a1a', paddingTop: 6 }}>Rutas Prov.</div>
             {(['rpPavimentada','rpMejorada','rpEnObra','rpTierra'] as LayerKey[]).map(k => (
-              <label key={k} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', marginBottom: 5, fontSize: 10, ...mono, color: layerVis[k] ? LAYER_COLORS[k] : '#444', opacity: layerLoading[k] ? 0.5 : 1 }}>
+              <label key={k} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', marginBottom: 5, fontSize: 12, ...mono, color: layerVis[k] ? LAYER_COLORS[k] : '#444', opacity: layerLoading[k] ? 0.5 : 1 }}>
                 <input type="checkbox" checked={layerVis[k]} disabled={layerLoading[k]} onChange={() => void toggleLayer(k)}
                   style={{ accentColor: LAYER_COLORS[k], width: 11, height: 11, flexShrink: 0, cursor: 'pointer' }} />
                 <span style={{ display: 'inline-block', width: 14, height: 2, background: LAYER_COLORS[k], flexShrink: 0 }} />
                 {layerLoading[k] ? '…' : LAYER_LABELS[k]}
               </label>
             ))}
-            <div style={{ fontSize: 8, color: '#444', letterSpacing: 1.2, ...mono, textTransform: 'uppercase', marginTop: 8, marginBottom: 5, borderTop: '1px solid #1a1a1a', paddingTop: 6 }}>Red CC</div>
+            <div style={{ fontSize: 11, color: '#444', letterSpacing: 1.2, ...mono, textTransform: 'uppercase', marginTop: 8, marginBottom: 5, borderTop: '1px solid #1a1a1a', paddingTop: 6 }}>Red CC</div>
             {(['ccZI','ccZII','ccZIII','ccZIV','ccZV'] as LayerKey[]).map(k => (
-              <label key={k} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', marginBottom: 5, fontSize: 10, ...mono, color: layerVis[k] ? LAYER_COLORS[k] : '#444', opacity: layerLoading[k] ? 0.5 : 1 }}>
+              <label key={k} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', marginBottom: 5, fontSize: 12, ...mono, color: layerVis[k] ? LAYER_COLORS[k] : '#444', opacity: layerLoading[k] ? 0.5 : 1 }}>
                 <input type="checkbox" checked={layerVis[k]} disabled={layerLoading[k]} onChange={() => void toggleLayer(k)}
                   style={{ accentColor: LAYER_COLORS[k], width: 11, height: 11, flexShrink: 0, cursor: 'pointer' }} />
                 <span style={{ display: 'inline-block', width: 14, height: 2, background: LAYER_COLORS[k], flexShrink: 0 }} />
@@ -727,7 +727,7 @@ export default function DesmMapPanel({ tramosMap, pendingColor, onLineDone, onDr
           <div style={{
             position: 'absolute', inset: 0, zIndex: 997,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: '#0e0e0e', ...mono, fontSize: 11, color: '#333',
+            background: '#0e0e0e', ...mono, fontSize: 13, color: '#333',
           }}>
             Cargando mapa…
           </div>

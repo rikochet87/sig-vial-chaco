@@ -17,9 +17,9 @@ function StatCard({ label, value, sub, children }: { label: string; value: numbe
       flex: 1,
       minWidth: 120,
     }}>
-      <div style={{ color: '#555', fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6 }}>{label}</div>
+      <div style={{ color: '#555', fontSize: 12, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6 }}>{label}</div>
       <div style={{ color: '#e0e0e0', fontSize: 22, fontWeight: 700 }}>{value}</div>
-      {sub && <div style={{ color: '#444', fontSize: 10, marginTop: 4 }}>{sub}</div>}
+      {sub && <div style={{ color: '#444', fontSize: 12, marginTop: 4 }}>{sub}</div>}
       {children}
     </div>
   )
@@ -63,8 +63,8 @@ export default async function DashboardPage() {
             {TIPOS.map(t => (
               <div key={t} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                 <span style={{ width: 6, height: 6, borderRadius: '50%', background: TIPO_COLORS[t], display: 'inline-block', flexShrink: 0 }} />
-                <span style={{ fontSize: 10, color: '#9E9E9E' }}>{t}</span>
-                <span style={{ fontSize: 10, color: '#ccc', fontWeight: 600 }}>{countByTipo[t]}</span>
+                <span style={{ fontSize: 12, color: '#9E9E9E' }}>{t}</span>
+                <span style={{ fontSize: 12, color: '#ccc', fontWeight: 600 }}>{countByTipo[t]}</span>
               </div>
             ))}
           </div>

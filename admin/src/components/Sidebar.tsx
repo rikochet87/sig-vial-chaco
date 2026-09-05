@@ -102,7 +102,7 @@ export default function Sidebar() {
     textDecoration: 'none',
     transition: 'background 0.15s, color 0.15s, border-color 0.15s, text-shadow 0.15s',
     whiteSpace: 'nowrap', borderLeft: '2px solid transparent',
-    fontSize: 12, fontFamily: '"DM Mono", "Roboto Mono", ui-monospace, monospace',
+    fontSize: 13, fontFamily: '"DM Mono", "Roboto Mono", ui-monospace, monospace',
     letterSpacing: 0.4, fontWeight: 400,
   }
 
@@ -125,19 +125,19 @@ export default function Sidebar() {
         justifyContent: collapsed ? 'center' : 'flex-start', gap: 10,
       }}>
         <div style={{ width: 28, height: 28, background: '#F5C300', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-          <span style={{ fontSize: 11, fontWeight: 800, color: '#111', fontFamily: 'monospace', letterSpacing: -0.5 }}>SV</span>
+          <span style={{ fontSize: 13, fontWeight: 800, color: '#111', fontFamily: 'monospace', letterSpacing: -0.5 }}>SV</span>
         </div>
         {!collapsed && (
           <div>
-            <div style={{ fontSize: 11, fontWeight: 700, color: '#e0e0e0', letterSpacing: 1.5, fontFamily: 'monospace' }}>SIG VIAL</div>
-            <div style={{ fontSize: 9, color: '#444', letterSpacing: 1, fontFamily: 'monospace', marginTop: 1 }}>CHACO · ADMIN</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#e0e0e0', letterSpacing: 1.5, fontFamily: 'monospace' }}>SIG VIAL</div>
+            <div style={{ fontSize: 12, color: '#444', letterSpacing: 1, fontFamily: 'monospace', marginTop: 1 }}>CHACO · ADMIN</div>
           </div>
         )}
       </div>
 
       {/* Sección nav */}
       {!collapsed && (
-        <div style={{ padding: '14px 16px 4px', fontSize: 9, color: '#333', letterSpacing: 1.5, fontFamily: 'monospace', textTransform: 'uppercase' }}>
+        <div style={{ padding: '14px 16px 4px', fontSize: 12, color: '#333', letterSpacing: 1.5, fontFamily: 'monospace', textTransform: 'uppercase' }}>
           Navegación
         </div>
       )}
@@ -192,7 +192,7 @@ export default function Sidebar() {
             {!collapsed && (
               <>
                 <span>Relevamientos</span>
-                <span style={{ marginLeft: 'auto', fontSize: 9, opacity: 0.5, transition: 'transform 0.15s', display: 'inline-block', transform: relOpen ? 'rotate(90deg)' : 'none' }}>▶</span>
+                <span style={{ marginLeft: 'auto', fontSize: 12, opacity: 0.5, transition: 'transform 0.15s', display: 'inline-block', transform: relOpen ? 'rotate(90deg)' : 'none' }}>▶</span>
               </>
             )}
           </button>
@@ -208,7 +208,7 @@ export default function Sidebar() {
                     style={{
                       display: 'flex', alignItems: 'center', gap: 8,
                       padding: '7px 12px', textDecoration: 'none',
-                      fontSize: 11, fontFamily: '"DM Mono", ui-monospace, monospace',
+                      fontSize: 13, fontFamily: '"DM Mono", ui-monospace, monospace',
                       letterSpacing: 0.3, whiteSpace: 'nowrap',
                       color: isActive ? '#F5C300' : isHovered ? '#bbb' : '#555',
                       background: isHovered ? 'rgba(255,255,255,0.025)' : 'transparent',
@@ -247,7 +247,7 @@ export default function Sidebar() {
             {!collapsed && (
               <>
                 <span>Herramientas</span>
-                <span style={{ marginLeft: 'auto', fontSize: 9, opacity: 0.5, transition: 'transform 0.15s', display: 'inline-block', transform: toolsOpen ? 'rotate(90deg)' : 'none' }}>▶</span>
+                <span style={{ marginLeft: 'auto', fontSize: 12, opacity: 0.5, transition: 'transform 0.15s', display: 'inline-block', transform: toolsOpen ? 'rotate(90deg)' : 'none' }}>▶</span>
               </>
             )}
           </button>
@@ -264,7 +264,7 @@ export default function Sidebar() {
                     style={{
                       display: 'flex', alignItems: 'center', gap: 8,
                       padding: '7px 12px', textDecoration: 'none',
-                      fontSize: 11, fontFamily: '"DM Mono", ui-monospace, monospace',
+                      fontSize: 13, fontFamily: '"DM Mono", ui-monospace, monospace',
                       letterSpacing: 0.3, whiteSpace: 'nowrap',
                       color: isActive ? '#F5C300' : isHovered ? '#bbb' : '#555',
                       background: isHovered ? 'rgba(255,255,255,0.025)' : 'transparent',
@@ -301,7 +301,7 @@ export default function Sidebar() {
             {!collapsed && (
               <>
                 <span>Obras</span>
-                <span style={{ marginLeft: 'auto', fontSize: 9, opacity: 0.5, transition: 'transform 0.15s', display: 'inline-block', transform: obrasOpen ? 'rotate(90deg)' : 'none' }}>▶</span>
+                <span style={{ marginLeft: 'auto', fontSize: 12, opacity: 0.5, transition: 'transform 0.15s', display: 'inline-block', transform: obrasOpen ? 'rotate(90deg)' : 'none' }}>▶</span>
               </>
             )}
           </button>
@@ -320,7 +320,7 @@ export default function Sidebar() {
                     style={{
                       display: 'flex', alignItems: 'center', gap: 8,
                       padding: '7px 12px', textDecoration: 'none',
-                      fontSize: 11, fontFamily: '"DM Mono", ui-monospace, monospace',
+                      fontSize: 13, fontFamily: '"DM Mono", ui-monospace, monospace',
                       letterSpacing: 0.3, whiteSpace: 'nowrap',
                       color: isActive ? '#F5C300' : isHovered ? '#bbb' : '#555',
                       background: isHovered ? 'rgba(255,255,255,0.025)' : 'transparent',
@@ -341,7 +341,7 @@ export default function Sidebar() {
       <div style={{ borderTop: '1px solid #1e1e1e', padding: '8px' }}>
         <button
           onClick={() => setCollapsed(c => !c)}
-          style={{ width: '100%', background: 'transparent', border: '1px solid #1e1e1e', color: '#333', cursor: 'pointer', padding: '7px', fontSize: 10, fontFamily: 'monospace', letterSpacing: 1, transition: 'border-color 0.15s, color 0.15s' }}
+          style={{ width: '100%', background: 'transparent', border: '1px solid #1e1e1e', color: '#333', cursor: 'pointer', padding: '7px', fontSize: 12, fontFamily: 'monospace', letterSpacing: 1, transition: 'border-color 0.15s, color 0.15s' }}
           onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#333'; (e.currentTarget as HTMLButtonElement).style.color = '#666' }}
           onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#1e1e1e'; (e.currentTarget as HTMLButtonElement).style.color = '#333' }}
           title={collapsed ? 'Expandir' : 'Colapsar'}

@@ -20,11 +20,11 @@ const field: React.CSSProperties = {
   display: 'flex', flexDirection: 'column', gap: 4,
 }
 const label: React.CSSProperties = {
-  color: '#9E9E9E', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5,
+  color: '#9E9E9E', fontSize: 13, textTransform: 'uppercase', letterSpacing: 0.5,
 }
 const input: React.CSSProperties = {
   background: '#1a1a1a', border: '1px solid #252525',
-  color: '#e0e0e0', fontSize: 12, padding: '8px 10px', outline: 'none', width: '100%',
+  color: '#e0e0e0', fontSize: 13, padding: '8px 10px', outline: 'none', width: '100%',
 }
 const select: React.CSSProperties = { ...input, cursor: 'pointer' }
 const textarea: React.CSSProperties = {
@@ -37,7 +37,7 @@ const sectionCard: React.CSSProperties = {
   background: '#191919', border: '1px solid #1e1e1e', padding: '16px 20px', marginBottom: 12,
 }
 const sectionTitle: React.CSSProperties = {
-  color: '#F5C300', fontSize: 11, fontWeight: 700, marginBottom: 14,
+  color: '#F5C300', fontSize: 13, fontWeight: 700, marginBottom: 14,
   textTransform: 'uppercase', letterSpacing: 1.5,
 }
 
@@ -62,9 +62,9 @@ function LinealCard({ data }: { data: Record<string, unknown> | null | undefined
   const toneladas = ancho > 0 && espesor > 0 && longitud > 0
     ? (ancho * longitud * espesor * 2.1).toFixed(2) : null
   const cellStyle: React.CSSProperties = { background: '#3C3C3C', borderRadius: 8, padding: '12px 16px' }
-  const labelSt: React.CSSProperties  = { color: '#9E9E9E', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }
+  const labelSt: React.CSSProperties  = { color: '#9E9E9E', fontSize: 13, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }
   const valueSt: React.CSSProperties  = { color: '#fff', fontSize: 18, fontWeight: 700 }
-  const unitSt: React.CSSProperties   = { color: '#9E9E9E', fontSize: 12, marginLeft: 4 }
+  const unitSt: React.CSSProperties   = { color: '#9E9E9E', fontSize: 13, marginLeft: 4 }
   return (
     <div style={{ background: '#2C2C2C', borderRadius: 10, padding: 20, marginBottom: 16 }}>
       <h3 style={sectionTitle}>Datos Lineal</h3>
@@ -80,7 +80,7 @@ function LinealCard({ data }: { data: Record<string, unknown> | null | undefined
               {parseFloat(toneladas).toLocaleString('es-AR', { maximumFractionDigits: 2 })}
               <span style={unitSt}>t</span>
             </div>
-            <div style={{ color: '#666', fontSize: 10, marginTop: 4 }}>
+            <div style={{ color: '#666', fontSize: 12, marginTop: 4 }}>
               {ancho}m × {longitud}m × {espesor}m × 2,1 t/m³
             </div>
           </div>
@@ -344,7 +344,7 @@ export default function RelevamientoEditForm({ rel, tecnicoNombre }: Props) {
             style={{
               background: '#F5C300', color: '#111', border: 'none',
               padding: '9px 18px', fontWeight: 700,
-              fontSize: 11, cursor: 'pointer', letterSpacing: 1,
+              fontSize: 13, cursor: 'pointer', letterSpacing: 1,
             }}
           >
             EDITAR
@@ -391,7 +391,7 @@ export default function RelevamientoEditForm({ rel, tecnicoNombre }: Props) {
           style={{
             background: '#F5C300', color: '#111', border: 'none',
             padding: '9px 20px', fontWeight: 700,
-            fontSize: 11, cursor: saving ? 'not-allowed' : 'pointer',
+            fontSize: 13, cursor: saving ? 'not-allowed' : 'pointer',
             opacity: saving ? 0.6 : 1, letterSpacing: 1,
           }}
         >
@@ -404,7 +404,7 @@ export default function RelevamientoEditForm({ rel, tecnicoNombre }: Props) {
           style={{
             background: 'transparent', color: '#555', border: '1px solid #252525',
             padding: '9px 20px', fontWeight: 500,
-            fontSize: 11, cursor: 'pointer', letterSpacing: 0.5,
+            fontSize: 13, cursor: 'pointer', letterSpacing: 0.5,
           }}
           onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#3a3a3a'; (e.currentTarget as HTMLButtonElement).style.color = '#888' }}
           onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#252525'; (e.currentTarget as HTMLButtonElement).style.color = '#555' }}

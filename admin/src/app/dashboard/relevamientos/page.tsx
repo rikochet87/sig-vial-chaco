@@ -19,7 +19,7 @@ function SyncBadge({ sincronizado_en }: { sincronizado_en: string | null }) {
   const color = synced ? '#4CAF50' : '#F5C300'
   const label = synced ? 'sincronizado' : 'pendiente'
   return (
-    <span style={{ background: color + '22', color, border: `1px solid ${color}`, borderRadius: 20, padding: '2px 10px', fontSize: 12, fontWeight: 600 }}>
+    <span style={{ background: color + '22', color, border: `1px solid ${color}`, borderRadius: 20, padding: '2px 10px', fontSize: 13, fontWeight: 600 }}>
       {label}
     </span>
   )
@@ -88,8 +88,8 @@ export default function RelevamientosPage() {
   const paged = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE)
 
-  const selectStyle = { background: '#1a1a1a', border: '1px solid #252525', color: '#e0e0e0', padding: '6px 10px', fontSize: 12 }
-  const labelStyle = { color: '#555', fontSize: 10, letterSpacing: 1, textTransform: 'uppercase' as const }
+  const selectStyle = { background: '#1a1a1a', border: '1px solid #252525', color: '#e0e0e0', padding: '6px 10px', fontSize: 13 }
+  const labelStyle = { color: '#555', fontSize: 12, letterSpacing: 1, textTransform: 'uppercase' as const }
   const wrapStyle: React.CSSProperties = { display: 'flex', flexDirection: 'column', gap: 4 }
 
   return (
@@ -135,7 +135,7 @@ export default function RelevamientosPage() {
             <thead>
               <tr style={{ background: '#141414' }}>
                 {['Fecha', 'Tipo', 'Técnico', 'Zona', 'Consorcio', 'Tramo', 'Estado', 'Sync', ''].map(h => (
-                  <th key={h} style={{ padding: '10px 16px', color: '#444', fontSize: 10, fontWeight: 600, textAlign: 'left', textTransform: 'uppercase', letterSpacing: 1, borderBottom: '1px solid #1e1e1e' }}>{h}</th>
+                  <th key={h} style={{ padding: '10px 16px', color: '#444', fontSize: 12, fontWeight: 600, textAlign: 'left', textTransform: 'uppercase', letterSpacing: 1, borderBottom: '1px solid #1e1e1e' }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -152,20 +152,20 @@ export default function RelevamientosPage() {
                   onMouseEnter={e => (e.currentTarget.style.background = 'rgba(245,195,0,0.05)')}
                   onMouseLeave={e => (e.currentTarget.style.background = i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.01)')}
                 >
-                  <td style={{ padding: '10px 16px', color: '#888', fontSize: 12 }}>{r.fecha?.split('T')[0] ?? '-'}</td>
-                  <td style={{ padding: '10px 16px', color: '#F5C300', fontSize: 12, fontWeight: 600 }}>{r.tipo}</td>
-                  <td style={{ padding: '10px 16px', color: '#e0e0e0', fontSize: 12, maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.tecnico_id ? (profileMap[r.tecnico_id] ?? r.tecnico_id) : '-'}</td>
-                  <td style={{ padding: '10px 16px', color: '#666', fontSize: 12 }}>{r.zona || '-'}</td>
-                  <td style={{ padding: '10px 16px', color: '#666', fontSize: 12 }}>{r.cc_asociado || '-'}</td>
-                  <td style={{ padding: '10px 16px', color: '#666', fontSize: 12, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.ruta_tramo || '-'}</td>
-                  <td style={{ padding: '10px 16px', color: '#666', fontSize: 12 }}>{r.estado_calzada || '-'}</td>
+                  <td style={{ padding: '10px 16px', color: '#888', fontSize: 13 }}>{r.fecha?.split('T')[0] ?? '-'}</td>
+                  <td style={{ padding: '10px 16px', color: '#F5C300', fontSize: 13, fontWeight: 600 }}>{r.tipo}</td>
+                  <td style={{ padding: '10px 16px', color: '#e0e0e0', fontSize: 13, maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.tecnico_id ? (profileMap[r.tecnico_id] ?? r.tecnico_id) : '-'}</td>
+                  <td style={{ padding: '10px 16px', color: '#666', fontSize: 13 }}>{r.zona || '-'}</td>
+                  <td style={{ padding: '10px 16px', color: '#666', fontSize: 13 }}>{r.cc_asociado || '-'}</td>
+                  <td style={{ padding: '10px 16px', color: '#666', fontSize: 13, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.ruta_tramo || '-'}</td>
+                  <td style={{ padding: '10px 16px', color: '#666', fontSize: 13 }}>{r.estado_calzada || '-'}</td>
                   <td style={{ padding: '10px 16px' }}><SyncBadge sincronizado_en={r.sincronizado_en} /></td>
                   <td style={{ padding: '8px 12px' }} onClick={e => e.stopPropagation()}>
                     <button
                       onClick={e => handleDelete(r.id, e)}
                       title="Eliminar"
                       className="glow-r"
-                      style={{ background: 'transparent', border: '1px solid #252525', color: '#444', padding: '4px 10px', fontSize: 11, lineHeight: 1 }}
+                      style={{ background: 'transparent', border: '1px solid #252525', color: '#444', padding: '4px 10px', fontSize: 13, lineHeight: 1 }}
                       onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#f44336'; (e.currentTarget as HTMLButtonElement).style.color = '#f44336' }}
                       onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#252525'; (e.currentTarget as HTMLButtonElement).style.color = '#444' }}
                     >✕</button>
@@ -182,13 +182,13 @@ export default function RelevamientosPage() {
         {/* Pagination */}
         {totalPages > 1 && (
           <div style={{ padding: '10px 16px', display: 'flex', gap: 8, alignItems: 'center', borderTop: '1px solid #1e1e1e' }}>
-            <span style={{ color: '#444', fontSize: 12 }}>{filtered.length} resultados</span>
+            <span style={{ color: '#444', fontSize: 13 }}>{filtered.length} resultados</span>
             <div style={{ flex: 1 }} />
             <button disabled={page === 0} onClick={() => setPage(p => p - 1)} className="glow-g"
               style={{ background: '#1e1e1e', border: '1px solid #252525', color: page === 0 ? '#333' : '#888', padding: '6px 14px', cursor: page === 0 ? 'not-allowed' : 'pointer', opacity: page === 0 ? 0.4 : 1 }}>
               ← Anterior
             </button>
-            <span style={{ color: '#444', fontSize: 12 }}>Pág {page + 1} / {totalPages}</span>
+            <span style={{ color: '#444', fontSize: 13 }}>Pág {page + 1} / {totalPages}</span>
             <button disabled={page >= totalPages - 1} onClick={() => setPage(p => p + 1)} className="glow-g"
               style={{ background: '#1e1e1e', border: '1px solid #252525', color: page >= totalPages - 1 ? '#333' : '#888', padding: '6px 14px', cursor: page >= totalPages - 1 ? 'not-allowed' : 'pointer', opacity: page >= totalPages - 1 ? 0.4 : 1 }}>
               Siguiente →

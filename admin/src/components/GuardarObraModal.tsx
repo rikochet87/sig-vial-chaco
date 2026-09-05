@@ -49,7 +49,7 @@ const JURIS_LABELS: Record<Jurisdiccion, string> = {
 
 const mono: React.CSSProperties = { fontFamily: 'monospace' }
 const lbl:  React.CSSProperties = {
-  display: 'block', fontSize: 10, color: '#555',
+  display: 'block', fontSize: 12, color: '#555',
   textTransform: 'uppercase', letterSpacing: 0.8,
   fontFamily: 'monospace', marginBottom: 4, marginTop: 12,
 }
@@ -306,7 +306,7 @@ export default function GuardarObraModal({ open, data, onClose, onSaved, editId 
           <div style={{ fontSize: 15, fontWeight: 700, color: '#ddd', ...mono, marginBottom: 6 }}>
             Obra guardada correctamente
           </div>
-          <div style={{ fontSize: 11, color: '#555', ...mono, marginBottom: 24 }}>
+          <div style={{ fontSize: 13, color: '#555', ...mono, marginBottom: 24 }}>
             {TIPO_LABELS[data.tipo]} · ${data.presupuesto_total.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
           </div>
           <div style={{ fontSize: 13, color: '#888', marginBottom: 20 }}>
@@ -316,7 +316,7 @@ export default function GuardarObraModal({ open, data, onClose, onSaved, editId 
             <button
               onClick={() => { setStep('done'); onSaved(); onClose(); }}
               style={{ ...mono, background: '#1a1a1a', border: '1px solid #2a2a2a',
-                color: '#555', padding: '8px 20px', cursor: 'pointer', fontSize: 11 }}
+                color: '#555', padding: '8px 20px', cursor: 'pointer', fontSize: 13 }}
             >
               No, cerrar
             </button>
@@ -324,7 +324,7 @@ export default function GuardarObraModal({ open, data, onClose, onSaved, editId 
               onClick={handleNotificar}
               style={{ ...mono, background: color, border: 'none',
                 color: '#000', fontWeight: 700, padding: '8px 20px',
-                cursor: 'pointer', fontSize: 11 }}
+                cursor: 'pointer', fontSize: 13 }}
             >
               📲 Notificar técnicos
             </button>
@@ -341,7 +341,7 @@ export default function GuardarObraModal({ open, data, onClose, onSaved, editId 
 
         {/* Header */}
         <div style={{ borderLeft: `3px solid ${color}`, paddingLeft: 10, marginBottom: 20 }}>
-          <div style={{ fontSize: 10, color: '#444', ...mono, textTransform: 'uppercase', letterSpacing: 1 }}>
+          <div style={{ fontSize: 12, color: '#444', ...mono, textTransform: 'uppercase', letterSpacing: 1 }}>
             Guardar obra
           </div>
           <div style={{ fontSize: 16, fontWeight: 700, color, ...mono, marginTop: 2 }}>
@@ -353,19 +353,19 @@ export default function GuardarObraModal({ open, data, onClose, onSaved, editId 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 20,
           background: '#0a0a0a', border: '1px solid #1a1a1a', padding: 12 }}>
           <div>
-            <div style={{ fontSize: 9, color: '#444', ...mono, textTransform: 'uppercase', letterSpacing: 0.8 }}>Cantidad</div>
+            <div style={{ fontSize: 12, color: '#444', ...mono, textTransform: 'uppercase', letterSpacing: 0.8 }}>Cantidad</div>
             <div style={{ fontSize: 14, fontWeight: 700, color: '#bbb', ...mono }}>
               {data.cantidad.toLocaleString('es-AR', { maximumFractionDigits: 2 })} {data.unidad}
             </div>
           </div>
           <div>
-            <div style={{ fontSize: 9, color: '#444', ...mono, textTransform: 'uppercase', letterSpacing: 0.8 }}>Total</div>
+            <div style={{ fontSize: 12, color: '#444', ...mono, textTransform: 'uppercase', letterSpacing: 0.8 }}>Total</div>
             <div style={{ fontSize: 14, fontWeight: 700, color, ...mono }}>
               ${data.presupuesto_total.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
             </div>
           </div>
           <div>
-            <div style={{ fontSize: 9, color: '#444', ...mono, textTransform: 'uppercase', letterSpacing: 0.8 }}>P. Unit.</div>
+            <div style={{ fontSize: 12, color: '#444', ...mono, textTransform: 'uppercase', letterSpacing: 0.8 }}>P. Unit.</div>
             <div style={{ fontSize: 13, fontWeight: 700, color: '#888', ...mono }}>
               ${data.precio_unitario.toLocaleString('es-AR', { minimumFractionDigits: 0 })}/{data.unidad}
             </div>
@@ -377,7 +377,7 @@ export default function GuardarObraModal({ open, data, onClose, onSaved, editId 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 4 }}>
           {(Object.entries(JURIS_LABELS) as [Jurisdiccion, string][]).map(([k, v]) => (
             <button key={k} onClick={() => setJurisdiccion(k)}
-              style={{ ...mono, fontSize: 11, padding: '7px 10px', textAlign: 'left',
+              style={{ ...mono, fontSize: 13, padding: '7px 10px', textAlign: 'left',
                 background: jurisdiccion === k ? `${color}18` : '#0a0a0a',
                 border: `1px solid ${jurisdiccion === k ? color : '#222'}`,
                 color: jurisdiccion === k ? color : '#555',
@@ -402,18 +402,18 @@ export default function GuardarObraModal({ open, data, onClose, onSaved, editId 
                 {consorciosFiltrados.slice(0, 20).map(c => (
                   <div key={c.numero}
                     onClick={() => { setConsorcioNum(String(c.numero)); setConsorcioSearch(`${c.numero} — ${c.nombre}`) }}
-                    style={{ padding: '6px 10px', cursor: 'pointer', fontSize: 11, ...mono,
+                    style={{ padding: '6px 10px', cursor: 'pointer', fontSize: 13, ...mono,
                       color: '#bbb', borderBottom: '1px solid #141414' }}
                     onMouseOver={e => (e.currentTarget.style.background = '#141414')}
                     onMouseOut={e => (e.currentTarget.style.background = 'transparent')}
                   >
                     <span style={{ color: '#555', marginRight: 8 }}>{c.numero}</span>
                     {c.nombre.replace(/Consorcio Caminero N[°º]?\s*/i, 'CC ')}
-                    <span style={{ color: '#333', marginLeft: 6, fontSize: 9 }}>{c.zona}</span>
+                    <span style={{ color: '#333', marginLeft: 6, fontSize: 12 }}>{c.zona}</span>
                   </div>
                 ))}
                 {consorciosFiltrados.length === 0 && (
-                  <div style={{ padding: '8px 10px', fontSize: 11, color: '#333', ...mono }}>Sin resultados</div>
+                  <div style={{ padding: '8px 10px', fontSize: 13, color: '#333', ...mono }}>Sin resultados</div>
                 )}
               </div>
             )}
@@ -450,7 +450,7 @@ export default function GuardarObraModal({ open, data, onClose, onSaved, editId 
                 const fr = document.querySelector<HTMLIFrameElement>('#mapa-picker')
                 fr?.contentWindow?.postMessage({ cmd: 'setMode', mode: gt }, '*')
               }}
-              style={{ ...mono, fontSize: 10, padding: '4px 12px',
+              style={{ ...mono, fontSize: 12, padding: '4px 12px',
                 background: geoTipo === gt ? `${color}22` : '#080808',
                 border: `1px solid ${geoTipo === gt ? color : '#222'}`,
                 color: geoTipo === gt ? color : '#444',
@@ -475,7 +475,7 @@ export default function GuardarObraModal({ open, data, onClose, onSaved, editId 
               return opening
             })
           }}
-          style={{ ...mono, fontSize: 11, padding: '7px 12px', textAlign: 'left',
+          style={{ ...mono, fontSize: 13, padding: '7px 12px', textAlign: 'left',
             background: mapaOpen ? '#0a0a0a' : '#080808',
             border: `1px solid ${(lat != null || coordsLinea.length >= 2) ? '#F5C300' : '#222'}`,
             color: (lat != null || coordsLinea.length >= 2) ? '#F5C300' : '#555',
@@ -529,7 +529,7 @@ export default function GuardarObraModal({ open, data, onClose, onSaved, editId 
         {/* Error */}
         {error && (
           <div style={{ marginTop: 12, padding: '8px 10px', background: '#ff525211',
-            border: '1px solid #ff5252', color: '#ff5252', fontSize: 11, ...mono }}>
+            border: '1px solid #ff5252', color: '#ff5252', fontSize: 13, ...mono }}>
             {error}
           </div>
         )}
@@ -538,13 +538,13 @@ export default function GuardarObraModal({ open, data, onClose, onSaved, editId 
         <div style={{ display: 'flex', gap: 10, marginTop: 20, justifyContent: 'flex-end' }}>
           <button onClick={onClose}
             style={{ ...mono, background: 'none', border: '1px solid #222',
-              color: '#555', padding: '8px 18px', cursor: 'pointer', fontSize: 11 }}>
+              color: '#555', padding: '8px 18px', cursor: 'pointer', fontSize: 13 }}>
             Cancelar
           </button>
           <button onClick={handleGuardar} disabled={saving}
             style={{ ...mono, background: color, border: 'none',
               color: '#000', fontWeight: 700, padding: '8px 22px',
-              cursor: saving ? 'not-allowed' : 'pointer', fontSize: 11,
+              cursor: saving ? 'not-allowed' : 'pointer', fontSize: 13,
               opacity: saving ? 0.6 : 1 }}>
             {saving ? 'Guardando...' : 'Guardar obra'}
           </button>

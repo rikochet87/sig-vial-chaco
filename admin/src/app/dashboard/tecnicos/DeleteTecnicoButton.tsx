@@ -24,7 +24,7 @@ export default function DeleteTecnicoButton({ id, nombre }: Props) {
     <button
       onClick={handleDelete}
       className="glow-r"
-      style={{ background: 'transparent', border: '1px solid #252525', color: '#444', padding: '4px 12px', fontSize: 11, letterSpacing: 0.5 }}
+      style={{ background: 'transparent', border: '1px solid #252525', color: '#444', padding: '4px 12px', fontSize: 13, letterSpacing: 0.5 }}
       onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#f44336'; (e.currentTarget as HTMLButtonElement).style.color = '#f44336' }}
       onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#252525'; (e.currentTarget as HTMLButtonElement).style.color = '#444' }}
     >

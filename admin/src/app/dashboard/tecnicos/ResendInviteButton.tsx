@@ -32,7 +32,7 @@ export default function ResendInviteButton({ id, nombre }: Props) {
           background: link ? 'rgba(33,150,243,0.1)' : 'transparent',
           border: `1px solid ${link ? '#2196F3' : '#252525'}`,
           color: link ? '#2196F3' : '#444',
-          padding: '4px 10px', fontSize: 11,
+          padding: '4px 10px', fontSize: 13,
           cursor: loading ? 'not-allowed' : 'pointer',
           marginRight: 6, opacity: loading ? 0.5 : 1,
           whiteSpace: 'nowrap',
@@ -43,16 +43,16 @@ export default function ResendInviteButton({ id, nombre }: Props) {
         {loading ? '...' : link ? 'Ocultar' : '✉ Invitación'}
       </button>
 
-      {error && <span style={{ color: '#f44336', fontSize: 11 }}>{error}</span>}
+      {error && <span style={{ color: '#f44336', fontSize: 13 }}>{error}</span>}
 
       {link && (
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#111', border: '1px solid #1e1e1e', padding: '6px 10px', maxWidth: 420 }}>
-          <span style={{ fontSize: 10, color: '#555', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 300 }}>
+          <span style={{ fontSize: 12, color: '#555', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 300 }}>
             {link}
           </span>
           <button
             onClick={() => { navigator.clipboard.writeText(link); setCopied(true) }}
-            style={{ background: copied ? '#4CAF50' : '#F5C300', border: 'none', color: '#111', fontSize: 10, fontWeight: 700, padding: '3px 8px', cursor: 'pointer', flexShrink: 0, letterSpacing: 0.5 }}
+            style={{ background: copied ? '#4CAF50' : '#F5C300', border: 'none', color: '#111', fontSize: 12, fontWeight: 700, padding: '3px 8px', cursor: 'pointer', flexShrink: 0, letterSpacing: 0.5 }}
           >
             {copied ? '✓' : 'COPIAR'}
           </button>

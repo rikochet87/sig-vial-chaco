@@ -28,11 +28,11 @@ export default async function ConsorcioDetailPage({ params }: { params: Promise<
 
       {/* Read-only info */}
       <div style={{ background: '#2C2C2C', borderRadius: 10, padding: 20, marginBottom: 20 }}>
-        <h3 style={{ color: '#9E9E9E', fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 16 }}>Información general (solo lectura)</h3>
+        <h3 style={{ color: '#9E9E9E', fontSize: 13, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 16 }}>Información general (solo lectura)</h3>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 16 }}>
           {[['Nombre', c.nombre], ['Localidad', c.localidad], ['Zona', c.zona], ['Latitud', c.latitude], ['Longitud', c.longitude]].map(([label, value]) => (
             <div key={label as string}>
-              <div style={{ color: '#9E9E9E', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>{label}</div>
+              <div style={{ color: '#9E9E9E', fontSize: 13, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>{label}</div>
               <div style={{ color: '#fff', fontSize: 14 }}>{String(value ?? '-')}</div>
             </div>
           ))}

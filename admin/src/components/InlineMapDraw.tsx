@@ -752,7 +752,7 @@ export default function InlineMapDraw({ color, hideMonte = false, onConfirm, onD
   // ── Estilos base ─────────────────────────────────────────────────────────
   const mono: React.CSSProperties = { fontFamily: 'monospace' }
   const toolBtn = (active?: boolean, danger?: boolean): React.CSSProperties => ({
-    padding: '4px 10px', fontSize: 10, ...mono, cursor: 'pointer', borderRadius: 2,
+    padding: '4px 10px', fontSize: 12, ...mono, cursor: 'pointer', borderRadius: 2,
     border: `1px solid ${danger ? '#4a2a2a' : active ? color + '99' : '#252525'}`,
     background: danger ? '#160a0a' : active ? `${color}1a` : '#0c0c0c',
     color: danger ? '#d66' : active ? color : '#555',
@@ -774,20 +774,20 @@ export default function InlineMapDraw({ color, hideMonte = false, onConfirm, onD
         {editingId ? (
           /* ── Toolbar modo edición de vértices ── */
           <>
-            <span style={{ fontSize: 9, color: '#555', ...mono, textTransform: 'uppercase', letterSpacing: 0.8 }}>
+            <span style={{ fontSize: 12, color: '#555', ...mono, textTransform: 'uppercase', letterSpacing: 0.8 }}>
               Editando vértices
             </span>
             {editingConf && (
-              <span style={{ fontSize: 10, color: '#888', ...mono }}>
+              <span style={{ fontSize: 12, color: '#888', ...mono }}>
                 — {editingConf.side === 'izq' ? '← Izq.' : 'Der. →'} · {MONTE_OPTS.find(o => o.value === editingConf.monte)?.label.split(' ')[0]}
               </span>
             )}
-            <span style={{ fontSize: 9, color: '#444', ...mono }}>
+            <span style={{ fontSize: 12, color: '#444', ...mono }}>
               Arrastrá los vértices para ajustar · los cambios se calculan al guardar
             </span>
             <div style={{ flex: 1 }} />
             <button onClick={cancelEdit}  style={{ ...toolBtn(), color: '#666' }}>✕ Cancelar</button>
-            <button onClick={confirmEdit} style={{ ...toolBtn(true), padding: '5px 16px', fontSize: 11, fontWeight: 700 }}>
+            <button onClick={confirmEdit} style={{ ...toolBtn(true), padding: '5px 16px', fontSize: 13, fontWeight: 700 }}>
               ✓ Guardar edición
             </button>
           </>
@@ -795,7 +795,7 @@ export default function InlineMapDraw({ color, hideMonte = false, onConfirm, onD
           /* ── Toolbar normal ── */
           <>
             {/* Lado */}
-            <span style={{ fontSize: 9, color: '#444', ...mono, textTransform: 'uppercase', letterSpacing: 0.8 }}>Lado</span>
+            <span style={{ fontSize: 12, color: '#444', ...mono, textTransform: 'uppercase', letterSpacing: 0.8 }}>Lado</span>
             {(['izq', 'der'] as const).map(s => (
               <button key={s} disabled={drawing} onClick={() => setSide(s)} style={toolBtn(side === s)}>
                 {s === 'izq' ? '← Izq.' : 'Der. →'}
@@ -806,9 +806,9 @@ export default function InlineMapDraw({ color, hideMonte = false, onConfirm, onD
               <>
                 <div style={{ width: 1, height: 14, background: '#1e1e1e', margin: '0 2px' }} />
                 {/* Monte */}
-                <span style={{ fontSize: 9, color: '#444', ...mono, textTransform: 'uppercase', letterSpacing: 0.8 }}>Monte</span>
+                <span style={{ fontSize: 12, color: '#444', ...mono, textTransform: 'uppercase', letterSpacing: 0.8 }}>Monte</span>
                 <select value={monte} disabled={drawing} onChange={e => setMonte(e.target.value as MonteKey)}
-                  style={{ background: '#0a0a0a', border: '1px solid #222', color: '#888', ...mono, fontSize: 9, padding: '3px 6px', outline: 'none', borderRadius: 2 }}>
+                  style={{ background: '#0a0a0a', border: '1px solid #222', color: '#888', ...mono, fontSize: 12, padding: '3px 6px', outline: 'none', borderRadius: 2 }}>
                   {MONTE_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
               </>
@@ -821,12 +821,12 @@ export default function InlineMapDraw({ color, hideMonte = false, onConfirm, onD
               <>
                 <button onClick={startDraw} style={{
                   ...toolBtn(), color, borderColor: `${color}66`,
-                  background: `${color}15`, padding: '5px 16px', fontSize: 11, fontWeight: 700, letterSpacing: 0.5,
+                  background: `${color}15`, padding: '5px 16px', fontSize: 13, fontWeight: 700, letterSpacing: 0.5,
                 }}>
                   ◎ Dibujar polígono
                 </button>
                 <button onClick={() => fileInputRef.current?.click()} style={{
-                  ...toolBtn(), fontSize: 10, padding: '4px 10px', color: '#888', borderColor: '#2a2a2a',
+                  ...toolBtn(), fontSize: 12, padding: '4px 10px', color: '#888', borderColor: '#2a2a2a',
                 }}>
                   ↑ Importar KML / GeoJSON
                 </button>
@@ -834,7 +834,7 @@ export default function InlineMapDraw({ color, hideMonte = false, onConfirm, onD
             )}
             {drawing && (
               <>
-                <span style={{ fontSize: 9, color: `${color}cc`, ...mono }}>
+                <span style={{ fontSize: 12, color: `${color}cc`, ...mono }}>
                   ● Clic para agregar vértice · Clic derecho para cerrar
                 </span>
                 <button onClick={cancelDraw} style={{ ...toolBtn(), color: '#555' }}>✕ Cancelar</button>
@@ -842,12 +842,12 @@ export default function InlineMapDraw({ color, hideMonte = false, onConfirm, onD
             )}
             {polyResult && (
               <>
-                <span style={{ fontSize: 10, color: '#888', ...mono }}>
+                <span style={{ fontSize: 12, color: '#888', ...mono }}>
                   {polyResult.area_ha.toFixed(4)} ha{!hideMonte ? ` · ~${Math.round(polyResult.area_ha * monteOpt.factor).toLocaleString('es-AR')} m³ arb.` : ''}
                 </span>
                 <button onClick={cancelDraw} style={{ ...toolBtn(), color: '#555' }}>↺ Redibujar</button>
                 <button onClick={handleUse} style={{
-                  ...toolBtn(true), padding: '5px 16px', fontSize: 11, fontWeight: 700,
+                  ...toolBtn(true), padding: '5px 16px', fontSize: 13, fontWeight: 700,
                 }}>
                   ✓ Usar → Lado {side.toUpperCase()}
                 </button>
@@ -858,11 +858,11 @@ export default function InlineMapDraw({ color, hideMonte = false, onConfirm, onD
 
             {/* Toggle capa base */}
             <div style={{ display: 'flex', gap: 2 }}>
-              <button onClick={() => setBasemap('osm')} style={{ ...toolBtn(basemap === 'osm'), fontSize: 9 }}>OSM</button>
-              <button onClick={() => setBasemap('sat')} style={{ ...toolBtn(basemap === 'sat'), fontSize: 9 }}>Satélite</button>
+              <button onClick={() => setBasemap('osm')} style={{ ...toolBtn(basemap === 'osm'), fontSize: 12 }}>OSM</button>
+              <button onClick={() => setBasemap('sat')} style={{ ...toolBtn(basemap === 'sat'), fontSize: 12 }}>Satélite</button>
             </div>
             {onCancel && (
-              <button onClick={onCancel} style={{ ...toolBtn(), color: '#444', fontSize: 9 }}>✕ Cerrar</button>
+              <button onClick={onCancel} style={{ ...toolBtn(), color: '#444', fontSize: 12 }}>✕ Cerrar</button>
             )}
           </>
         )}
@@ -878,9 +878,9 @@ export default function InlineMapDraw({ color, hideMonte = false, onConfirm, onD
             position: 'absolute', bottom: 12, left: 12, zIndex: 999,
             background: '#0a0a0aee', border: `1px solid ${color}55`,
             borderRadius: 4, padding: '8px 12px', ...mono,
-            fontSize: 10, lineHeight: 1.8, color: '#888', minWidth: 200,
+            fontSize: 12, lineHeight: 1.8, color: '#888', minWidth: 200,
           }}>
-            <div style={{ fontSize: 8, color: '#444', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>
+            <div style={{ fontSize: 11, color: '#444', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>
               Geometría en tiempo real
             </div>
             {polyHUD && (
@@ -902,9 +902,9 @@ export default function InlineMapDraw({ color, hideMonte = false, onConfirm, onD
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, marginTop: 4, paddingTop: 4, borderTop: `1px solid ${color}33` }}>
               <span style={{ color }}>Área</span>
               <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <span style={{ color, fontWeight: 700, fontSize: 12 }}>{fmtArea(hudArea)}</span>
+                <span style={{ color, fontWeight: 700, fontSize: 13 }}>{fmtArea(hudArea)}</span>
                 <select value={hudUnit} onChange={e => setHudUnit(e.target.value as 'ha' | 'm2' | 'km2')}
-                  style={{ fontSize: 8, background: '#000', border: `1px solid ${color}33`, color: '#555', outline: 'none', padding: '1px 2px' }}>
+                  style={{ fontSize: 11, background: '#000', border: `1px solid ${color}33`, color: '#555', outline: 'none', padding: '1px 2px' }}>
                   <option value="ha">ha</option>
                   <option value="m2">m²</option>
                   <option value="km2">km²</option>
@@ -925,7 +925,7 @@ export default function InlineMapDraw({ color, hideMonte = false, onConfirm, onD
           <div style={{
             position: 'absolute', bottom: 12, left: 12, zIndex: 999,
             background: '#0a0a0aee', border: `1px solid ${color}44`,
-            borderRadius: 4, padding: '8px 12px', ...mono, fontSize: 10, color: '#555',
+            borderRadius: 4, padding: '8px 12px', ...mono, fontSize: 12, color: '#555',
           }}>
             <div style={{ color, marginBottom: 3, fontWeight: 700 }}>Modo edición</div>
             <div>Arrastrá los círculos blancos para mover vértices.</div>
@@ -939,7 +939,7 @@ export default function InlineMapDraw({ color, hideMonte = false, onConfirm, onD
             position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
             zIndex: 998, textAlign: 'center', pointerEvents: 'none',
           }}>
-            <div style={{ background: '#0a0a0acc', border: `1px solid ${color}33`, borderRadius: 4, padding: '10px 18px', ...mono, fontSize: 10, color: '#444' }}>
+            <div style={{ background: '#0a0a0acc', border: `1px solid ${color}33`, borderRadius: 4, padding: '10px 18px', ...mono, fontSize: 12, color: '#444' }}>
               Seleccioná lado y tipo de monte<br />
               luego presioná <span style={{ color }}>◎ Dibujar polígono</span>
             </div>
@@ -951,7 +951,7 @@ export default function InlineMapDraw({ color, hideMonte = false, onConfirm, onD
           <div style={{
             position: 'absolute', bottom: 12, right: 12, zIndex: 998,
             background: '#0a0a0acc', border: `1px solid #1e1e1e`,
-            borderRadius: 3, padding: '5px 10px', ...mono, fontSize: 9, color: '#444',
+            borderRadius: 3, padding: '5px 10px', ...mono, fontSize: 12, color: '#444',
             pointerEvents: 'none',
           }}>
             Clic sobre un polígono para editar o eliminar
@@ -965,7 +965,7 @@ export default function InlineMapDraw({ color, hideMonte = false, onConfirm, onD
               onClick={() => setLayerPanelOpen(v => !v)}
               style={{
                 background: `rgba(10,10,10,0.88)`, border: `1px solid ${layerPanelOpen ? '#F5C300' : '#252525'}`,
-                color: layerPanelOpen ? '#F5C300' : '#666', ...mono, fontSize: 9,
+                color: layerPanelOpen ? '#F5C300' : '#666', ...mono, fontSize: 12,
                 padding: '4px 9px', cursor: 'pointer', letterSpacing: 0.8, textTransform: 'uppercase',
               }}
             >
@@ -977,11 +977,11 @@ export default function InlineMapDraw({ color, hideMonte = false, onConfirm, onD
                 padding: '8px 10px', minWidth: 148, maxHeight: 320, overflowY: 'auto',
               }}>
                 {/* Base */}
-                <div style={{ fontSize: 8, color: '#444', letterSpacing: 1.2, ...mono, textTransform: 'uppercase', marginBottom: 5 }}>Base</div>
+                <div style={{ fontSize: 11, color: '#444', letterSpacing: 1.2, ...mono, textTransform: 'uppercase', marginBottom: 5 }}>Base</div>
                 {(['zonas','sedes'] as LayerKey[]).map(k => (
                   <label key={k} style={{
                     display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer',
-                    marginBottom: 5, fontSize: 10, ...mono,
+                    marginBottom: 5, fontSize: 12, ...mono,
                     color: layerVis[k] ? LAYER_COLORS[k] : '#444',
                     opacity: layerLoading[k] ? 0.5 : 1,
                   }}>
@@ -993,11 +993,11 @@ export default function InlineMapDraw({ color, hideMonte = false, onConfirm, onD
                 ))}
 
                 {/* Rutas Prov. */}
-                <div style={{ fontSize: 8, color: '#444', letterSpacing: 1.2, ...mono, textTransform: 'uppercase', marginTop: 8, marginBottom: 5, borderTop: '1px solid #1a1a1a', paddingTop: 6 }}>Rutas Prov.</div>
+                <div style={{ fontSize: 11, color: '#444', letterSpacing: 1.2, ...mono, textTransform: 'uppercase', marginTop: 8, marginBottom: 5, borderTop: '1px solid #1a1a1a', paddingTop: 6 }}>Rutas Prov.</div>
                 {(['rpPavimentada','rpMejorada','rpEnObra','rpTierra'] as LayerKey[]).map(k => (
                   <label key={k} style={{
                     display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer',
-                    marginBottom: 5, fontSize: 10, ...mono,
+                    marginBottom: 5, fontSize: 12, ...mono,
                     color: layerVis[k] ? LAYER_COLORS[k] : '#444',
                     opacity: layerLoading[k] ? 0.5 : 1,
                   }}>
@@ -1010,11 +1010,11 @@ export default function InlineMapDraw({ color, hideMonte = false, onConfirm, onD
                 ))}
 
                 {/* Red CC */}
-                <div style={{ fontSize: 8, color: '#444', letterSpacing: 1.2, ...mono, textTransform: 'uppercase', marginTop: 8, marginBottom: 5, borderTop: '1px solid #1a1a1a', paddingTop: 6 }}>Red CC</div>
+                <div style={{ fontSize: 11, color: '#444', letterSpacing: 1.2, ...mono, textTransform: 'uppercase', marginTop: 8, marginBottom: 5, borderTop: '1px solid #1a1a1a', paddingTop: 6 }}>Red CC</div>
                 {(['ccZI','ccZII','ccZIII','ccZIV','ccZV'] as LayerKey[]).map(k => (
                   <label key={k} style={{
                     display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer',
-                    marginBottom: 5, fontSize: 10, ...mono,
+                    marginBottom: 5, fontSize: 12, ...mono,
                     color: layerVis[k] ? LAYER_COLORS[k] : '#444',
                     opacity: layerLoading[k] ? 0.5 : 1,
                   }}>
@@ -1034,7 +1034,7 @@ export default function InlineMapDraw({ color, hideMonte = false, onConfirm, onD
           <div style={{
             position: 'absolute', inset: 0, zIndex: 997,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: '#0e0e0e', ...mono, fontSize: 11, color: '#333',
+            background: '#0e0e0e', ...mono, fontSize: 13, color: '#333',
           }}>
             Cargando mapa…
           </div>
