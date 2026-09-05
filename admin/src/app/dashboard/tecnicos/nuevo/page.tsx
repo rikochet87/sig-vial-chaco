@@ -1,19 +1,9 @@
 'use client'
 import { useState } from 'react'
 import Link from 'next/link'
+import { PERMISOS_OPCIONES } from '@/lib/permisos'
 
 const ZONAS = ['ZI', 'ZII', 'ZIII', 'ZIV', 'ZV']
-
-const PERMISOS_OPCIONES = [
-  { key: 'dashboard',        label: 'Dashboard' },
-  { key: 'consorcios',       label: 'Consorcios' },
-  { key: 'relevamientos',    label: 'Relevamientos' },
-  { key: 'herramientas',     label: 'Herramientas' },
-  { key: 'obras',            label: 'Obras (lista y planta)' },
-  { key: 'calc_ripio',       label: 'Calculadora — Ripio' },
-  { key: 'calc_desmalezado', label: 'Calculadora — Desmalezado' },
-  { key: 'calc_desbosque',   label: 'Calculadora — Desbosque' },
-]
 
 type Rol = 'tecnico' | 'usuario' | 'panel' | 'admin'
 type Resultado = { tipo: 'link'; link: string } | { tipo: 'creado' } | { tipo: 'existente' }

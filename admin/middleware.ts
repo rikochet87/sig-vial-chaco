@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { puedeAcceder, rutaInicialPara } from '@/lib/permisos'
 
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
@@ -26,10 +27,28 @@ export async function middleware(request: NextRequest) {
   }
   if (user && pathname.startsWith('/dashboard')) {
     const { data: profile } = await supabase.from('profiles').select('rol,permisos').eq('id', user.id).single()
-    const tieneAcceso = profile?.rol === 'admin' || profile?.rol === 'panel' ||
-      (Array.isArray(profile?.permisos) && (profile.permisos as string[]).length > 0)
+
+    const perfil = {
+      rol:      profile?.rol as string | undefined,
+      permisos: profile?.permisos as string[] | undefined,
+    }
+
+    // ¿Tiene acceso al panel en general?
+    const tieneAcceso = perfil.rol === 'admin' || perfil.rol === 'panel' ||
+      (Array.isArray(perfil.permisos) && perfil.permisos.length > 0)
     if (!tieneAcceso) {
       return NextResponse.redirect(new URL('/acceso-denegado', request.url))
+    }
+
+    // ¿Y a esta ruta en particular? Antes esto no se chequeaba: el Sidebar
+    // ocultaba el link pero la página cargaba igual escribiendo la URL.
+    if (!puedeAcceder(perfil, pathname)) {
+      const destino = rutaInicialPara(perfil)
+      // Evitar bucle si la ruta de destino tampoco es accesible
+      if (destino === pathname) {
+        return NextResponse.redirect(new URL('/acceso-denegado', request.url))
+      }
+      return NextResponse.redirect(new URL(destino, request.url))
     }
   }
   return supabaseResponse

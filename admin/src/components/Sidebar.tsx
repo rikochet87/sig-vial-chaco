@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useUser } from '@/lib/UserContext'
+import { PERMISOS_CALCULADORA } from '@/lib/permisos'
 
 // Íconos SVG geométricos/técnicos inline
 const ICONS = {
@@ -82,7 +83,8 @@ export default function Sidebar() {
   const { profile, hasPermiso } = useUser()
   const isAdmin = profile.rol === 'admin'
   // Obras accordion visible si tiene 'obras' o al menos una calculadora
-  const canSeeObras = hasPermiso('obras') || hasPermiso('calc_ripio') || hasPermiso('calc_desmalezado') || hasPermiso('calc_desbosque')
+  const canSeeCalc  = PERMISOS_CALCULADORA.some(k => hasPermiso(k))
+  const canSeeObras = hasPermiso('obras') || canSeeCalc
 
   // Auto-expandir acordeones
   useEffect(() => {
@@ -306,7 +308,7 @@ export default function Sidebar() {
           {obrasOpen && !collapsed && (
             <div style={{ borderLeft: '1px solid #1e1e1e', marginLeft: 24, marginTop: 2, marginBottom: 2 }}>
               {OBRA_ITEMS.filter(item =>
-                item.id === 'obras-lista' ? hasPermiso('obras') : true
+                item.id === 'obras-lista' ? hasPermiso('obras') : canSeeCalc
               ).map(item => {
                 const isActive  = pathname.startsWith(item.href)
                 const isHovered = hoveredHref === item.id
