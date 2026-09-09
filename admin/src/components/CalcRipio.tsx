@@ -4,6 +4,14 @@ import dynamic from 'next/dynamic'
 import type { RipioTramo, LatLng } from './RipioMapPanel'
 import { PALETTE } from '@/lib/ripioPalette'
 import type { GuardarObraData } from './GuardarObraModal'
+import PanelAPU from './ripio/PanelAPU'
+import {
+  calcularCoeficientes, calcularMdeO, type EquipoCatalogo,
+} from '@/lib/ripioCalculo'
+import {
+  normalizarAnalisis, analisisVacio, CLAVES_APU, ETIQUETAS_APU,
+  type AnalisisRipio, type ClaveAPU, type ConfigAPU,
+} from '@/lib/ripioAnalisis'
 
 const RipioMapPanel       = dynamic(() => import('./RipioMapPanel'),       { ssr: false })
 const MapComposicionRipio = dynamic(() => import('./MapComposicionRipio'), { ssr: false })
@@ -13,6 +21,8 @@ interface Proyecto {
   id: string
   nombre: string
   ripios: RipioTramo[]
+  /** Documento de análisis; null en los proyectos creados antes de esta función */
+  analisis?: unknown
 }
 
 // ── Constantes ────────────────────────────────────────────────────────────────
@@ -77,8 +87,15 @@ export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: Guard
   const [editingName,  setEditingName]  = useState<string | null>(null)   // id del ripio cuyo nombre se edita inline
   const [confirmState, setConfirmState] = useState<{ msg: string; action: () => void } | null>(null)
   const [hiddenProyIds, setHiddenProyIds] = useState<Set<string>>(new Set())  // proyectos ocultos en el mapa
-  const [view,          setView]          = useState<'computo' | 'mapa'>('computo')
+  const [view,          setView]          = useState<'computo' | 'analisis' | 'mapa'>('computo')
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // ── Análisis de precios ───────────────────────────────────────────────────
+  const [catalogo,  setCatalogo]  = useState<EquipoCatalogo[]>([])
+  const [analisis,  setAnalisis]  = useState<AnalisisRipio>(analisisVacio())
+  const [apuActivo, setApuActivo] = useState<ClaveAPU>('material')
+  const analisisTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => { if (analisisTimer.current) clearTimeout(analisisTimer.current) }, [])
 
   // Limpia el timer al desmontar para evitar setState en componente desmontado
   useEffect(() => () => { if (saveTimer.current) clearTimeout(saveTimer.current) }, [])
@@ -99,6 +116,50 @@ export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: Guard
       .finally(() => setLoading(false))
     return () => ac.abort()
   }, [])
+
+  // Catálogo de equipos — se usa en los cuatro análisis de precio
+  useEffect(() => {
+    const ac = new AbortController()
+    fetch('/api/equipos', { signal: ac.signal })
+      .then(r => r.json())
+      .then((rows: Record<string, unknown>[]) => {
+        if (!Array.isArray(rows)) return
+        setCatalogo(rows.map(e => ({
+          id:       String(e.id),
+          nombre:   String(e.nombre),
+          modelo:   (e.modelo as string) ?? null,
+          marca:    (e.marca as string) ?? null,
+          hp:       Number(e.hp) || 0,
+          costoUsd: Number(e.costo_usd) || 0,
+        })))
+      })
+      .catch(e => { if (e.name !== 'AbortError') console.error(e) })
+    return () => ac.abort()
+  }, [])
+
+  // Al cambiar de proyecto, cargar su análisis (los viejos vienen en null y
+  // normalizarAnalisis los completa con los defaults en vez de romper)
+  useEffect(() => {
+    const p = proyectos.find(x => x.id === activeProyId)
+    setAnalisis(normalizarAnalisis(p?.analisis))
+  }, [activeProyId, proyectos])
+
+  /** Guarda el análisis con debounce, igual que los tramos */
+  const guardarAnalisis = useCallback((next: AnalisisRipio) => {
+    setAnalisis(next)
+    const id = activeProyId
+    if (!id) return
+    // Mantener la copia local para no perderla al cambiar de proyecto y volver
+    setProyectos(prev => prev.map(p => p.id === id ? { ...p, analisis: next } : p))
+    if (analisisTimer.current) clearTimeout(analisisTimer.current)
+    analisisTimer.current = setTimeout(() => {
+      setSaving(true)
+      fetch(`/api/proyectos-ripio/${id}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ analisis: next }),
+      }).catch(console.error).finally(() => setSaving(false))
+    }, 800)
+  }, [activeProyId])
 
   const activeProy = proyectos.find(p => p.id === activeProyId) ?? null
   const ripios     = activeProy?.ripios ?? []
@@ -639,6 +700,128 @@ export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: Guard
     ? visiblePrjNames[0]
     : visiblePrjNames.length > 1 ? `${visiblePrjNames.length} proyectos` : 'Sin proyectos'
 
+  // ── Análisis de precios ───────────────────────────────────────────────────
+  function renderAnalisis() {
+    if (!activeProy) {
+      return (
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: '#444', ...MONO, fontSize: 13 }}>
+          Creá o seleccioná un proyecto para analizar precios
+        </div>
+      )
+    }
+
+    const coef = calcularCoeficientes(analisis.coeficientes, analisis.precios)
+    const mdo  = calcularMdeO(analisis.precios, analisis.manoObra)
+
+    const setPrecio = (k: keyof typeof analisis.precios, v: number) =>
+      guardarAnalisis({ ...analisis, precios: { ...analisis.precios, [k]: v } })
+
+    const setApu = (clave: ClaveAPU, cfg: ConfigAPU) =>
+      guardarAnalisis({ ...analisis, apu: { ...analisis.apu, [clave]: cfg } })
+
+    const distancia = apuActivo === 'transNoPav' ? analisis.datos.distanciaNoPavKm
+                    : apuActivo === 'transPav'   ? analisis.datos.distanciaPavKm
+                    : undefined
+
+    const lblP: React.CSSProperties = {
+      fontSize: 11, color: '#555', textTransform: 'uppercase',
+      letterSpacing: 0.8, ...MONO, display: 'block', marginBottom: 2,
+    }
+
+    return (
+      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '14px 18px' }}>
+
+        {/* ── Precios del proyecto ── */}
+        <div style={{ background: '#0c0c0c', border: '1px solid #1e1e1e', padding: '12px 14px', marginBottom: 14 }}>
+          <div style={{ fontSize: 12, color: COLOR, letterSpacing: 1, textTransform: 'uppercase',
+            marginBottom: 4, ...MONO }}>
+            Precios de este proyecto
+          </div>
+          <div style={{ fontSize: 12, color: '#555', marginBottom: 10, ...MONO, lineHeight: 1.4 }}>
+            Son propios de la obra. Cambiarlos acá no afecta a otros proyectos ya presupuestados.
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10 }}>
+            {([
+              ['gasoil',             'Gasoil ($/lt)'],
+              ['neumatico',          'Neumático ($/un)'],
+              ['dolar',              'Dólar ($)'],
+              ['jornalOficialEsp',   'Of. especializado ($/hs)'],
+              ['jornalOficial',      'Oficial ($/hs)'],
+              ['jornalMedioOficial', 'Medio oficial ($/hs)'],
+              ['jornalAyudante',     'Ayudante ($/hs)'],
+              ['ripio',              'Ripio en cantera ($/tn)'],
+            ] as const).map(([k, label]) => (
+              <label key={k}>
+                <span style={lblP}>{label}</span>
+                <input type="number" min={0} step="any" value={analisis.precios[k]}
+                  onChange={e => setPrecio(k, parseFloat(e.target.value) || 0)}
+                  style={{ ...inpS, fontSize: 13 }} />
+              </label>
+            ))}
+          </div>
+          <div style={{ display: 'flex', gap: 20, marginTop: 10, paddingTop: 8,
+            borderTop: '1px solid #1a1a1a', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 12, color: '#666', ...MONO }}>
+              Coeficiente resumen:{' '}
+              <b style={{ color: COLOR, fontSize: 14 }}>{coef.coeficienteResumen}</b>
+              <span style={{ color: '#444', marginLeft: 6 }}>
+                (costo + {(analisis.coeficientes.gastosGenerales * 100).toFixed(0)}% GG
+                + {(analisis.coeficientes.beneficio * 100).toFixed(0)}% benef.
+                + {(analisis.coeficientes.gastosFinancieros * 100).toFixed(0)}% fin.
+                + {(analisis.coeficientes.ivaIngBrutos * 100).toFixed(1)}% IVA/IIBB)
+              </span>
+            </span>
+            <span style={{ fontSize: 12, color: '#666', ...MONO }}>
+              Cargas sociales: <b style={{ color: '#999' }}>{(mdo.pctCargasSociales * 100).toFixed(2)}%</b>
+              <span style={{ color: '#444', marginLeft: 6 }}>
+                · incidencia {mdo.oficialEsp.incidencia}×
+              </span>
+            </span>
+          </div>
+        </div>
+
+        {/* ── Sub-pestañas de los cuatro análisis ── */}
+        <div style={{ display: 'flex', borderBottom: '1px solid #1a1a1a', marginBottom: 12, flexWrap: 'wrap' }}>
+          {CLAVES_APU.map(k => {
+            const activo = apuActivo === k
+            const cfg    = analisis.apu[k]
+            const vacio  = cfg.equipos.length === 0 && cfg.materiales.length === 0
+            return (
+              <button key={k} onClick={() => setApuActivo(k)} style={{
+                ...MONO, fontSize: 12, cursor: 'pointer', padding: '6px 14px',
+                border: 'none', background: activo ? '#111' : 'transparent',
+                color: activo ? COLOR : vacio ? '#3a3a3a' : '#666',
+                borderBottom: activo ? `1.5px solid ${COLOR}` : '1.5px solid transparent',
+                letterSpacing: 0.5,
+              }}>
+                {ETIQUETAS_APU[k].corto}
+                <span style={{ fontSize: 11, color: '#444', marginLeft: 5 }}>
+                  {ETIQUETAS_APU[k].unidad}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+
+        <div style={{ fontSize: 13, color: '#888', marginBottom: 10, ...MONO }}>
+          {ETIQUETAS_APU[apuActivo].titulo}
+        </div>
+
+        <PanelAPU
+          clave={apuActivo}
+          cfg={analisis.apu[apuActivo]}
+          onChange={cfg => setApu(apuActivo, cfg)}
+          coef={coef}
+          mdo={mdo}
+          dolar={analisis.precios.dolar}
+          catalogo={catalogo}
+          distanciaKm={distancia}
+        />
+      </div>
+    )
+  }
+
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
@@ -648,7 +831,7 @@ export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: Guard
         display: 'flex', gap: 0, flexShrink: 0,
         borderBottom: '1px solid #0e0e0e', background: '#060606',
       }}>
-        {(['computo', 'mapa'] as const).map(v => (
+        {(['computo', 'analisis', 'mapa'] as const).map(v => (
           <button key={v} onClick={() => setView(v)} style={{
             fontFamily: 'monospace', fontSize: 12, cursor: 'pointer',
             padding: '6px 20px', border: 'none', borderRight: '1px solid #111',
@@ -657,7 +840,7 @@ export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: Guard
             color:      view === v ? COLOR      : '#444',
             borderBottom: view === v ? `1.5px solid ${COLOR}` : '1.5px solid transparent',
           }}>
-            {v === 'computo' ? 'Cómputo' : 'Composición'}
+            {v === 'computo' ? 'Cómputo' : v === 'analisis' ? 'Análisis de precios' : 'Composición'}
           </button>
         ))}
         {saving && <div style={{ marginLeft: 'auto', alignSelf: 'center', marginRight: 10, width: 6, height: 6, borderRadius: '50%', background: COLOR, opacity: 0.7 }}/>}
@@ -715,6 +898,8 @@ export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: Guard
             {panel === 'form' ? renderForm() : renderResumen()}
           </div>
         </div>
+      ) : view === 'analisis' ? (
+        renderAnalisis()
       ) : (
         <div style={{ flex: 1, minHeight: 0 }}>
           <MapComposicionRipio
