@@ -128,38 +128,56 @@ export default function PanelAPU({
       {/* ── 1. EJECUCIÓN ───────────────────────────────────────────────── */}
       <Seccion n="1" titulo="Ejecución">
 
-        {/* 1.a Equipos */}
+        {/* 1.a Equipos — todo editable: el catálogo es un punto de partida, no
+            una jaula. Cada análisis puede tener su propia potencia o su propio
+            valor de equipo sin tener que tocar el catálogo compartido. */}
         <div style={{ fontSize: 12, color: '#777', marginBottom: 5, ...MONO }}>1.a — Equipos</div>
         <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 8 }}>
           <thead>
             <tr>
               <th style={th}>Equipo</th>
-              <th style={{ ...th, width: 70, textAlign: 'right' }}>HP</th>
-              <th style={{ ...th, width: 90, textAlign: 'right' }}>Cant.</th>
+              <th style={{ ...th, width: 80, textAlign: 'right' }}>HP</th>
+              <th style={{ ...th, width: 130, textAlign: 'right' }}>Costo (U$S)</th>
+              <th style={{ ...th, width: 80, textAlign: 'right' }}>Cant.</th>
               <th style={{ ...th, width: 150, textAlign: 'right' }}>Costo ($)</th>
-              <th style={{ ...th, width: 40 }} />
+              <th style={{ ...th, width: 36 }} />
             </tr>
           </thead>
           <tbody>
             {cfg.equipos.map((e, i) => (
               <tr key={i}>
-                <td style={td}>{e.nombre}</td>
-                <td style={{ ...td, textAlign: 'right' }}>{e.hp || '—'}</td>
-                <td style={{ ...td, textAlign: 'right' }}>
+                <td style={td}>
+                  <input type="text" value={e.nombre}
+                    onChange={ev => editarEquipo(i, { nombre: ev.target.value })}
+                    style={{ ...inp, padding: '2px 5px' }} />
+                </td>
+                <td style={td}>
+                  <input type="number" min={0} step={1} value={e.hp}
+                    onChange={ev => editarEquipo(i, { hp: parseFloat(ev.target.value) || 0 })}
+                    style={{ ...inp, textAlign: 'right', padding: '2px 5px' }} />
+                </td>
+                <td style={td}>
+                  <input type="number" min={0} step="any" value={e.costoUsd}
+                    onChange={ev => editarEquipo(i, { costoUsd: parseFloat(ev.target.value) || 0 })}
+                    style={{ ...inp, textAlign: 'right', padding: '2px 5px' }} />
+                </td>
+                <td style={td}>
                   <input type="number" step={0.5} min={0} value={e.cantidad}
                     onChange={ev => editarEquipo(i, { cantidad: parseFloat(ev.target.value) || 0 })}
                     style={{ ...inp, textAlign: 'right', padding: '2px 5px' }} />
                 </td>
-                <td style={{ ...td, textAlign: 'right' }}>{money(e.costoUsd * dolar * e.cantidad)}</td>
+                <td style={{ ...td, textAlign: 'right', color: '#999' }}>
+                  {money(e.costoUsd * dolar * e.cantidad)}
+                </td>
                 <td style={{ ...td, textAlign: 'center' }}>
-                  <button onClick={() => quitarEquipo(i)} title="Quitar"
+                  <button onClick={() => quitarEquipo(i)} title="Quitar equipo"
                     style={{ ...btnMini, padding: '1px 7px', color: '#a44' }}>×</button>
                 </td>
               </tr>
             ))}
             {cfg.equipos.length === 0 && (
-              <tr><td colSpan={5} style={{ ...td, color: '#444', textAlign: 'center', padding: 10 }}>
-                Sin equipos — agregá desde el catálogo
+              <tr><td colSpan={6} style={{ ...td, color: '#444', textAlign: 'center', padding: 10 }}>
+                Sin equipos — elegí uno del catálogo o cargalo a mano
               </td></tr>
             )}
           </tbody>
@@ -168,6 +186,7 @@ export default function PanelAPU({
               <tr>
                 <td style={{ ...td, color: '#777' }}>Total</td>
                 <td style={{ ...td, textAlign: 'right', color: '#999' }}>{num(r.hpTotal, 0)}</td>
+                <td style={td} />
                 <td style={td} />
                 <td style={{ ...td, textAlign: 'right', color: '#ccc', fontWeight: 700 }}>
                   {money(r.costoEquiposTotal)}
@@ -178,16 +197,34 @@ export default function PanelAPU({
           )}
         </table>
 
-        <select value="" onChange={e => { if (e.target.value) agregarEquipo(e.target.value) }}
-          style={{ ...inp, marginBottom: 12, cursor: 'pointer' }}>
-          <option value="">+ Agregar equipo del catálogo…</option>
-          {catalogo.map(c => (
-            <option key={c.id} value={c.id}>
-              {c.nombre}{c.modelo ? ` ${c.modelo}` : ''}{c.marca ? ` · ${c.marca}` : ''}
-              {c.hp ? ` — ${c.hp} HP` : ''}
-            </option>
-          ))}
-        </select>
+        {/* Agregar: del catálogo o en blanco */}
+        <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'stretch' }}>
+          <select
+            /* key fuerza el remount tras agregar, así el desplegable vuelve
+               a mostrar el rótulo en vez de quedar con el último elegido */
+            key={cfg.equipos.length}
+            defaultValue=""
+            onChange={e => { if (e.target.value) agregarEquipo(e.target.value) }}
+            style={{ ...inp, flex: 1, cursor: 'pointer' }}
+          >
+            <option value="">+ Agregar equipo del catálogo…</option>
+            {catalogo.map(c => (
+              <option key={c.id} value={c.id}>
+                {c.nombre}{c.modelo ? ` ${c.modelo}` : ''}{c.marca ? ` · ${c.marca}` : ''}
+                {c.hp ? ` — ${c.hp} HP` : ''}
+              </option>
+            ))}
+          </select>
+          <button
+            onClick={() => set({ equipos: [...cfg.equipos, {
+              equipoId: '', nombre: '', hp: 0, costoUsd: 0, cantidad: 1,
+            }] })}
+            style={{ ...btnMini, whiteSpace: 'nowrap', padding: '4px 12px' }}
+            title="Cargar un equipo que no está en el catálogo"
+          >
+            + En blanco
+          </button>
+        </div>
 
         {/* Coeficientes aplicados */}
         <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 12 }}>

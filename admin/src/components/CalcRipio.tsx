@@ -5,6 +5,7 @@ import type { RipioTramo, LatLng } from './RipioMapPanel'
 import { PALETTE } from '@/lib/ripioPalette'
 import type { GuardarObraData } from './GuardarObraModal'
 import PanelAPU from './ripio/PanelAPU'
+import PanelCoeficientes from './ripio/PanelCoeficientes'
 import {
   calcularCoeficientes, calcularMdeO, type EquipoCatalogo,
 } from '@/lib/ripioCalculo'
@@ -763,23 +764,21 @@ export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: Guard
           <div style={{ display: 'flex', gap: 20, marginTop: 10, paddingTop: 8,
             borderTop: '1px solid #1a1a1a', flexWrap: 'wrap' }}>
             <span style={{ fontSize: 12, color: '#666', ...MONO }}>
-              Coeficiente resumen:{' '}
-              <b style={{ color: COLOR, fontSize: 14 }}>{coef.coeficienteResumen}</b>
-              <span style={{ color: '#444', marginLeft: 6 }}>
-                (costo + {(analisis.coeficientes.gastosGenerales * 100).toFixed(0)}% GG
-                + {(analisis.coeficientes.beneficio * 100).toFixed(0)}% benef.
-                + {(analisis.coeficientes.gastosFinancieros * 100).toFixed(0)}% fin.
-                + {(analisis.coeficientes.ivaIngBrutos * 100).toFixed(1)}% IVA/IIBB)
-              </span>
-            </span>
-            <span style={{ fontSize: 12, color: '#666', ...MONO }}>
               Cargas sociales: <b style={{ color: '#999' }}>{(mdo.pctCargasSociales * 100).toFixed(2)}%</b>
               <span style={{ color: '#444', marginLeft: 6 }}>
-                · incidencia {mdo.oficialEsp.incidencia}×
+                · incidencia {mdo.oficialEsp.incidencia}× sobre el jornal de convenio
               </span>
             </span>
           </div>
         </div>
+
+        {/* ── Coeficientes — plegable, todo editable ── */}
+        <PanelCoeficientes
+          params={analisis.coeficientes}
+          onChange={p => guardarAnalisis({ ...analisis, coeficientes: p })}
+          coef={coef}
+          color={COLOR}
+        />
 
         {/* ── Sub-pestañas de los cuatro análisis ── */}
         <div style={{ display: 'flex', borderBottom: '1px solid #1a1a1a', marginBottom: 12, flexWrap: 'wrap' }}>
