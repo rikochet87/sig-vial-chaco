@@ -6,6 +6,7 @@ import { PALETTE } from '@/lib/ripioPalette'
 import type { GuardarObraData } from './GuardarObraModal'
 import PanelAPU from './ripio/PanelAPU'
 import PanelCoeficientes from './ripio/PanelCoeficientes'
+import PanelPresupuesto from './ripio/PanelPresupuesto'
 import {
   calcularCoeficientes, calcularMdeO, calcularAPU, valorEfectivo,
   type EquipoCatalogo,
@@ -90,7 +91,7 @@ export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: Guard
   const [editingName,  setEditingName]  = useState<string | null>(null)   // id del ripio cuyo nombre se edita inline
   const [confirmState, setConfirmState] = useState<{ msg: string; action: () => void } | null>(null)
   const [hiddenProyIds, setHiddenProyIds] = useState<Set<string>>(new Set())  // proyectos ocultos en el mapa
-  const [view,          setView]          = useState<'computo' | 'analisis' | 'mapa'>('computo')
+  const [view,          setView]          = useState<'computo' | 'analisis' | 'presupuesto' | 'mapa'>('computo')
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // ── Análisis de precios ───────────────────────────────────────────────────
@@ -869,6 +870,39 @@ export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: Guard
     )
   }
 
+  // ── Presupuesto oficial ───────────────────────────────────────────────────
+  function renderPresupuesto() {
+    if (!activeProy) {
+      return (
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: '#444', ...MONO, fontSize: 13 }}>
+          Creá o seleccioná un proyecto para armar el presupuesto
+        </div>
+      )
+    }
+    const coef = calcularCoeficientes(analisis.coeficientes, analisis.precios)
+    const mdo  = calcularMdeO(analisis.precios, analisis.manoObra)
+
+    // El cómputo sale de los tramos dibujados en el mapa
+    const tramosComputo = ripios.map(r => ({
+      id: r.id, nombre: r.nombre,
+      largoM: r.l_m, anchoM: r.an, espesorM: r.e, densidad: r.rho,
+    }))
+
+    return (
+      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '14px 18px' }}>
+        <PanelPresupuesto
+          analisis={analisis}
+          onChange={guardarAnalisis}
+          tramos={tramosComputo}
+          coef={coef}
+          mdo={mdo}
+          color={COLOR}
+        />
+      </div>
+    )
+  }
+
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
@@ -878,7 +912,7 @@ export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: Guard
         display: 'flex', gap: 0, flexShrink: 0,
         borderBottom: '1px solid #0e0e0e', background: '#060606',
       }}>
-        {(['computo', 'analisis', 'mapa'] as const).map(v => (
+        {(['computo', 'analisis', 'presupuesto', 'mapa'] as const).map(v => (
           <button key={v} onClick={() => setView(v)} style={{
             fontFamily: 'monospace', fontSize: 12, cursor: 'pointer',
             padding: '6px 20px', border: 'none', borderRight: '1px solid #111',
@@ -887,7 +921,10 @@ export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: Guard
             color:      view === v ? COLOR      : '#444',
             borderBottom: view === v ? `1.5px solid ${COLOR}` : '1.5px solid transparent',
           }}>
-            {v === 'computo' ? 'Cómputo' : v === 'analisis' ? 'Análisis de precios' : 'Composición'}
+            {v === 'computo'     ? 'Cómputo'
+             : v === 'analisis'  ? 'Análisis de precios'
+             : v === 'presupuesto' ? 'Presupuesto'
+             : 'Composición'}
           </button>
         ))}
         {saving && <div style={{ marginLeft: 'auto', alignSelf: 'center', marginRight: 10, width: 6, height: 6, borderRadius: '50%', background: COLOR, opacity: 0.7 }}/>}
@@ -947,6 +984,8 @@ export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: Guard
         </div>
       ) : view === 'analisis' ? (
         renderAnalisis()
+      ) : view === 'presupuesto' ? (
+        renderPresupuesto()
       ) : (
         <div style={{ flex: 1, minHeight: 0 }}>
           <MapComposicionRipio
