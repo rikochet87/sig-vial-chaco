@@ -18,11 +18,43 @@ import {
 export const CLAVES_APU = ['material', 'transNoPav', 'transPav', 'construccion'] as const
 export type ClaveAPU = typeof CLAVES_APU[number]
 
-export const ETIQUETAS_APU: Record<ClaveAPU, { titulo: string; corto: string; unidad: string }> = {
-  material:     { titulo: 'Provisión de material',                 corto: 'Material',        unidad: '$/tn'    },
-  transNoPav:   { titulo: 'Transporte — calzada no pavimentada',   corto: 'Transp. no pav.', unidad: '$/tn·km' },
-  transPav:     { titulo: 'Transporte — calzada pavimentada',      corto: 'Transp. pav.',    unidad: '$/tn·km' },
-  construccion: { titulo: 'Construcción de enripiado',             corto: 'Construcción',    unidad: '$/m'     },
+/**
+ * Los cuatro análisis comparten estructura (es el formato estándar de obra
+ * pública), así que se distinguen por color, título y unidad. Sin eso es fácil
+ * perder de vista en cuál se está trabajando.
+ */
+export const ETIQUETAS_APU: Record<ClaveAPU, {
+  titulo: string; corto: string; unidad: string; color: string; nota: string
+}> = {
+  material: {
+    titulo: 'Provisión de material', corto: 'Material', unidad: '$/tn',
+    color: '#C0A080',
+    nota: 'El costo del ripio en cantera va en la sección 2 — Materiales.',
+  },
+  transNoPav: {
+    titulo: 'Transporte — calzada no pavimentada', corto: 'Transp. no pav.', unidad: '$/tn·km',
+    color: '#C9A227',
+    nota: 'El combustible se cobra por kilómetro: ida vacío + vuelta cargado. El rendimiento es carga × recorrido diario.',
+  },
+  transPav: {
+    titulo: 'Transporte — calzada pavimentada', corto: 'Transp. pav.', unidad: '$/tn·km',
+    color: '#7E9BB5',
+    nota: 'Mismo criterio que el no pavimentado. Si la obra no tiene tramos pavimentados, queda en cero.',
+  },
+  construccion: {
+    titulo: 'Construcción de enripiado', corto: 'Construcción', unidad: '$/m',
+    color: '#89B078',
+    nota: 'El combustible se cobra por HP de las máquinas afectadas. El rendimiento es en metros por día.',
+  },
+}
+
+/** ¿Este análisis tiene algo cargado? Para marcarlo en las pestañas. */
+export function apuTieneDatos(cfg: ConfigAPU): boolean {
+  const n = cfg.nomina
+  return cfg.equipos.length > 0
+    || cfg.materiales.length > 0
+    || cfg.herramientas.length > 0
+    || n.oficialEsp > 0 || n.oficial > 0 || n.medioOficial > 0 || n.ayudante > 0
 }
 
 /** Datos de identificación de la obra */

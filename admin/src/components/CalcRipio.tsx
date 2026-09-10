@@ -7,10 +7,12 @@ import type { GuardarObraData } from './GuardarObraModal'
 import PanelAPU from './ripio/PanelAPU'
 import PanelCoeficientes from './ripio/PanelCoeficientes'
 import {
-  calcularCoeficientes, calcularMdeO, type EquipoCatalogo,
+  calcularCoeficientes, calcularMdeO, calcularAPU, valorEfectivo,
+  type EquipoCatalogo,
 } from '@/lib/ripioCalculo'
 import {
-  normalizarAnalisis, analisisVacio, CLAVES_APU, ETIQUETAS_APU,
+  normalizarAnalisis, analisisVacio, paramsAPU, apuTieneDatos,
+  CLAVES_APU, ETIQUETAS_APU,
   type AnalisisRipio, type ClaveAPU, type ConfigAPU,
 } from '@/lib/ripioAnalisis'
 
@@ -780,31 +782,77 @@ export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: Guard
           color={COLOR}
         />
 
-        {/* ── Sub-pestañas de los cuatro análisis ── */}
-        <div style={{ display: 'flex', borderBottom: '1px solid #1a1a1a', marginBottom: 12, flexWrap: 'wrap' }}>
+        {/* ── Sub-pestañas ──
+            Los cuatro análisis comparten estructura, así que sin señales fuertes
+            es fácil perder de vista en cuál se está trabajando. Cada uno tiene
+            color propio, y la pestaña muestra si ya tiene datos y cuánto da. */}
+        <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }}>
           {CLAVES_APU.map(k => {
             const activo = apuActivo === k
+            const meta   = ETIQUETAS_APU[k]
             const cfg    = analisis.apu[k]
-            const vacio  = cfg.equipos.length === 0 && cfg.materiales.length === 0
+            const conDatos = apuTieneDatos(cfg)
+            const precio = conDatos
+              ? valorEfectivo(
+                  calcularAPU(paramsAPU(k, cfg), coef, mdo, analisis.precios.dolar).precioCalculado,
+                  cfg.precioAdoptado,
+                )
+              : null
             return (
               <button key={k} onClick={() => setApuActivo(k)} style={{
-                ...MONO, fontSize: 12, cursor: 'pointer', padding: '6px 14px',
-                border: 'none', background: activo ? '#111' : 'transparent',
-                color: activo ? COLOR : vacio ? '#3a3a3a' : '#666',
-                borderBottom: activo ? `1.5px solid ${COLOR}` : '1.5px solid transparent',
-                letterSpacing: 0.5,
+                ...MONO, cursor: 'pointer', padding: '8px 14px', textAlign: 'left',
+                background: activo ? '#131313' : '#0a0a0a',
+                border: `1px solid ${activo ? meta.color : '#1a1a1a'}`,
+                borderTop: `2.5px solid ${activo ? meta.color : `${meta.color}44`}`,
+                minWidth: 150, flex: '1 1 150px',
               }}>
-                {ETIQUETAS_APU[k].corto}
-                <span style={{ fontSize: 11, color: '#444', marginLeft: 5 }}>
-                  {ETIQUETAS_APU[k].unidad}
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{
+                    width: 7, height: 7, borderRadius: '50%', flexShrink: 0,
+                    background: conDatos ? meta.color : 'transparent',
+                    border: `1px solid ${conDatos ? meta.color : '#333'}`,
+                  }} />
+                  <span style={{
+                    fontSize: 13, fontWeight: activo ? 700 : 400,
+                    color: activo ? meta.color : conDatos ? '#999' : '#555',
+                  }}>
+                    {meta.corto}
+                  </span>
+                </div>
+                <div style={{ fontSize: 11, color: '#555', marginTop: 3 }}>
+                  {precio != null
+                    ? <span style={{ color: activo ? '#ccc' : '#777' }}>
+                        {precio.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        <span style={{ color: '#555', marginLeft: 3 }}>{meta.unidad}</span>
+                      </span>
+                    : <span style={{ color: '#3d3d3d' }}>sin cargar · {meta.unidad}</span>}
+                </div>
               </button>
             )
           })}
         </div>
 
-        <div style={{ fontSize: 13, color: '#888', marginBottom: 10, ...MONO }}>
-          {ETIQUETAS_APU[apuActivo].titulo}
+        {/* Cabecera del análisis activo */}
+        <div style={{
+          borderLeft: `3px solid ${ETIQUETAS_APU[apuActivo].color}`,
+          paddingLeft: 12, marginBottom: 14,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
+            <span style={{
+              fontSize: 18, fontWeight: 700, color: ETIQUETAS_APU[apuActivo].color, ...MONO,
+            }}>
+              {ETIQUETAS_APU[apuActivo].titulo}
+            </span>
+            <span style={{
+              fontSize: 13, color: '#666', padding: '2px 8px',
+              border: '1px solid #222', ...MONO,
+            }}>
+              {ETIQUETAS_APU[apuActivo].unidad}
+            </span>
+          </div>
+          <div style={{ fontSize: 12, color: '#555', marginTop: 4, ...MONO, lineHeight: 1.4 }}>
+            {ETIQUETAS_APU[apuActivo].nota}
+          </div>
         </div>
 
         <PanelAPU
