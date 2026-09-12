@@ -171,12 +171,18 @@ export default function RipioMapPanel({
   const onLineEditRef = useRef(onLineEdit)
   useEffect(() => { editingIdRef.current = editingId }, [editingId])
   useEffect(() => { onLineEditRef.current = onLineEdit }, [onLineEdit])
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const editStateRef = useRef<{ cleanup: () => void; extender: (d: 'inicio'|'fin'|null) => void } | null>(null)
+  const editStateRef = useRef<{
+    cleanup: () => void
+    extender: (d: 'inicio'|'fin'|null) => void
+    deshacer: () => void
+    rehacer: () => void
+  } | null>(null)
   /** Longitud en vivo mientras se arrastra, para la barra flotante */
   const [editLen, setEditLen] = useState(0)
   const [editPts, setEditPts] = useState(0)
   const [extendiendo, setExtendiendo] = useState<'inicio' | 'fin' | null>(null)
+  const [puedeDeshacer, setPuedeDeshacer] = useState(false)
+  const [puedeRehacer,  setPuedeRehacer]  = useState(false)
 
   // ── Inicializar mapa ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -510,6 +516,62 @@ export default function RipioMapPanel({
       onLineEditRef.current?.(ripioId, totalLen(pts), pts.map(p => [p[0], p[1]] as LatLng))
     }
 
+    // ── Historial para deshacer / rehacer ──
+    // Se guarda una copia del trazado ANTES de cada cambio. Los arrastres
+    // toman la foto en dragstart, no en dragend: si no, se guardaría el
+    // resultado del movimiento en vez del estado previo.
+    const MAX_HISTORIAL = 50
+    let historial: LatLng[][] = []
+    let futuro:    LatLng[][] = []
+
+    const copiar = (p: LatLng[]): LatLng[] => p.map(c => [c[0], c[1]] as LatLng)
+
+    const sincronizarBotones = () => {
+      setPuedeDeshacer(historial.length > 0)
+      setPuedeRehacer(futuro.length > 0)
+    }
+
+    /** Foto del estado actual, antes de modificarlo */
+    const anotar = () => {
+      historial.push(copiar(pts))
+      if (historial.length > MAX_HISTORIAL) historial.shift()
+      futuro = []          // una acción nueva invalida el rehacer
+      sincronizarBotones()
+    }
+
+    const deshacer = () => {
+      const previo = historial.pop()
+      if (!previo) return
+      futuro.push(copiar(pts))
+      pts = previo
+      refrescarLinea(); construirHandles(); commit()
+      sincronizarBotones()
+    }
+
+    const rehacer = () => {
+      const siguiente = futuro.pop()
+      if (!siguiente) return
+      historial.push(copiar(pts))
+      pts = siguiente
+      refrescarLinea(); construirHandles(); commit()
+      sincronizarBotones()
+    }
+
+    // Ctrl+Z / Ctrl+Shift+Z (y Ctrl+Y). Se ignora si el foco está en un campo
+    // de texto, para no pisar el deshacer propio del input.
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey)) return
+      const t = e.target as HTMLElement | null
+      const tag = t?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || t?.isContentEditable) return
+
+      const k = e.key.toLowerCase()
+      if (k === 'z' && !e.shiftKey)      { e.preventDefault(); deshacer() }
+      else if (k === 'z' && e.shiftKey)  { e.preventDefault(); rehacer() }
+      else if (k === 'y')                { e.preventDefault(); rehacer() }
+    }
+    document.addEventListener('keydown', onKeyDown)
+
     const limpiarHandles = () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       handles.forEach((h: any) => map.removeLayer(h))
@@ -525,6 +587,7 @@ export default function RipioMapPanel({
         const m = Lf.marker(p as [number,number], {
           draggable: true, icon: iconoVertice(extremo), zIndexOffset: 1000,
         })
+        m.on('dragstart', () => anotar())
         m.on('drag', (e: { target: { getLatLng: () => { lat: number; lng: number } } }) => {
           const ll = e.target.getLatLng()
           pts[i] = [ll.lat, ll.lng]
@@ -538,6 +601,7 @@ export default function RipioMapPanel({
           Lf.DomEvent.stopPropagation(e)
           if (e.originalEvent) e.originalEvent.preventDefault()
           if (pts.length <= 2) return
+          anotar()
           pts = pts.filter((_, j) => j !== i)
           refrescarLinea(); construirHandles(); commit()
         })
@@ -563,7 +627,9 @@ export default function RipioMapPanel({
         })
         let insertado = false
         m.on('dragstart', () => {
-          // Al empezar a arrastrar se materializa como vértice real
+          // La foto va antes de insertar: deshacer tiene que volver al trazado
+          // sin el vértice nuevo, no al vértice recién creado sin mover.
+          anotar()
           pts = [...pts.slice(0, idx), [medio[0], medio[1]], ...pts.slice(idx)]
           insertado = true
         })
@@ -585,6 +651,7 @@ export default function RipioMapPanel({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const onMapClick = (e: any) => {
       if (!modoExtender) return
+      anotar()
       const ll: LatLng = [e.latlng.lat, e.latlng.lng]
       pts = modoExtender === 'fin' ? [...pts, ll] : [ll, ...pts]
       refrescarLinea(); construirHandles(); commit()
@@ -597,18 +664,22 @@ export default function RipioMapPanel({
 
     const cleanup = () => {
       map.off('click', onMapClick)
+      document.removeEventListener('keydown', onKeyDown)
       limpiarHandles()
       if (buffer) map.removeLayer(buffer)
       map.removeLayer(linea)
       map.getContainer().style.cursor = ''
       editStateRef.current = null
       setExtendiendo(null)
+      setPuedeDeshacer(false)
+      setPuedeRehacer(false)
     }
 
     map.on('click', onMapClick)
     refrescarLinea()
     construirHandles()
-    editStateRef.current = { cleanup, extender }
+    sincronizarBotones()
+    editStateRef.current = { cleanup, extender, deshacer, rehacer }
   }, [])
 
   useEffect(() => {
@@ -708,6 +779,30 @@ export default function RipioMapPanel({
 
           <span style={{ color: '#555', borderLeft: '1px solid #2a2a2a', paddingLeft: 12 }}>
             Arrastrá los puntos · los huecos agregan · clic derecho elimina
+          </span>
+
+          {/* Deshacer / rehacer — también por teclado */}
+          <span style={{ display: 'flex', gap: 4, borderLeft: '1px solid #2a2a2a', paddingLeft: 12 }}>
+            {([
+              { icono: '↶', activo: puedeDeshacer, fn: () => editStateRef.current?.deshacer(),
+                titulo: 'Deshacer  (Ctrl+Z)' },
+              { icono: '↷', activo: puedeRehacer,  fn: () => editStateRef.current?.rehacer(),
+                titulo: 'Rehacer  (Ctrl+Shift+Z)' },
+            ]).map(b => (
+              <button key={b.icono}
+                onClick={b.fn}
+                disabled={!b.activo}
+                title={b.titulo}
+                style={{
+                  fontFamily: 'monospace', fontSize: 14, lineHeight: 1,
+                  padding: '4px 9px', background: 'transparent',
+                  border: `1px solid ${b.activo ? '#3a3a3a' : '#1e1e1e'}`,
+                  color: b.activo ? '#bbb' : '#333',
+                  cursor: b.activo ? 'pointer' : 'default',
+                }}>
+                {b.icono}
+              </button>
+            ))}
           </span>
 
           {(['inicio', 'fin'] as const).map(d => {
