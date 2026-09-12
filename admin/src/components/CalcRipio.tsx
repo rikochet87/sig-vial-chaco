@@ -8,6 +8,7 @@ import PanelAPU from './ripio/PanelAPU'
 import PanelCoeficientes from './ripio/PanelCoeficientes'
 import PanelPresupuesto from './ripio/PanelPresupuesto'
 import PanelManoObra from './ripio/PanelManoObra'
+import PlanillasImprimibles from './ripio/PlanillasImprimibles'
 import {
   calcularCoeficientes, calcularMdeO, calcularAPU, valorEfectivo,
   type EquipoCatalogo,
@@ -97,7 +98,7 @@ export default function CalcRipio({ onGuardarObra, focoObra }: {
   const [editingName,  setEditingName]  = useState<string | null>(null)   // id del ripio cuyo nombre se edita inline
   const [confirmState, setConfirmState] = useState<{ msg: string; action: () => void } | null>(null)
   const [hiddenProyIds, setHiddenProyIds] = useState<Set<string>>(new Set())  // proyectos ocultos en el mapa
-  const [view,          setView]          = useState<'computo' | 'analisis' | 'presupuesto' | 'mapa'>('computo')
+  const [view,          setView]          = useState<'computo' | 'analisis' | 'presupuesto' | 'mapa' | 'legajo'>('computo')
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // ── Análisis de precios ───────────────────────────────────────────────────
@@ -1011,6 +1012,36 @@ export default function CalcRipio({ onGuardarObra, focoObra }: {
     )
   }
 
+  // ── Legajo imprimible ─────────────────────────────────────────────────────
+  function renderLegajo() {
+    if (!activeProy) {
+      return (
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: '#444', ...MONO, fontSize: 13 }}>
+          Creá o seleccioná un proyecto para armar el legajo
+        </div>
+      )
+    }
+    const coef = calcularCoeficientes(analisis.coeficientes, analisis.precios)
+    const mdo  = calcularMdeO(analisis.precios, analisis.manoObra)
+    const tramosComputo = ripios.map(r => ({
+      id: r.id, nombre: r.nombre,
+      largoM: r.l_m, anchoM: r.an, espesorM: r.e, densidad: r.rho,
+    }))
+
+    return (
+      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '14px 18px', background: '#0a0a0a' }}>
+        <PlanillasImprimibles
+          analisis={analisis}
+          tramos={tramosComputo}
+          coef={coef}
+          mdo={mdo}
+          color={COLOR}
+        />
+      </div>
+    )
+  }
+
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
@@ -1020,7 +1051,7 @@ export default function CalcRipio({ onGuardarObra, focoObra }: {
         display: 'flex', gap: 0, flexShrink: 0,
         borderBottom: '1px solid #0e0e0e', background: '#060606',
       }}>
-        {(['computo', 'analisis', 'presupuesto', 'mapa'] as const).map(v => (
+        {(['computo', 'analisis', 'presupuesto', 'mapa', 'legajo'] as const).map(v => (
           <button key={v} onClick={() => setView(v)} style={{
             fontFamily: 'monospace', fontSize: 12, cursor: 'pointer',
             padding: '6px 20px', border: 'none', borderRight: '1px solid #111',
@@ -1032,7 +1063,8 @@ export default function CalcRipio({ onGuardarObra, focoObra }: {
             {v === 'computo'     ? 'Cómputo'
              : v === 'analisis'  ? 'Análisis de precios'
              : v === 'presupuesto' ? 'Presupuesto'
-             : 'Composición'}
+             : v === 'mapa'      ? 'Composición'
+             : '🖨 Legajo'}
           </button>
         ))}
         {saving && <div style={{ marginLeft: 'auto', alignSelf: 'center', marginRight: 10, width: 6, height: 6, borderRadius: '50%', background: COLOR, opacity: 0.7 }}/>}
@@ -1099,6 +1131,8 @@ export default function CalcRipio({ onGuardarObra, focoObra }: {
         renderAnalisis()
       ) : view === 'presupuesto' ? (
         renderPresupuesto()
+      ) : view === 'legajo' ? (
+        renderLegajo()
       ) : (
         <div style={{ flex: 1, minHeight: 0 }}>
           <MapComposicionRipio
