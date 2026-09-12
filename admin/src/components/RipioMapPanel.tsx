@@ -38,6 +38,8 @@ interface Props {
   onEditEnd?:      () => void
   onSelectRipio?:  (id: string) => void   // seleccionar ripio al clicar en el mapa
   onDeleteRipio?:  (id: string) => void   // eliminar ripio desde el mapa
+  /** Encuadra el mapa sobre estas coordenadas (p. ej. al editar una obra) */
+  fitTo?:          LatLng[] | null
 }
 
 // ── Geometría ──────────────────────────────────────────────────────────────────
@@ -145,7 +147,7 @@ function ripioColor(orden: number): string {
 // ── Componente ────────────────────────────────────────────────────────────────
 export default function RipioMapPanel({
   ripios, selectedId, drawingId, editingId, color, onLineDraw, onDrawEnd,
-  onLineEdit, onLineSplit, onEditEnd, onSelectRipio, onDeleteRipio,
+  onLineEdit, onLineSplit, onEditEnd, onSelectRipio, onDeleteRipio, fitTo,
 }: Props) {
   const mapDivRef  = useRef<HTMLDivElement>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -264,6 +266,43 @@ export default function RipioMapPanel({
     ro.observe(el)
     return () => ro.disconnect()
   }, [mapReady])
+
+  // ── Encuadre del mapa ─────────────────────────────────────────────────────
+  /**
+   * El mapa arrancaba siempre en una vista general de la provincia, así que
+   * al abrir la pestaña —o al venir a editar una obra— había que buscar el
+   * trazado a mano.
+   *
+   *  · `fitTo` con contenido → encuadra ahí (viene de editar una obra)
+   *  · sin `fitTo`           → encuadra sobre todos los ripios, UNA sola vez
+   *
+   * El encuadre automático corre una sola vez a propósito: si se repitiera con
+   * cada cambio, el mapa saltaría solo mientras se dibuja o se mueve un vértice.
+   */
+  const yaEncuadro = useRef(false)
+  const fitKey = fitTo && fitTo.length > 0 ? JSON.stringify(fitTo) : ''
+
+  useEffect(() => {
+    if (!mapReady) return
+    const map = mapRef.current, Lf = LfRef.current
+    if (!map || !Lf) return
+
+    const objetivo: LatLng[] = fitKey
+      ? (fitTo as LatLng[])
+      : (!yaEncuadro.current
+          ? ripios.flatMap(r => r.coords ?? [])
+          : [])
+
+    if (objetivo.length === 0) return
+
+    try {
+      const bounds = Lf.latLngBounds(objetivo as [number, number][])
+      if (!bounds.isValid()) return
+      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 16, animate: false })
+      yaEncuadro.current = true
+    } catch (_) { /* coordenadas inválidas: se deja la vista como está */ }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fitKey, ripios, mapReady])
 
   // ── Renderizar capas de ripios (coordenadas) ──────────────────────────────
   useEffect(() => {

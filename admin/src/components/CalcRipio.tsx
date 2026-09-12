@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import dynamic from 'next/dynamic'
 import type { RipioTramo, LatLng } from './RipioMapPanel'
 import { PALETTE } from '@/lib/ripioPalette'
@@ -80,7 +80,11 @@ function Res({ label, value, accent }: { label: string; value: string; accent?: 
 }
 
 // ── Componente principal ──────────────────────────────────────────────────────
-export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: GuardarObraData) => void }) {
+export default function CalcRipio({ onGuardarObra, focoObra }: {
+  onGuardarObra?: (d: GuardarObraData) => void
+  /** Al venir desde "editar" en la lista de obras: qué proyecto abrir y dónde encuadrar */
+  focoObra?: { proyectoId?: string; coords?: LatLng[] } | null
+}) {
   const [proyectos,    setProyectos]    = useState<Proyecto[]>([])
   const [activeProyId, setActiveProyId] = useState<string | null>(null)
   const [selectedId,   setSelectedId]   = useState<string | null>(null)
@@ -122,6 +126,29 @@ export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: Guard
       .finally(() => setLoading(false))
     return () => ac.abort()
   }, [])
+
+  /**
+   * Al llegar desde "editar" en la lista de obras: abrir el proyecto de esa
+   * obra y encuadrar el mapa sobre su trazado. Antes caía en la vista general
+   * de la provincia y había que buscar el tramo a mano.
+   */
+  const focoAplicado = useRef(false)
+  useEffect(() => {
+    if (focoAplicado.current || !focoObra || proyectos.length === 0) return
+    const id = focoObra.proyectoId
+    if (id && proyectos.some(p => p.id === id)) {
+      setActiveProyId(id)
+      const primero = proyectos.find(p => p.id === id)?.ripios[0]
+      if (primero) { setSelectedId(primero.id); setPanel('form') }
+    }
+    focoAplicado.current = true
+  }, [focoObra, proyectos])
+
+  /** Coordenadas para encuadrar: las de la obra, o las del proyecto activo */
+  const fitTo = useMemo<LatLng[] | null>(() => {
+    if (focoObra?.coords && focoObra.coords.length > 0) return focoObra.coords
+    return null
+  }, [focoObra])
 
   // Catálogo de equipos — se usa en los cuatro análisis de precio
   useEffect(() => {
@@ -1032,6 +1059,7 @@ export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: Guard
                 onLineEdit={handleLineEdit}
                 onLineSplit={handleLineSplit}
                 onEditEnd={() => setEditingId(null)}
+                fitTo={fitTo}
                 onSelectRipio={(id) => {
                   const owner = proyectos.find(p => p.ripios.some(r => r.id === id))
                   if (owner) setActiveProyId(owner.id)

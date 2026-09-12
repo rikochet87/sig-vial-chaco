@@ -2732,6 +2732,10 @@ export default function CalculadorasPage() {
   // ── Edición desde lista de obras ──────────────────────────────────────────
   const [editDC,      setEditDC]      = useState<Record<string, unknown> | null>(null)
   const [editLoading, setEditLoading] = useState(false)
+  /** Proyecto y trazado de la obra que se vino a editar, para abrir ahí el mapa */
+  const [focoRipio, setFocoRipio] = useState<{
+    proyectoId?: string; coords?: [number, number][]
+  } | null>(null)
 
   useEffect(() => {
     if (!editId) return
@@ -2747,6 +2751,22 @@ export default function CalculadorasPage() {
           setTab('limpieza')
         } else if (dc.calculadora === 'ripio') {
           setTab('ripio')
+
+          // Encuadrar el mapa sobre la obra en vez de dejar la vista general.
+          // coords_linea viene como [{lat, lng}]; el mapa espera [lat, lng].
+          const linea = obra.coords_linea as { lat: number; lng: number }[] | null
+          const coords = Array.isArray(linea) && linea.length > 0
+            ? linea
+                .filter(p => typeof p?.lat === 'number' && typeof p?.lng === 'number')
+                .map(p => [p.lat, p.lng] as [number, number])
+            : undefined
+
+          const inputs = dc.inputs as Record<string, unknown> | undefined
+          const proyectoId = typeof inputs?.activeProyId === 'string'
+            ? inputs.activeProyId
+            : undefined
+
+          if (coords?.length || proyectoId) setFocoRipio({ proyectoId, coords })
         }
       })
       .finally(() => setEditLoading(false))
@@ -2876,7 +2896,10 @@ export default function CalculadorasPage() {
       }}>
         {tab === 'terraplen'  && <CalcTerraplen  paramsRef={paramsRef} />}
         {tab === 'excavacion' && <CalcExcavacion paramsRef={paramsRef} />}
-        {tab === 'ripio'      && <CalcRipioComponent onGuardarObra={(d) => { setGuardarData(d); setGuardarOpen(true) }} />}
+        {tab === 'ripio'      && <CalcRipioComponent
+          onGuardarObra={(d) => { setGuardarData(d); setGuardarOpen(true) }}
+          focoObra={focoRipio}
+        />}
         {tab === 'canal'      && <CalcCanal      paramsRef={paramsRef} />}
         {tab === 'limpieza'   && !editLoading && <CalcLimpiezaVial key={editId ?? 'new'} paramsRef={paramsRef} onGuardarObra={(d) => { setGuardarData(d); setGuardarOpen(true) }} initialData={editDC ?? undefined} />}
         {tab === 'limpieza'   && editLoading  && <div style={{ color: '#555', fontFamily: 'monospace', fontSize: 13, padding: 20 }}>Cargando obra...</div>}
