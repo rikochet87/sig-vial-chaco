@@ -272,6 +272,53 @@ export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: Guard
     saveRipio(id, { l_m: Math.round(lengthM), coords })
   }, [saveRipio])
 
+  /**
+   * Separa un tramo en dos: el original se queda con la primera parte y se crea
+   * un ripio nuevo con la segunda, heredando ancho, espesor, densidad y precio.
+   * Sirve para tratar por separado dos mitades con distinto criterio, o para
+   * borrar una parte eliminando después el tramo que sobra.
+   */
+  const handleLineSplit = useCallback(async (
+    id: string,
+    a: { lengthM: number; coords: LatLng[] },
+    b: { lengthM: number; coords: LatLng[] },
+  ) => {
+    const proy   = proyectos.find(p => p.ripios.some(r => r.id === id))
+    const origen = proy?.ripios.find(r => r.id === id)
+    if (!proy || !origen) return
+
+    // 1) El original conserva la primera parte
+    saveRipio(id, { l_m: Math.round(a.lengthM), coords: a.coords })
+
+    // 2) La segunda parte pasa a un tramo nuevo con los mismos parámetros
+    try {
+      const res = await fetch(`/api/proyectos-ripio/${proy.id}/ripios`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nombre:          `${origen.nombre} (2)`,
+          an:              origen.an,
+          e:               origen.e,
+          rho:             origen.rho,
+          precio_unitario: origen.precio_unitario,
+          empresa:         origen.empresa,
+          fecha_ejecucion: origen.fecha_ejecucion,
+          l_m:             Math.round(b.lengthM),
+          coords:          b.coords,
+        }),
+      })
+      if (!res.ok) throw new Error(await res.text())
+      const nuevo: RipioTramo = await res.json()
+      setProyectos(prev => prev.map(p =>
+        p.id === proy.id ? { ...p, ripios: [...p.ripios, nuevo] } : p
+      ))
+      setEditingId(null)
+      setSelectedId(nuevo.id)
+      setPanel('form')
+    } catch (e) {
+      console.error('No se pudo separar el tramo:', e)
+    }
+  }, [proyectos, saveRipio])
+
   // ── Panel izquierdo: árbol ────────────────────────────────────────────────
   const renderTree = () => (
     <div style={{
@@ -983,6 +1030,7 @@ export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: Guard
                 onLineDraw={handleLineDraw}
                 onDrawEnd={() => setDrawingId(null)}
                 onLineEdit={handleLineEdit}
+                onLineSplit={handleLineSplit}
                 onEditEnd={() => setEditingId(null)}
                 onSelectRipio={(id) => {
                   const owner = proyectos.find(p => p.ripios.some(r => r.id === id))

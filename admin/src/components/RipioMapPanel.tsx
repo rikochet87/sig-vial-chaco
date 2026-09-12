@@ -31,6 +31,10 @@ interface Props {
   onDrawEnd:       () => void
   /** Se llama al soltar un vértice, insertar o eliminar: guarda y recalcula */
   onLineEdit?:     (id: string, lengthM: number, coords: LatLng[]) => void
+  /** Parte el tramo en dos: el original queda con `a`, y se crea uno nuevo con `b` */
+  onLineSplit?:    (id: string,
+                    a: { lengthM: number; coords: LatLng[] },
+                    b: { lengthM: number; coords: LatLng[] }) => void
   onEditEnd?:      () => void
   onSelectRipio?:  (id: string) => void   // seleccionar ripio al clicar en el mapa
   onDeleteRipio?:  (id: string) => void   // eliminar ripio desde el mapa
@@ -141,7 +145,7 @@ function ripioColor(orden: number): string {
 // ── Componente ────────────────────────────────────────────────────────────────
 export default function RipioMapPanel({
   ripios, selectedId, drawingId, editingId, color, onLineDraw, onDrawEnd,
-  onLineEdit, onEditEnd, onSelectRipio, onDeleteRipio,
+  onLineEdit, onLineSplit, onEditEnd, onSelectRipio, onDeleteRipio,
 }: Props) {
   const mapDivRef  = useRef<HTMLDivElement>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -171,11 +175,23 @@ export default function RipioMapPanel({
   const onLineEditRef = useRef(onLineEdit)
   useEffect(() => { editingIdRef.current = editingId }, [editingId])
   useEffect(() => { onLineEditRef.current = onLineEdit }, [onLineEdit])
+  const onLineSplitRef = useRef(onLineSplit)
+  useEffect(() => { onLineSplitRef.current = onLineSplit }, [onLineSplit])
+
   const editStateRef = useRef<{
     cleanup: () => void
     extender: (d: 'inicio'|'fin'|null) => void
     deshacer: () => void
     rehacer: () => void
+    eliminarVertice: () => void
+    separar: () => void
+    recortar: (lado: 'inicio' | 'fin') => void
+    deseleccionar: () => void
+  } | null>(null)
+
+  /** Vértice seleccionado y las longitudes que quedarían al cortar ahí */
+  const [verticeSel, setVerticeSel] = useState<{
+    idx: number; total: number; largoInicio: number; largoFin: number
   } | null>(null)
   /** Longitud en vivo mientras se arrastra, para la barra flotante */
   const [editLen, setEditLen] = useState(0)
@@ -481,15 +497,18 @@ export default function RipioMapPanel({
     let handles: any[] = []
     let modoExtender: 'inicio' | 'fin' | null = null
 
-    const iconoVertice = (extremo: boolean) => Lf.divIcon({
-      className: '',
-      html: `<div style="width:${extremo ? 14 : 11}px;height:${extremo ? 14 : 11}px;
-        border-radius:50%;background:${extremo ? '#fff' : clr};
-        border:2px solid ${extremo ? clr : '#fff'};box-sizing:border-box;
-        box-shadow:0 0 4px rgba(0,0,0,.6)"></div>`,
-      iconSize: [extremo ? 14 : 11, extremo ? 14 : 11],
-      iconAnchor: [extremo ? 7 : 5.5, extremo ? 7 : 5.5],
-    })
+    const iconoVertice = (extremo: boolean, activo: boolean) => {
+      const d = activo ? 18 : extremo ? 14 : 11
+      return Lf.divIcon({
+        className: '',
+        html: `<div style="width:${d}px;height:${d}px;border-radius:50%;
+          background:${activo ? '#F5C300' : extremo ? '#fff' : clr};
+          border:${activo ? 3 : 2}px solid ${activo ? '#fff' : extremo ? clr : '#fff'};
+          box-sizing:border-box;
+          box-shadow:0 0 ${activo ? 8 : 4}px rgba(0,0,0,.7)"></div>`,
+        iconSize: [d, d], iconAnchor: [d / 2, d / 2],
+      })
+    }
     const iconoMedio = () => Lf.divIcon({
       className: '',
       html: `<div style="width:9px;height:9px;border-radius:50%;
@@ -557,6 +576,62 @@ export default function RipioMapPanel({
       sincronizarBotones()
     }
 
+    // ── Selección de vértice y corte ──
+    // Hacer clic en un vértice lo selecciona y la barra muestra qué se puede
+    // hacer con él. Antes eliminar sólo existía por clic derecho y nadie lo
+    // encontraba.
+    let sel: number | null = null
+
+    const sincronizarSeleccion = () => {
+      if (sel == null || sel >= pts.length) { setVerticeSel(null); return }
+      setVerticeSel({
+        idx: sel, total: pts.length,
+        largoInicio: totalLen(pts.slice(0, sel + 1)),
+        largoFin:    totalLen(pts.slice(sel)),
+      })
+    }
+
+    const seleccionar = (i: number | null) => {
+      sel = i
+      sincronizarSeleccion()
+      construirHandles()
+    }
+
+    const eliminarVertice = () => {
+      if (sel == null || pts.length <= 2) return
+      anotar()
+      pts = pts.filter((_, j) => j !== sel)
+      sel = null
+      refrescarLinea(); construirHandles(); commit(); sincronizarSeleccion()
+    }
+
+    /** Parte el tramo en dos: el original conserva hasta el vértice, el resto
+     *  pasa a un tramo nuevo. El vértice del corte queda en ambos, para que no
+     *  aparezca un hueco entre las dos partes. */
+    const separar = () => {
+      if (sel == null || sel === 0 || sel === pts.length - 1) return
+      const a = pts.slice(0, sel + 1)
+      const b = pts.slice(sel)
+      onLineSplitRef.current?.(
+        ripioId,
+        { lengthM: totalLen(a), coords: a.map(p => [p[0], p[1]] as LatLng) },
+        { lengthM: totalLen(b), coords: b.map(p => [p[0], p[1]] as LatLng) },
+      )
+      sel = null
+      setVerticeSel(null)
+    }
+
+    /** Descarta una de las dos mitades y se queda con la otra */
+    const recortar = (lado: 'inicio' | 'fin') => {
+      if (sel == null) return
+      const resto = lado === 'inicio' ? pts.slice(sel) : pts.slice(0, sel + 1)
+      if (resto.length < 2) return
+      anotar()
+      pts = resto
+      sel = null
+      refrescarLinea(); construirHandles(); commit(); sincronizarSeleccion()
+    }
+
     // Ctrl+Z / Ctrl+Shift+Z (y Ctrl+Y). Se ignora si el foco está en un campo
     // de texto, para no pisar el deshacer propio del input.
     const onKeyDown = (e: KeyboardEvent) => {
@@ -585,7 +660,14 @@ export default function RipioMapPanel({
       pts.forEach((p, i) => {
         const extremo = i === 0 || i === pts.length - 1
         const m = Lf.marker(p as [number,number], {
-          draggable: true, icon: iconoVertice(extremo), zIndexOffset: 1000,
+          draggable: true, icon: iconoVertice(extremo, sel === i),
+          zIndexOffset: sel === i ? 1100 : 1000,
+        })
+        // Clic: seleccionar para ver las acciones en la barra
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        m.on('click', (e: any) => {
+          Lf.DomEvent.stopPropagation(e)
+          seleccionar(sel === i ? null : i)
         })
         m.on('dragstart', () => anotar())
         m.on('drag', (e: { target: { getLatLng: () => { lat: number; lng: number } } }) => {
@@ -607,8 +689,8 @@ export default function RipioMapPanel({
         })
         m.bindTooltip(
           extremo
-            ? 'Extremo · arrastrar para mover'
-            : 'Arrastrar para mover · clic derecho para eliminar',
+            ? 'Extremo · arrastrar para mover · clic para opciones'
+            : 'Clic para opciones · arrastrar para mover · clic derecho elimina',
           { direction: 'top', offset: [0, -8] },
         )
         m.addTo(map)
@@ -673,13 +755,18 @@ export default function RipioMapPanel({
       setExtendiendo(null)
       setPuedeDeshacer(false)
       setPuedeRehacer(false)
+      setVerticeSel(null)
     }
 
     map.on('click', onMapClick)
     refrescarLinea()
     construirHandles()
     sincronizarBotones()
-    editStateRef.current = { cleanup, extender, deshacer, rehacer }
+    editStateRef.current = {
+      cleanup, extender, deshacer, rehacer,
+      eliminarVertice, separar, recortar,
+      deseleccionar: () => seleccionar(null),
+    }
   }, [])
 
   useEffect(() => {
@@ -778,7 +865,9 @@ export default function RipioMapPanel({
           </span>
 
           <span style={{ color: '#555', borderLeft: '1px solid #2a2a2a', paddingLeft: 12 }}>
-            Arrastrá los puntos · los huecos agregan · clic derecho elimina
+            {verticeSel
+              ? `Vértice ${verticeSel.idx + 1} de ${verticeSel.total}`
+              : 'Clic en un punto para opciones · arrastrá para mover · los huecos agregan'}
           </span>
 
           {/* Deshacer / rehacer — también por teclado */}
@@ -836,6 +925,74 @@ export default function RipioMapPanel({
             }}>
             ✓ Listo
           </button>
+
+          {/* Acciones sobre el vértice seleccionado — segunda fila */}
+          {verticeSel && (
+            <div style={{
+              flexBasis: '100%', display: 'flex', gap: 6, alignItems: 'center',
+              flexWrap: 'wrap', paddingTop: 8, marginTop: 2,
+              borderTop: '1px solid #2a2a2a',
+            }}>
+              <button
+                onClick={() => editStateRef.current?.eliminarVertice()}
+                disabled={verticeSel.total <= 2}
+                title={verticeSel.total <= 2 ? 'Hacen falta al menos 2 vértices' : 'Eliminar este vértice'}
+                style={{
+                  fontFamily: 'monospace', fontSize: 12,
+                  cursor: verticeSel.total > 2 ? 'pointer' : 'default',
+                  padding: '4px 10px', background: 'transparent',
+                  border: `1px solid ${verticeSel.total > 2 ? '#553030' : '#1e1e1e'}`,
+                  color: verticeSel.total > 2 ? '#c77' : '#333',
+                }}>
+                ✕ Eliminar vértice
+              </button>
+
+              <span style={{ color: '#333', margin: '0 2px' }}>│</span>
+
+              <button
+                onClick={() => editStateRef.current?.separar()}
+                disabled={verticeSel.idx === 0 || verticeSel.idx === verticeSel.total - 1}
+                title="Parte el tramo en dos; el segundo pasa a ser un ripio nuevo"
+                style={{
+                  fontFamily: 'monospace', fontSize: 12,
+                  cursor: (verticeSel.idx > 0 && verticeSel.idx < verticeSel.total - 1) ? 'pointer' : 'default',
+                  padding: '4px 10px', background: 'transparent',
+                  border: `1px solid ${(verticeSel.idx > 0 && verticeSel.idx < verticeSel.total - 1) ? '#3a3a3a' : '#1e1e1e'}`,
+                  color: (verticeSel.idx > 0 && verticeSel.idx < verticeSel.total - 1) ? '#bbb' : '#333',
+                }}>
+                ✂ Separar en dos tramos
+              </button>
+
+              {([
+                { lado: 'inicio' as const, txt: 'Borrar hacia el inicio', queda: verticeSel.largoFin },
+                { lado: 'fin'    as const, txt: 'Borrar hacia el fin',    queda: verticeSel.largoInicio },
+              ]).map(b => (
+                <button key={b.lado}
+                  onClick={() => editStateRef.current?.recortar(b.lado)}
+                  title={`Descarta esa mitad; queda un tramo de ${Math.round(b.queda)} m`}
+                  style={{
+                    fontFamily: 'monospace', fontSize: 12, cursor: 'pointer',
+                    padding: '4px 10px', background: 'transparent',
+                    border: '1px solid #553030', color: '#c77',
+                  }}>
+                  ✕ {b.txt}
+                  <span style={{ color: '#666', marginLeft: 5 }}>
+                    queda {b.queda >= 1000 ? `${(b.queda/1000).toFixed(2)} km` : `${Math.round(b.queda)} m`}
+                  </span>
+                </button>
+              ))}
+
+              <button
+                onClick={() => editStateRef.current?.deseleccionar()}
+                style={{
+                  fontFamily: 'monospace', fontSize: 12, cursor: 'pointer',
+                  padding: '4px 10px', background: 'transparent',
+                  border: '1px solid #2a2a2a', color: '#777', marginLeft: 'auto',
+                }}>
+                Deseleccionar
+              </button>
+            </div>
+          )}
         </div>
       )}
 
