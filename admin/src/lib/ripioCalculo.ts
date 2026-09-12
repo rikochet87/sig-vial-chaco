@@ -180,8 +180,15 @@ export type ParametrosMdeO = {
   vacaciones: number
   sac: number
   factorCargasSobreSAC: number  // (53,55 − 12) %
-  /** Sumas no remunerativas mensuales por categoría, divididas por (44*4) */
+  /**
+   * Sumas no remunerativas MENSUALES por categoría.
+   *
+   * Se prorratean sobre `hsProrrateoNoRem` y se suman al costo horario. No
+   * siempre existen: cuando el acuerdo paritario no las contempla van en cero.
+   */
   noRemunerativo: { oficialEsp: number; oficial: number; medioOficial: number; ayudante: number }
+  /** Horas para prorratear la suma no remunerativa (44 hs/semana × 4 = 176) */
+  hsProrrateoNoRem: number
 }
 
 export const MDEO_DEFAULT: ParametrosMdeO = {
@@ -214,6 +221,7 @@ export const MDEO_DEFAULT: ParametrosMdeO = {
   sac: 0.0833,
   factorCargasSobreSAC: 0.4155,
   noRemunerativo: { oficialEsp: 99800, oficial: 91000, medioOficial: 83500, ayudante: 78400 },
+  hsProrrateoNoRem: 44 * 4,
 }
 
 /** Desglose de las cargas sociales, con los dos porcentajes derivados calculados. */
@@ -275,7 +283,9 @@ function costoCategoria(
     ? truncar(costoTotalLaboral / p.hsMes, 2)
     : redondear(costoTotalLaboral / p.hsMes, 2)
 
-  const noRemunerativo = noRem / (44 * 4)
+  // La suma no remunerativa es mensual: se prorratea a horas antes de sumarla.
+  // Puede ser cero — no todos los acuerdos la contemplan.
+  const noRemunerativo = p.hsProrrateoNoRem > 0 ? noRem / p.hsProrrateoNoRem : 0
   const costoHora = noRemunerativo + costoRealHora
 
   return {

@@ -7,6 +7,7 @@ import type { GuardarObraData } from './GuardarObraModal'
 import PanelAPU from './ripio/PanelAPU'
 import PanelCoeficientes from './ripio/PanelCoeficientes'
 import PanelPresupuesto from './ripio/PanelPresupuesto'
+import PanelManoObra from './ripio/PanelManoObra'
 import {
   calcularCoeficientes, calcularMdeO, calcularAPU, valorEfectivo,
   type EquipoCatalogo,
@@ -764,16 +765,16 @@ export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: Guard
               </label>
             ))}
           </div>
-          <div style={{ display: 'flex', gap: 20, marginTop: 10, paddingTop: 8,
-            borderTop: '1px solid #1a1a1a', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 12, color: '#666', ...MONO }}>
-              Cargas sociales: <b style={{ color: '#999' }}>{(mdo.pctCargasSociales * 100).toFixed(2)}%</b>
-              <span style={{ color: '#444', marginLeft: 6 }}>
-                · incidencia {mdo.oficialEsp.incidencia}× sobre el jornal de convenio
-              </span>
-            </span>
-          </div>
         </div>
+
+        {/* ── Mano de obra — plegable, con la suma no remunerativa editable ── */}
+        <PanelManoObra
+          params={analisis.manoObra}
+          onChange={p => guardarAnalisis({ ...analisis, manoObra: p })}
+          precios={analisis.precios}
+          mdo={mdo}
+          color={COLOR}
+        />
 
         {/* ── Coeficientes — plegable, todo editable ── */}
         <PanelCoeficientes
