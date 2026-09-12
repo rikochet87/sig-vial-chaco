@@ -1,105 +1,275 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guía para Claude Code al trabajar en este repositorio.
 
 ## Proyecto
 
-App móvil React Native + Expo para relevamiento y gestión de infraestructura vial rural en la Provincia del Chaco, Argentina. Licencia CC BY-NC-ND 4.0.
+Sistema de relevamiento y gestión de infraestructura vial rural en la Provincia
+del Chaco, Argentina. Licencia CC BY-NC-ND 4.0.
+
+Son **dos aplicaciones** en un mismo repo, contra la misma base Supabase:
+
+| | Ubicación | Qué es | Quién la usa |
+|---|---|---|---|
+| **App móvil** | raíz del repo | React Native + Expo, Android | Técnicos en campo |
+| **Panel web** | `admin/` | Next.js en Vercel | Oficina: proyectistas y administración |
 
 ## Comandos
 
 ```bash
-# Desarrollo
-npm start                    # Expo dev server (QR code / tunnel)
-npm run android              # Build y correr en emulador/dispositivo Android
-npm run ios                  # Build y correr en iOS simulator
-npm run web                  # Correr en web (experimental)
+# ── App móvil (desde la raíz) ────────────────────────────────────────
+npm start                    # Expo dev server
+npm run android              # Emulador / dispositivo Android
+npx tsc --noEmit             # Type checking
 
-# EAS Build (cloud)
-eas build --platform android --profile preview --non-interactive   # APK
-eas build --platform android --profile production --non-interactive # AAB
+npx expo install <paquete>   # SIEMPRE así, no npm install: resuelve la
+                             # versión compatible con el SDK
+npx expo prebuild --clean    # Necesario si cambian permisos o plugins de app.json
 
-# Type checking
+eas build --platform android --profile preview --non-interactive     # APK
+eas build --platform android --profile production --non-interactive  # AAB
+
+# ── Panel web (desde admin/) ─────────────────────────────────────────
+npm run dev
 npx tsc --noEmit
+npx next build
+npx expo-doctor               # desde la raíz — detecta incompatibilidades del SDK
 ```
 
-No hay scripts de lint ni tests configurados.
+No hay lint ni tests configurados. La verificación es `tsc --noEmit` + `next build`.
 
 ## Stack
 
-- **Expo SDK 54** + React Native 0.81.5
-- **expo-router v6** — navegación file-based con tabs
-- **TypeScript** — modo estricto (`strict: true`)
-- **Leaflet.js 1.9** via `react-native-webview` — mapa OSM offline, sin API key
-- **expo-location** — GPS
-- **expo-file-system/legacy** — persistencia local de relevamientos
-- **expo-image-picker** — fotos adjuntas a relevamientos
-- **EAS Build** — APK/AAB para Android
+**App móvil** — Expo SDK 56, React Native 0.85.3, expo-router v6, TypeScript
+estricto. Mapa con Leaflet 1.9.4 dentro de `react-native-webview` (sin
+react-native-maps ni Google Maps API). `expo-location` + `expo-task-manager`
+para GPS. `expo-file-system/legacy` para persistencia local.
 
-## Arquitectura
+**Panel web** — Next.js 16, React 19, Leaflet 1.9.4, html2canvas para exportar
+composiciones. Estilos inline, sin framework CSS.
+
+**Backend** — Supabase (auth + Postgres + Storage). Tablas: `profiles`,
+`relevamientos`, `obras`, `obra_destinatarios`, `consorcios`, `proyectos_ripio`,
+`ripios`, `equipos`, `precios_base`.
+
+## Arquitectura — App móvil
 
 ### Mapa (WebView + Leaflet)
 
-`app/(tabs)/mapa.tsx` es el archivo principal (~1820 líneas). El mapa corre en una WebView separada de React Native:
+`app/(tabs)/mapa.tsx` (~2340 líneas) es el archivo más grande. El mapa corre en
+una WebView aislada:
 
-- **RN → Leaflet**: `injectJavaScript()` para agregar capas, marcadores, controles
-- **Leaflet → RN**: `window.ReactNativeWebView.postMessage()` para eventos (tap, posición, dibujo de línea)
-- No usa `react-native-maps` ni Google Maps API
+- **RN → Leaflet**: `injectJavaScript()` para capas, marcadores, controles
+- **Leaflet → RN**: `window.ReactNativeWebView.postMessage()` para eventos
+
+**Leaflet va bundleado, no por CDN.** `constants/leafletBundle.ts` exporta el JS
+y el CSS como strings que se inyectan inline en el HTML. Antes se cargaba desde
+unpkg y la app no abría sin señal. Los tiles de OSM sí siguen siendo online: sin
+red el fondo queda gris pero las capas GeoJSON se dibujan igual.
 
 ### Formulario de relevamiento
 
-`components/RelevamientoModal.tsx` (~1116 líneas) maneja los 5 tipos de infraestructura:
+`components/RelevamientoModal.tsx` (~1890 líneas), cinco tipos:
 
-| Tipo | GeoJSON | Descripción |
-|------|---------|-------------|
-| **Puente** | Point | Datos de vano, palcos, altura, estructura, barandas |
-| **Alcantarilla** | Point | Dimensiones, materiales, estado de drenaje |
-| **Tubos** | Point | Diámetro, cabezales, profundidad, cantidad |
-| **Ripio** | **LineString** | Ancho, espesor, longitud, cálculo automático de tonelaje (2.1 t/m³) |
-| **Otro** | Point | Descripción libre |
+| Tipo | Geometría | Notas |
+|---|---|---|
+| Puente | Point | Vano, palcos, altura, estructura, barandas |
+| Alcantarilla | Point | Dimensiones, materiales, drenaje |
+| Tubos | Point | Diámetro, cabezales, profundidad, cantidad |
+| **Ripio** | **LineString** | Ancho, espesor, longitud; densidad **editable por tramo** |
+| Otro | Point | Descripción libre |
 
-El Ripio tiene dos modos de captura de línea:
-1. **GPS Track** — dentro del formulario; graba puntos GPS mientras el inspector camina
-2. **Dibujar en mapa** — cierra el modal, entra en modo draw de Leaflet, reabre el modal con coordenadas
+Ripio tiene dos modos de captura: **GPS Track** (graba mientras se recorre) y
+**Dibujar en mapa**.
 
-### Persistencia
+### GPS en segundo plano
 
-`hooks/useRelevamientos.ts` gestiona relevamientos locales:
-- Archivo: `${documentsDirectory}/relevamientos.json`
-- Sin backend ni sincronización en la nube
+`lib/backgroundTrack.ts` — el track se graba con `startLocationUpdatesAsync` +
+`TaskManager`, no con `watchPositionAsync`. Con el método anterior el track se
+cortaba al apagar la pantalla y el tramo salía como una recta entre el punto
+inicial y el final.
+
+Los puntos se persisten en AsyncStorage a medida que llegan, así sobreviven si
+Android mata el proceso. Requiere `ACCESS_BACKGROUND_LOCATION` y un servicio en
+primer plano con notificación persistente; **el técnico tiene que conceder
+"Permitir siempre"**, que Android pide aparte.
+
+### Arranque local-first
+
+`context/AuthContext.tsx` — el arranque **solo toca AsyncStorage**. Si hay perfil
+cacheado, la app entra de inmediato y la sesión se valida en segundo plano. Con
+el diseño anterior, `getSession()` salía a refrescar el token sin timeout y sin
+señal la app quedaba trabada en el splash para siempre.
+
+- `estadoConexion: 'verificando' | 'online' | 'offline'` — tres estados, no un
+  booleano: "todavía no sé" no es lo mismo que "sin conexión"
+- `withTimeout()` acota toda llamada de red del arranque
+- Un refresh de token fallido **no expulsa** al técnico: solo el logout explícito
+  limpia el perfil (`salidaExplicitaRef` distingue los dos casos)
+- `app/_layout.tsx` tiene un límite duro para ocultar el splash pase lo que pase
+
+### Persistencia y sincronización
+
+- Local: `${documentsDirectory}/relevamientos.json` vía `hooks/useRelevamientos.ts`
+- Remoto: upsert a Supabase + fotos a Storage (`hooks/useSupabaseSync.ts`)
+- `lib/syncManager.ts` sincroniza a nivel archivo, sin depender de que esté
+  montada ninguna pantalla. **Releé el archivo antes de cada escritura y parchea
+  por id**, para no pisar relevamientos cargados mientras corría el sync
+- `hooks/useAutoSync.ts` dispara al recuperar señal, al volver a primer plano y
+  cada minuto mientras queden pendientes
+- El reintento incluye los `'error'`, no solo los `'pendiente'`
+- `components/ConexionBadge.tsx` muestra estado de red y cuántos faltan subir
 
 ### GeoJSON estático
 
-Todos los datos geoespaciales están bundleados offline:
+Bundleado offline:
 
-- `constants/geoBundle.ts` — límites provinciales/zonales, sedes, campamentos (~1.2 MB, generado por script Python)
-- `constants/geoBundleCC.ts` — red vial por consorcio por zona
-- `constants/geoBundleRP.ts` — rutas provinciales (pavimentada/mejorada/en obra/tierra)
-- `constants/realData.ts` — datos de 103 consorcios (coords, km de red, autoridades) — **no editar manualmente**
+- `constants/geoBundle.ts` — límites, sedes, campamentos (~1,2 MB)
+- `constants/geoBundleCC.ts` — red vial por consorcio y zona
+- `constants/geoBundleRP.ts` — rutas provinciales por tipo de calzada
+- `constants/realData.ts` — 103 consorcios — **no editar a mano**
+- `constants/leafletBundle.ts` — Leaflet 1.9.4 — **generado, no editar**
 
-Para regenerar bundles GeoJSON desde archivos QGIS:
 ```bash
 python scripts/build_geo_bundle.py
 python scripts/build_geo_bundle_cc.py
 ```
 
-## Convenciones importantes
+## Arquitectura — Panel web (`admin/`)
 
-- **NO mencionar** DVP, Dirección de Conservación Vial ni Dirección de Vialidad Provincial en la UI. La app es independiente.
-- Colores oficiales: negro DVP `#2C2C2C` (primario), amarillo DVP `#F5C300` (acento). Ver `constants/Colors.ts`.
-- Los relevamientos Ripio usan `coordsLinea: LatLngPunto[]`; todos los demás usan coordenadas únicas (Point).
-- Auto-detección del consorcio más cercano: distancia euclidiana sobre lat/lng de `realData.ts`.
-- `metro.config.js` configura soporte para importar `.geojson` como JSON.
-- `babel.config.js` requiere el plugin `react-native-reanimated` al final.
+### Permisos
+
+`admin/src/lib/permisos.ts` es la **fuente única de verdad**: la lista de
+permisos, el mapa ruta → permiso y los helpers. Lo consumen el `middleware.ts`
+(guard server-side por ruta), el `Sidebar` y los formularios de usuario.
+
+Claves: `dashboard`, `consorcios`, `relevamientos`, `herramientas`, `obras`,
+`calc_ripio`, `calc_desmalezado`, `calc_desbosque`.
+
+Roles: `admin` (acceso total), `panel` (usuario de oficina, gateado por
+permisos), `tecnico` y `usuario` (app móvil).
+
+El middleware corre en Edge runtime: **`permisos.ts` no debe importar nada de
+Node.**
+
+### Autorización en las APIs
+
+`admin/src/lib/apiAuth.ts`:
+
+- `requireAdmin()` — solo verifica sesión válida, **no** rol admin (el nombre
+  engaña)
+- `requireAdminRole()` — exige rol admin
+- `checkOwnerOrAdmin()` — admin o dueño del recurso
+
+### Calculadoras de obra
+
+`admin/src/app/dashboard/obras/calculadoras/page.tsx` — Terraplén, Excavación,
+Canal, Limpieza Vial y Desmalezado. Ripio vive aparte en
+`components/CalcRipio.tsx`.
+
+### Ripio: cómputo → análisis de precios → presupuesto
+
+Replica el circuito formal de obra pública. Cuatro pestañas: **Cómputo**
+(tramos sobre el mapa), **Análisis de precios**, **Presupuesto** y
+**Composición** (plano A4).
+
+**`lib/ripioCalculo.ts`** — motor de cálculo puro, sin React. Verificado contra
+los valores de la planilla de referencia. Cadena:
+
+```
+precios del proyecto ──► coeficientes ──┬──► APU material      $/tn
+        │                               ├──► APU transporte $/tn·km
+        └──► equipos, mano de obra ─────┴──► APU construcción   $/m
+                                              └──► presupuesto oficial
+```
+
+Detalles que **no** son obvios y rompen el resultado si se pierden:
+
+- **El gasoil y el neumático entran sin IVA** (`precio ÷ 1,21`): el impuesto se
+  suma recién en el coeficiente resumen. Ignorarlo desvía todo un 21 %.
+- **El coeficiente resumen es en cascada, no una suma**: costo + GG + beneficio
+  = subtotal; los gastos financieros van sobre ese subtotal; los impuestos sobre
+  el resultado. Con los valores por defecto da **1,68**.
+- **Dos porcentajes de cargas sociales son fórmulas**: `C.Soc. s/vacaciones` =
+  vacaciones × subtotal de contribuciones, y `C.Soc. s/SAC` = SAC × 41,55 %.
+  Tomarlos como constantes redondeadas desvía el costo horario y se propaga.
+- **Los precios son por proyecto**, no globales. Cada obra se aprueba con sus
+  números; actualizar el dólar no debe mover presupuestos ya presentados.
+  `precios_base` son solo **plantillas** para copiar al crear.
+- **El costo de los equipos se guarda en dólares.** El valor en pesos se
+  recalcula con la cotización de cada análisis.
+
+**`lib/ripioAnalisis.ts`** — forma del documento que se guarda en
+`proyectos_ripio.analisis` (JSONB), con defaults y `normalizarAnalisis()` para
+que los proyectos viejos con `analisis: null` no rompan.
+
+**Valores adoptados.** Donde la planilla redondea a mano, van dos valores: el
+calculado (solo lectura) y el adoptado (editable). **El adoptado alimenta el
+paso siguiente.** Aplica al tonelaje, a los metros y al precio de cada análisis.
+Si el calculado cambia y el adoptado quedó viejo, se avisa en pantalla con el
+número concreto.
+
+Los cuatro análisis comparten estructura (es el formato estándar de obra
+pública), así que `components/ripio/PanelAPU.tsx` es uno solo parametrizado que
+se instancia cuatro veces. Se distinguen por color, título y unidad.
+
+### Accesibilidad
+
+Hay usuarios con visión reducida. El piso de tamaño de texto es **11 px** —
+antes había texto de 7 px y el 55 % estaba en 10 px o menos. Además
+`components/TamanoTexto.tsx` da un control **A / A+ / A++** en el header que
+aplica `zoom` al contenedor `#panel-contenido`, persistido en localStorage.
+
+**Al agregar texto nuevo, no bajar de 11 px.**
+
+`MapComposicion.tsx` y `MapComposicionRipio.tsx` quedan excluidos: renderizan una
+hoja A4 de 794 × 1123 px fija para `window.print()`, y agrandar el texto la
+desborda.
+
+## Convenciones
+
+- **NO mencionar** DVP, Dirección de Conservación Vial ni Dirección de Vialidad
+  Provincial en la UI ni en los impresos. El sistema es independiente.
+- Colores: negro `#2C2C2C` (primario), amarillo `#F5C300` (acento). Ver
+  `constants/Colors.ts`.
+- La densidad del ripio es **editable por tramo**, sin default impuesto. No
+  hardcodear 2 ni 2,1 t/m³ en ningún punto nuevo de la cadena.
+- Ripio usa `coordsLinea: PuntoTrack[]`; el resto, coordenada única.
+- Auto-detección del consorcio más cercano: distancia euclidiana sobre
+  `realData.ts`.
+- `metro.config.js` habilita importar `.geojson` como JSON.
+- `babel.config.js` necesita `react-native-reanimated` al final.
 
 ## EAS Build — notas críticas
 
 - Package: `com.rosello.sigvialchaco`
-- `kotlinVersion` debe ser **2.1.20** (react-native-async-storage usa Kotlin 2.1.20; KSP se incompatibiliza con 2.1.0)
-- `newArchEnabled: true` (New Architecture habilitada)
-- `compileSdkVersion: 35`
+- `kotlinVersion` **2.1.20** (async-storage lo requiere; KSP rompe con 2.1.0)
+- `compileSdkVersion` y `targetSdkVersion`: **36**
+- `newArchEnabled: true`
+- Si cambian permisos o plugins en `app.json`, correr `npx expo prebuild --clean`
+  antes del build: se regenera el `AndroidManifest.xml`
+- Los fallos de EAS suelen ser **infraestructura, no código**: caídas del cache
+  de Maven, `429 Too Many Requests` de Maven Central. Antes de tocar nada,
+  revisar el log de "Run gradlew" y `status.expo.dev`
+
+## Base de datos
+
+No hay migraciones versionadas en el repo: el SQL se aplica en el editor de
+Supabase. Los scripts nuevos van en `docs/sql/` como referencia.
+
+Al escribir SQL: `create table if not exists`, `add column if not exists` y
+`on conflict do nothing`, para que se pueda volver a correr sin romper nada.
 
 ## Git en Windows
 
-- **NUNCA hacer git commit/push desde sandbox Linux** (WSL/virtiofs). Usar siempre **Windows PowerShell**. El `index.lock` se corrompe en virtiofs.
+- **NUNCA hacer git commit/push desde el sandbox Linux** (WSL/virtiofs). Usar
+  siempre **Windows PowerShell**: el `index.lock` se corrompe en virtiofs.
 - Si aparece `.git/index.lock`, borrarlo desde el Explorador de Windows.
+- Cuando el usuario pide "el commit", responder **solo con el bloque de
+  PowerShell**, sin explicación.
+
+## Documentación
+
+- `docs/propuesta-ripio-presupuesto.md` — análisis de las planillas de cálculo y
+  el plan de implementación
+- `docs/sql/` — scripts SQL aplicados en Supabase
