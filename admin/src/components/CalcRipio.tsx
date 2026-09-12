@@ -85,6 +85,7 @@ export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: Guard
   const [activeProyId, setActiveProyId] = useState<string | null>(null)
   const [selectedId,   setSelectedId]   = useState<string | null>(null)
   const [drawingId,    setDrawingId]    = useState<string | null>(null)
+  const [editingId,    setEditingId]    = useState<string | null>(null)
   const [loading,      setLoading]      = useState(true)
   const [saving,       setSaving]       = useState(false)
   const [panel,        setPanel]        = useState<'form' | 'resumen'>('form')
@@ -262,6 +263,12 @@ export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: Guard
   }, [selectedId, ripios])
 
   const handleLineDraw = useCallback((id: string, lengthM: number, coords: LatLng[]) => {
+    saveRipio(id, { l_m: Math.round(lengthM), coords })
+  }, [saveRipio])
+
+  /** Edición de vértices: mismo guardado que el dibujo, así el tonelaje y el
+   *  presupuesto se recalculan solos con el trazado corregido. */
+  const handleLineEdit = useCallback((id: string, lengthM: number, coords: LatLng[]) => {
     saveRipio(id, { l_m: Math.round(lengthM), coords })
   }, [saveRipio])
 
@@ -481,7 +488,10 @@ export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: Guard
         {/* Botón de dibujo — siempre arriba y visible */}
         <div style={{ padding: '10px 12px', borderBottom: '1px solid #0e0e0e', flexShrink: 0 }}>
           <button
-            onClick={() => setDrawingId(prev => prev === selected.id ? null : selected.id)}
+            onClick={() => {
+              setEditingId(null)
+              setDrawingId(prev => prev === selected.id ? null : selected.id)
+            }}
             style={{
               width: '100%', padding: '9px 0', fontSize: 13, ...MONO,
               fontWeight: 700, letterSpacing: 0.8, cursor: 'pointer',
@@ -490,8 +500,31 @@ export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: Guard
               color: COLOR,
             }}
           >
-            {drawingId === selected.id ? '✕ Cancelar dibujo' : `↔ Trazar ${selected.nombre} en mapa`}
+            {drawingId === selected.id
+              ? '✕ Cancelar dibujo'
+              : (selected.coords?.length ?? 0) >= 2
+                ? `↔ Volver a trazar ${selected.nombre}`
+                : `↔ Trazar ${selected.nombre} en mapa`}
           </button>
+
+          {/* Editar el trazado existente sin rehacerlo */}
+          {(selected.coords?.length ?? 0) >= 2 && (
+            <button
+              onClick={() => {
+                setDrawingId(null)
+                setEditingId(prev => prev === selected.id ? null : selected.id)
+              }}
+              style={{
+                width: '100%', padding: '7px 0', marginTop: 6, fontSize: 13, ...MONO,
+                fontWeight: 700, letterSpacing: 0.8, cursor: 'pointer',
+                border: `1px solid ${editingId === selected.id ? '#F5C300' : '#2a2a2a'}`,
+                background: editingId === selected.id ? '#F5C30022' : 'transparent',
+                color: editingId === selected.id ? '#F5C300' : '#888',
+              }}
+            >
+              {editingId === selected.id ? '✕ Salir de edición' : '✎ Editar trazado'}
+            </button>
+          )}
           {selected.l_m > 0 && (
             <div style={{ marginTop: 6, textAlign: 'center', fontSize: 12, color: '#555', ...MONO }}>
               Longitud actual: <span style={{ color: COLOR }}>{fmt(selected.l_m)} m</span>
@@ -946,8 +979,11 @@ export default function CalcRipio({ onGuardarObra }: { onGuardarObra?: (d: Guard
                 selectedId={selectedId}
                 drawingId={drawingId}
                 color={COLOR}
+                editingId={editingId}
                 onLineDraw={handleLineDraw}
                 onDrawEnd={() => setDrawingId(null)}
+                onLineEdit={handleLineEdit}
+                onEditEnd={() => setEditingId(null)}
                 onSelectRipio={(id) => {
                   const owner = proyectos.find(p => p.ripios.some(r => r.id === id))
                   if (owner) setActiveProyId(owner.id)

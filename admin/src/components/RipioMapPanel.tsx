@@ -24,9 +24,14 @@ interface Props {
   ripios:          RipioTramo[]
   selectedId:      string | null
   drawingId:       string | null          // ripio en modo dibujo activo
+  /** Ripio en modo edición de vértices (excluyente con drawingId) */
+  editingId?:      string | null
   color:           string
   onLineDraw:      (id: string, lengthM: number, coords: LatLng[]) => void
   onDrawEnd:       () => void
+  /** Se llama al soltar un vértice, insertar o eliminar: guarda y recalcula */
+  onLineEdit?:     (id: string, lengthM: number, coords: LatLng[]) => void
+  onEditEnd?:      () => void
   onSelectRipio?:  (id: string) => void   // seleccionar ripio al clicar en el mapa
   onDeleteRipio?:  (id: string) => void   // eliminar ripio desde el mapa
 }
@@ -135,8 +140,8 @@ function ripioColor(orden: number): string {
 
 // ── Componente ────────────────────────────────────────────────────────────────
 export default function RipioMapPanel({
-  ripios, selectedId, drawingId, color, onLineDraw, onDrawEnd,
-  onSelectRipio, onDeleteRipio,
+  ripios, selectedId, drawingId, editingId, color, onLineDraw, onDrawEnd,
+  onLineEdit, onEditEnd, onSelectRipio, onDeleteRipio,
 }: Props) {
   const mapDivRef  = useRef<HTMLDivElement>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -160,6 +165,18 @@ export default function RipioMapPanel({
   useEffect(() => { colorRef.current = color }, [color])
   useEffect(() => { onSelectRipioRef.current = onSelectRipio }, [onSelectRipio])
   useEffect(() => { onDeleteRipioRef.current = onDeleteRipio }, [onDeleteRipio])
+
+  // ── Edición de vértices ───────────────────────────────────────────────────
+  const editingIdRef  = useRef(editingId)
+  const onLineEditRef = useRef(onLineEdit)
+  useEffect(() => { editingIdRef.current = editingId }, [editingId])
+  useEffect(() => { onLineEditRef.current = onLineEdit }, [onLineEdit])
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const editStateRef = useRef<{ cleanup: () => void; extender: (d: 'inicio'|'fin'|null) => void } | null>(null)
+  /** Longitud en vivo mientras se arrastra, para la barra flotante */
+  const [editLen, setEditLen] = useState(0)
+  const [editPts, setEditPts] = useState(0)
+  const [extendiendo, setExtendiendo] = useState<'inicio' | 'fin' | null>(null)
 
   // ── Inicializar mapa ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -240,6 +257,9 @@ export default function RipioMapPanel({
 
     ripios.forEach((r) => {
       if (!r.coords || r.coords.length < 2) return
+      // El que se está editando lo dibuja el modo edición con sus propias capas;
+      // pintarlo acá además duplicaría la línea y el buffer.
+      if (r.id === editingIdRef.current) return
       const clr = r.color ?? ripioColor(r.orden)
       const hw  = r.an / 2
       const layers = []
@@ -304,7 +324,7 @@ export default function RipioMapPanel({
       ripioLayersRef.current.set(r.id, layers)
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ripios, selectedId, mapReady])
+  }, [ripios, selectedId, mapReady, editingId])
 
   // ── Modo dibujo ───────────────────────────────────────────────────────────
   const startDraw = useCallback((ripioId: string) => {
@@ -424,6 +444,181 @@ export default function RipioMapPanel({
     map.on('contextmenu', onLineRight)
   }, [onLineDraw, onDrawEnd])
 
+  // ── Modo edición de vértices ──────────────────────────────────────────────
+  /**
+   * Permite corregir un trazado ya dibujado sin rehacerlo:
+   *   · vértices llenos    → arrastrar para mover, clic derecho para eliminar
+   *   · puntos medios huecos → arrastrar para insertar un vértice nuevo
+   *   · extender           → agrega puntos desde cualquiera de los dos extremos
+   *
+   * La longitud se recalcula mientras se arrastra, pero recién se guarda al
+   * soltar: comprometer en cada mousemove golpearía la API sin parar.
+   */
+  const startEdit = useCallback((ripioId: string) => {
+    const map = mapRef.current, Lf = LfRef.current
+    if (!map || !Lf) return
+
+    const ripio = ripiosRef.current.find(r => r.id === ripioId)
+    if (!ripio?.coords || ripio.coords.length < 2) return
+
+    const clr = ripio.color ?? ripioColor(ripio.orden)
+    const hw  = ripio.an / 2
+    let pts: LatLng[] = ripio.coords.map(c => [c[0], c[1]] as LatLng)
+
+    // Capas de trabajo: la línea y el buffer se redibujan en cada cambio
+    const linea  = Lf.polyline(pts as [number,number][], {
+      color: clr, weight: 4, opacity: 1,
+    }).addTo(map)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let buffer: any = null
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let handles: any[] = []
+    let modoExtender: 'inicio' | 'fin' | null = null
+
+    const iconoVertice = (extremo: boolean) => Lf.divIcon({
+      className: '',
+      html: `<div style="width:${extremo ? 14 : 11}px;height:${extremo ? 14 : 11}px;
+        border-radius:50%;background:${extremo ? '#fff' : clr};
+        border:2px solid ${extremo ? clr : '#fff'};box-sizing:border-box;
+        box-shadow:0 0 4px rgba(0,0,0,.6)"></div>`,
+      iconSize: [extremo ? 14 : 11, extremo ? 14 : 11],
+      iconAnchor: [extremo ? 7 : 5.5, extremo ? 7 : 5.5],
+    })
+    const iconoMedio = () => Lf.divIcon({
+      className: '',
+      html: `<div style="width:9px;height:9px;border-radius:50%;
+        background:transparent;border:1.5px dashed ${clr};opacity:.75;
+        box-sizing:border-box"></div>`,
+      iconSize: [9, 9], iconAnchor: [4.5, 4.5],
+    })
+
+    const refrescarLinea = () => {
+      linea.setLatLngs(pts as [number,number][])
+      if (buffer) { map.removeLayer(buffer); buffer = null }
+      const rings = roadBuffer(pts, hw)
+      if (rings.length > 0) {
+        buffer = Lf.polygon(rings as [number,number][][], {
+          color: clr, fillColor: clr, fillOpacity: 0.28, weight: 1, opacity: 0.7,
+          interactive: false,
+        }).addTo(map)
+      }
+      setEditLen(totalLen(pts))
+      setEditPts(pts.length)
+    }
+
+    const commit = () => {
+      onLineEditRef.current?.(ripioId, totalLen(pts), pts.map(p => [p[0], p[1]] as LatLng))
+    }
+
+    const limpiarHandles = () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      handles.forEach((h: any) => map.removeLayer(h))
+      handles = []
+    }
+
+    const construirHandles = () => {
+      limpiarHandles()
+
+      // Vértices — arrastrables
+      pts.forEach((p, i) => {
+        const extremo = i === 0 || i === pts.length - 1
+        const m = Lf.marker(p as [number,number], {
+          draggable: true, icon: iconoVertice(extremo), zIndexOffset: 1000,
+        })
+        m.on('drag', (e: { target: { getLatLng: () => { lat: number; lng: number } } }) => {
+          const ll = e.target.getLatLng()
+          pts[i] = [ll.lat, ll.lng]
+          linea.setLatLngs(pts as [number,number][])
+          setEditLen(totalLen(pts))
+        })
+        m.on('dragend', () => { refrescarLinea(); construirHandles(); commit() })
+        // Clic derecho: eliminar (siempre tienen que quedar al menos 2)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        m.on('contextmenu', (e: any) => {
+          Lf.DomEvent.stopPropagation(e)
+          if (e.originalEvent) e.originalEvent.preventDefault()
+          if (pts.length <= 2) return
+          pts = pts.filter((_, j) => j !== i)
+          refrescarLinea(); construirHandles(); commit()
+        })
+        m.bindTooltip(
+          extremo
+            ? 'Extremo · arrastrar para mover'
+            : 'Arrastrar para mover · clic derecho para eliminar',
+          { direction: 'top', offset: [0, -8] },
+        )
+        m.addTo(map)
+        handles.push(m)
+      })
+
+      // Puntos medios — arrastrar para insertar un vértice
+      for (let i = 1; i < pts.length; i++) {
+        const medio: LatLng = [
+          (pts[i-1][0] + pts[i][0]) / 2,
+          (pts[i-1][1] + pts[i][1]) / 2,
+        ]
+        const idx = i
+        const m = Lf.marker(medio as [number,number], {
+          draggable: true, icon: iconoMedio(), zIndexOffset: 900,
+        })
+        let insertado = false
+        m.on('dragstart', () => {
+          // Al empezar a arrastrar se materializa como vértice real
+          pts = [...pts.slice(0, idx), [medio[0], medio[1]], ...pts.slice(idx)]
+          insertado = true
+        })
+        m.on('drag', (e: { target: { getLatLng: () => { lat: number; lng: number } } }) => {
+          if (!insertado) return
+          const ll = e.target.getLatLng()
+          pts[idx] = [ll.lat, ll.lng]
+          linea.setLatLngs(pts as [number,number][])
+          setEditLen(totalLen(pts))
+        })
+        m.on('dragend', () => { refrescarLinea(); construirHandles(); commit() })
+        m.bindTooltip('Arrastrar para agregar un vértice', { direction: 'top', offset: [0, -8] })
+        m.addTo(map)
+        handles.push(m)
+      }
+    }
+
+    // Extender: cada clic en el mapa agrega un punto en el extremo elegido
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const onMapClick = (e: any) => {
+      if (!modoExtender) return
+      const ll: LatLng = [e.latlng.lat, e.latlng.lng]
+      pts = modoExtender === 'fin' ? [...pts, ll] : [ll, ...pts]
+      refrescarLinea(); construirHandles(); commit()
+    }
+
+    const extender = (d: 'inicio' | 'fin' | null) => {
+      modoExtender = d
+      map.getContainer().style.cursor = d ? 'crosshair' : ''
+    }
+
+    const cleanup = () => {
+      map.off('click', onMapClick)
+      limpiarHandles()
+      if (buffer) map.removeLayer(buffer)
+      map.removeLayer(linea)
+      map.getContainer().style.cursor = ''
+      editStateRef.current = null
+      setExtendiendo(null)
+    }
+
+    map.on('click', onMapClick)
+    refrescarLinea()
+    construirHandles()
+    editStateRef.current = { cleanup, extender }
+  }, [])
+
+  useEffect(() => {
+    if (!mapReady) return
+    if (editingId) startEdit(editingId)
+    else editStateRef.current?.cleanup()
+    return () => { editStateRef.current?.cleanup() }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingId, mapReady])
+
   // Activar dibujo cuando drawingId cambia
   useEffect(() => {
     if (!mapReady) return
@@ -490,6 +685,62 @@ export default function RipioMapPanel({
           pointerEvents: 'none',
         }}>
           ● Clic para agregar punto · Clic derecho para finalizar
+        </div>
+      )}
+
+      {/* Barra de edición de vértices */}
+      {editingId && (
+        <div style={{
+          position: 'absolute', top: 10, left: '50%', transform: 'translateX(-50%)',
+          zIndex: 999, background: '#0a0a0af2', border: `1px solid ${color}77`,
+          padding: '8px 12px', fontFamily: 'monospace', fontSize: 12,
+          display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
+          maxWidth: 'calc(100% - 20px)',
+        }}>
+          <span style={{ color, fontWeight: 700, letterSpacing: 0.5 }}>✎ EDITANDO TRAZADO</span>
+
+          <span style={{ color: '#999' }}>
+            {editLen >= 1000
+              ? `${(editLen / 1000).toFixed(3)} km`
+              : `${Math.round(editLen)} m`}
+            <span style={{ color: '#555', marginLeft: 6 }}>· {editPts} vértices</span>
+          </span>
+
+          <span style={{ color: '#555', borderLeft: '1px solid #2a2a2a', paddingLeft: 12 }}>
+            Arrastrá los puntos · los huecos agregan · clic derecho elimina
+          </span>
+
+          {(['inicio', 'fin'] as const).map(d => {
+            const activo = extendiendo === d
+            return (
+              <button key={d}
+                onClick={() => {
+                  const nuevo = activo ? null : d
+                  setExtendiendo(nuevo)
+                  editStateRef.current?.extender(nuevo)
+                }}
+                style={{
+                  fontFamily: 'monospace', fontSize: 12, cursor: 'pointer',
+                  padding: '4px 10px',
+                  background: activo ? color : 'transparent',
+                  border: `1px solid ${activo ? color : '#333'}`,
+                  color: activo ? '#111' : '#888',
+                  fontWeight: activo ? 700 : 400,
+                }}>
+                {activo ? '● ' : '+ '}Extender {d}
+              </button>
+            )
+          })}
+
+          <button
+            onClick={() => { setExtendiendo(null); onEditEnd?.() }}
+            style={{
+              fontFamily: 'monospace', fontSize: 12, cursor: 'pointer',
+              padding: '4px 14px', background: '#F5C300', border: 'none',
+              color: '#111', fontWeight: 700, letterSpacing: 0.5,
+            }}>
+            ✓ Listo
+          </button>
         </div>
       )}
 
