@@ -58,10 +58,13 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   const denied = await checkOwnerOrAdmin(auth.userId, ownerId)
   if (denied) return denied
 
+  // Borrado lógico: sale de la calculadora pero el registro queda, para que la
+  // obra guardada a partir de él siga siendo recuperable (ver el DELETE de
+  // proyectos-ripio).
   const { error } = await supabase
     .from('ripios')
-    .delete()
+    .update({ archivado_en: new Date().toISOString(), archivado_por: auth.userId })
     .eq('id', id)
   if (error) return dbError(error)
-  return NextResponse.json({ ok: true })
+  return NextResponse.json({ ok: true, archivado: true })
 }

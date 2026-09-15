@@ -13,21 +13,26 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   const denied = await checkOwnerOrAdmin(auth.userId, proyecto?.user_id)
   if (denied) return denied
 
-  // Primero eliminar todos los ripios del proyecto (evita error de FK)
+  /**
+   * Borrado lógico, no físico.
+   *
+   * El proyecto desaparece de la calculadora pero el registro queda: la obra
+   * que se guardó a partir de él sigue completa en Obras → Lista, y el cálculo
+   * es recuperable. Borrarlo de verdad dejaba esa obra sin nada que abrir al
+   * querer editarla.
+   */
+  const ahora = new Date().toISOString()
+  const marca = { archivado_en: ahora, archivado_por: auth.userId }
+
   const { error: errRipios } = await supabase
-    .from('ripios')
-    .delete()
-    .eq('proyecto_id', id)
+    .from('ripios').update(marca).eq('proyecto_id', id).is('archivado_en', null)
   if (errRipios) return dbError(errRipios)
 
-  // Luego eliminar el proyecto
   const { error } = await supabase
-    .from('proyectos_ripio')
-    .delete()
-    .eq('id', id)
+    .from('proyectos_ripio').update(marca).eq('id', id)
   if (error) return dbError(error)
 
-  return NextResponse.json({ ok: true })
+  return NextResponse.json({ ok: true, archivado: true })
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

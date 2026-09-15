@@ -259,7 +259,8 @@ export default function CalcRipio({ onGuardarObra, focoObra }: {
 
   const deleteProyecto = useCallback((id: string) => {
     setConfirmState({
-      msg: '¿Eliminar el proyecto y todos sus ripios?',
+      msg: '¿Quitar el proyecto y sus tramos de la calculadora?\n\n'
+         + 'Si ya lo guardaste como obra, vas a seguir encontrándolo en Obras → Lista.',
       action: async () => {
         const res = await fetch(`/api/proyectos-ripio/${id}`, { method: 'DELETE' })
         if (!res.ok) {
@@ -300,7 +301,8 @@ export default function CalcRipio({ onGuardarObra, focoObra }: {
 
   const deleteRipio = useCallback((id: string) => {
     setConfirmState({
-      msg: '¿Eliminar este ripio?',
+      msg: '¿Quitar este tramo de la calculadora?\n\n'
+         + 'Si el proyecto ya se guardó como obra, el tramo sigue en ese registro.',
       action: async () => {
         const res = await fetch(`/api/ripios/${id}`, { method: 'DELETE' })
         if (!res.ok) {

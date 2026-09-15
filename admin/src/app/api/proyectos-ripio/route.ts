@@ -14,13 +14,24 @@ export async function GET() {
   let query = supabase
     .from('proyectos_ripio')
     .select('*, ripios(*)')
+    .is('archivado_en', null)
     .order('created_at', { ascending: true })
     .order('orden', { ascending: true, referencedTable: 'ripios' })
 
   if (!isAdmin) query = query.eq('user_id', auth.userId)
 
-  const { data, error } = await query
+  const { data: crudo, error } = await query
   if (error) return dbError(error)
+
+  // Los tramos archivados se filtran acá y no en la consulta: filtrar un
+  // recurso embebido en PostgREST cambia la semántica del join, y el volumen
+  // es chico como para no complicarlo.
+  const data = (crudo ?? []).map(p => ({
+    ...p,
+    ripios: Array.isArray(p.ripios)
+      ? (p.ripios as Record<string, unknown>[]).filter(r => !r.archivado_en)
+      : [],
+  }))
 
   // Adjuntar el nombre de quien creó cada proyecto. Se resuelve acá y no con un
   // join porque `profiles` no tiene FK declarada desde `proyectos_ripio`, y una
