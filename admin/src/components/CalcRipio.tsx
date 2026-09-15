@@ -145,16 +145,56 @@ export default function CalcRipio({ onGuardarObra, focoObra }: {
    * de la provincia y había que buscar el tramo a mano.
    */
   const focoAplicado = useRef(false)
+  const [avisoRestaurar, setAvisoRestaurar] = useState<string | null>(null)
+
   useEffect(() => {
-    if (focoAplicado.current || !focoObra || proyectos.length === 0) return
+    if (focoAplicado.current || !focoObra || loading) return
     const id = focoObra.proyectoId
-    if (id && proyectos.some(p => p.id === id)) {
+    if (!id) { focoAplicado.current = true; return }
+
+    // Caso normal: el proyecto está en la lista
+    if (proyectos.some(p => p.id === id)) {
       setActiveProyId(id)
+      setExpandidos(prev => new Set(prev).add(id))
       const primero = proyectos.find(p => p.id === id)?.ripios[0]
       if (primero) { setSelectedId(primero.id); setPanel('form') }
+      focoAplicado.current = true
+      return
     }
+
+    // No está: lo más probable es que lo hayan quitado del cómputo. Se restaura
+    // para que editar la obra devuelva el dibujo y los cálculos, no una obra vacía.
     focoAplicado.current = true
-  }, [focoObra, proyectos])
+    ;(async () => {
+      try {
+        const res = await fetch(`/api/proyectos-ripio/${id}`, {
+          method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ restaurar: true }),
+        })
+        if (!res.ok) throw new Error(String(res.status))
+
+        // Recargar para traerlo con sus tramos
+        const lista: Proyecto[] = await fetch('/api/proyectos-ripio').then(r => r.json())
+        if (!Array.isArray(lista)) return
+        setProyectos(lista)
+        const vuelto = lista.find(p => p.id === id)
+        if (vuelto) {
+          setActiveProyId(id)
+          setExpandidos(prev => new Set(prev).add(id))
+          if (vuelto.ripios[0]) { setSelectedId(vuelto.ripios[0].id); setPanel('form') }
+          setAvisoRestaurar(
+            `Se restauró "${vuelto.nombre}", que había sido quitado del cómputo.`
+          )
+        }
+      } catch (_) {
+        setAvisoRestaurar(
+          'Esta obra fue guardada antes de que existiera el archivado, así que su ' +
+          'proyecto ya no se puede recuperar. El presupuesto y el trazado guardados ' +
+          'siguen disponibles desde Obras → Lista.'
+        )
+      }
+    })()
+  }, [focoObra, proyectos, loading])
 
   /** Coordenadas para encuadrar: las de la obra, o las del proyecto activo */
   const fitTo = useMemo<LatLng[] | null>(() => {
@@ -1174,6 +1214,26 @@ export default function CalcRipio({ onGuardarObra, focoObra }: {
         ))}
         {saving && <div style={{ marginLeft: 'auto', alignSelf: 'center', marginRight: 10, width: 6, height: 6, borderRadius: '50%', background: COLOR, opacity: 0.7 }}/>}
       </div>
+
+      {/* Aviso al volver desde la edición de una obra */}
+      {avisoRestaurar && (
+        <div style={{
+          flexShrink: 0, padding: '8px 14px', background: '#2a1a00',
+          borderBottom: '1px solid #7a4b00', display: 'flex',
+          alignItems: 'flex-start', gap: 10,
+        }}>
+          <span style={{ fontSize: 13, color: '#F5C300', ...MONO, flex: 1, lineHeight: 1.5 }}>
+            {avisoRestaurar}
+          </span>
+          <button onClick={() => setAvisoRestaurar(null)}
+            style={{
+              background: 'transparent', border: '1px solid #7a4b00', color: '#a88',
+              fontSize: 12, padding: '2px 9px', cursor: 'pointer', ...MONO, flexShrink: 0,
+            }}>
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* Contenido según tab */}
       {view === 'computo' ? (

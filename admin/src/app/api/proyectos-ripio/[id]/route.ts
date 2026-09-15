@@ -47,6 +47,24 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const denied = await checkOwnerOrAdmin(auth.userId, proyecto?.user_id)
   if (denied) return denied
 
+  /**
+   * Restaurar: devuelve a la calculadora un proyecto archivado, con sus tramos.
+   * Lo usa la edición de obras — si alguien quitó el proyecto del cómputo y
+   * después va a editar la obra, tiene que volver a encontrar el dibujo y los
+   * cálculos, no una obra vacía.
+   */
+  if (body.restaurar === true) {
+    const marca = { archivado_en: null, archivado_por: null }
+    const { error: errR } = await supabase
+      .from('ripios').update(marca).eq('proyecto_id', id)
+    if (errR) return dbError(errR)
+
+    const { data, error: errP } = await supabase
+      .from('proyectos_ripio').update(marca).eq('id', id).select().single()
+    if (errP) return dbError(errP)
+    return NextResponse.json({ ...data, restaurado: true })
+  }
+
   // Actualización parcial: el análisis se guarda con autosave y no manda el
   // nombre en cada tecla, así que no se puede exigir.
   const patch: Record<string, unknown> = {}
