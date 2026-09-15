@@ -7,19 +7,33 @@ const TIPO_COLORS: Record<string, string> = {
 }
 const TIPOS = ['Puente', 'Alcantarilla', 'Tubos', 'Lineal', 'Otro'] as const
 
-function StatCard({ label, value, sub, children }: { label: string; value: number | string; sub?: string; children?: React.ReactNode }) {
+/**
+ * Tarjeta compacta: la etiqueta y el número van en la misma línea.
+ * Antes iban apiladas y la cabecera se comía casi 200 px de alto, espacio que
+ * en un tablero con mapa se lo tiene que quedar el mapa.
+ */
+function StatCard({ label, value, sub, children, flex = 1 }: {
+  label: string; value: number | string; sub?: string
+  children?: React.ReactNode; flex?: number
+}) {
   return (
     <div style={{
       background: '#191919',
       border: '1px solid #1e1e1e',
       borderLeft: '3px solid #F5C300',
-      padding: '14px 18px',
-      flex: 1,
-      minWidth: 120,
+      padding: '7px 14px',
+      flex,
+      minWidth: 140,
     }}>
-      <div style={{ color: '#555', fontSize: 12, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6 }}>{label}</div>
-      <div style={{ color: '#e0e0e0', fontSize: 22, fontWeight: 700 }}>{value}</div>
-      {sub && <div style={{ color: '#444', fontSize: 12, marginTop: 4 }}>{sub}</div>}
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
+        <span style={{ color: '#555', fontSize: 12, letterSpacing: 1, textTransform: 'uppercase' }}>
+          {label}
+        </span>
+        <span style={{ color: '#e0e0e0', fontSize: 20, fontWeight: 700, lineHeight: 1.1 }}>
+          {value}
+        </span>
+      </div>
+      {sub && <div style={{ color: '#444', fontSize: 12, marginTop: 1 }}>{sub}</div>}
       {children}
     </div>
   )
@@ -54,14 +68,20 @@ export default async function DashboardPage() {
 
   return (
     <div>
-      <h1 style={{ color: '#fff', fontSize: 22, fontWeight: 700, marginBottom: 24 }}>Dashboard</h1>
+      {/* Título y tarjetas en una sola fila: en un tablero con mapa, el alto
+          es el recurso escaso y lo tiene que aprovechar el mapa. */}
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'stretch', marginBottom: 8 }}>
+        <h1 style={{
+          color: '#fff', fontSize: 18, fontWeight: 700, margin: 0,
+          alignSelf: 'center', paddingRight: 6, whiteSpace: 'nowrap',
+        }}>
+          Dashboard
+        </h1>
 
-      {/* Stat cards */}
-      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 8 }}>
-        <StatCard label="Relevamientos totales" value={totalRelev ?? 0}>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 10px', marginTop: 8 }}>
+        <StatCard label="Relevamientos" value={totalRelev ?? 0} flex={2}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2px 9px', marginTop: 2 }}>
             {TIPOS.map(t => (
-              <div key={t} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <div key={t} style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
                 <span style={{ width: 6, height: 6, borderRadius: '50%', background: TIPO_COLORS[t], display: 'inline-block', flexShrink: 0 }} />
                 <span style={{ fontSize: 12, color: '#9E9E9E' }}>{t}</span>
                 <span style={{ fontSize: 12, color: '#ccc', fontWeight: 600 }}>{countByTipo[t]}</span>
@@ -70,12 +90,12 @@ export default async function DashboardPage() {
           </div>
         </StatCard>
         <StatCard label="Sin sincronizar" value={pendingRelev ?? 0} sub="pendiente / error" />
-        <StatCard label="Técnicos registrados" value={totalTecnicos ?? 0} />
+        <StatCard label="Técnicos" value={totalTecnicos ?? 0} />
         <StatCard label="Consorcios" value={totalConsorcios ?? 0} />
       </div>
 
-      {/* Map */}
-      <div style={{ height: 'calc(100vh - 236px)', minHeight: 480, margin: '0 -1.5rem', borderRadius: 0, position: 'relative' }}>
+      {/* Map — gana el alto que dejó la cabecera */}
+      <div style={{ height: 'calc(100vh - 118px)', minHeight: 480, margin: '0 -1.5rem', borderRadius: 0, position: 'relative' }}>
         <DashboardMap relevamientos={(relevamientos as Relevamiento[]) ?? []} />
       </div>
     </div>
