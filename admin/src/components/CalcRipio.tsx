@@ -10,7 +10,8 @@ import PanelPresupuesto from './ripio/PanelPresupuesto'
 import PanelManoObra from './ripio/PanelManoObra'
 import PlanillasImprimibles from './ripio/PlanillasImprimibles'
 import {
-  calcularCoeficientes, calcularMdeO, calcularAPU, valorEfectivo,
+  calcularCoeficientes, calcularMdeO, calcularAPU, calcularComputo,
+  calcularPresupuesto, valorEfectivo,
   type EquipoCatalogo,
 } from '@/lib/ripioCalculo'
 import {
@@ -806,12 +807,70 @@ export default function CalcRipio({ onGuardarObra, focoObra }: {
       empresa:        r.empresa || undefined,
     })))
 
-  const compTotalTon  = allVisibleRipios.reduce((s, r) => s + calcRipio(r).W, 0)
-  const compTotalPres = allVisibleRipios.reduce((s, r) => s + calcRipio(r).presupuesto, 0)
+  const visibleProyIds  = proyectos.filter(p => !hiddenProyIds.has(p.id)).map(p => p.id)
   const visiblePrjNames = proyectos.filter(p => !hiddenProyIds.has(p.id)).map(p => p.nombre)
   const compNombre = visiblePrjNames.length === 1
     ? visiblePrjNames[0]
     : visiblePrjNames.length > 1 ? `${visiblePrjNames.length} proyectos` : 'Sin proyectos'
+
+  /**
+   * Números de la obra, calculados una sola vez.
+   *
+   * Los usan las pestañas de Presupuesto, Legajo y Composición. Antes cada una
+   * los sacaba por su cuenta y la composición terminaba mostrando el tonelaje
+   * crudo del cómputo y el precio unitario viejo por tramo, en vez de los
+   * valores adoptados y el presupuesto real.
+   */
+  const resumenObra = useMemo(() => {
+    const coef = calcularCoeficientes(analisis.coeficientes, analisis.precios)
+    const mdo  = calcularMdeO(analisis.precios, analisis.manoObra)
+
+    const tramosComputo = ripios.map(r => ({
+      id: r.id, nombre: r.nombre,
+      largoM: r.l_m, anchoM: r.an, espesorM: r.e, densidad: r.rho,
+    }))
+    const computo   = calcularComputo(tramosComputo)
+    const toneladas = valorEfectivo(computo.toneladasCalculado, analisis.toneladasAdoptadas)
+    const metros    = valorEfectivo(computo.largoTotalM,        analisis.metrosAdoptados)
+
+    const precioDe = (k: ClaveAPU) => {
+      const cfg = analisis.apu[k]
+      const r = calcularAPU(paramsAPU(k, cfg), coef, mdo, analisis.precios.dolar)
+      return valorEfectivo(r.precioCalculado, cfg.precioAdoptado)
+    }
+
+    const pres = calcularPresupuesto({
+      toneladas, metros,
+      distanciaNoPavKm: analisis.datos.distanciaNoPavKm,
+      distanciaPavKm:   analisis.datos.distanciaPavKm,
+      precioMaterial:   precioDe('material'),
+      precioTransNoPav: precioDe('transNoPav'),
+      precioTransPav:   precioDe('transPav'),
+      precioEjecucion:  precioDe('construccion'),
+      movilizacion:     analisis.movilizacion,
+      tipoMaterial:     analisis.datos.tipoMaterial,
+      tramo:            analisis.datos.tramo,
+    })
+
+    return { coef, mdo, tramosComputo, computo, toneladas, metros, pres }
+  }, [analisis, ripios])
+
+  // Las referencias de la composición muestran lo mismo que el presupuesto:
+  // tonelaje adoptado y total presupuestado, no el cómputo crudo.
+  //
+  // El análisis pertenece a un proyecto, así que si hay varios visibles en el
+  // mapa esos números dejan de corresponder: ahí se cae al cómputo sumado, que
+  // al menos describe lo que se está viendo.
+  const soloProyectoActivo =
+    visibleProyIds.length === 1 && visibleProyIds[0] === activeProyId
+
+  const compTotalTon = soloProyectoActivo
+    ? resumenObra.toneladas
+    : allVisibleRipios.reduce((s, r) => s + calcRipio(r).W, 0)
+
+  const compTotalPres = soloProyectoActivo
+    ? resumenObra.pres.total
+    : allVisibleRipios.reduce((s, r) => s + calcRipio(r).presupuesto, 0)
 
   // ── Análisis de precios ───────────────────────────────────────────────────
   function renderAnalisis() {
@@ -989,23 +1048,14 @@ export default function CalcRipio({ onGuardarObra, focoObra }: {
         </div>
       )
     }
-    const coef = calcularCoeficientes(analisis.coeficientes, analisis.precios)
-    const mdo  = calcularMdeO(analisis.precios, analisis.manoObra)
-
-    // El cómputo sale de los tramos dibujados en el mapa
-    const tramosComputo = ripios.map(r => ({
-      id: r.id, nombre: r.nombre,
-      largoM: r.l_m, anchoM: r.an, espesorM: r.e, densidad: r.rho,
-    }))
-
     return (
       <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '14px 18px' }}>
         <PanelPresupuesto
           analisis={analisis}
           onChange={guardarAnalisis}
-          tramos={tramosComputo}
-          coef={coef}
-          mdo={mdo}
+          tramos={resumenObra.tramosComputo}
+          coef={resumenObra.coef}
+          mdo={resumenObra.mdo}
           color={COLOR}
         />
       </div>
@@ -1022,20 +1072,13 @@ export default function CalcRipio({ onGuardarObra, focoObra }: {
         </div>
       )
     }
-    const coef = calcularCoeficientes(analisis.coeficientes, analisis.precios)
-    const mdo  = calcularMdeO(analisis.precios, analisis.manoObra)
-    const tramosComputo = ripios.map(r => ({
-      id: r.id, nombre: r.nombre,
-      largoM: r.l_m, anchoM: r.an, espesorM: r.e, densidad: r.rho,
-    }))
-
     return (
       <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '14px 18px', background: '#0a0a0a' }}>
         <PlanillasImprimibles
           analisis={analisis}
-          tramos={tramosComputo}
-          coef={coef}
-          mdo={mdo}
+          tramos={resumenObra.tramosComputo}
+          coef={resumenObra.coef}
+          mdo={resumenObra.mdo}
           color={COLOR}
         />
       </div>
