@@ -30,6 +30,8 @@ interface Proyecto {
   ripios: RipioTramo[]
   /** Documento de análisis; null en los proyectos creados antes de esta función */
   analisis?: unknown
+  /** Nombre de quien lo creó; lo resuelve la API desde profiles */
+  creador?: string | null
 }
 
 // ── Constantes ────────────────────────────────────────────────────────────────
@@ -99,6 +101,14 @@ export default function CalcRipio({ onGuardarObra, focoObra }: {
   const [editingName,  setEditingName]  = useState<string | null>(null)   // id del ripio cuyo nombre se edita inline
   const [confirmState, setConfirmState] = useState<{ msg: string; action: () => void } | null>(null)
   const [hiddenProyIds, setHiddenProyIds] = useState<Set<string>>(new Set())  // proyectos ocultos en el mapa
+  /**
+   * Proyectos desplegados en el árbol.
+   *
+   * Va aparte de `activeProyId` a propósito: antes desplegar y seleccionar eran
+   * lo mismo, así que no se podía tener el proyecto activo con sus tramos
+   * plegados, ni mirar los de otro sin cambiar de proyecto.
+   */
+  const [expandidos, setExpandidos] = useState<Set<string>>(new Set())
   const [view,          setView]          = useState<'computo' | 'analisis' | 'presupuesto' | 'mapa' | 'legajo'>('computo')
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -205,6 +215,15 @@ export default function CalcRipio({ onGuardarObra, focoObra }: {
   const toggleProyVisibility = (id: string) =>
     setHiddenProyIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
 
+  const toggleExpandido = (id: string) =>
+    setExpandidos(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
+
+  // Al cambiar de proyecto activo, desplegarlo: seleccionar uno y que sus
+  // tramos queden escondidos sería desconcertante.
+  useEffect(() => {
+    if (activeProyId) setExpandidos(prev => new Set(prev).add(activeProyId))
+  }, [activeProyId])
+
   // ── Mutación local ────────────────────────────────────────────────────────
   const updateLocal = useCallback((id: string, patch: Partial<RipioTramo>) => {
     setProyectos(prev => prev.map(p => ({
@@ -258,19 +277,23 @@ export default function CalcRipio({ onGuardarObra, focoObra }: {
   }, [activeProyId])
 
   // ── CRUD ripios ───────────────────────────────────────────────────────────
-  const addRipio = useCallback(async () => {
-    if (!activeProyId) return
-    const proy = proyectos.find(p => p.id === activeProyId)
+  /** Agrega un tramo. Recibe el proyecto porque el árbol permite desplegar uno
+   *  sin activarlo, y el botón tiene que agregar al que está desplegado. */
+  const addRipio = useCallback(async (proyId?: string) => {
+    const destino = proyId ?? activeProyId
+    if (!destino) return
+    const proy = proyectos.find(p => p.id === destino)
     if (!proy) return
     const nombre = `Ripio ${String(proy.ripios.length + 1).padStart(2, '0')}`
-    const res = await fetch(`/api/proyectos-ripio/${activeProyId}/ripios`, {
+    const res = await fetch(`/api/proyectos-ripio/${destino}/ripios`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ nombre }),
     })
     const data: RipioTramo = await res.json()
     setProyectos(prev => prev.map(p =>
-      p.id === activeProyId ? { ...p, ripios: [...p.ripios, data] } : p
+      p.id === destino ? { ...p, ripios: [...p.ripios, data] } : p
     ))
+    setActiveProyId(destino)
     setSelectedId(data.id)
     setPanel('form')
   }, [activeProyId, proyectos])
@@ -371,9 +394,10 @@ export default function CalcRipio({ onGuardarObra, focoObra }: {
         {loading && <div style={{ padding: 12, fontSize: 13, color: '#555', ...MONO }}>Cargando…</div>}
 
         {proyectos.map(proy => {
-          const isActive = proy.id === activeProyId
-          const isHidden = hiddenProyIds.has(proy.id)
-          const total    = proy.ripios.reduce((s, r) => s + calcRipio(r).presupuesto, 0)
+          const isActive    = proy.id === activeProyId
+          const isHidden    = hiddenProyIds.has(proy.id)
+          const isExpandido = expandidos.has(proy.id)
+          const total       = proy.ripios.reduce((s, r) => s + calcRipio(r).presupuesto, 0)
 
           return (
             <div key={proy.id}>
@@ -392,11 +416,41 @@ export default function CalcRipio({ onGuardarObra, focoObra }: {
                   gap: 4,
                 }}
               >
+                {/* Chevron: despliega sin cambiar de proyecto activo */}
+                <button
+                  onClick={e => { e.stopPropagation(); toggleExpandido(proy.id) }}
+                  title={isExpandido ? 'Contraer' : 'Desplegar'}
+                  style={{
+                    background: 'transparent', border: 'none', cursor: 'pointer',
+                    color: isActive ? COLOR : '#555', fontSize: 11, lineHeight: 1,
+                    padding: '2px 3px', flexShrink: 0, ...MONO,
+                    transform: isExpandido ? 'rotate(90deg)' : 'none',
+                    transition: 'transform .15s',
+                  }}>
+                  ▶
+                </button>
+
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div style={{ fontSize: 13, color: isActive ? COLOR : '#999', ...MONO, fontWeight: isActive ? 700 : 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {isActive ? '▼ ' : '▶ '}{proy.nombre}
+                    {proy.nombre}
                   </div>
-                  {total > 0 && <div style={{ fontSize: 12, color: '#666', ...MONO }}>{fmtP(total)}</div>}
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'baseline', flexWrap: 'wrap' }}>
+                    {total > 0 && <span style={{ fontSize: 12, color: '#666', ...MONO }}>{fmtP(total)}</span>}
+                    <span style={{ fontSize: 12, color: '#4a4a4a', ...MONO }}>
+                      {proy.ripios.length} tramo{proy.ripios.length === 1 ? '' : 's'}
+                    </span>
+                  </div>
+                  {proy.creador && (
+                    <div
+                      title={`Creado por ${proy.creador}`}
+                      style={{
+                        fontSize: 11, color: '#5a5a5a', ...MONO,
+                        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                        marginTop: 1,
+                      }}>
+                      ◴ {proy.creador}
+                    </div>
+                  )}
                 </div>
                 {/* Toggle visibilidad en mapa */}
                 <button onClick={e => { e.stopPropagation(); toggleProyVisibility(proy.id) }}
@@ -409,8 +463,8 @@ export default function CalcRipio({ onGuardarObra, focoObra }: {
                   style={{ fontSize: 13, color: '#666', background: 'transparent', border: 'none', cursor: 'pointer', flexShrink: 0, lineHeight: 1 }}>✕</button>
               </div>
 
-              {/* Ripios */}
-              {isActive && (
+              {/* Ripios — se despliegan por el acordeón, no por estar activo */}
+              {isExpandido && (
                 <div>
                   {proy.ripios.map(r => {
                     const isSel     = r.id === selectedId
@@ -419,7 +473,13 @@ export default function CalcRipio({ onGuardarObra, focoObra }: {
                     const ripioClr  = r.color ?? PALETTE[r.orden % PALETTE.length]
                     return (
                       <div key={r.id}
-                        onClick={() => { setSelectedId(r.id); setPanel('form') }}
+                        onClick={() => {
+                          // Ahora se puede desplegar un proyecto sin activarlo,
+                          // así que al elegir un tramo hay que activar el suyo
+                          setActiveProyId(proy.id)
+                          setSelectedId(r.id)
+                          setPanel('form')
+                        }}
                         style={{
                           padding: '5px 8px 5px 14px', cursor: 'pointer',
                           background: isSel ? `${ripioClr}10` : 'transparent',
@@ -469,7 +529,7 @@ export default function CalcRipio({ onGuardarObra, focoObra }: {
                   })}
 
                   {/* Agregar ripio */}
-                  <button onClick={addRipio} style={{
+                  <button onClick={() => addRipio(proy.id)} style={{
                     width: '100%', padding: '5px 10px 5px 20px', textAlign: 'left',
                     background: 'transparent', border: 'none', borderTop: '1px solid #181818',
                     fontSize: 12, color: '#777', ...MONO, cursor: 'pointer', letterSpacing: 0.3,

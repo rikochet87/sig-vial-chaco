@@ -21,7 +21,26 @@ export async function GET() {
 
   const { data, error } = await query
   if (error) return dbError(error)
-  return NextResponse.json(data)
+
+  // Adjuntar el nombre de quien creó cada proyecto. Se resuelve acá y no con un
+  // join porque `profiles` no tiene FK declarada desde `proyectos_ripio`, y una
+  // sola consulta por lote es más barata que una por fila.
+  const ids = Array.from(new Set(
+    (data ?? []).map(p => p.user_id).filter((v): v is string => typeof v === 'string')
+  ))
+  let nombres = new Map<string, string>()
+  if (ids.length > 0) {
+    const { data: perfiles } = await supabase
+      .from('profiles').select('id, nombre').in('id', ids)
+    nombres = new Map((perfiles ?? []).map(p => [p.id as string, (p.nombre as string) ?? '']))
+  }
+
+  const conCreador = (data ?? []).map(p => ({
+    ...p,
+    creador: p.user_id ? (nombres.get(p.user_id) || null) : null,
+  }))
+
+  return NextResponse.json(conCreador)
 }
 
 export async function POST(req: NextRequest) {
