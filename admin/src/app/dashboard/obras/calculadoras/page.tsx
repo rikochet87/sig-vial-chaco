@@ -2899,6 +2899,7 @@ export default function CalculadorasPage() {
         {tab === 'ripio'      && <CalcRipioComponent
           onGuardarObra={(d) => { setGuardarData(d); setGuardarOpen(true) }}
           focoObra={focoRipio}
+          obraEnEdicionId={editId ?? undefined}
         />}
         {tab === 'canal'      && <CalcCanal      paramsRef={paramsRef} />}
         {tab === 'limpieza'   && !editLoading && <CalcLimpiezaVial key={editId ?? 'new'} paramsRef={paramsRef} onGuardarObra={(d) => { setGuardarData(d); setGuardarOpen(true) }} initialData={editDC ?? undefined} />}

@@ -5,6 +5,17 @@ import { createClient } from '@/lib/supabase/client'
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 export type ObraTipo = 'terraplen' | 'excavacion' | 'ripio' | 'canal' | 'limpieza'
 
+/** Datos administrativos de una obra ya guardada, para no perderlos al sobrescribir */
+export interface PresetObra {
+  jurisdiccion?:       string | null
+  consorcio_numero?:   number | null
+  ubicacion?:          string | null
+  descripcion?:        string | null
+  estado?:             string | null
+  fecha_inicio?:       string | null
+  fecha_fin_estimada?: string | null
+}
+
 export interface GuardarObraData {
   tipo:              ObraTipo
   cantidad:          number      // km o ha según tipo
@@ -17,6 +28,16 @@ export interface GuardarObraData {
   coordsLinea?:      Array<{lat: number; lng: number}>  // polilínea pre-cargada desde la calculadora
   // Snapshot completo del calculator (inputs + outputs) para PDF y edición
   datos_calculadora?: Record<string, unknown>
+  /** Proyecto de ripio de origen — permite volver a encontrar esta obra después */
+  proyecto_ripio_id?: string
+  /**
+   * Id de la obra a pisar. Va aparte de `editId` porque son dos caminos
+   * distintos: `editId` es "entré a editar esta obra desde la lista", esto es
+   * "el proyecto ya tenía una obra guardada y elegí sobrescribirla".
+   */
+  sobrescribirId?: string
+  /** Datos administrativos de la obra que se va a pisar */
+  preset?: PresetObra
 }
 
 interface Props {
@@ -200,15 +221,19 @@ export default function GuardarObraModal({ open, data, onClose, onSaved, editId 
       .then(({ data: rows }) => {
         if (rows) setConsorcios(rows as ConsorcioOpt[])
       })
-    // Resetear formulario
-    setJurisdiccion('consorcio')
-    setConsorcioNum('')
+    // Resetear formulario. Si se está sobrescribiendo una obra existente, se
+    // arranca de sus datos administrativos: la jurisdicción, el consorcio y las
+    // fechas se cargaron una vez y no tienen por qué volver a tipearse — el
+    // cálculo cambió, no la obra.
+    const p = data?.preset
+    setJurisdiccion((p?.jurisdiccion as Jurisdiccion) ?? 'consorcio')
+    setConsorcioNum(p?.consorcio_numero != null ? String(p.consorcio_numero) : '')
     setConsorcioSearch('')
-    setUbicacion('')
-    setDescripcion(data?.descripcion ?? '')
-    setEstado('planificada')
-    setFechaInicio('')
-    setFechaFin('')
+    setUbicacion(p?.ubicacion ?? '')
+    setDescripcion(p?.descripcion ?? data?.descripcion ?? '')
+    setEstado((p?.estado as Estado) ?? 'planificada')
+    setFechaInicio(p?.fecha_inicio ?? '')
+    setFechaFin(p?.fecha_fin_estimada ?? '')
     setLat(null)
     setLng(null)
     // Pre-poblar línea desde la calculadora si fue proporcionada
@@ -219,9 +244,11 @@ export default function GuardarObraModal({ open, data, onClose, onSaved, editId 
     // Auto-detectar tipo de geometría según tipo de obra
     const gt: GeoTipo = data?.tipo && TIPOS_LINEALES.has(data.tipo) ? 'linea' : 'punto'
     setGeoTipo(gt)
-  }, [open, data?.descripcion, data?.tipo, data?.coordsLinea])
+  }, [open, data?.descripcion, data?.tipo, data?.coordsLinea, data?.preset])
 
   if (!open || !data) return null
+
+  const sobrescribe = !!data.sobrescribirId
 
   const consorciosFiltrados = consorcios.filter(c =>
     consorcioSearch.trim() === '' ||
@@ -234,8 +261,19 @@ export default function GuardarObraModal({ open, data, onClose, onSaved, editId 
     setError(null)
     setSaving(true)
     try {
+      // Sobrescribir la obra del proyecto o la que se abrió a editar: ambas
+      // terminan en un PATCH sobre ese id.
+      //
+      // Cuando viene de un proyecto de ripio, la decisión ya se tomó en la
+      // calculadora (sobrescribir cuál, o ninguna), así que `editId` no manda:
+      // si ahí se eligió "guardar como nueva", tiene que salir un INSERT aunque
+      // se haya entrado desde "editar" en la lista.
+      const targetId = data!.proyecto_ripio_id
+        ? data!.sobrescribirId
+        : (data!.sobrescribirId ?? editId)
       const body = {
-        ...(editId ? { id: editId } : {}),
+        ...(targetId ? { id: targetId } : {}),
+        ...(data!.proyecto_ripio_id ? { proyecto_ripio_id: data!.proyecto_ripio_id } : {}),
         tipo:              data!.tipo,
         jurisdiccion,
         consorcio_numero:  jurisdiccion === 'consorcio' && consorcioNum ? Number(consorcioNum) : null,
@@ -256,7 +294,7 @@ export default function GuardarObraModal({ open, data, onClose, onSaved, editId 
         coords_linea:        coordsLinea.length >= 2 ? coordsLinea : null,
       }
       const res = await fetch('/api/obras', {
-        method: editId ? 'PATCH' : 'POST',
+        method: targetId ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       })
@@ -342,12 +380,24 @@ export default function GuardarObraModal({ open, data, onClose, onSaved, editId 
         {/* Header */}
         <div style={{ borderLeft: `3px solid ${color}`, paddingLeft: 10, marginBottom: 20 }}>
           <div style={{ fontSize: 12, color: '#444', ...mono, textTransform: 'uppercase', letterSpacing: 1 }}>
-            Guardar obra
+            {sobrescribe ? 'Sobrescribir obra' : 'Guardar obra'}
           </div>
           <div style={{ fontSize: 16, fontWeight: 700, color, ...mono, marginTop: 2 }}>
             {TIPO_LABELS[data.tipo]}
           </div>
         </div>
+
+        {sobrescribe && (
+          <div style={{
+            ...mono, fontSize: 12, color: '#F5C300', background: '#2a1f00',
+            border: '1px solid #5a4400', padding: '8px 10px', marginBottom: 16,
+            lineHeight: 1.5,
+          }}>
+            Se van a reemplazar los números y el trazado de la obra ya guardada.
+            Los datos de ubicación y fechas vienen cargados de esa obra: revisalos
+            antes de confirmar.
+          </div>
+        )}
 
         {/* Resumen calculado */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 20,
@@ -546,7 +596,7 @@ export default function GuardarObraModal({ open, data, onClose, onSaved, editId 
               color: '#000', fontWeight: 700, padding: '8px 22px',
               cursor: saving ? 'not-allowed' : 'pointer', fontSize: 13,
               opacity: saving ? 0.6 : 1 }}>
-            {saving ? 'Guardando...' : 'Guardar obra'}
+            {saving ? 'Guardando...' : sobrescribe ? 'Sobrescribir obra' : 'Guardar obra'}
           </button>
         </div>
       </div>

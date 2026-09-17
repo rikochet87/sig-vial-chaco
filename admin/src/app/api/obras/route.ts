@@ -31,6 +31,7 @@ export async function POST(req: NextRequest) {
       lat:                body.lat ?? null,
       lng:                body.lng ?? null,
       coords_linea:       body.coords_linea ?? null,
+      proyecto_ripio_id:  body.proyecto_ripio_id ?? null,
       created_by:         auth.userId,
     })
     .select()
@@ -65,6 +66,11 @@ export async function GET(req: NextRequest) {
     .from('obras')
     .select('*')
     .order('created_at', { ascending: false })
+
+  // ?proyecto_ripio_id= → qué obras ya guardó ese proyecto, para ofrecer
+  // sobrescribir en vez de duplicar
+  const proyectoRipioId = searchParams.get('proyecto_ripio_id')
+  if (proyectoRipioId) query = query.eq('proyecto_ripio_id', proyectoRipioId)
 
   if (!isAdmin) query = query.eq('created_by', auth.userId)
 
@@ -111,6 +117,11 @@ export async function PATCH(req: NextRequest) {
       lat:                fields.lat ?? null,
       lng:                fields.lng ?? null,
       coords_linea:       fields.coords_linea ?? null,
+      // Sólo se pisa si viene: editar una obra a mano no debe desvincularla
+      // del proyecto del que salió.
+      ...(fields.proyecto_ripio_id !== undefined
+        ? { proyecto_ripio_id: fields.proyecto_ripio_id }
+        : {}),
     })
     .eq('id', id)
     .select()

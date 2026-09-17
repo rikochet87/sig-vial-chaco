@@ -35,6 +35,21 @@ interface Proyecto {
   creador?: string | null
 }
 
+/** Obra ya guardada a partir de este proyecto */
+interface ObraGuardada {
+  id: string
+  descripcion:        string | null
+  jurisdiccion:       string | null
+  consorcio_numero:   number | null
+  ubicacion:          string | null
+  estado:             string | null
+  fecha_inicio:       string | null
+  fecha_fin_estimada: string | null
+  cantidad:           number | null
+  presupuesto_total:  number | null
+  created_at:         string | null
+}
+
 // ── Constantes ────────────────────────────────────────────────────────────────
 const MONO: React.CSSProperties = { fontFamily: 'monospace' }
 const COLOR = '#90A4AE'
@@ -85,10 +100,18 @@ function Res({ label, value, accent }: { label: string; value: string; accent?: 
 }
 
 // ── Componente principal ──────────────────────────────────────────────────────
-export default function CalcRipio({ onGuardarObra, focoObra }: {
+export default function CalcRipio({ onGuardarObra, focoObra, obraEnEdicionId }: {
   onGuardarObra?: (d: GuardarObraData) => void
   /** Al venir desde "editar" en la lista de obras: qué proyecto abrir y dónde encuadrar */
   focoObra?: { proyectoId?: string; coords?: LatLng[] } | null
+  /**
+   * Obra que se abrió a editar desde la lista.
+   *
+   * Hace falta aparte del vínculo por proyecto porque las obras guardadas antes
+   * de que existiera `proyecto_ripio_id` no lo tienen: sin esto, entrar a
+   * editar una vieja y guardar dejaría una duplicada en vez de actualizarla.
+   */
+  obraEnEdicionId?: string
 }) {
   const [proyectos,    setProyectos]    = useState<Proyecto[]>([])
   const [activeProyId, setActiveProyId] = useState<string | null>(null)
@@ -101,6 +124,12 @@ export default function CalcRipio({ onGuardarObra, focoObra }: {
   const [resumenSel,   setResumenSel]   = useState<Set<string>>(new Set())
   const [editingName,  setEditingName]  = useState<string | null>(null)   // id del ripio cuyo nombre se edita inline
   const [confirmState, setConfirmState] = useState<{ msg: string; action: () => void } | null>(null)
+  /**
+   * Obras que este proyecto ya guardó, cuando hay que preguntar qué hacer.
+   * `null` = no hay pregunta pendiente.
+   */
+  const [obrasPrevias, setObrasPrevias] = useState<ObraGuardada[] | null>(null)
+  const [buscandoObras, setBuscandoObras] = useState(false)
   const [hiddenProyIds, setHiddenProyIds] = useState<Set<string>>(new Set())  // proyectos ocultos en el mapa
   /**
    * Proyectos desplegados en el árbol.
@@ -729,57 +758,21 @@ export default function CalcRipio({ onGuardarObra, focoObra }: {
       </div>
 
       {/* Botón Guardar obra — primero, más visible */}
-      {onGuardarObra && activeProy && activeProy.ripios.length > 0 && (() => {
-        const totalPres = activeProy.ripios.reduce((s, r) => s + calcRipio(r).presupuesto, 0)
-        const totalTon  = activeProy.ripios.reduce((s, r) => s + calcRipio(r).W, 0)
-        const totalLm   = activeProy.ripios.reduce((s, r) => s + r.l_m, 0)
-        if (totalTon <= 0) return null
-        const precioPromedio = totalTon > 0 ? totalPres / totalTon : 0
-        const allCoords = activeProy.ripios.flatMap(r => (r.coords ?? []).map(([lat, lng]) => ({ lat, lng })))
-        return (
-          <button
-            onClick={() => onGuardarObra?.({
-              tipo: 'ripio',
-              cantidad: totalTon,
-              unidad: 't',
-              presupuesto_total: totalPres,
-              aporte_dvp: 0,
-              aporte_ccc: 0,
-              precio_unitario: precioPromedio,
-              descripcion: activeProy.nombre,
-              coordsLinea: allCoords,
-              datos_calculadora: {
-                calculadora: 'ripio',
-                proyecto: activeProy.nombre,
-                inputs: {
-                  proyectos: proyectos.map(p => ({
-                    id: p.id, nombre: p.nombre,
-                    ripios: p.ripios.map(r => ({
-                      ...r,
-                      ...calcRipio(r),
-                    })),
-                  })),
-                  activeProyId,
-                },
-                computo: {
-                  totalLm,
-                  totalTon,
-                  totalPres,
-                  ripios: activeProy.ripios.map(r => ({ ...r, ...calcRipio(r) })),
-                },
-              },
-            })}
-            style={{
-              padding: '10px 12px', width: '100%', textAlign: 'left', cursor: 'pointer',
-              background: '#F5C30014', border: 'none', borderTop: '1px solid #222',
-              borderLeft: '3px solid #F5C300',
-              fontSize: 13, color: '#F5C300', ...MONO, fontWeight: 700,
-            }}
-          >
-            💾 Guardar obra
-          </button>
-        )
-      })()}
+      {onGuardarObra && activeProy && activeProy.ripios.length > 0 && resumenObra.toneladas > 0 && (
+        <button
+          onClick={iniciarGuardado}
+          disabled={buscandoObras}
+          style={{
+            padding: '10px 12px', width: '100%', textAlign: 'left',
+            cursor: buscandoObras ? 'default' : 'pointer',
+            background: '#F5C30014', border: 'none', borderTop: '1px solid #222',
+            borderLeft: '3px solid #F5C300',
+            fontSize: 13, color: '#F5C300', ...MONO, fontWeight: 700,
+          }}
+        >
+          {buscandoObras ? '… Buscando obras del proyecto' : '💾 Guardar obra'}
+        </button>
+      )}
 
       {/* Botón resumen — debajo de guardar */}
       <button
@@ -1036,6 +1029,92 @@ export default function CalcRipio({ onGuardarObra, focoObra }: {
     </div>
   )
 
+  // ── Sobrescribir o duplicar ──────────────────────────────────────────────
+  /**
+   * Este proyecto ya guardó obras: hay que preguntar.
+   *
+   * Sobrescribir es lo habitual —se recalculó y se vuelve a guardar—, pero
+   * duplicar es legítimo: una variante de la misma traza para comparar, o una
+   * segunda etapa. Elegir por el usuario sería adivinar.
+   */
+  const renderElegirObra = () => obrasPrevias && (
+    <div
+      style={{
+        position: 'fixed', inset: 0, zIndex: 9999,
+        background: 'rgba(0,0,0,0.78)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}
+      onClick={() => setObrasPrevias(null)}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          background: '#0d0d0d', border: '1px solid #2a2a2a',
+          padding: '22px 26px', minWidth: 430, maxWidth: 560,
+          maxHeight: '80vh', overflowY: 'auto',
+          boxShadow: '0 6px 32px rgba(0,0,0,0.8)',
+        }}
+      >
+        <div style={{ fontSize: 12, color: '#F5C300', ...MONO, letterSpacing: 1,
+          textTransform: 'uppercase', marginBottom: 6 }}>
+          El proyecto ya tiene obra guardada
+        </div>
+        <div style={{ fontSize: 13, color: '#bbb', ...MONO, marginBottom: 18, lineHeight: 1.6 }}>
+          «{activeProy?.nombre}» ya figura en la lista de obras
+          {obrasPrevias.length > 1 ? ` con ${obrasPrevias.length} registros` : ''}.
+          ¿Querés reemplazar lo guardado o dejar las dos?
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 18 }}>
+          {obrasPrevias.map(o => (
+            <button
+              key={o.id}
+              onClick={() => guardarSobrescribiendo(o)}
+              style={{
+                textAlign: 'left', cursor: 'pointer', padding: '10px 12px',
+                background: '#151005', border: '1px solid #4a3a00',
+                borderLeft: '3px solid #F5C300', ...MONO,
+              }}
+            >
+              <div style={{ fontSize: 13, color: '#F5C300', fontWeight: 700, marginBottom: 3 }}>
+                Sobrescribir · {o.descripcion || 'sin descripción'}
+              </div>
+              <div style={{ fontSize: 12, color: '#777', lineHeight: 1.5 }}>
+                {o.cantidad != null ? `${fmt(o.cantidad)} t` : 's/cantidad'}
+                {' · '}
+                {o.presupuesto_total != null ? fmtP(o.presupuesto_total) : 's/presupuesto'}
+                {o.created_at
+                  ? ` · guardada el ${new Date(o.created_at).toLocaleDateString('es-AR')}`
+                  : ''}
+              </div>
+              <div style={{ fontSize: 12, color: '#555', marginTop: 4 }}>
+                Pasaría a {fmt(resumenObra.toneladas)} t · {fmtP(resumenObra.pres.total)}
+              </div>
+            </button>
+          ))}
+        </div>
+
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+          <button
+            onClick={() => setObrasPrevias(null)}
+            style={{
+              fontSize: 13, ...MONO, cursor: 'pointer', padding: '7px 16px',
+              background: 'transparent', border: '1px solid #252525', color: '#555',
+            }}
+          >Cancelar</button>
+          <button
+            onClick={guardarComoNueva}
+            style={{
+              fontSize: 13, ...MONO, cursor: 'pointer', padding: '7px 16px',
+              background: '#0a1408', border: '1px solid #2e6b3e', color: '#7BC47F',
+              fontWeight: 700,
+            }}
+          >Guardar como obra nueva</button>
+        </div>
+      </div>
+    </div>
+  )
+
   // ── Datos para composición (todos los proyectos visibles) ────────────────
   const allVisibleRipios = proyectos
     .filter(p => !hiddenProyIds.has(p.id))
@@ -1106,6 +1185,113 @@ export default function CalcRipio({ onGuardarObra, focoObra }: {
 
     return { coef, mdo, tramosComputo, computo, toneladas, metros, pres }
   }, [analisis, ripios])
+
+  // ── Guardar obra ──────────────────────────────────────────────────────────
+  /**
+   * La obra se guarda por proyecto y con los números del presupuesto oficial.
+   *
+   * Antes salía de `precio_unitario` × toneladas de cada tramo — el campo viejo,
+   * anterior a la cadena cómputo → análisis → presupuesto. Convivían dos montos
+   * distintos para la misma obra: el de la lista y el de la pestaña Presupuesto.
+   * Ahora es uno solo, el adoptado.
+   */
+  function armarDatosObra(): GuardarObraData | null {
+    if (!activeProy) return null
+    const { toneladas, metros, pres, computo } = resumenObra
+    if (toneladas <= 0) return null
+
+    return {
+      tipo: 'ripio',
+      cantidad: toneladas,
+      unidad: 't',
+      presupuesto_total: pres.total,
+      aporte_dvp: 0,
+      aporte_ccc: 0,
+      precio_unitario: pres.total / toneladas,
+      descripcion: activeProy.nombre,
+      coordsLinea: activeProy.ripios.flatMap(
+        r => (r.coords ?? []).map(([lat, lng]) => ({ lat, lng })),
+      ),
+      proyecto_ripio_id: activeProy.id,
+      datos_calculadora: {
+        calculadora: 'ripio',
+        proyecto: activeProy.nombre,
+        // `activeProyId` lo lee la página al editar, para encuadrar el mapa en
+        // el proyecto correcto
+        inputs: { activeProyId: activeProy.id },
+        computo: {
+          totalLm:  metros,
+          totalTon: toneladas,
+          totalPres: pres.total,
+          // Los crudos también, para poder ver de dónde salió el redondeo
+          calculadoLm:  computo.largoTotalM,
+          calculadoTon: computo.toneladasCalculado,
+          ripios: activeProy.ripios.map(r => ({ ...r, ...calcRipio(r) })),
+        },
+        presupuesto: {
+          items: pres.items,
+          total: pres.total,
+          datos: analisis.datos,
+        },
+      },
+    }
+  }
+
+  /**
+   * Antes de abrir el modal, mirar si este proyecto ya guardó alguna obra.
+   *
+   * Sin esto cada "Guardar obra" dejaba una fila nueva en la lista y no había
+   * forma de saber cuál era la vigente.
+   */
+  async function iniciarGuardado() {
+    const datos = armarDatosObra()
+    if (!datos || !activeProy) return
+
+    setBuscandoObras(true)
+    try {
+      const res = await fetch(`/api/obras?proyecto_ripio_id=${activeProy.id}`)
+      const previas: ObraGuardada[] = res.ok ? await res.json() : []
+
+      // La obra que se está editando puede no estar vinculada todavía (se
+      // guardó antes de que existiera la columna): se la suma a mano.
+      if (obraEnEdicionId && !previas.some(o => o.id === obraEnEdicionId)) {
+        const r = await fetch(`/api/obras?id=${obraEnEdicionId}`)
+        if (r.ok) previas.unshift(await r.json())
+      }
+
+      if (previas.length > 0) { setObrasPrevias(previas); return }
+    } catch {
+      // Si la consulta falla, no bloquear el guardado: se guarda como nueva
+    } finally {
+      setBuscandoObras(false)
+    }
+    onGuardarObra?.(datos)
+  }
+
+  function guardarSobrescribiendo(obra: ObraGuardada) {
+    const datos = armarDatosObra()
+    setObrasPrevias(null)
+    if (!datos) return
+    onGuardarObra?.({
+      ...datos,
+      sobrescribirId: obra.id,
+      preset: {
+        jurisdiccion:       obra.jurisdiccion,
+        consorcio_numero:   obra.consorcio_numero,
+        ubicacion:          obra.ubicacion,
+        descripcion:        obra.descripcion,
+        estado:             obra.estado,
+        fecha_inicio:       obra.fecha_inicio,
+        fecha_fin_estimada: obra.fecha_fin_estimada,
+      },
+    })
+  }
+
+  function guardarComoNueva() {
+    const datos = armarDatosObra()
+    setObrasPrevias(null)
+    if (datos) onGuardarObra?.(datos)
+  }
 
   // Las referencias de la composición muestran lo mismo que el presupuesto:
   // tonelaje adoptado y total presupuestado, no el cómputo crudo.
@@ -1498,6 +1684,7 @@ export default function CalcRipio({ onGuardarObra, focoObra }: {
 
       {/* Modal de confirmación (fuera del tab para que siempre esté disponible) */}
       {renderConfirm()}
+      {renderElegirObra()}
     </div>
   )
 }
