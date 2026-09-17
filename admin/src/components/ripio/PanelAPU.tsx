@@ -162,7 +162,9 @@ export default function PanelAPU({
                     style={{ ...inp, textAlign: 'right', padding: '2px 5px' }} />
                 </td>
                 <td style={td}>
-                  <input type="number" step={0.5} min={0} value={e.cantidad}
+                  {/* Paso de 0,10: la afectación de un equipo a la tarea rara vez
+                      cae en medios exactos. 0,5 obligaba a redondear de más. */}
+                  <input type="number" step={0.1} min={0} value={e.cantidad}
                     onChange={ev => editarEquipo(i, { cantidad: parseFloat(ev.target.value) || 0 })}
                     style={{ ...inp, textAlign: 'right', padding: '2px 5px' }} />
                 </td>
