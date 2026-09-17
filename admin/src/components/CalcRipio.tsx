@@ -9,6 +9,7 @@ import PanelCoeficientes from './ripio/PanelCoeficientes'
 import PanelPresupuesto from './ripio/PanelPresupuesto'
 import PanelManoObra from './ripio/PanelManoObra'
 import PlanillasImprimibles from './ripio/PlanillasImprimibles'
+import MenuFila from './ripio/MenuFila'
 import {
   calcularCoeficientes, calcularMdeO, calcularAPU, calcularComputo,
   calcularPresupuesto, valorEfectivo,
@@ -109,6 +110,44 @@ export default function CalcRipio({ onGuardarObra, focoObra }: {
    * plegados, ni mirar los de otro sin cambiar de proyecto.
    */
   const [expandidos, setExpandidos] = useState<Set<string>>(new Set())
+
+  /**
+   * Ancho del árbol, ajustable arrastrando el borde.
+   *
+   * Los nombres de obra reales son largos y variables ("Enripiado RP N°9 —
+   * tramo Las Piedritas"), así que cualquier ancho fijo corta unos y desperdicia
+   * espacio en otros. Se recuerda por navegador.
+   */
+  const [anchoArbol, setAnchoArbol] = useState(240)
+  const redimRef = useRef<{ x0: number; w0: number } | null>(null)
+
+  useEffect(() => {
+    try {
+      const g = localStorage.getItem('sig_vial_ancho_arbol_ripio')
+      if (g) setAnchoArbol(Math.min(460, Math.max(180, parseInt(g, 10) || 240)))
+    } catch (_) {}
+  }, [])
+
+  useEffect(() => {
+    const mover = (e: MouseEvent) => {
+      if (!redimRef.current) return
+      const w = redimRef.current.w0 + (e.clientX - redimRef.current.x0)
+      setAnchoArbol(Math.min(460, Math.max(180, w)))
+    }
+    const soltar = () => {
+      if (!redimRef.current) return
+      redimRef.current = null
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+      setAnchoArbol(w => { try { localStorage.setItem('sig_vial_ancho_arbol_ripio', String(w)) } catch (_) {} ; return w })
+    }
+    window.addEventListener('mousemove', mover)
+    window.addEventListener('mouseup', soltar)
+    return () => {
+      window.removeEventListener('mousemove', mover)
+      window.removeEventListener('mouseup', soltar)
+    }
+  }, [])
   const [view,          setView]          = useState<'computo' | 'analisis' | 'presupuesto' | 'mapa' | 'legajo'>('computo')
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -416,17 +455,37 @@ export default function CalcRipio({ onGuardarObra, focoObra }: {
   // ── Panel izquierdo: árbol ────────────────────────────────────────────────
   const renderTree = () => (
     <div style={{
-      width: 190, flexShrink: 0, borderRight: '1px solid #131313',
+      width: anchoArbol, flexShrink: 0, position: 'relative',
+      borderRight: '1px solid #131313',
       display: 'flex', flexDirection: 'column', background: '#080808', overflow: 'hidden',
     }}>
+      {/* Tirador para ajustar el ancho */}
+      <div
+        onMouseDown={e => {
+          redimRef.current = { x0: e.clientX, w0: anchoArbol }
+          document.body.style.cursor = 'col-resize'
+          document.body.style.userSelect = 'none'
+        }}
+        title="Arrastrá para ajustar el ancho"
+        style={{
+          position: 'absolute', top: 0, right: 0, bottom: 0, width: 5,
+          cursor: 'col-resize', zIndex: 10,
+        }}
+        onMouseEnter={e => { e.currentTarget.style.background = `${COLOR}44` }}
+        onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+      />
+
       {/* Header */}
       <div style={{
         padding: '8px 10px', borderBottom: '1px solid #111',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        flexShrink: 0, gap: 6,
       }}>
-        <span style={{ fontSize: 11, color: '#666', ...MONO, textTransform: 'uppercase', letterSpacing: 1.2 }}>Proyectos</span>
+        <span style={{ fontSize: 11, color: '#666', ...MONO, textTransform: 'uppercase', letterSpacing: 1.2 }}>
+          Proyectos
+        </span>
         <button onClick={addProyecto} style={{
-          fontSize: 12, ...MONO, cursor: 'pointer',
+          fontSize: 12, ...MONO, cursor: 'pointer', whiteSpace: 'nowrap',
           background: 'transparent', border: '1px solid #333', color: '#aaa', padding: '2px 8px',
         }}>+ Nuevo</button>
       </div>
@@ -439,143 +498,184 @@ export default function CalcRipio({ onGuardarObra, focoObra }: {
           const isActive    = proy.id === activeProyId
           const isHidden    = hiddenProyIds.has(proy.id)
           const isExpandido = expandidos.has(proy.id)
-          const total       = proy.ripios.reduce((s, r) => s + calcRipio(r).presupuesto, 0)
+          const totalPres   = proy.ripios.reduce((s, r) => s + calcRipio(r).presupuesto, 0)
+          const totalM      = proy.ripios.reduce((s, r) => s + r.l_m, 0)
+
+          // Metadatos en una línea: antes iban apilados en tres renglones
+          const meta = [
+            `${proy.ripios.length} tramo${proy.ripios.length === 1 ? '' : 's'}`,
+            totalM > 0 ? `${fmt(totalM)} m` : null,
+            totalPres > 0 ? fmtP(totalPres) : null,
+            proy.creador || null,
+          ].filter(Boolean).join(' · ')
 
           return (
-            <div key={proy.id}>
-              {/* Proyecto */}
+            <div key={proy.id} style={{ borderBottom: '1px solid #0e0e0e' }}>
+
+              {/* ── Proyecto ── */}
               <div
                 onClick={() => {
                   setActiveProyId(proy.id)
+                  setExpandidos(prev => new Set(prev).add(proy.id))
                   if (proy.ripios.length > 0) setSelectedId(proy.ripios[0].id)
                 }}
                 style={{
-                  padding: '6px 10px', cursor: 'pointer',
-                  background: isActive ? `${COLOR}0a` : 'transparent',
+                  padding: '7px 8px 7px 6px', cursor: 'pointer',
+                  background: isActive ? `${COLOR}0f` : 'transparent',
                   borderLeft: `2px solid ${isActive ? COLOR : 'transparent'}`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  opacity: isHidden ? 0.45 : 1,
-                  gap: 4,
+                  opacity: isHidden ? 0.5 : 1,
                 }}
               >
-                {/* Chevron: despliega sin cambiar de proyecto activo */}
-                <button
-                  onClick={e => { e.stopPropagation(); toggleExpandido(proy.id) }}
-                  title={isExpandido ? 'Contraer' : 'Desplegar'}
-                  style={{
-                    background: 'transparent', border: 'none', cursor: 'pointer',
-                    color: isActive ? COLOR : '#555', fontSize: 11, lineHeight: 1,
-                    padding: '2px 3px', flexShrink: 0, ...MONO,
-                    transform: isExpandido ? 'rotate(90deg)' : 'none',
-                    transition: 'transform .15s',
-                  }}>
-                  ▶
-                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <button
+                    onClick={e => { e.stopPropagation(); toggleExpandido(proy.id) }}
+                    title={isExpandido ? 'Contraer' : 'Desplegar'}
+                    style={{
+                      background: 'transparent', border: 'none', cursor: 'pointer',
+                      color: isActive ? COLOR : '#555', fontSize: 10, lineHeight: 1,
+                      padding: '3px 2px', flexShrink: 0, ...MONO,
+                      transform: isExpandido ? 'rotate(90deg)' : 'none',
+                      transition: 'transform .15s',
+                    }}>▶</button>
 
-                <div style={{ minWidth: 0, flex: 1 }}>
-                  <div style={{ fontSize: 13, color: isActive ? COLOR : '#999', ...MONO, fontWeight: isActive ? 700 : 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  <span style={{
+                    flex: 1, minWidth: 0, fontSize: 13, ...MONO,
+                    color: isActive ? COLOR : '#aaa',
+                    fontWeight: isActive ? 700 : 400,
+                    overflowWrap: 'anywhere', lineHeight: 1.3,
+                  }}>
                     {proy.nombre}
-                  </div>
-                  <div style={{ display: 'flex', gap: 6, alignItems: 'baseline', flexWrap: 'wrap' }}>
-                    {total > 0 && <span style={{ fontSize: 12, color: '#666', ...MONO }}>{fmtP(total)}</span>}
-                    <span style={{ fontSize: 12, color: '#4a4a4a', ...MONO }}>
-                      {proy.ripios.length} tramo{proy.ripios.length === 1 ? '' : 's'}
-                    </span>
-                  </div>
-                  {proy.creador && (
-                    <div
-                      title={`Creado por ${proy.creador}`}
-                      style={{
-                        fontSize: 11, color: '#5a5a5a', ...MONO,
-                        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                        marginTop: 1,
-                      }}>
-                      ◴ {proy.creador}
-                    </div>
-                  )}
+                  </span>
+
+                  {/* Visibilidad en el mapa: ojo explícito, antes era un punto
+                      que parecía un estado */}
+                  <button
+                    onClick={e => { e.stopPropagation(); toggleProyVisibility(proy.id) }}
+                    title={isHidden ? 'Mostrar en el mapa' : 'Ocultar del mapa'}
+                    aria-label={isHidden ? 'Mostrar en el mapa' : 'Ocultar del mapa'}
+                    style={{
+                      background: 'transparent', border: 'none', cursor: 'pointer',
+                      color: isHidden ? '#3a3a3a' : COLOR, fontSize: 13,
+                      lineHeight: 1, padding: '2px 3px', flexShrink: 0,
+                    }}>{isHidden ? '◌' : '◉'}</button>
+
+                  <MenuFila
+                    color={COLOR}
+                    titulo="Acciones del proyecto"
+                    acciones={[
+                      { id: 'tramo', label: 'Agregar tramo', icono: '+',
+                        onClick: () => addRipio(proy.id) },
+                      { id: 'ver', label: isHidden ? 'Mostrar en el mapa' : 'Ocultar del mapa',
+                        icono: isHidden ? '◉' : '◌',
+                        onClick: () => toggleProyVisibility(proy.id) },
+                      { id: 'quitar', label: 'Quitar del cómputo', icono: '✕',
+                        destructiva: true,
+                        ayuda: 'Si ya lo guardaste como obra, seguís encontrándolo en Obras → Lista',
+                        onClick: () => deleteProyecto(proy.id) },
+                    ]}
+                  />
                 </div>
-                {/* Toggle visibilidad en mapa */}
-                <button onClick={e => { e.stopPropagation(); toggleProyVisibility(proy.id) }}
-                  title={isHidden ? 'Mostrar en mapa' : 'Ocultar del mapa'}
-                  style={{ fontSize: 13, color: isHidden ? '#333' : COLOR, background: 'transparent', border: 'none', cursor: 'pointer', flexShrink: 0, lineHeight: 1, padding: '0 2px' }}>
-                  {isHidden ? '○' : '●'}
-                </button>
-                <button onClick={e => { e.stopPropagation(); deleteProyecto(proy.id) }}
-                  title="Eliminar proyecto"
-                  style={{ fontSize: 13, color: '#666', background: 'transparent', border: 'none', cursor: 'pointer', flexShrink: 0, lineHeight: 1 }}>✕</button>
+
+                {meta && (
+                  <div style={{
+                    fontSize: 11, color: '#5a5a5a', ...MONO, marginTop: 2,
+                    paddingLeft: 17, overflowWrap: 'anywhere', lineHeight: 1.35,
+                  }}>
+                    {meta}
+                  </div>
+                )}
               </div>
 
-              {/* Ripios — se despliegan por el acordeón, no por estar activo */}
+              {/* ── Tramos ── */}
               {isExpandido && (
                 <div>
                   {proy.ripios.map(r => {
                     const isSel     = r.id === selectedId
                     const isDrawing = r.id === drawingId
-                    const hasCords  = r.l_m > 0
-                    const ripioClr  = r.color ?? PALETTE[r.orden % PALETTE.length]
+                    const isEditing = r.id === editingId
+                    const trazado   = r.l_m > 0 && (r.coords?.length ?? 0) >= 2
+                    const clr       = r.color ?? PALETTE[r.orden % PALETTE.length]
+
                     return (
                       <div key={r.id}
                         onClick={() => {
-                          // Ahora se puede desplegar un proyecto sin activarlo,
-                          // así que al elegir un tramo hay que activar el suyo
                           setActiveProyId(proy.id)
                           setSelectedId(r.id)
                           setPanel('form')
                         }}
                         style={{
-                          padding: '5px 8px 5px 14px', cursor: 'pointer',
-                          background: isSel ? `${ripioClr}10` : 'transparent',
-                          borderLeft: `2px solid ${isSel ? ripioClr : 'transparent'}`,
-                          display: 'flex', alignItems: 'center', gap: 5,
+                          display: 'flex', cursor: 'pointer',
+                          background: isSel ? `${clr}18` : 'transparent',
                         }}
+                        onMouseEnter={e => { if (!isSel) e.currentTarget.style.background = '#101010' }}
+                        onMouseLeave={e => { if (!isSel) e.currentTarget.style.background = 'transparent' }}
                       >
-                        {/* Dot de color de paleta */}
-                        <div style={{
-                          width: 7, height: 7, borderRadius: '50%', flexShrink: 0,
-                          background: hasCords ? ripioClr : 'transparent',
-                          border: `1px solid ${ripioClr}`,
-                        }} title={hasCords ? 'Línea trazada' : 'Sin línea'} />
+                        {/* Barra de color: identifica el tramo en el mapa y hace
+                            de indentación. Llena = trazado, punteada = sin trazar. */}
+                        <span
+                          title={trazado ? 'Trazado en el mapa' : 'Sin trazar'}
+                          style={{
+                            width: 4, flexShrink: 0, marginLeft: 8,
+                            background: trazado
+                              ? clr
+                              : `repeating-linear-gradient(180deg, ${clr} 0 3px, transparent 3px 7px)`,
+                          }}
+                        />
 
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 13, color: isSel ? '#e0e0e0' : '#888', ...MONO, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        <div style={{ flex: 1, minWidth: 0, padding: '6px 4px 6px 9px' }}>
+                          <div style={{
+                            fontSize: 13, ...MONO, lineHeight: 1.3,
+                            color: isSel ? '#e0e0e0' : '#aaa',
+                            overflowWrap: 'anywhere',
+                          }}>
                             {r.nombre}
                           </div>
-                          <div style={{ fontSize: 12, color: hasCords ? ripioClr + 'cc' : '#444', ...MONO }}>
-                            {hasCords ? `${fmt(r.l_m)} m` : '—'}
+                          <div style={{ fontSize: 11, ...MONO, color: trazado ? '#777' : '#4a4a4a', marginTop: 1 }}>
+                            {trazado ? `${fmt(r.l_m)} m · ${r.an} m ancho` : 'sin trazar'}
+                            {isDrawing && <span style={{ color: clr }}> · trazando</span>}
+                            {isEditing && <span style={{ color: '#F5C300' }}> · editando</span>}
                           </div>
                         </div>
 
-                        {/* Botón dibujar */}
-                        <button
-                          onClick={e => {
-                            e.stopPropagation()
-                            setSelectedId(r.id)
-                            setPanel('form')
-                            setDrawingId(prev => prev === r.id ? null : r.id)
-                          }}
-                          title={isDrawing ? 'Cancelar dibujo' : 'Trazar línea en mapa'}
-                          style={{
-                            fontSize: 12, padding: '1px 5px', cursor: 'pointer', flexShrink: 0,
-                            background: isDrawing ? `${ripioClr}33` : 'transparent',
-                            border: `1px solid ${isDrawing ? ripioClr : '#333'}`,
-                            color: isDrawing ? ripioClr : '#888', ...MONO,
-                          }}
-                        >{isDrawing ? '✕' : '↔'}</button>
-
-                        {/* Botón eliminar */}
-                        <button onClick={e => { e.stopPropagation(); deleteRipio(r.id) }}
-                          title="Eliminar ripio"
-                          style={{ fontSize: 12, color: '#666', background: 'transparent', border: 'none', cursor: 'pointer', flexShrink: 0, lineHeight: 1 }}>✕</button>
+                        <div style={{ paddingTop: 5, paddingRight: 4 }}>
+                          <MenuFila
+                            color={clr}
+                            titulo={`Acciones de ${r.nombre}`}
+                            acciones={[
+                              { id: 'trazar',
+                                label: isDrawing ? 'Cancelar trazado'
+                                     : trazado   ? 'Volver a trazar' : 'Trazar en el mapa',
+                                icono: '↔',
+                                ayuda: trazado && !isDrawing ? 'Descarta el trazado actual y empieza de cero' : undefined,
+                                onClick: () => {
+                                  setActiveProyId(proy.id); setSelectedId(r.id); setPanel('form')
+                                  setEditingId(null)
+                                  setDrawingId(prev => prev === r.id ? null : r.id)
+                                } },
+                              { id: 'editar', label: isEditing ? 'Salir de edición' : 'Editar trazado',
+                                icono: '✎', deshabilitada: !trazado,
+                                ayuda: trazado ? 'Mover, agregar o quitar vértices' : 'Primero hay que trazarlo',
+                                onClick: () => {
+                                  setActiveProyId(proy.id); setSelectedId(r.id); setPanel('form')
+                                  setDrawingId(null)
+                                  setEditingId(prev => prev === r.id ? null : r.id)
+                                } },
+                              { id: 'quitar', label: 'Quitar del cómputo', icono: '✕',
+                                destructiva: true,
+                                ayuda: 'Si el proyecto ya se guardó como obra, el tramo sigue en ese registro',
+                                onClick: () => deleteRipio(r.id) },
+                            ]}
+                          />
+                        </div>
                       </div>
                     )
                   })}
 
-                  {/* Agregar ripio */}
                   <button onClick={() => addRipio(proy.id)} style={{
-                    width: '100%', padding: '5px 10px 5px 20px', textAlign: 'left',
-                    background: 'transparent', border: 'none', borderTop: '1px solid #181818',
-                    fontSize: 12, color: '#777', ...MONO, cursor: 'pointer', letterSpacing: 0.3,
-                  }}>+ Agregar ripio</button>
+                    width: '100%', padding: '6px 10px 6px 21px', textAlign: 'left',
+                    background: 'transparent', border: 'none', borderTop: '1px solid #141414',
+                    fontSize: 11, color: '#666', ...MONO, cursor: 'pointer', letterSpacing: 0.3,
+                  }}>+ Agregar tramo</button>
                 </div>
               )}
             </div>
