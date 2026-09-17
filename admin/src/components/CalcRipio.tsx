@@ -1054,6 +1054,7 @@ export default function CalcRipio({ onGuardarObra, focoObra }: {
       l_m:            r.l_m,
       coords:         r.coords ?? null,
       color:          r.color ?? PALETTE[r.orden % PALETTE.length],
+      proyectoId:     p.id,
       proyectoNombre: p.nombre,
       empresa:        r.empresa || undefined,
     })))
@@ -1116,23 +1117,49 @@ export default function CalcRipio({ onGuardarObra, focoObra }: {
     visibleProyIds.length === 1 && visibleProyIds[0] === activeProyId
 
   /**
-   * Valores adoptados que muestra la composición, además de la suma de tramos.
+   * Totales de cada proyecto visible, con sus valores adoptados aplicados.
    *
-   * Se muestran siempre que haya un proyecto activo con cantidades, rotulados
-   * con su nombre. Antes sólo aparecían si era el único proyecto visible, y el
-   * resultado era que el dato que hace falta para presentar simplemente no
-   * estaba; la lámina puede mostrar tramos de varios proyectos y el rótulo
-   * alcanza para saber a cuál corresponde el presupuesto.
+   * Se calcula por proyecto y no sólo para el activo porque la composición
+   * puede mostrar varios: cada uno tiene su propio análisis, sus cantidades
+   * adoptadas y su presupuesto.
    */
-  const compAdoptado = activeProy && resumenObra.toneladas > 0
-    ? {
-        proyecto:          activeProy.nombre,
-        metros:            resumenObra.metros,
-        toneladas:         resumenObra.toneladas,
-        presupuesto:       resumenObra.pres.total,
-        hayOtrosProyectos: !soloProyectoActivo,
-      }
-    : null
+  const resumenProyectos = useMemo(() =>
+    proyectos
+      .filter(p => !hiddenProyIds.has(p.id))
+      .map(p => {
+        const a    = normalizarAnalisis(p.analisis)
+        const coef = calcularCoeficientes(a.coeficientes, a.precios)
+        const mdo  = calcularMdeO(a.precios, a.manoObra)
+
+        const computo = calcularComputo(p.ripios.map(r => ({
+          id: r.id, nombre: r.nombre,
+          largoM: r.l_m, anchoM: r.an, espesorM: r.e, densidad: r.rho,
+        })))
+
+        const precioDe = (k: ClaveAPU) => {
+          const cfg = a.apu[k]
+          const r = calcularAPU(paramsAPU(k, cfg), coef, mdo, a.precios.dolar)
+          return valorEfectivo(r.precioCalculado, cfg.precioAdoptado)
+        }
+
+        const metros    = valorEfectivo(computo.largoTotalM,        a.metrosAdoptados)
+        const toneladas = valorEfectivo(computo.toneladasCalculado, a.toneladasAdoptadas)
+
+        const pres = calcularPresupuesto({
+          toneladas, metros,
+          distanciaNoPavKm: a.datos.distanciaNoPavKm,
+          distanciaPavKm:   a.datos.distanciaPavKm,
+          precioMaterial:   precioDe('material'),
+          precioTransNoPav: precioDe('transNoPav'),
+          precioTransPav:   precioDe('transPav'),
+          precioEjecucion:  precioDe('construccion'),
+          movilizacion:     a.movilizacion,
+        })
+
+        return { id: p.id, nombre: p.nombre, metros, toneladas, presupuesto: pres.total }
+      })
+      .filter(r => r.metros > 0 || r.toneladas > 0),
+  [proyectos, hiddenProyIds])
 
   // ── Análisis de precios ───────────────────────────────────────────────────
   function renderAnalisis() {
@@ -1463,7 +1490,7 @@ export default function CalcRipio({ onGuardarObra, focoObra }: {
           <MapComposicionRipio
             ripios={ripiosComp}
             proyectoNombre={compNombre}
-            adoptado={compAdoptado}
+            resumenProyectos={resumenProyectos}
             active={view === 'mapa'}
           />
         </div>

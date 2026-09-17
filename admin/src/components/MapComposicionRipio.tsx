@@ -12,31 +12,31 @@ export interface RipioComp {
   l_m:            number        // longitud (m)
   coords:         [number, number][] | null
   color:          string        // color resuelto
+  proyectoId?:     string
   proyectoNombre?: string
   empresa?:        string
+}
+
+/**
+ * Totales de un proyecto, con sus valores adoptados aplicados.
+ *
+ * Las referencias muestran esto y no la suma de los tramos: el adoptado es lo
+ * que se presupuestó y lo que se presenta. La discriminación por tramo queda
+ * en la lista de colores y nombres, para leer la lámina.
+ */
+export interface ResumenProyecto {
+  id:          string
+  nombre:      string
+  metros:      number
+  toneladas:   number
+  presupuesto: number
 }
 
 interface Props {
   ripios:         RipioComp[]
   proyectoNombre: string
-  /**
-   * Valores adoptados del presupuesto del proyecto activo.
-   *
-   * Van en un renglón aparte de la suma de tramos, no en su lugar: la suma
-   * describe lo dibujado y el adoptado es lo que se presenta. Taparlos uno con
-   * otro escondería el redondeo que hizo el proyectista.
-   *
-   * `proyecto` rotula a cuál pertenecen, porque la composición puede mostrar
-   * tramos de varios proyectos y el análisis es de uno solo.
-   */
-  adoptado?:      {
-    proyecto: string
-    metros: number
-    toneladas: number
-    presupuesto: number
-    /** true si en el mapa hay tramos de otros proyectos además de este */
-    hayOtrosProyectos: boolean
-  } | null
+  /** Totales adoptados de cada proyecto, para el recuadro de referencias */
+  resumenProyectos?: ResumenProyecto[]
   active:         boolean
 }
 
@@ -197,7 +197,7 @@ const fmtL = (m: number) =>
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function MapComposicionRipio({
-  ripios, proyectoNombre, adoptado, active,
+  ripios, proyectoNombre, resumenProyectos, active,
 }: Props) {
 
   // Campos editables
@@ -340,27 +340,30 @@ export default function MapComposicionRipio({
     link.click()
   }
 
-  // ── Totales de las referencias ────────────────────────────────────────────
+  // ── Referencias agrupadas por proyecto ────────────────────────────────────
   //
-  // Cada tramo aporta su propio tonelaje, calculado de su geometría:
-  //   largo × ancho × espesor × densidad
-  //
-  // El total es la suma de los tramos que se están mostrando, así que las filas
-  // y el total siempre cierran entre sí. Antes se prorrateaba un total global
-  // sobre los visibles, y con tramos de distinto ancho o espesor el reparto no
-  // representaba a ninguno.
-  const tonDe = (r: RipioComp) => r.l_m * r.an * r.e * r.rho
+  // Los tramos se listan sólo con su color y su nombre: sirven para leer la
+  // lámina, no para cerrar números. Las cantidades salen del presupuesto de
+  // cada proyecto, con sus valores adoptados.
+  const grupos = (resumenProyectos ?? [])
+    .map(rp => ({
+      resumen: rp,
+      tramos: activeWithCoords.filter(r => r.proyectoId === rp.id),
+    }))
+    .filter(g => g.tramos.length > 0)
 
-  const selTotalM   = activeRipios.reduce((s, r) => s + r.l_m, 0)
-  const selTotalTon = activeRipios.reduce((s, r) => s + tonDe(r), 0)
-
-  // ¿El adoptado difiere de lo dibujado? Con una tolerancia de medio metro y
-  // media tonelada, para no marcar diferencias de redondeo al mostrar.
-  const hayAdoptado = !!adoptado
-  const adoptadoDifiere = hayAdoptado && (
-    Math.abs(adoptado!.metros - selTotalM) > 0.5 ||
-    Math.abs(adoptado!.toneladas - selTotalTon) > 0.5
+  // Tramos que no matchearon con ningún resumen (proyecto sin análisis todavía)
+  const sueltos = activeWithCoords.filter(
+    r => !(resumenProyectos ?? []).some(rp => rp.id === r.proyectoId)
   )
+
+  const totalGeneralM   = grupos.reduce((s, g) => s + g.resumen.metros, 0)
+  const totalGeneralTon = grupos.reduce((s, g) => s + g.resumen.toneladas, 0)
+  const totalGeneralPre = grupos.reduce((s, g) => s + g.resumen.presupuesto, 0)
+
+  // Para el encabezado de la hoja
+  const selTotalM   = totalGeneralM   || activeWithCoords.reduce((s, r) => s + r.l_m, 0)
+  const selTotalTon = totalGeneralTon || activeWithCoords.reduce((s, r) => s + r.l_m * r.an * r.e * r.rho, 0)
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -554,96 +557,97 @@ export default function MapComposicionRipio({
                 letterSpacing: 0.5, borderBottom: '1px solid #ccc', paddingBottom: 4,
               }}>REFERENCIAS</div>
 
-              {activeWithCoords.length > 0 && (
-                <>
-                  <div style={{ fontSize: 8, fontWeight: 700, color: '#444', marginBottom: 4 }}>
-                    Tramos a enripiar
+              {/* Tramos: sólo color y nombre. Sirven para leer la lámina;
+                  las cantidades van abajo, por proyecto. */}
+              {grupos.length === 0 && sueltos.length === 0 && (
+                <div style={{ fontSize: 8, color: '#aaa' }}>Sin tramos trazados</div>
+              )}
+
+              {grupos.map(g => (
+                <div key={g.resumen.id} style={{ marginBottom: 6 }}>
+                  <div style={{
+                    fontSize: 8.5, fontWeight: 700, color: '#222',
+                    borderBottom: '1px solid #ddd', paddingBottom: 2, marginBottom: 3,
+                  }}>
+                    {g.resumen.nombre}
                   </div>
-                  {activeWithCoords.map(r => (
-                    <div key={r.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 5, marginBottom: 4 }}>
-                      <svg width="26" height="8" style={{ flexShrink: 0, marginTop: 2 }}>
+
+                  {g.tramos.map(r => (
+                    <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 2 }}>
+                      <svg width="26" height="8" style={{ flexShrink: 0 }}>
                         <rect width="26" height="8" rx="1" fill={r.color} opacity="0.45"/>
                         <line x1="0" y1="4" x2="26" y2="4" stroke={r.color} strokeWidth="1.5" strokeDasharray="4 2"/>
                       </svg>
-                      <div>
-                        <div style={{ fontSize: 8.5, color: '#222', fontWeight: 700, lineHeight: 1.2 }}>{r.nombre}</div>
-                        {r.proyectoNombre && (
-                          <div style={{ fontSize: 7.5, color: '#888', lineHeight: 1.2 }}>{r.proyectoNombre}</div>
-                        )}
-                        {r.empresa && (
-                          <div style={{ fontSize: 7.5, color: '#555', lineHeight: 1.2 }}>{r.empresa}</div>
-                        )}
-                        <div style={{ fontSize: 7.5, color: '#666', lineHeight: 1.25 }}>
-                          {fmtL(r.l_m)} · {r.an} m ancho · {r.e} m esp.
-                        </div>
-                        <div style={{ fontSize: 7.5, color: '#333', lineHeight: 1.25, fontWeight: 700 }}>
-                          {Math.round(tonDe(r)).toLocaleString('es-AR')} t
-                        </div>
-                      </div>
+                      <span style={{ fontSize: 8, color: '#333', lineHeight: 1.25 }}>{r.nombre}</span>
                     </div>
                   ))}
-                  <div style={{ borderTop: '1px solid #bbb', marginTop: 4, paddingTop: 4 }}/>
-                </>
-              )}
 
-              {/* Suma de los tramos mostrados */}
-              <div style={{ fontSize: 8, color: '#333', lineHeight: 1.55 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}>
-                  <strong>Suma de tramos</strong>
-                  <span>{fmtL(selTotalM)}</span>
-                </div>
-                {selTotalTon > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}>
-                    <span style={{ color: '#666' }}>Tonelaje</span>
-                    <span>{Math.round(selTotalTon).toLocaleString('es-AR')} t</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Valores adoptados del presupuesto.
-                  Van aparte de la suma: la suma describe lo dibujado, el
-                  adoptado es lo que se presenta. Mostrar uno solo escondería
-                  el redondeo del proyectista. */}
-              {hayAdoptado && (
-                <div style={{
-                  fontSize: 8, color: '#333', lineHeight: 1.55,
-                  marginTop: 4, paddingTop: 4, borderTop: '1px solid #bbb',
-                }}>
-                  <div style={{ fontSize: 7.5, color: '#444', marginBottom: 1, fontWeight: 700 }}>
-                    Presupuesto — {adoptado!.proyecto}
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}>
-                    <span style={{ color: '#666' }}>Longitud</span>
-                    <strong>{fmtL(adoptado!.metros)}</strong>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}>
-                    <span style={{ color: '#666' }}>Tonelaje</span>
-                    <strong>{Math.round(adoptado!.toneladas).toLocaleString('es-AR')} t</strong>
-                  </div>
-                  {adoptado!.presupuesto > 0 && (
+                  {/* Cantidades del presupuesto, con los adoptados aplicados */}
+                  <div style={{ fontSize: 8, color: '#333', lineHeight: 1.5, marginTop: 3, paddingLeft: 2 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}>
-                      <span style={{ color: '#666' }}>Total</span>
-                      <strong>{fmtP(adoptado!.presupuesto)}</strong>
+                      <span style={{ color: '#666' }}>Longitud</span>
+                      <strong>{fmtL(g.resumen.metros)}</strong>
                     </div>
-                  )}
-                  {/* Sin esta aclaración, la suma de arriba y el presupuesto de
-                      abajo parecen contradecirse cuando en realidad describen
-                      conjuntos distintos de tramos. */}
-                  {adoptado!.hayOtrosProyectos && (
-                    <div style={{ fontSize: 7, color: '#888', marginTop: 2, lineHeight: 1.3 }}>
-                      La suma de arriba incluye tramos de otros proyectos.
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}>
+                      <span style={{ color: '#666' }}>Tonelaje</span>
+                      <strong>{Math.round(g.resumen.toneladas).toLocaleString('es-AR')} t</strong>
                     </div>
-                  )}
-                  {!adoptado!.hayOtrosProyectos && adoptadoDifiere && (
-                    <div style={{ fontSize: 7, color: '#888', marginTop: 2, lineHeight: 1.3 }}>
-                      Cantidades adoptadas; difieren del cómputo por redondeo.
+                    {g.resumen.presupuesto > 0 && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}>
+                        <span style={{ color: '#666' }}>Presupuesto</span>
+                        <strong>{fmtP(g.resumen.presupuesto)}</strong>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+
+              {/* Tramos de proyectos que todavía no tienen presupuesto cargado */}
+              {sueltos.length > 0 && (
+                <div style={{ marginBottom: 6 }}>
+                  <div style={{
+                    fontSize: 8.5, fontWeight: 700, color: '#222',
+                    borderBottom: '1px solid #ddd', paddingBottom: 2, marginBottom: 3,
+                  }}>
+                    Otros tramos
+                  </div>
+                  {sueltos.map(r => (
+                    <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 2 }}>
+                      <svg width="26" height="8" style={{ flexShrink: 0 }}>
+                        <rect width="26" height="8" rx="1" fill={r.color} opacity="0.45"/>
+                        <line x1="0" y1="4" x2="26" y2="4" stroke={r.color} strokeWidth="1.5" strokeDasharray="4 2"/>
+                      </svg>
+                      <span style={{ fontSize: 8, color: '#333', lineHeight: 1.25 }}>{r.nombre}</span>
                     </div>
-                  )}
+                  ))}
+                  <div style={{ fontSize: 7, color: '#999', marginTop: 2, lineHeight: 1.3 }}>
+                    Sin presupuesto cargado
+                  </div>
                 </div>
               )}
 
-              {activeWithCoords.length === 0 && (
-                <div style={{ fontSize: 8, color: '#ccc' }}>Sin tramos trazados</div>
+              {/* Total general: sólo si hay más de un proyecto, para no repetir
+                  los mismos números dos veces seguidas */}
+              {grupos.length > 1 && (
+                <div style={{
+                  fontSize: 8, color: '#222', lineHeight: 1.5,
+                  borderTop: '1.5px solid #555', paddingTop: 3, marginTop: 2,
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}>
+                    <strong>Total general</strong>
+                    <strong>{fmtL(totalGeneralM)}</strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}>
+                    <span style={{ color: '#666' }}>Tonelaje</span>
+                    <strong>{Math.round(totalGeneralTon).toLocaleString('es-AR')} t</strong>
+                  </div>
+                  {totalGeneralPre > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}>
+                      <span style={{ color: '#666' }}>Presupuesto</span>
+                      <strong>{fmtP(totalGeneralPre)}</strong>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           </div>
