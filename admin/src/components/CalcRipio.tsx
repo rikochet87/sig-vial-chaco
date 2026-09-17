@@ -235,11 +235,32 @@ export default function CalcRipio({ onGuardarObra, focoObra }: {
     })()
   }, [focoObra, proyectos, loading])
 
-  /** Coordenadas para encuadrar: las de la obra, o las del proyecto activo */
-  const fitTo = useMemo<LatLng[] | null>(() => {
-    if (focoObra?.coords && focoObra.coords.length > 0) return focoObra.coords
-    return null
-  }, [focoObra])
+  /**
+   * Encuadre del mapa a demanda.
+   *
+   * El token se incrementa en cada pedido para que "llevame a este tramo"
+   * funcione aunque ya estés encuadrado ahí: sin él, pedir dos veces lo mismo
+   * no haría nada después de haber movido el mapa a mano.
+   */
+  const [encuadre, setEncuadre] = useState<{ coords: LatLng[]; token: number } | null>(null)
+  const tokenEncuadre = useRef(0)
+
+  const encuadrarEn = useCallback((coords: LatLng[] | null | undefined) => {
+    if (!coords || coords.length === 0) return
+    tokenEncuadre.current += 1
+    setEncuadre({ coords, token: tokenEncuadre.current })
+  }, [])
+
+  /** Todas las coordenadas de un proyecto, para encuadrarlo entero */
+  const coordsDeProyecto = useCallback((proyId: string): LatLng[] =>
+    (proyectos.find(p => p.id === proyId)?.ripios ?? [])
+      .flatMap(r => r.coords ?? []),
+  [proyectos])
+
+  // Al llegar desde "editar" en la lista de obras
+  useEffect(() => {
+    if (focoObra?.coords?.length) encuadrarEn(focoObra.coords)
+  }, [focoObra, encuadrarEn])
 
   // Catálogo de equipos — se usa en los cuatro análisis de precio
   useEffect(() => {
@@ -563,6 +584,18 @@ export default function CalcRipio({ onGuardarObra, focoObra }: {
                     color={COLOR}
                     titulo="Acciones del proyecto"
                     acciones={[
+                      { id: 'ir', label: 'Ir a la ubicación', icono: '⌖',
+                        deshabilitada: coordsDeProyecto(proy.id).length === 0,
+                        ayuda: coordsDeProyecto(proy.id).length === 0
+                          ? 'Ningún tramo del proyecto está trazado todavía'
+                          : 'Centra el mapa sobre todos los tramos del proyecto',
+                        onClick: () => {
+                          // Si está oculto no se vería nada al llegar
+                          setHiddenProyIds(prev => { const n = new Set(prev); n.delete(proy.id); return n })
+                          setActiveProyId(proy.id)
+                          setExpandidos(prev => new Set(prev).add(proy.id))
+                          encuadrarEn(coordsDeProyecto(proy.id))
+                        } },
                       { id: 'tramo', label: 'Agregar tramo', icono: '+',
                         onClick: () => addRipio(proy.id) },
                       { id: 'ver', label: isHidden ? 'Mostrar en el mapa' : 'Ocultar del mapa',
@@ -642,6 +675,18 @@ export default function CalcRipio({ onGuardarObra, focoObra }: {
                             color={clr}
                             titulo={`Acciones de ${r.nombre}`}
                             acciones={[
+                              { id: 'ir', label: 'Ir a la ubicación', icono: '⌖',
+                                deshabilitada: !trazado,
+                                ayuda: trazado
+                                  ? 'Centra el mapa sobre este tramo'
+                                  : 'Todavía no está trazado',
+                                onClick: () => {
+                                  setHiddenProyIds(prev => { const n = new Set(prev); n.delete(proy.id); return n })
+                                  setActiveProyId(proy.id)
+                                  setSelectedId(r.id)
+                                  setPanel('form')
+                                  encuadrarEn(r.coords)
+                                } },
                               { id: 'trazar',
                                 label: isDrawing ? 'Cancelar trazado'
                                      : trazado   ? 'Volver a trazar' : 'Trazar en el mapa',
@@ -1356,7 +1401,7 @@ export default function CalcRipio({ onGuardarObra, focoObra }: {
                 onLineEdit={handleLineEdit}
                 onLineSplit={handleLineSplit}
                 onEditEnd={() => setEditingId(null)}
-                fitTo={fitTo}
+                fitTo={encuadre}
                 onSelectRipio={(id) => {
                   const owner = proyectos.find(p => p.ripios.some(r => r.id === id))
                   if (owner) setActiveProyId(owner.id)

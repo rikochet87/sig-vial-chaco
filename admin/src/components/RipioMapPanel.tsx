@@ -38,8 +38,14 @@ interface Props {
   onEditEnd?:      () => void
   onSelectRipio?:  (id: string) => void   // seleccionar ripio al clicar en el mapa
   onDeleteRipio?:  (id: string) => void   // eliminar ripio desde el mapa
-  /** Encuadra el mapa sobre estas coordenadas (p. ej. al editar una obra) */
-  fitTo?:          LatLng[] | null
+  /**
+   * Encuadra el mapa sobre estas coordenadas.
+   *
+   * Lleva `token` porque el mismo encuadre puede pedirse dos veces seguidas
+   * —"llevame a este tramo", mover el mapa, "llevame de nuevo"— y comparando
+   * sólo las coordenadas el segundo pedido no haría nada.
+   */
+  fitTo?:          { coords: LatLng[]; token: number } | null
 }
 
 // ── Geometría ──────────────────────────────────────────────────────────────────
@@ -280,7 +286,7 @@ export default function RipioMapPanel({
    * cada cambio, el mapa saltaría solo mientras se dibuja o se mueve un vértice.
    */
   const yaEncuadro = useRef(false)
-  const fitKey = fitTo && fitTo.length > 0 ? JSON.stringify(fitTo) : ''
+  const fitKey = fitTo && fitTo.coords.length > 0 ? String(fitTo.token) : ''
 
   useEffect(() => {
     if (!mapReady) return
@@ -288,7 +294,7 @@ export default function RipioMapPanel({
     if (!map || !Lf) return
 
     const objetivo: LatLng[] = fitKey
-      ? (fitTo as LatLng[])
+      ? fitTo!.coords
       : (!yaEncuadro.current
           ? ripios.flatMap(r => r.coords ?? [])
           : [])
