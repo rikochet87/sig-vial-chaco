@@ -385,6 +385,25 @@ export default function PlanillasImprimibles({
     caratula: true, computo: true, apu: true, presupuesto: true,
   })
 
+  // El Excel se arma con `exceljs`, que pesa cerca de un mega: se carga recién
+  // al apretar el botón, no en el bundle de la página.
+  const [exportando, setExportando]   = useState(false)
+  const [errorExport, setErrorExport] = useState<string | null>(null)
+
+  async function exportarExcel() {
+    setExportando(true)
+    setErrorExport(null)
+    try {
+      const { exportarLegajoRipio } = await import('@/lib/ripioExcel')
+      const nombre = [a.datos.obra || 'ripio', a.datos.tramo].filter(Boolean).join(' - ')
+      await exportarLegajoRipio(a, tramos, nombre)
+    } catch (e) {
+      setErrorExport(e instanceof Error ? e.message : String(e))
+    } finally {
+      setExportando(false)
+    }
+  }
+
   const computo = useMemo(() => calcularComputo(tramos), [tramos])
   const toneladas = valorEfectivo(computo.toneladasCalculado, a.toneladasAdoptadas)
   const metros    = valorEfectivo(computo.largoTotalM,        a.metrosAdoptados)
@@ -456,10 +475,23 @@ export default function PlanillasImprimibles({
         ))}
 
         <button
+          onClick={exportarExcel}
+          disabled={exportando}
+          style={{
+            marginLeft: 'auto', background: 'transparent',
+            border: `1px solid ${exportando ? '#333' : '#2e6b3e'}`,
+            color: exportando ? '#555' : '#7BC47F', fontWeight: 700,
+            fontSize: 13, padding: '8px 16px', cursor: exportando ? 'default' : 'pointer',
+            letterSpacing: 0.8, fontFamily: 'monospace',
+          }}>
+          {exportando ? 'Generando…' : '▤ Exportar Excel'}
+        </button>
+
+        <button
           onClick={() => window.print()}
           disabled={totalHojas === 0}
           style={{
-            marginLeft: 'auto', background: totalHojas ? '#F5C300' : '#222',
+            background: totalHojas ? '#F5C300' : '#222',
             border: 'none', color: totalHojas ? '#111' : '#555', fontWeight: 700,
             fontSize: 13, padding: '8px 18px', cursor: totalHojas ? 'pointer' : 'default',
             letterSpacing: 0.8, fontFamily: 'monospace',
@@ -468,12 +500,26 @@ export default function PlanillasImprimibles({
         </button>
       </div>
 
+      {errorExport && (
+        <div className="no-print" style={{
+          fontSize: 12, color: '#E57373', fontFamily: 'monospace',
+          marginBottom: 12, border: '1px solid #5a2222', background: '#1a0c0c',
+          padding: '8px 12px',
+        }}>
+          No se pudo generar el Excel: {errorExport}
+        </div>
+      )}
+
       <div className="no-print" style={{
         fontSize: 12, color: '#555', fontFamily: 'monospace',
         marginBottom: 14, lineHeight: 1.5,
       }}>
         La composición cartográfica se imprime desde su propia pestaña: es un mapa en vivo
         y necesita su propio encuadre.
+        <br />
+        El Excel sale completo —datos, cómputo, coeficientes, mano de obra, los cuatro
+        análisis y el presupuesto— sin importar qué hojas estén tildadas acá arriba: es un
+        respaldo, no el juego a presentar.
       </div>
 
       {/* ── Hojas ── */}
