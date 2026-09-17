@@ -7,6 +7,8 @@ export interface RipioComp {
   id:             string
   nombre:         string
   an:             number        // ancho (m)
+  e:              number        // espesor (m)
+  rho:            number        // densidad (t/m³)
   l_m:            number        // longitud (m)
   coords:         [number, number][] | null
   color:          string        // color resuelto
@@ -18,13 +20,14 @@ interface Props {
   ripios:         RipioComp[]
   proyectoNombre: string
   /**
-   * Totales que muestran las referencias. Vienen del presupuesto, con los
-   * valores adoptados ya aplicados — no de la suma cruda del cómputo, que es
-   * lo que el proyectista redondeó a mano y no es lo que se presenta.
+   * Valores adoptados del presupuesto, cuando los tramos visibles son
+   * exactamente los del proyecto que se está presupuestando.
+   *
+   * Se muestran como un renglón aparte de la suma de los tramos, no en su
+   * lugar: la suma describe lo dibujado y el adoptado es lo que se presenta.
+   * Taparlos uno con otro escondería el redondeo que hizo el proyectista.
    */
-  totalM:         number
-  totalTon:       number
-  totalPres:      number
+  adoptado?:      { metros: number; toneladas: number; presupuesto: number } | null
   active:         boolean
 }
 
@@ -185,7 +188,7 @@ const fmtL = (m: number) =>
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function MapComposicionRipio({
-  ripios, proyectoNombre, totalM, totalTon, totalPres, active,
+  ripios, proyectoNombre, adoptado, active,
 }: Props) {
 
   // Campos editables
@@ -330,24 +333,25 @@ export default function MapComposicionRipio({
 
   // ── Totales de las referencias ────────────────────────────────────────────
   //
-  // Los totales llegan del presupuesto, con los valores adoptados aplicados.
-  // Cuando se ocultan tramos con el panel de capas hay que mostrar sólo la
-  // parte visible, así que se prorratean:
-  //   · los metros, por longitud
-  //   · el tonelaje y el presupuesto, por superficie (largo × ancho), que es
-  //     lo que más se les parece con los datos que llegan hasta acá
+  // Cada tramo aporta su propio tonelaje, calculado de su geometría:
+  //   largo × ancho × espesor × densidad
   //
-  // Con todos los tramos visibles —el caso de presentar un legajo— las
-  // fracciones dan 1 y se muestran los totales del presupuesto tal cual.
-  const sumaLargo = (rs: RipioComp[]) => rs.reduce((s, r) => s + r.l_m, 0)
-  const sumaSup   = (rs: RipioComp[]) => rs.reduce((s, r) => s + r.l_m * r.an, 0)
+  // El total es la suma de los tramos que se están mostrando, así que las filas
+  // y el total siempre cierran entre sí. Antes se prorrateaba un total global
+  // sobre los visibles, y con tramos de distinto ancho o espesor el reparto no
+  // representaba a ninguno.
+  const tonDe = (r: RipioComp) => r.l_m * r.an * r.e * r.rho
 
-  const fracLargo = sumaLargo(ripios) > 0 ? sumaLargo(activeRipios) / sumaLargo(ripios) : 0
-  const fracSup   = sumaSup(ripios)   > 0 ? sumaSup(activeRipios)   / sumaSup(ripios)   : 0
+  const selTotalM   = activeRipios.reduce((s, r) => s + r.l_m, 0)
+  const selTotalTon = activeRipios.reduce((s, r) => s + tonDe(r), 0)
 
-  const selTotalM    = Math.round(totalM * fracLargo)
-  const selTotalTon  = Math.round(totalTon * fracSup)
-  const selTotalPres = Math.round(totalPres * fracSup)
+  // ¿El adoptado difiere de lo dibujado? Con una tolerancia de medio metro y
+  // media tonelada, para no marcar diferencias de redondeo al mostrar.
+  const hayAdoptado = !!adoptado
+  const adoptadoDifiere = hayAdoptado && (
+    Math.abs(adoptado!.metros - selTotalM) > 0.5 ||
+    Math.abs(adoptado!.toneladas - selTotalTon) > 0.5
+  )
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -424,7 +428,7 @@ export default function MapComposicionRipio({
 
         <span style={{ fontFamily: 'monospace', fontSize: 9.5, color: '#444', flex: 1 }}>
           {proyectoNombre} · {activeWithCoords.length} tramo{activeWithCoords.length !== 1 ? 's' : ''} · {fmtL(selTotalM)}
-          {selTotalTon > 0 ? ` · ~${selTotalTon.toLocaleString('es-AR')} t` : ''}
+          {selTotalTon > 0 ? ` · ~${Math.round(selTotalTon).toLocaleString('es-AR')} t` : ''}
         </span>
         <button onClick={exportPNG} style={toolBtn}>PNG</button>
         <button onClick={exportPDF} style={toolBtn}>PDF</button>
@@ -560,22 +564,65 @@ export default function MapComposicionRipio({
                         {r.empresa && (
                           <div style={{ fontSize: 7.5, color: '#555', lineHeight: 1.2 }}>{r.empresa}</div>
                         )}
-                        <div style={{ fontSize: 7.5, color: '#666', lineHeight: 1.2 }}>
-                          {fmtL(r.l_m)} · {r.an} m ancho
+                        <div style={{ fontSize: 7.5, color: '#666', lineHeight: 1.25 }}>
+                          {fmtL(r.l_m)} · {r.an} m ancho · {r.e} m esp.
+                        </div>
+                        <div style={{ fontSize: 7.5, color: '#333', lineHeight: 1.25, fontWeight: 700 }}>
+                          {Math.round(tonDe(r)).toLocaleString('es-AR')} t
                         </div>
                       </div>
                     </div>
                   ))}
-                  <div style={{ borderTop: '1px solid #ddd', marginTop: 4, paddingTop: 4 }}/>
+                  <div style={{ borderTop: '1px solid #bbb', marginTop: 4, paddingTop: 4 }}/>
                 </>
               )}
 
-              {/* Resumen */}
-              <div style={{ fontSize: 8, color: '#444', lineHeight: 1.6 }}>
-                <div><strong>Total:</strong> {fmtL(selTotalM)}</div>
-                {selTotalTon > 0 && <div><strong>Tonelaje aprox.:</strong> {selTotalTon.toLocaleString('es-AR')} t</div>}
-                {selTotalPres > 0 && <div><strong>Presupuesto:</strong> {fmtP(selTotalPres)}</div>}
+              {/* Suma de los tramos mostrados */}
+              <div style={{ fontSize: 8, color: '#333', lineHeight: 1.55 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}>
+                  <strong>Suma de tramos</strong>
+                  <span>{fmtL(selTotalM)}</span>
+                </div>
+                {selTotalTon > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}>
+                    <span style={{ color: '#666' }}>Tonelaje</span>
+                    <span>{Math.round(selTotalTon).toLocaleString('es-AR')} t</span>
+                  </div>
+                )}
               </div>
+
+              {/* Valores adoptados del presupuesto.
+                  Van aparte de la suma: la suma describe lo dibujado, el
+                  adoptado es lo que se presenta. Mostrar uno solo escondería
+                  el redondeo del proyectista. */}
+              {hayAdoptado && (
+                <div style={{
+                  fontSize: 8, color: '#333', lineHeight: 1.55,
+                  marginTop: 4, paddingTop: 4, borderTop: '1px solid #bbb',
+                }}>
+                  <div style={{ fontSize: 7.5, color: '#666', marginBottom: 1 }}>
+                    {adoptadoDifiere ? 'Adoptado en presupuesto' : 'Presupuesto'}
+                  </div>
+                  {adoptadoDifiere && (
+                    <>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}>
+                        <span style={{ color: '#666' }}>Longitud</span>
+                        <strong>{fmtL(adoptado!.metros)}</strong>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}>
+                        <span style={{ color: '#666' }}>Tonelaje</span>
+                        <strong>{Math.round(adoptado!.toneladas).toLocaleString('es-AR')} t</strong>
+                      </div>
+                    </>
+                  )}
+                  {adoptado!.presupuesto > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}>
+                      <span style={{ color: '#666' }}>Total</span>
+                      <strong>{fmtP(adoptado!.presupuesto)}</strong>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {activeWithCoords.length === 0 && (
                 <div style={{ fontSize: 8, color: '#ccc' }}>Sin tramos trazados</div>

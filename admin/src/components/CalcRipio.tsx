@@ -1047,6 +1047,10 @@ export default function CalcRipio({ onGuardarObra, focoObra }: {
       id:             r.id,
       nombre:         r.nombre,
       an:             r.an,
+      // Espesor y densidad van para que la composición calcule el tonelaje de
+      // cada tramo por su cuenta, en vez de prorratear un total global
+      e:              r.e,
+      rho:            r.rho,
       l_m:            r.l_m,
       coords:         r.coords ?? null,
       color:          r.color ?? PALETTE[r.orden % PALETTE.length],
@@ -1111,17 +1115,20 @@ export default function CalcRipio({ onGuardarObra, focoObra }: {
   const soloProyectoActivo =
     visibleProyIds.length === 1 && visibleProyIds[0] === activeProyId
 
-  const compTotalM = soloProyectoActivo
-    ? resumenObra.metros
-    : allVisibleRipios.reduce((s, r) => s + r.l_m, 0)
-
-  const compTotalTon = soloProyectoActivo
-    ? resumenObra.toneladas
-    : allVisibleRipios.reduce((s, r) => s + calcRipio(r).W, 0)
-
-  const compTotalPres = soloProyectoActivo
-    ? resumenObra.pres.total
-    : allVisibleRipios.reduce((s, r) => s + calcRipio(r).presupuesto, 0)
+  /**
+   * Valores adoptados que muestra la composición, además de la suma de tramos.
+   *
+   * Sólo tienen sentido si lo visible en el mapa es exactamente el proyecto que
+   * se presupuestó: el análisis es de un proyecto, y mostrar su tonelaje
+   * adoptado junto a tramos de otro sería mezclar dos obras en una lámina.
+   */
+  const compAdoptado = soloProyectoActivo
+    ? {
+        metros:      resumenObra.metros,
+        toneladas:   resumenObra.toneladas,
+        presupuesto: resumenObra.pres.total,
+      }
+    : null
 
   // ── Análisis de precios ───────────────────────────────────────────────────
   function renderAnalisis() {
@@ -1452,9 +1459,7 @@ export default function CalcRipio({ onGuardarObra, focoObra }: {
           <MapComposicionRipio
             ripios={ripiosComp}
             proyectoNombre={compNombre}
-            totalM={compTotalM}
-            totalTon={compTotalTon}
-            totalPres={compTotalPres}
+            adoptado={compAdoptado}
             active={view === 'mapa'}
           />
         </div>
