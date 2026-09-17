@@ -1118,15 +1118,19 @@ export default function CalcRipio({ onGuardarObra, focoObra }: {
   /**
    * Valores adoptados que muestra la composición, además de la suma de tramos.
    *
-   * Sólo tienen sentido si lo visible en el mapa es exactamente el proyecto que
-   * se presupuestó: el análisis es de un proyecto, y mostrar su tonelaje
-   * adoptado junto a tramos de otro sería mezclar dos obras en una lámina.
+   * Se muestran siempre que haya un proyecto activo con cantidades, rotulados
+   * con su nombre. Antes sólo aparecían si era el único proyecto visible, y el
+   * resultado era que el dato que hace falta para presentar simplemente no
+   * estaba; la lámina puede mostrar tramos de varios proyectos y el rótulo
+   * alcanza para saber a cuál corresponde el presupuesto.
    */
-  const compAdoptado = soloProyectoActivo
+  const compAdoptado = activeProy && resumenObra.toneladas > 0
     ? {
-        metros:      resumenObra.metros,
-        toneladas:   resumenObra.toneladas,
-        presupuesto: resumenObra.pres.total,
+        proyecto:          activeProy.nombre,
+        metros:            resumenObra.metros,
+        toneladas:         resumenObra.toneladas,
+        presupuesto:       resumenObra.pres.total,
+        hayOtrosProyectos: !soloProyectoActivo,
       }
     : null
 

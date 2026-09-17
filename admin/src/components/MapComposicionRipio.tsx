@@ -20,14 +20,23 @@ interface Props {
   ripios:         RipioComp[]
   proyectoNombre: string
   /**
-   * Valores adoptados del presupuesto, cuando los tramos visibles son
-   * exactamente los del proyecto que se está presupuestando.
+   * Valores adoptados del presupuesto del proyecto activo.
    *
-   * Se muestran como un renglón aparte de la suma de los tramos, no en su
-   * lugar: la suma describe lo dibujado y el adoptado es lo que se presenta.
-   * Taparlos uno con otro escondería el redondeo que hizo el proyectista.
+   * Van en un renglón aparte de la suma de tramos, no en su lugar: la suma
+   * describe lo dibujado y el adoptado es lo que se presenta. Taparlos uno con
+   * otro escondería el redondeo que hizo el proyectista.
+   *
+   * `proyecto` rotula a cuál pertenecen, porque la composición puede mostrar
+   * tramos de varios proyectos y el análisis es de uno solo.
    */
-  adoptado?:      { metros: number; toneladas: number; presupuesto: number } | null
+  adoptado?:      {
+    proyecto: string
+    metros: number
+    toneladas: number
+    presupuesto: number
+    /** true si en el mapa hay tramos de otros proyectos además de este */
+    hayOtrosProyectos: boolean
+  } | null
   active:         boolean
 }
 
@@ -600,25 +609,34 @@ export default function MapComposicionRipio({
                   fontSize: 8, color: '#333', lineHeight: 1.55,
                   marginTop: 4, paddingTop: 4, borderTop: '1px solid #bbb',
                 }}>
-                  <div style={{ fontSize: 7.5, color: '#666', marginBottom: 1 }}>
-                    {adoptadoDifiere ? 'Adoptado en presupuesto' : 'Presupuesto'}
+                  <div style={{ fontSize: 7.5, color: '#444', marginBottom: 1, fontWeight: 700 }}>
+                    Presupuesto — {adoptado!.proyecto}
                   </div>
-                  {adoptadoDifiere && (
-                    <>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}>
-                        <span style={{ color: '#666' }}>Longitud</span>
-                        <strong>{fmtL(adoptado!.metros)}</strong>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}>
-                        <span style={{ color: '#666' }}>Tonelaje</span>
-                        <strong>{Math.round(adoptado!.toneladas).toLocaleString('es-AR')} t</strong>
-                      </div>
-                    </>
-                  )}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}>
+                    <span style={{ color: '#666' }}>Longitud</span>
+                    <strong>{fmtL(adoptado!.metros)}</strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}>
+                    <span style={{ color: '#666' }}>Tonelaje</span>
+                    <strong>{Math.round(adoptado!.toneladas).toLocaleString('es-AR')} t</strong>
+                  </div>
                   {adoptado!.presupuesto > 0 && (
                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}>
                       <span style={{ color: '#666' }}>Total</span>
                       <strong>{fmtP(adoptado!.presupuesto)}</strong>
+                    </div>
+                  )}
+                  {/* Sin esta aclaración, la suma de arriba y el presupuesto de
+                      abajo parecen contradecirse cuando en realidad describen
+                      conjuntos distintos de tramos. */}
+                  {adoptado!.hayOtrosProyectos && (
+                    <div style={{ fontSize: 7, color: '#888', marginTop: 2, lineHeight: 1.3 }}>
+                      La suma de arriba incluye tramos de otros proyectos.
+                    </div>
+                  )}
+                  {!adoptado!.hayOtrosProyectos && adoptadoDifiere && (
+                    <div style={{ fontSize: 7, color: '#888', marginTop: 2, lineHeight: 1.3 }}>
+                      Cantidades adoptadas; difieren del cómputo por redondeo.
                     </div>
                   )}
                 </div>
