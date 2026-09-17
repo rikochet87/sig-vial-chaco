@@ -17,6 +17,12 @@ export interface RipioComp {
 interface Props {
   ripios:         RipioComp[]
   proyectoNombre: string
+  /**
+   * Totales que muestran las referencias. Vienen del presupuesto, con los
+   * valores adoptados ya aplicados — no de la suma cruda del cómputo, que es
+   * lo que el proyectista redondeó a mano y no es lo que se presenta.
+   */
+  totalM:         number
   totalTon:       number
   totalPres:      number
   active:         boolean
@@ -179,7 +185,7 @@ const fmtL = (m: number) =>
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function MapComposicionRipio({
-  ripios, proyectoNombre, totalTon, totalPres, active,
+  ripios, proyectoNombre, totalM, totalTon, totalPres, active,
 }: Props) {
 
   // Campos editables
@@ -322,17 +328,26 @@ export default function MapComposicionRipio({
     link.click()
   }
 
-  // ── Derived stats ─────────────────────────────────────────────────────────
-  const selTotalM   = activeRipios.reduce((s, r) => s + r.l_m, 0)
+  // ── Totales de las referencias ────────────────────────────────────────────
+  //
+  // Los totales llegan del presupuesto, con los valores adoptados aplicados.
+  // Cuando se ocultan tramos con el panel de capas hay que mostrar sólo la
+  // parte visible, así que se prorratean:
+  //   · los metros, por longitud
+  //   · el tonelaje y el presupuesto, por superficie (largo × ancho), que es
+  //     lo que más se les parece con los datos que llegan hasta acá
+  //
+  // Con todos los tramos visibles —el caso de presentar un legajo— las
+  // fracciones dan 1 y se muestran los totales del presupuesto tal cual.
+  const sumaLargo = (rs: RipioComp[]) => rs.reduce((s, r) => s + r.l_m, 0)
+  const sumaSup   = (rs: RipioComp[]) => rs.reduce((s, r) => s + r.l_m * r.an, 0)
 
-  // Tonelaje de la selección (aproximado con los datos disponibles)
-  // totalTon ya viene calculado de todos; proporcionar de los activos
-  const activeTonFrac = totalTon > 0
-    ? (activeRipios.reduce((s, r) => s + r.l_m * r.an, 0) /
-       Math.max(1, ripios.reduce((s, r) => s + r.l_m * r.an, 0)))
-    : 0
-  const selTotalTon  = Math.round(totalTon * activeTonFrac)
-  const selTotalPres = Math.round(totalPres * activeTonFrac)
+  const fracLargo = sumaLargo(ripios) > 0 ? sumaLargo(activeRipios) / sumaLargo(ripios) : 0
+  const fracSup   = sumaSup(ripios)   > 0 ? sumaSup(activeRipios)   / sumaSup(ripios)   : 0
+
+  const selTotalM    = Math.round(totalM * fracLargo)
+  const selTotalTon  = Math.round(totalTon * fracSup)
+  const selTotalPres = Math.round(totalPres * fracSup)
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (

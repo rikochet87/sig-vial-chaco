@@ -1111,6 +1111,10 @@ export default function CalcRipio({ onGuardarObra, focoObra }: {
   const soloProyectoActivo =
     visibleProyIds.length === 1 && visibleProyIds[0] === activeProyId
 
+  const compTotalM = soloProyectoActivo
+    ? resumenObra.metros
+    : allVisibleRipios.reduce((s, r) => s + r.l_m, 0)
+
   const compTotalTon = soloProyectoActivo
     ? resumenObra.toneladas
     : allVisibleRipios.reduce((s, r) => s + calcRipio(r).W, 0)
@@ -1448,6 +1452,7 @@ export default function CalcRipio({ onGuardarObra, focoObra }: {
           <MapComposicionRipio
             ripios={ripiosComp}
             proyectoNombre={compNombre}
+            totalM={compTotalM}
             totalTon={compTotalTon}
             totalPres={compTotalPres}
             active={view === 'mapa'}
