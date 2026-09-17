@@ -1562,7 +1562,9 @@ export default function MapaScreen() {
 
       let query = supabase
         .from('obras')
-        .select('id,tipo,descripcion,ubicacion,estado,consorcio_numero,cantidad,unidad,presupuesto_total,fecha_inicio,fecha_fin_estimada,lat,lng,coords_linea');
+        .select('id,tipo,descripcion,ubicacion,estado,consorcio_numero,cantidad,unidad,presupuesto_total,fecha_inicio,fecha_fin_estimada,lat,lng,coords_linea')
+        // Las obras archivadas en el panel dejan de dibujarse en el mapa
+        .is('archivado_en', null);
 
       if (myIds.length > 0) {
         query = query.or(`visible_para.eq.todos,id.in.(${myIds.join(',')})`);

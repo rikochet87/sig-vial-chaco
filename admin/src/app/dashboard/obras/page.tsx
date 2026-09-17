@@ -47,6 +47,11 @@ interface Obra {
   datos_calculadora: Record<string, unknown> | null
   created_at: string
   created_by: string | null
+  /** Null = activa. Con fecha = archivada, visible sólo en la vista de archivadas */
+  archivado_en?: string | null
+  archivado_por?: string | null
+  /** Lo resuelve la API al listar archivadas */
+  archivado_por_nombre?: string | null
 }
 
 interface Tecnico {
@@ -638,6 +643,15 @@ export default function ObrasPage() {
   const [hasta, setHasta]       = useState('')
   const [page, setPage]         = useState(0)
 
+  /**
+   * Activas o archivadas.
+   *
+   * Eliminar una obra ahora la archiva: sale de la lista pero queda en la base.
+   * Sin esta vista el dato estaría a salvo pero nadie podría recuperarlo sin
+   * entrar a la base, que es tanto como haberlo perdido.
+   */
+  const [vista, setVista] = useState<'activas' | 'archivadas'>('activas')
+
   // Estado del modal de edición
   const [editObra, setEditObra] = useState<Obra | null>(null)
 
@@ -647,11 +661,13 @@ export default function ObrasPage() {
   const [loadingTecnicos, setLoadingTecnicos] = useState(false)
 
   useEffect(() => {
-    fetch('/api/obras')
+    setLoading(true)
+    setPanelObra(null)
+    fetch(vista === 'archivadas' ? '/api/obras?archivadas=1' : '/api/obras')
       .then(r => r.json())
       .then((data: Obra[]) => { setObras(data ?? []); setLoading(false) })
       .catch(() => setLoading(false))
-  }, [])
+  }, [vista])
 
   // Cargar técnicos una sola vez (lazy)
   const openPanel = (obra: Obra) => {
@@ -685,12 +701,48 @@ export default function ObrasPage() {
 
   useEffect(() => { applyFilters() }, [applyFilters])
 
-  const handleDelete = async (id: string, e: React.MouseEvent) => {
+  const handleArchivar = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation()
-    if (!confirm('¿Eliminar esta obra? Esta acción no se puede deshacer.')) return
+    if (!confirm('¿Archivar esta obra?\n\nSale de la lista y deja de verse en la app, pero queda guardada: se puede recuperar desde Archivadas.')) return
     await fetch(`/api/obras?id=${id}`, { method: 'DELETE' })
     setObras(prev => prev.filter(o => o.id !== id))
     if (panelObra?.id === id) setPanelObra(null)
+  }
+
+  const handleRestaurar = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    const res = await fetch('/api/obras', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, restaurar: true }),
+    })
+    if (!res.ok) {
+      alert((await res.json().catch(() => ({}))).error ?? 'No se pudo restaurar la obra')
+      return
+    }
+    setObras(prev => prev.filter(o => o.id !== id))
+  }
+
+  /** Borrado definitivo. Sólo admin, sólo sobre archivadas, y con el nombre tipeado. */
+  const handlePurgar = async (o: Obra, e: React.MouseEvent) => {
+    e.stopPropagation()
+    const nombre = o.descripcion?.trim() || 'esta obra'
+    const esperado = o.descripcion?.trim()
+    const msg = esperado
+      ? `Eliminar «${nombre}» para siempre. No se puede deshacer.\n\nEscribí el nombre de la obra para confirmar:`
+      : `Eliminar ${nombre} para siempre. No se puede deshacer.\n\nEscribí ELIMINAR para confirmar:`
+    const tipeado = prompt(msg)
+    if (tipeado === null) return
+    if (tipeado.trim() !== (esperado ?? 'ELIMINAR')) {
+      alert('El texto no coincide. No se eliminó nada.')
+      return
+    }
+    const res = await fetch(`/api/obras?id=${o.id}&purgar=1`, { method: 'DELETE' })
+    if (!res.ok) {
+      alert((await res.json().catch(() => ({}))).error ?? 'No se pudo eliminar la obra')
+      return
+    }
+    setObras(prev => prev.filter(x => x.id !== o.id))
   }
 
   const paged      = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
@@ -707,7 +759,31 @@ export default function ObrasPage() {
           Obras
         </h1>
         <span style={{ color: '#333', fontSize: 13, ...mono }}>{filtered.length} registros</span>
+
+        <div style={{ display: 'flex', border: '1px solid #252525' }}>
+          {([
+            ['activas',    'Activas'],
+            ['archivadas', 'Archivadas'],
+          ] as const).map(([v, lbl]) => (
+            <button key={v} onClick={() => setVista(v)} style={{
+              ...mono, fontSize: 13, padding: '5px 14px', cursor: 'pointer',
+              border: 'none', letterSpacing: 0.5,
+              background: vista === v ? '#1e1e1e' : 'transparent',
+              color: vista === v ? (v === 'archivadas' ? '#F5C300' : '#e0e0e0') : '#555',
+            }}>{lbl}</button>
+          ))}
+        </div>
       </div>
+
+      {vista === 'archivadas' && (
+        <div style={{
+          ...mono, fontSize: 13, color: '#F5C300', background: '#2a1f00',
+          border: '1px solid #5a4400', padding: '9px 14px', marginBottom: 16, lineHeight: 1.5,
+        }}>
+          Estas obras no aparecen en la lista ni en la app de campo, pero siguen
+          guardadas. Restaurar las devuelve tal como estaban, con su publicación incluida.
+        </div>
+      )}
 
       {/* Filtros */}
       <div style={{ background: '#191919', border: '1px solid #1e1e1e', padding: '14px 18px',
@@ -767,7 +843,8 @@ export default function ObrasPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: '#141414' }}>
-                {['', 'Tipo', 'Consorcio / Ubicación', 'Tramo / Desc.', 'Cantidad', 'Presupuesto', 'DVP', 'CCC', 'Estado', 'Fecha inicio', ''].map((h, i) => (
+                {['', 'Tipo', 'Consorcio / Ubicación', 'Tramo / Desc.', 'Cantidad', 'Presupuesto', 'DVP', 'CCC', 'Estado',
+                  vista === 'archivadas' ? 'Archivada' : 'Fecha inicio', ''].map((h, i) => (
                   <th key={i} style={{ padding: '10px 14px', color: '#444', fontSize: 12, fontWeight: 600,
                     textAlign: 'left', textTransform: 'uppercase', letterSpacing: 1,
                     borderBottom: '1px solid #1e1e1e', whiteSpace: 'nowrap', ...mono }}>
@@ -797,8 +874,11 @@ export default function ObrasPage() {
                     onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLTableRowElement).style.background = 'rgba(245,195,0,0.04)' }}
                     onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLTableRowElement).style.background = i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.01)' }}
                   >
-                    {/* Botón push */}
+                    {/* Botón push — publicar una obra archivada no tiene sentido */}
                     <td style={{ padding: '8px 6px 8px 14px', width: 1 }}>
+                      {vista === 'archivadas' ? (
+                        <span style={{ color: '#3a3a3a', fontSize: 13, ...mono }}>▲</span>
+                      ) : (
                       <button
                         onClick={e => { e.stopPropagation(); isActive ? setPanelObra(null) : openPanel(o) }}
                         title="Publicar en app"
@@ -814,6 +894,7 @@ export default function ObrasPage() {
                       >
                         ▲
                       </button>
+                      )}
                     </td>
 
                     <td style={{ padding: '10px 14px' }}>
@@ -855,7 +936,18 @@ export default function ObrasPage() {
                       </span>
                     </td>
                     <td style={{ padding: '10px 14px', color: '#555', fontSize: 13, ...mono, whiteSpace: 'nowrap' }}>
-                      {o.fecha_inicio ?? '-'}
+                      {vista === 'archivadas' ? (
+                        <>
+                          {o.archivado_en
+                            ? new Date(o.archivado_en).toLocaleDateString('es-AR')
+                            : '-'}
+                          {o.archivado_por_nombre && (
+                            <div style={{ color: '#3a3a3a', fontSize: 12 }}>
+                              por {o.archivado_por_nombre}
+                            </div>
+                          )}
+                        </>
+                      ) : (o.fecha_inicio ?? '-')}
                     </td>
                     <td style={{ padding: '8px 8px 8px 4px', whiteSpace: 'nowrap' }} onClick={e => e.stopPropagation()}>
                       {/* PDF — solo si tiene snapshot */}
@@ -869,8 +961,8 @@ export default function ObrasPage() {
                           onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#252525'; (e.currentTarget as HTMLButtonElement).style.color = '#444' }}
                         >PDF</button>
                       )}
-                      {/* Editar y Eliminar: solo el creador o admin */}
-                      {canEdit && (
+                      {/* Editar y archivar: solo el creador o admin */}
+                      {canEdit && vista === 'activas' && (
                         <>
                           <button
                             onClick={() => {
@@ -887,13 +979,36 @@ export default function ObrasPage() {
                             onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#252525'; (e.currentTarget as HTMLButtonElement).style.color = '#444' }}
                           >✎</button>
                           <button
-                            onClick={e => handleDelete(o.id, e)}
-                            title="Eliminar"
+                            onClick={e => handleArchivar(o.id, e)}
+                            title="Archivar — se puede recuperar"
                             style={{ background: 'transparent', border: '1px solid #252525', color: '#444',
                               padding: '4px 9px', fontSize: 13, lineHeight: 1, cursor: 'pointer' }}
                             onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#f44336'; (e.currentTarget as HTMLButtonElement).style.color = '#f44336' }}
                             onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#252525'; (e.currentTarget as HTMLButtonElement).style.color = '#444' }}
                           >✕</button>
+                        </>
+                      )}
+
+                      {/* Restaurar, y borrado definitivo sólo para admin */}
+                      {canEdit && vista === 'archivadas' && (
+                        <>
+                          <button
+                            onClick={e => handleRestaurar(o.id, e)}
+                            title="Devolver la obra a la lista"
+                            style={{ background: 'transparent', border: '1px solid #2e6b3e', color: '#7BC47F',
+                              padding: '4px 10px', fontSize: 13, lineHeight: 1, cursor: 'pointer',
+                              marginRight: 4, ...mono }}
+                          >↩ Restaurar</button>
+                          {currentUser?.rol === 'admin' && (
+                            <button
+                              onClick={e => handlePurgar(o, e)}
+                              title="Eliminar definitivamente"
+                              style={{ background: 'transparent', border: '1px solid #252525', color: '#444',
+                                padding: '4px 9px', fontSize: 13, lineHeight: 1, cursor: 'pointer' }}
+                              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#f44336'; (e.currentTarget as HTMLButtonElement).style.color = '#f44336' }}
+                              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#252525'; (e.currentTarget as HTMLButtonElement).style.color = '#444' }}
+                            >🗑</button>
+                          )}
                         </>
                       )}
                     </td>
@@ -904,7 +1019,11 @@ export default function ObrasPage() {
               {paged.length === 0 && (
                 <tr>
                   <td colSpan={11} style={{ padding: 40, textAlign: 'center', color: '#444', ...mono }}>
-                    {obras.length === 0 ? 'No hay obras guardadas todavía.' : 'Sin resultados para los filtros aplicados.'}
+                    {obras.length === 0
+                      ? (vista === 'archivadas'
+                          ? 'No hay obras archivadas.'
+                          : 'No hay obras guardadas todavía.')
+                      : 'Sin resultados para los filtros aplicados.'}
                   </td>
                 </tr>
               )}

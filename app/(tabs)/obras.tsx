@@ -288,7 +288,8 @@ export default function ObrasScreen() {
 
       const myIds: string[] = destRows?.map((r: { obra_id: string }) => r.obra_id) ?? [];
 
-      let query = supabase.from('obras').select('*');
+      // Las obras archivadas en el panel dejan de verse en campo
+      let query = supabase.from('obras').select('*').is('archivado_en', null);
       if (myIds.length > 0) {
         query = query.or(`visible_para.eq.todos,id.in.(${myIds.join(',')})`);
       } else {

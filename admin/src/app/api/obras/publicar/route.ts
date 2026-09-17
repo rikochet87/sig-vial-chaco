@@ -15,9 +15,19 @@ export async function PATCH(req: NextRequest) {
   const supabase = createServiceClient()
 
   // Verificar que el caller sea el creador de la obra o admin
-  const { data: obra } = await supabase.from('obras').select('created_by').eq('id', obra_id).single()
+  const { data: obra } = await supabase
+    .from('obras').select('created_by, archivado_en').eq('id', obra_id).single()
   const denied = await checkOwnerOrAdmin(auth.userId, obra?.created_by)
   if (denied) return denied
+
+  // Despublicar una obra archivada sí tiene sentido (limpia lo que quedó
+  // visible en campo); publicarla, no.
+  if (obra?.archivado_en && tipo !== 'despublicar') {
+    return NextResponse.json(
+      { error: 'La obra está archivada: restaurala antes de publicarla' },
+      { status: 409 },
+    )
+  }
 
   if (tipo === 'despublicar') {
     // Quitar publicación: limpiar visible_para y destinatarios

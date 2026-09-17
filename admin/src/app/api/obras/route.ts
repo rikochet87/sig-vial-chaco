@@ -62,10 +62,16 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(data)
   }
 
+  // ?archivadas=1 → la papelera. Por defecto la lista muestra sólo las activas.
+  const soloArchivadas = searchParams.get('archivadas') === '1'
+
   let query = supabase
     .from('obras')
     .select('*')
-    .order('created_at', { ascending: false })
+    .order(soloArchivadas ? 'archivado_en' : 'created_at', { ascending: false })
+
+  if (soloArchivadas) query = query.not('archivado_en', 'is', null)
+  else                query = query.is('archivado_en', null)
 
   // ?proyecto_ripio_id= → qué obras ya guardó ese proyecto, para ofrecer
   // sobrescribir en vez de duplicar
@@ -76,6 +82,23 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await query
   if (error) return dbError(error)
+
+  // En la vista de archivadas interesa quién archivó. Se resuelve acá y no con
+  // un join porque `obras.archivado_por` apunta a auth.users, no a profiles.
+  if (soloArchivadas && data?.length) {
+    const ids = [...new Set(data.map(o => o.archivado_por).filter(Boolean))] as string[]
+    let nombres = new Map<string, string>()
+    if (ids.length) {
+      const { data: perfiles } = await supabase
+        .from('profiles').select('id, nombre').in('id', ids)
+      nombres = new Map((perfiles ?? []).map(p => [p.id as string, (p.nombre as string) ?? '']))
+    }
+    return NextResponse.json(data.map(o => ({
+      ...o,
+      archivado_por_nombre: o.archivado_por ? (nombres.get(o.archivado_por) || null) : null,
+    })))
+  }
+
   return NextResponse.json(data)
 }
 
@@ -94,6 +117,19 @@ export async function PATCH(req: NextRequest) {
   const { data: profile } = await supabase.from('profiles').select('rol').eq('id', auth.userId).single()
   if (profile?.rol !== 'admin' && obraActual.created_by !== auth.userId) {
     return NextResponse.json({ error: 'No tenés permisos para editar esta obra' }, { status: 403 })
+  }
+
+  // Restaurar desde archivadas. Va antes del update general porque ése pisa
+  // cada campo con `?? null`: llamarlo con sólo el id vaciaría la obra entera.
+  if (fields.restaurar === true) {
+    const { data, error } = await supabase
+      .from('obras')
+      .update({ archivado_en: null, archivado_por: null })
+      .eq('id', id)
+      .select()
+      .single()
+    if (error) return dbError(error)
+    return NextResponse.json(data)
   }
 
   const { data, error } = await supabase
@@ -141,15 +177,42 @@ export async function DELETE(req: NextRequest) {
   const supabase = createServiceClient()
 
   // Verificar propiedad (solo el creador o admin puede eliminar)
-  const { data: obraActual } = await supabase.from('obras').select('created_by').eq('id', id).single()
+  const { data: obraActual } = await supabase
+    .from('obras').select('created_by, archivado_en').eq('id', id).single()
   if (!obraActual) return NextResponse.json({ error: 'Obra no encontrada' }, { status: 404 })
   const { data: profile } = await supabase.from('profiles').select('rol').eq('id', auth.userId).single()
-  if (profile?.rol !== 'admin' && obraActual.created_by !== auth.userId) {
+  const isAdmin = profile?.rol === 'admin'
+  if (!isAdmin && obraActual.created_by !== auth.userId) {
     return NextResponse.json({ error: 'No tenés permisos para eliminar esta obra' }, { status: 403 })
   }
 
-  const { error } = await supabase.from('obras').delete().eq('id', id)
+  // ?purgar=1 → borrado definitivo. Sólo admin y sólo sobre una obra ya
+  // archivada: dos pasos deliberados antes de perder documentación presentada.
+  if (searchParams.get('purgar') === '1') {
+    if (!isAdmin) {
+      return NextResponse.json(
+        { error: 'Sólo un administrador puede eliminar una obra definitivamente' },
+        { status: 403 },
+      )
+    }
+    if (!obraActual.archivado_en) {
+      return NextResponse.json(
+        { error: 'La obra tiene que estar archivada antes de eliminarla definitivamente' },
+        { status: 409 },
+      )
+    }
+    const { error } = await supabase.from('obras').delete().eq('id', id)
+    if (error) return dbError(error)
+    return NextResponse.json({ ok: true, purgada: true })
+  }
+
+  // Borrado normal = archivar. La obra desaparece de la lista pero queda en la
+  // base y se puede restaurar desde la vista de archivadas.
+  const { error } = await supabase
+    .from('obras')
+    .update({ archivado_en: new Date().toISOString(), archivado_por: auth.userId })
+    .eq('id', id)
 
   if (error) return dbError(error)
-  return NextResponse.json({ ok: true })
+  return NextResponse.json({ ok: true, archivada: true })
 }
