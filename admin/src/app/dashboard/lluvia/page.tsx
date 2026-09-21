@@ -311,6 +311,9 @@ export default function LluviaPage() {
           }}>
             <div style={{ fontSize: 11, color: '#666', textTransform: 'uppercase',
               letterSpacing: 1, marginBottom: 6 }}>Acumulado</div>
+            <div style={{ fontSize: 11, color: '#555', marginBottom: 6, lineHeight: 1.4 }}>
+              Los caminos llevan el color de su consorcio
+            </div>
             {UMBRALES.slice().reverse().map(u => (
               <div key={u.nivel} style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 3 }}>
                 <span style={{ width: 11, height: 11, borderRadius: '50%', background: u.color,
@@ -391,11 +394,11 @@ export default function LluviaPage() {
       </div>
 
       <div style={{ ...mono, fontSize: 12, color: '#3a3a3a', marginTop: 8, flexShrink: 0 }}>
-        Cada círculo es un consorcio: el color y el tamaño son los milímetros acumulados
-        en el período, promediados sobre varios puntos de su red vial y ponderados por
-        kilómetros de camino. Datos de Open-Meteo (reanálisis de Copernicus y ECMWF, celda
-        de 9 km): sirven para el orden de magnitud y el patrón espacial, no reemplazan al
-        pluviómetro.
+        Los caminos van pintados con el nivel de lluvia de su consorcio; el círculo, en el
+        centro de gravedad de esa red, resume los milímetros acumulados del período —
+        promediados sobre varios puntos de la red y ponderados por kilómetros de camino.
+        Datos de Open-Meteo (reanálisis de Copernicus y ECMWF, celda de 9 a 11 km): sirven
+        para el orden de magnitud y el patrón espacial, no reemplazan al pluviómetro.
       </div>
     </div>
   )
