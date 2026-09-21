@@ -275,11 +275,35 @@ export interface ResumenConsorcio {
   puntos: number
 }
 
-/** Cuántos puntos de muestreo tiene cada consorcio */
-const PUNTOS_POR_CC = PUNTOS_LLUVIA.reduce<Record<number, number>>((acc, p) => {
-  acc[p.cc] = (acc[p.cc] ?? 0) + 1
-  return acc
-}, {})
+/**
+ * Cuántos puntos tiene cada consorcio y dónde está su centro de medición.
+ *
+ * El centro es el promedio de los puntos de muestreo ponderado por su peso, o
+ * sea el centro de gravedad de la red vial. Ahí va el círculo del mapa: donde
+ * se midió. Dibujarlo en la sede —como estaba— contradecía el dato, porque la
+ * sede está en el pueblo y en 68 de 101 consorcios ni siquiera cae en la celda
+ * donde está el grueso del camino.
+ */
+const RESUMEN_PUNTOS = (() => {
+  const acc = new Map<number, { n: number; lat: number; lng: number; peso: number }>()
+  for (const p of PUNTOS_LLUVIA) {
+    const a = acc.get(p.cc) ?? { n: 0, lat: 0, lng: 0, peso: 0 }
+    a.n++
+    a.lat += p.lat * p.peso
+    a.lng += p.lng * p.peso
+    a.peso += p.peso
+    acc.set(p.cc, a)
+  }
+  const out = new Map<number, { puntos: number; lat: number | null; lng: number | null }>()
+  for (const [cc, a] of acc) {
+    out.set(cc, {
+      puntos: a.n,
+      lat: a.peso > 0 ? a.lat / a.peso : null,
+      lng: a.peso > 0 ? a.lng / a.peso : null,
+    })
+  }
+  return out
+})()
 
 export function resumirPorConsorcio(registros: RegistroLluvia[]): ResumenConsorcio[] {
   const porNumero = new Map<number, RegistroLluvia[]>()
@@ -298,12 +322,17 @@ export function resumirPorConsorcio(registros: RegistroLluvia[]): ResumenConsorc
       if (r.mm > 0) dias++
       if (r.mm > mmMaxDia) { mmMaxDia = r.mm; fechaMaxDia = r.fecha }
     }
+    // El círculo va donde se midió, no en la sede. Sin puntos de muestreo
+    // —caso que hoy no se da— cae a la sede como último recurso.
+    const p = RESUMEN_PUNTOS.get(s.numero)
     return {
-      numero: s.numero, nombre: s.nombre, zona: s.zona, lat: s.lat, lng: s.lng,
+      numero: s.numero, nombre: s.nombre, zona: s.zona,
+      lat: p?.lat ?? s.lat,
+      lng: p?.lng ?? s.lng,
       mm: Math.round(mm * 10) / 10,
       mmMaxDia: Math.round(mmMaxDia * 10) / 10,
       fechaMaxDia, dias,
-      puntos: PUNTOS_POR_CC[s.numero] ?? 0,
+      puntos: p?.puntos ?? 0,
     }
   })
 }

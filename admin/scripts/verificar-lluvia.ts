@@ -118,7 +118,30 @@ ok('CC 2 clasifica fuerte', clasificar(cc(2).mm).nivel, 'fuerte')
 ok('CC 1 clasifica moderada', clasificar(cc(1).mm).nivel, 'moderada')
 ok('CC sin datos queda en 0', cc(50).mm, 0)
 ok('CC sin datos no inventa fecha', cc(50).fechaMaxDia, null)
-ok('conserva coordenadas',  [cc(1).lat === SEDES_CONSORCIOS[0].lat], [true])
+// El círculo va donde se midió, NO en la sede: dibujarlo en el pueblo
+// contradice el dato, que es el promedio sobre la red vial.
+{
+  const sede1 = SEDES_CONSORCIOS.find(s => s.numero === 1)!
+  const lejos = resumen.filter(r => {
+    const s = SEDES_CONSORCIOS.find(x => x.numero === r.numero)!
+    return Math.abs(r.lat - s.lat) > 1e-5 || Math.abs(r.lng - s.lng) > 1e-5
+  })
+  ok('el centro no es la sede (CC 1)',
+    Math.abs(cc(1).lat - sede1.lat) > 1e-5 || Math.abs(cc(1).lng - sede1.lng) > 1e-5, true)
+  ok('casi ningún consorcio queda centrado en su sede', lejos.length >= 100, true)
+  ok('todos los centros dentro de Chaco',
+    resumen.every(r => r.lat < -24 && r.lat > -28.5 && r.lng < -58 && r.lng > -63.5), true)
+  // El centro tiene que caer dentro de la nube de puntos del consorcio
+  const fuera = resumen.filter(r => {
+    const ps = PUNTOS_LLUVIA.filter(p => p.cc === r.numero)
+    if (!ps.length) return false
+    return r.lat > Math.max(...ps.map(p => p.lat)) + 1e-6
+        || r.lat < Math.min(...ps.map(p => p.lat)) - 1e-6
+        || r.lng > Math.max(...ps.map(p => p.lng)) + 1e-6
+        || r.lng < Math.min(...ps.map(p => p.lng)) - 1e-6
+  })
+  ok('el centro cae dentro de sus puntos de muestreo', fuera.map(r => r.numero), [])
+}
 
 console.log('\n— Detección de episodios —')
 const eps = detectarEpisodios(registros)
