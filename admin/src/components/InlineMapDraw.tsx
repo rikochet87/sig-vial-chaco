@@ -302,7 +302,7 @@ export default function InlineMapDraw({ color, hideMonte = false, onConfirm, onD
 
     // Tooltip permanente en el centroide
     layer.bindTooltip(
-      `<span style="font-family:monospace;font-size:9px;color:${sideColor};white-space:nowrap">${sideLbl}</span>`,
+      `<span style="font-family:monospace;font-size:11px;color:${sideColor};white-space:nowrap">${sideLbl}</span>`,
       { permanent: true, direction: 'center', className: 'desb-label' }
     )
 
@@ -310,18 +310,18 @@ export default function InlineMapDraw({ color, hideMonte = false, onConfirm, onD
     layer.bindPopup(`
       <div style="font-family:monospace;font-size:11px;color:#ccc;padding:10px 14px;min-width:180px">
         <div style="color:${sideColor};font-weight:700;font-size:12px;margin-bottom:2px">${sideLbl}</div>
-        ${!hideMonte ? `<div style="color:#555;font-size:9px;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">${monteOpt.label}</div>` : ''}
+        ${!hideMonte ? `<div style="color:#555;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">${monteOpt.label}</div>` : ''}
         <div style="color:#aaa;margin-bottom:10px">
           <span style="font-weight:700;font-size:13px">${area_ha.toFixed(4)} ha</span>
-          ${!hideMonte ? `<span style="color:#555;margin-left:6px;font-size:9px">~${vol} m³ arb.</span>` : ''}
+          ${!hideMonte ? `<span style="color:#555;margin-left:6px;font-size:11px">~${vol} m³ arb.</span>` : ''}
         </div>
         <div style="display:flex;gap:6px">
           <button onclick="window.__desbEdit('${id}')"
-            style="flex:1;background:#0a160a;border:1px solid #2a4a2a;color:#6d6;padding:5px 8px;cursor:pointer;font-family:monospace;font-size:10px;border-radius:2px">
+            style="flex:1;background:#0a160a;border:1px solid #2a4a2a;color:#6d6;padding:5px 8px;cursor:pointer;font-family:monospace;font-size:11px;border-radius:2px">
             ✎ Editar
           </button>
           <button onclick="window.__desbDelete('${id}')"
-            style="flex:1;background:#160a0a;border:1px solid #4a2a2a;color:#d66;padding:5px 8px;cursor:pointer;font-family:monospace;font-size:10px;border-radius:2px">
+            style="flex:1;background:#160a0a;border:1px solid #4a2a2a;color:#d66;padding:5px 8px;cursor:pointer;font-family:monospace;font-size:11px;border-radius:2px">
             × Eliminar
           </button>
         </div>
@@ -654,7 +654,7 @@ export default function InlineMapDraw({ color, hideMonte = false, onConfirm, onD
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             onEachFeature: (_: any, layer: any) => {
               layer.bindTooltip(
-                `<span style="font-family:monospace;font-size:9px;color:${c}">Zona ${z}</span>`,
+                `<span style="font-family:monospace;font-size:11px;color:${c}">Zona ${z}</span>`,
                 { permanent: true, direction: 'center', className: 'desb-label' }
               )
             },
@@ -671,8 +671,8 @@ export default function InlineMapDraw({ color, hideMonte = false, onConfirm, onD
           const c = s.color || '#F5C300'
           const icon = Lf.divIcon({
             className: '',
-            html: `<div style="width:16px;height:16px;border-radius:50%;background:${c};border:2px solid #111;display:flex;align-items:center;justify-content:center;font-size:6px;font-weight:800;color:#111;box-shadow:0 2px 5px rgba(0,0,0,.7)">${s.numero}</div>`,
-            iconSize: [16, 16], iconAnchor: [8, 8],
+            html: `<div style="width:22px;height:22px;border-radius:50%;background:${c};border:2px solid #111;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#111;box-shadow:0 2px 5px rgba(0,0,0,.7)">${s.numero}</div>`,
+            iconSize: [22, 22], iconAnchor: [11, 11],
           })
           Lf.marker([s.lat, s.lng] as [number, number], { icon })
             .bindTooltip(

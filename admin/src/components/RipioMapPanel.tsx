@@ -346,12 +346,12 @@ export default function RipioMapPanel({
         title.textContent = r.nombre
 
         const info = document.createElement('div')
-        info.style.cssText = 'color:#888;font-size:10px;margin-bottom:8px'
+        info.style.cssText = 'color:#888;font-size:11px;margin-bottom:8px'
         info.textContent = `${fmtL(r.l_m)} · ${r.an}m ancho`
 
         const btn = document.createElement('button')
         btn.textContent = '✕ Eliminar ripio'
-        btn.style.cssText = 'font-family:monospace;font-size:10px;cursor:pointer;background:#1a0000;border:1px solid #550000;color:#ff6666;padding:4px 8px;width:100%'
+        btn.style.cssText = 'font-family:monospace;font-size:11px;cursor:pointer;background:#1a0000;border:1px solid #550000;color:#ff6666;padding:4px 8px;width:100%'
         btn.addEventListener('click', () => { map.closePopup(); onDeleteRipioRef.current?.(r.id) })
 
         wrap.appendChild(title); wrap.appendChild(info); wrap.appendChild(btn)
@@ -379,7 +379,7 @@ export default function RipioMapPanel({
       }).addTo(map)
 
       line.bindTooltip(
-        `<div style="font-family:monospace;font-size:10px">` +
+        `<div style="font-family:monospace;font-size:11px">` +
         `<span style="color:${clr};font-weight:700">${r.nombre}</span>` +
         `<br><span style="color:#aaa">${fmtL(r.l_m)} · ${r.an}m ancho</span>` +
         `</div>`,
@@ -855,7 +855,7 @@ export default function RipioMapPanel({
           box-shadow: none !important;
           color: #777 !important;
           font-family: monospace !important;
-          font-size: 9px !important;
+          font-size:11px !important;
         }
         .leaflet-control-layers-toggle {
           background-color: #111 !important;
@@ -864,7 +864,7 @@ export default function RipioMapPanel({
           background-size: 16px 16px !important;
           filter: invert(0.5) !important;
         }
-        .leaflet-control-layers label { color: #777 !important; font-size: 10px !important; font-family: monospace !important; }
+        .leaflet-control-layers label { color: #777 !important; font-size:11px !important; font-family: monospace !important; }
         .leaflet-control-layers-separator { border-top-color: #1a1a1a !important; }
         .leaflet-control-layers input[type=radio] { accent-color: #90A4AE; }
         /* Popup de contexto de ripio */

@@ -105,7 +105,7 @@ const MAP_HTML = `<!DOCTYPE html>
     padding:3px 10px;border-radius:2px;pointer-events:none;z-index:999;white-space:nowrap}
   #toolbar{position:absolute;top:6px;right:6px;z-index:999;display:flex;flex-direction:column;gap:4px}
   #toolbar button{background:rgba(0,0,0,0.8);border:1px solid #333;color:#aaa;
-    font-family:monospace;font-size:10px;padding:4px 8px;cursor:pointer;border-radius:2px}
+    font-family:monospace;font-size:11px;padding:4px 8px;cursor:pointer;border-radius:2px}
   #toolbar button:hover{background:#222;color:#eee}
 </style>
 </head>

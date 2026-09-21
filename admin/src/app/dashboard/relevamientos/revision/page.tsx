@@ -855,7 +855,7 @@ function LeafletRevisionMap({
         deactivate(vtxMarkers)
         onInsertRef.current(i, midLat, midLng)
       })
-      mid.bindTooltip('<div style="font-family:monospace;font-size:10px;color:#aaa;background:#0e0e0e;padding:3px 7px;border:1px solid #333;border-radius:3px">+ Insertar vértice</div>', { direction: 'top' })
+      mid.bindTooltip('<div style="font-family:monospace;font-size:11px;color:#aaa;background:#0e0e0e;padding:3px 7px;border:1px solid #333;border-radius:3px">+ Insertar vértice</div>', { direction: 'top' })
       mid.addTo(map)
       midMarkers.push(mid)
     }
@@ -909,7 +909,7 @@ function LeafletRevisionMap({
       return Lf.marker([pt.lat, pt.lng] as [number, number], {
         icon: Lf.divIcon({
           className: '',
-          html: `<div style="font-family:monospace;font-size:9px;color:#F5C300;background:#0e0e0ecc;padding:1px 4px;border:1px solid #F5C30044;border-radius:2px;white-space:nowrap">${fmtPK(pt.prog ?? 0)}</div>`,
+          html: `<div style="font-family:monospace;font-size:11px;color:#F5C300;background:#0e0e0ecc;padding:1px 4px;border:1px solid #F5C30044;border-radius:2px;white-space:nowrap">${fmtPK(pt.prog ?? 0)}</div>`,
           iconAnchor: [0, 0],
         }),
         interactive: false,

@@ -55,9 +55,19 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
    */
   if (body.restaurar === true) {
     const marca = { archivado_en: null, archivado_por: null }
-    const { error: errR } = await supabase
-      .from('ripios').update(marca).eq('proyecto_id', id)
-    if (errR) return dbError(errR)
+
+    // Sólo vuelven los tramos que se archivaron junto con el proyecto, no los
+    // que se habían borrado antes de a uno: restaurar el proyecto no debe
+    // resucitar un tramo que alguien había sacado a propósito.
+    const { data: prev } = await supabase
+      .from('proyectos_ripio').select('archivado_en').eq('id', id).single()
+
+    if (prev?.archivado_en) {
+      const { error: errR } = await supabase
+        .from('ripios').update(marca)
+        .eq('proyecto_id', id).eq('archivado_en', prev.archivado_en)
+      if (errR) return dbError(errR)
+    }
 
     const { data, error: errP } = await supabase
       .from('proyectos_ripio').update(marca).eq('id', id).select().single()

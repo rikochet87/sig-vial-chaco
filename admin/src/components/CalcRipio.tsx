@@ -33,6 +33,8 @@ interface Proyecto {
   analisis?: unknown
   /** Nombre de quien lo creó; lo resuelve la API desde profiles */
   creador?: string | null
+  /** Con fecha = archivado; sólo aparece al pedir la papelera */
+  archivado_en?: string | null
 }
 
 /** Obra ya guardada a partir de este proyecto */
@@ -130,6 +132,17 @@ export default function CalcRipio({ onGuardarObra, focoObra, obraEnEdicionId }: 
    */
   const [obrasPrevias, setObrasPrevias] = useState<ObraGuardada[] | null>(null)
   const [buscandoObras, setBuscandoObras] = useState(false)
+
+  /**
+   * Papelera de proyectos.
+   *
+   * Borrar un proyecto lo archiva desde hace rato, pero no había forma de
+   * verlos: el dato estaba a salvo y era irrecuperable al mismo tiempo, que
+   * para el usuario es lo mismo que haberlo perdido.
+   */
+  const [papeleraAbierta, setPapeleraAbierta] = useState(false)
+  const [archivados, setArchivados] = useState<Proyecto[] | null>(null)
+  const [restaurando, setRestaurando] = useState<string | null>(null)
   const [hiddenProyIds, setHiddenProyIds] = useState<Set<string>>(new Set())  // proyectos ocultos en el mapa
   /**
    * Proyectos desplegados en el árbol.
@@ -534,10 +547,16 @@ export default function CalcRipio({ onGuardarObra, focoObra, obraEnEdicionId }: 
         <span style={{ fontSize: 11, color: '#666', ...MONO, textTransform: 'uppercase', letterSpacing: 1.2 }}>
           Proyectos
         </span>
-        <button onClick={addProyecto} style={{
-          fontSize: 12, ...MONO, cursor: 'pointer', whiteSpace: 'nowrap',
-          background: 'transparent', border: '1px solid #333', color: '#aaa', padding: '2px 8px',
-        }}>+ Nuevo</button>
+        <div style={{ display: 'flex', gap: 4 }}>
+          <button onClick={abrirPapelera} title="Proyectos archivados" style={{
+            fontSize: 12, ...MONO, cursor: 'pointer', whiteSpace: 'nowrap',
+            background: 'transparent', border: '1px solid #333', color: '#777', padding: '2px 7px',
+          }}>🗄</button>
+          <button onClick={addProyecto} style={{
+            fontSize: 12, ...MONO, cursor: 'pointer', whiteSpace: 'nowrap',
+            background: 'transparent', border: '1px solid #333', color: '#aaa', padding: '2px 8px',
+          }}>+ Nuevo</button>
+        </div>
       </div>
 
       {/* Lista */}
@@ -1029,6 +1048,94 @@ export default function CalcRipio({ onGuardarObra, focoObra, obraEnEdicionId }: 
     </div>
   )
 
+  // ── Papelera de proyectos ────────────────────────────────────────────────
+  const renderPapelera = () => papeleraAbierta && (
+    <div
+      style={{
+        position: 'fixed', inset: 0, zIndex: 9999,
+        background: 'rgba(0,0,0,0.78)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}
+      onClick={() => setPapeleraAbierta(false)}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          background: '#0d0d0d', border: '1px solid #2a2a2a',
+          padding: '22px 26px', minWidth: 460, maxWidth: 620,
+          maxHeight: '80vh', overflowY: 'auto',
+          boxShadow: '0 6px 32px rgba(0,0,0,0.8)',
+        }}
+      >
+        <div style={{ fontSize: 12, color: COLOR, ...MONO, letterSpacing: 1,
+          textTransform: 'uppercase', marginBottom: 6 }}>
+          Proyectos archivados
+        </div>
+        <div style={{ fontSize: 13, color: '#777', ...MONO, marginBottom: 18, lineHeight: 1.6 }}>
+          Borrar un proyecto lo saca del cómputo pero no lo destruye. Restaurar
+          lo devuelve con sus tramos y su análisis, tal como estaba.
+        </div>
+
+        {archivados === null && (
+          <div style={{ fontSize: 13, color: '#555', ...MONO, padding: '14px 0' }}>Cargando…</div>
+        )}
+
+        {archivados?.length === 0 && (
+          <div style={{ fontSize: 13, color: '#555', ...MONO, padding: '14px 0' }}>
+            No hay proyectos archivados.
+          </div>
+        )}
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 18 }}>
+          {(archivados ?? []).map(p => {
+            const m = p.ripios.reduce((s, r) => s + r.l_m, 0)
+            return (
+              <div key={p.id} style={{
+                display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px',
+                background: '#101010', border: '1px solid #222', ...MONO,
+              }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, color: '#ccc', fontWeight: 700,
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {p.nombre}
+                  </div>
+                  <div style={{ fontSize: 12, color: '#555', marginTop: 3, lineHeight: 1.5 }}>
+                    {p.ripios.length} tramo{p.ripios.length === 1 ? '' : 's'}
+                    {m > 0 ? ` · ${fmt(m)} m` : ''}
+                    {p.creador ? ` · ${p.creador}` : ''}
+                    {p.archivado_en
+                      ? ` · archivado el ${new Date(p.archivado_en).toLocaleDateString('es-AR')}`
+                      : ''}
+                  </div>
+                </div>
+                <button
+                  onClick={() => restaurarProyecto(p)}
+                  disabled={restaurando === p.id}
+                  style={{
+                    fontSize: 13, ...MONO, whiteSpace: 'nowrap',
+                    cursor: restaurando === p.id ? 'default' : 'pointer',
+                    padding: '6px 14px', background: 'transparent',
+                    border: '1px solid #2e6b3e', color: '#7BC47F', fontWeight: 700,
+                  }}
+                >{restaurando === p.id ? '…' : '↩ Restaurar'}</button>
+              </div>
+            )
+          })}
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <button
+            onClick={() => setPapeleraAbierta(false)}
+            style={{
+              fontSize: 13, ...MONO, cursor: 'pointer', padding: '7px 16px',
+              background: 'transparent', border: '1px solid #252525', color: '#666',
+            }}
+          >Cerrar</button>
+        </div>
+      </div>
+    </div>
+  )
+
   // ── Sobrescribir o duplicar ──────────────────────────────────────────────
   /**
    * Este proyecto ya guardó obras: hay que preguntar.
@@ -1291,6 +1398,42 @@ export default function CalcRipio({ onGuardarObra, focoObra, obraEnEdicionId }: 
     const datos = armarDatosObra()
     setObrasPrevias(null)
     if (datos) onGuardarObra?.(datos)
+  }
+
+  // ── Papelera ──────────────────────────────────────────────────────────────
+  async function abrirPapelera() {
+    setPapeleraAbierta(true)
+    setArchivados(null)
+    try {
+      const r = await fetch('/api/proyectos-ripio?archivados=1')
+      setArchivados(r.ok ? await r.json() : [])
+    } catch {
+      setArchivados([])
+    }
+  }
+
+  async function restaurarProyecto(p: Proyecto) {
+    setRestaurando(p.id)
+    try {
+      const r = await fetch(`/api/proyectos-ripio/${p.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ restaurar: true }),
+      })
+      if (!r.ok) throw new Error('No se pudo restaurar')
+
+      // Recargar en vez de insertar a mano: el proyecto vuelve con sus tramos y
+      // su análisis, y el orden lo define la API.
+      const lista: Proyecto[] = await fetch('/api/proyectos-ripio').then(x => x.json())
+      setProyectos(lista)
+      setActiveProyId(p.id)
+      setExpandidos(prev => new Set(prev).add(p.id))
+      setArchivados(prev => (prev ?? []).filter(x => x.id !== p.id))
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'No se pudo restaurar el proyecto')
+    } finally {
+      setRestaurando(null)
+    }
   }
 
   // Las referencias de la composición muestran lo mismo que el presupuesto:
@@ -1685,6 +1828,7 @@ export default function CalcRipio({ onGuardarObra, focoObra, obraEnEdicionId }: 
       {/* Modal de confirmación (fuera del tab para que siempre esté disponible) */}
       {renderConfirm()}
       {renderElegirObra()}
+      {renderPapelera()}
     </div>
   )
 }

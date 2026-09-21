@@ -157,7 +157,7 @@ export default function DesmMapPanel({ tramosMap, pendingColor, onLineDone, onDr
       .desm-label .leaflet-tooltip-content { padding:0; }
       .desm-prog { background:rgba(10,10,10,0.88)!important;border:1px solid #333!important;border-radius:2px!important;
         box-shadow:0 1px 4px rgba(0,0,0,.6)!important;padding:1px 5px!important;
-        font-family:monospace!important;font-size:9px!important;color:#aaa!important;white-space:nowrap!important; }
+        font-family:monospace!important;font-size:11px!important;color:#aaa!important;white-space:nowrap!important; }
       .desm-prog::before { display:none!important; }
     `
     document.head.appendChild(s)
@@ -245,7 +245,7 @@ export default function DesmMapPanel({ tramosMap, pendingColor, onLineDone, onDr
       const group = Lf.layerGroup().addTo(map)
       Lf.polyline(tramo.coords, { color: tramo.color, weight: 4, opacity: 0.92 })
         .bindTooltip(
-          `<span style="font-family:monospace;font-size:10px;color:${tramo.color};font-weight:700">${tramo.label}</span>`,
+          `<span style="font-family:monospace;font-size:11px;color:${tramo.color};font-weight:700">${tramo.label}</span>`,
           { permanent: true, direction: 'center', className: 'desm-label' }
         ).addTo(group)
       // Progresivas del tramo confirmado
@@ -488,7 +488,7 @@ export default function DesmMapPanel({ tramosMap, pendingColor, onLineDone, onDr
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             onEachFeature: (_: any, layer: any) => {
               layer.bindTooltip(
-                `<span style="font-family:monospace;font-size:9px;color:${c}">Zona ${z}</span>`,
+                `<span style="font-family:monospace;font-size:11px;color:${c}">Zona ${z}</span>`,
                 { permanent: true, direction: 'center', className: 'desm-label' }
               )
             },
@@ -502,7 +502,7 @@ export default function DesmMapPanel({ tramosMap, pendingColor, onLineDone, onDr
           const c = s.color || '#F5C300'
           const icon = Lf.divIcon({
             className: '',
-            html: `<div style="width:14px;height:14px;border-radius:50%;background:${c};border:2px solid #111;display:flex;align-items:center;justify-content:center;font-size:6px;font-weight:800;color:#111;box-shadow:0 2px 5px rgba(0,0,0,.7)">${s.numero}</div>`,
+            html: `<div style="width:22px;height:22px;border-radius:50%;background:${c};border:2px solid #111;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#111;box-shadow:0 2px 5px rgba(0,0,0,.7)">${s.numero}</div>`,
             iconSize: [14,14], iconAnchor: [7,7],
           })
           Lf.marker([s.lat, s.lng] as LatLng, { icon })

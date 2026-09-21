@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { requireAdmin, dbError, requireFields } from '@/lib/apiAuth'
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const auth = await requireAdmin()
   if (auth instanceof NextResponse) return auth
   const supabase = createServiceClient()
@@ -11,12 +11,17 @@ export async function GET() {
   const { data: profile } = await supabase.from('profiles').select('rol').eq('id', auth.userId).single()
   const isAdmin = profile?.rol === 'admin'
 
+  // ?archivados=1 → la papelera de la calculadora
+  const soloArchivados = new URL(req.url).searchParams.get('archivados') === '1'
+
   let query = supabase
     .from('proyectos_ripio')
     .select('*, ripios(*)')
-    .is('archivado_en', null)
     .order('created_at', { ascending: true })
     .order('orden', { ascending: true, referencedTable: 'ripios' })
+
+  if (soloArchivados) query = query.not('archivado_en', 'is', null)
+  else                query = query.is('archivado_en', null)
 
   if (!isAdmin) query = query.eq('user_id', auth.userId)
 
@@ -26,10 +31,14 @@ export async function GET() {
   // Los tramos archivados se filtran acá y no en la consulta: filtrar un
   // recurso embebido en PostgREST cambia la semántica del join, y el volumen
   // es chico como para no complicarlo.
+  //
+  // En la papelera es al revés: interesan los tramos que se archivaron junto
+  // con el proyecto, que son los que volverían al restaurarlo.
   const data = (crudo ?? []).map(p => ({
     ...p,
     ripios: Array.isArray(p.ripios)
-      ? (p.ripios as Record<string, unknown>[]).filter(r => !r.archivado_en)
+      ? (p.ripios as Record<string, unknown>[]).filter(r =>
+          soloArchivados ? r.archivado_en === p.archivado_en : !r.archivado_en)
       : [],
   }))
 

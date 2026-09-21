@@ -42,22 +42,22 @@ const POPUP_CSS = `
 .pn  { width: 34px; height: 34px; border-radius: 50%; background: rgba(0,0,0,.25);
        display: flex; align-items: center; justify-content: center;
        font-size: 14px; font-weight: 800; color: #fff; flex-shrink: 0; }
-.pl  { color: #fff; font-size: 12px; font-weight: 700; line-height: 1.3; }
-.pz  { color: rgba(255,255,255,.8); font-size: 10px; margin-top: 2px; }
+.pl  { color: #fff; font-size: 13px; font-weight: 700; line-height: 1.3; }
+.pz  { color: rgba(255,255,255,.8); font-size: 11px; margin-top: 2px; }
 .pb  { padding: 6px 10px 8px; }
 .pr  { display: flex; align-items: center; margin-bottom: 3px; }
-.ps  { font-size: 10px; color: #7a8aaa; text-transform: uppercase;
+.ps  { font-size: 11px; color: #7a8aaa; text-transform: uppercase;
        letter-spacing: .5px; margin-bottom: 4px; }
 .plb { font-size: 11px; color: #7a8aaa; width: 100px; }
 .pv  { font-size: 11px; color: #e0e6f0; font-weight: 600; flex: 1; }
 .ks  { display: flex; gap: 4px; margin-top: 8px; }
 .kc  { flex: 1; background: #252d40; border-radius: 5px; padding: 5px; text-align: center; }
-.kv  { font-size: 11px; font-weight: 800; color: #e0e6f0; }
-.kl  { font-size: 9px; color: #7a8aaa; margin-top: 1px; }
+.kv  { font-size: 12px; font-weight: 800; color: #e0e6f0; }
+.kl  { font-size: 11px; color: #7a8aaa; margin-top: 1px; }
 .poi-popup { background: #1e2436; border: 1px solid #2a3045; border-radius: 8px;
              padding: 8px 10px; }
-.poi-name  { color: #e0e6f0; font-size: 12px; font-weight: 700; }
-.poi-type  { color: #7a8aaa; font-size: 10px; margin-top: 2px; }
+.poi-name  { color: #e0e6f0; font-size: 13px; font-weight: 700; }
+.poi-type  { color: #7a8aaa; font-size: 11px; margin-top: 2px; }
 `
 
 // ── Helpers HTML de popups ───────────────────────────────────────────────────
@@ -1060,12 +1060,12 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
         return L.divIcon({
           className: '',
           html: `<div style="width:14px;height:14px;border-radius:50%;background:${fc};border:2px solid #111;cursor:grab;box-shadow:0 2px 4px rgba(0,0,0,.6)"></div>`,
-          iconSize: [14, 14], iconAnchor: [7, 7],
+          iconSize: [18, 18], iconAnchor: [9, 9],
         })
       }
       const makeLblIcon = (d: number) => L.divIcon({
         className: '', iconAnchor: [0, 8],
-        html: `<div style="background:#1e2436;color:#F5C300;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;border:1px solid rgba(245,195,0,.4);white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,.5)">${fmtDist(d)}</div>`,
+        html: `<div style="background:#1e2436;color:#F5C300;font-size:11px;font-weight:700;padding:2px 6px;border-radius:4px;border:1px solid rgba(245,195,0,.4);white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,.5)">${fmtDist(d)}</div>`,
       })
 
       // Crear segmentos y etiquetas primero (z-order debajo de los vértices)
@@ -1155,7 +1155,7 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
       const makeVtxIcon = (i: number) => L.divIcon({
         className: '',
         html: `<div style="width:14px;height:14px;border-radius:50%;background:${i === 0 ? '#27ae60' : '#e0e0e0'};border:2px solid #111;cursor:grab;box-shadow:0 2px 4px rgba(0,0,0,.6)"></div>`,
-        iconSize: [14, 14], iconAnchor: [7, 7],
+        iconSize: [18, 18], iconAnchor: [9, 9],
       })
 
       // Crear polígono/polilínea primero (z-order debajo de vértices)
@@ -1247,7 +1247,7 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
       const centerIcon = L.divIcon({
         className: '',
         html: `<div style="width:16px;height:16px;border-radius:50%;background:#e67e22;border:2px solid #fff;cursor:grab;box-shadow:0 2px 6px rgba(0,0,0,.6)"></div>`,
-        iconSize: [16, 16], iconAnchor: [8, 8],
+        iconSize: [18, 18], iconAnchor: [9, 9],
       })
       const centerMk = L.marker([pts[0].lat, pts[0].lng], { icon: centerIcon, draggable: true, zIndexOffset: 600 })
       centerMk.on('drag', () => {
@@ -1280,7 +1280,7 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
         const radiusIcon = L.divIcon({
           className: '',
           html: `<div style="width:14px;height:14px;border-radius:50%;background:#fff;border:2px solid #e67e22;cursor:grab;box-shadow:0 2px 4px rgba(0,0,0,.5)"></div>`,
-          iconSize: [14, 14], iconAnchor: [7, 7],
+          iconSize: [18, 18], iconAnchor: [9, 9],
         })
         const radiusMk = L.marker([pts[1].lat, pts[1].lng], { icon: radiusIcon, draggable: true, zIndexOffset: 500 })
         radiusMk.on('drag', () => {
@@ -1505,8 +1505,8 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
         const c = s.color || '#F5C300'
         const icon = L.divIcon({
           className: '',
-          html: `<div style="width:18px;height:18px;border-radius:50%;background:${c};border:2px solid #fff;display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:800;color:#fff;box-shadow:0 2px 6px rgba(0,0,0,.5)">${s.numero}</div>`,
-          iconSize: [18, 18], iconAnchor: [9, 9],
+          html: `<div style="width:22px;height:22px;border-radius:50%;background:${c};border:2px solid #fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;box-shadow:0 2px 6px rgba(0,0,0,.5)">${s.numero}</div>`,
+          iconSize: [22, 22], iconAnchor: [11, 11],
         })
         L.marker([s.lat, s.lng], { icon })
           .bindPopup(sedePopupHtml(s), { maxWidth: 280 })
@@ -1521,8 +1521,8 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
           pointToLayer(_, latlng) {
             const icon = L.divIcon({
               className: '',
-              html: `<div style="width:16px;height:16px;border-radius:50%;background:#e74c3c;border:2px solid #fff;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:12px;box-shadow:0 2px 4px rgba(0,0,0,.4)">+</div>`,
-              iconSize: [16, 16], iconAnchor: [8, 8],
+              html: `<div style="width:18px;height:18px;border-radius:50%;background:#e74c3c;border:2px solid #fff;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:12px;box-shadow:0 2px 4px rgba(0,0,0,.4)">+</div>`,
+              iconSize: [18, 18], iconAnchor: [9, 9],
             })
             return L.marker(latlng, { icon })
           },
@@ -1554,8 +1554,8 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
           pointToLayer(_, latlng) {
             const icon = L.divIcon({
               className: '',
-              html: `<div style="width:14px;height:14px;border-radius:50%;background:#e91e63;border:2px solid #fff;box-shadow:0 2px 4px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;color:#fff;font-size:9px;font-weight:800">✚</div>`,
-              iconSize: [14, 14], iconAnchor: [7, 7],
+              html: `<div style="width:18px;height:18px;border-radius:50%;background:#e91e63;border:2px solid #fff;box-shadow:0 2px 4px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:800">✚</div>`,
+              iconSize: [18, 18], iconAnchor: [9, 9],
             })
             return L.marker(latlng, { icon })
           },
@@ -1583,8 +1583,8 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
         pointToLayer(_, latlng) {
           const icon = L.divIcon({
             className: '',
-            html: `<div style="width:14px;height:14px;border-radius:50%;background:#1565C0;border:2px solid #fff;box-shadow:0 2px 4px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;color:#fff;font-size:8px;font-weight:800">📚</div>`,
-            iconSize: [14, 14], iconAnchor: [7, 7],
+            html: `<div style="width:18px;height:18px;border-radius:50%;background:#1565C0;border:2px solid #fff;box-shadow:0 2px 4px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:800">📚</div>`,
+            iconSize: [18, 18], iconAnchor: [9, 9],
           })
           return L.marker(latlng, { icon })
         },
@@ -1770,7 +1770,7 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
             .addTo(group)
           const dot = 22  // tamaño fijo para marcadores inicio/fin, independiente del weight de la línea
           const mkHtml = (label: string, bg: string) =>
-            `<div style="width:${dot}px;height:${dot}px;border-radius:50%;background:${bg};border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;color:#fff;letter-spacing:.3px">${label}</div>`
+            `<div style="width:${dot}px;height:${dot}px;border-radius:50%;background:${bg};border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;letter-spacing:.3px">${label}</div>`
           const [startLat, startLng] = positions[0]
           const [endLat,   endLng]   = positions[positions.length - 1]
           L.marker([startLat, startLng], { icon: L.divIcon({
@@ -1828,11 +1828,11 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
         const estadoLabel = o.estado === 'planificada' ? 'Planificada' : o.estado === 'en_curso' ? 'En curso' : o.estado === 'ejecutada' ? 'Ejecutada' : o.estado
         const popHtml = `<div style="padding:8px 10px;font-family:monospace;min-width:180px">
           <div style="font-size:12px;font-weight:700;color:${color};margin-bottom:4px">${label}</div>
-          ${o.descripcion ? `<div style="font-size:10px;color:#aaa;margin-bottom:3px">${o.descripcion}</div>` : ''}
-          ${o.ubicacion   ? `<div style="font-size:10px;color:#666;margin-bottom:3px">${o.ubicacion}</div>`   : ''}
-          <div style="font-size:9px;color:#555;text-transform:uppercase;letter-spacing:.5px">${estadoLabel}</div>
-          ${o.presupuesto_total ? `<div style="font-size:10px;color:#888;margin-top:3px">$ ${Math.round(o.presupuesto_total).toLocaleString('es-AR')}</div>` : ''}
-          <div style="margin-top:6px;text-align:right"><a href="/dashboard/obras" style="color:#F5C300;font-size:10px;font-weight:700;text-decoration:none">Ver obras →</a></div>
+          ${o.descripcion ? `<div style="font-size:11px;color:#aaa;margin-bottom:3px">${o.descripcion}</div>` : ''}
+          ${o.ubicacion   ? `<div style="font-size:11px;color:#666;margin-bottom:3px">${o.ubicacion}</div>`   : ''}
+          <div style="font-size:11px;color:#555;text-transform:uppercase;letter-spacing:.5px">${estadoLabel}</div>
+          ${o.presupuesto_total ? `<div style="font-size:11px;color:#888;margin-top:3px">$ ${Math.round(o.presupuesto_total).toLocaleString('es-AR')}</div>` : ''}
+          <div style="margin-top:6px;text-align:right"><a href="/dashboard/obras" style="color:#F5C300;font-size:11px;font-weight:700;text-decoration:none">Ver obras →</a></div>
         </div>`
 
         // Parseo defensivo de coords_linea (puede llegar como JSONB array o string)
@@ -1851,7 +1851,7 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
             .addTo(group)
           const dot = 22
           const mkHtml = (lbl: string, bg: string) =>
-            `<div style="width:${dot}px;height:${dot}px;border-radius:50%;background:${bg};border:2.5px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;color:#fff">${lbl}</div>`
+            `<div style="width:${dot}px;height:${dot}px;border-radius:50%;background:${bg};border:2.5px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff">${lbl}</div>`
           const [s0, s1] = positions[0]
           const [e0, e1] = positions[positions.length - 1]
           L.marker([s0, s1] as [number,number], { icon: L.divIcon({ className: '', html: mkHtml('INI', color), iconSize: [dot,dot], iconAnchor: [dot/2,dot/2] }) })

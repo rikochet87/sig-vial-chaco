@@ -287,7 +287,7 @@ export default function InlineLineDraw({ color, halfWidth, onConfirm, onCancel }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const line = (Lf as any).polyline(pts as [number,number][], { color, weight: 4, opacity: 0.95 }).addTo(map)
     line.bindTooltip(
-      `<span style="font-family:monospace;font-size:10px;color:${color};font-weight:700">${fmtL(lengthM)}</span>`,
+      `<span style="font-family:monospace;font-size:11px;color:${color};font-weight:700">${fmtL(lengthM)}</span>`,
       { permanent: true, direction: 'center', className: 'linedraw-label' }
     )
     layers.push(line)
@@ -500,7 +500,7 @@ export default function InlineLineDraw({ color, halfWidth, onConfirm, onCancel }
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             onEachFeature: (_: any, layer: any) => {
               layer.bindTooltip(
-                `<span style="font-family:monospace;font-size:9px;color:${c}">Zona ${z}</span>`,
+                `<span style="font-family:monospace;font-size:11px;color:${c}">Zona ${z}</span>`,
                 { permanent: true, direction: 'center', className: 'linedraw-label' }
               )
             },
@@ -514,7 +514,7 @@ export default function InlineLineDraw({ color, halfWidth, onConfirm, onCancel }
           const c = s.color || '#F5C300'
           const icon = Lf.divIcon({
             className: '',
-            html: `<div style="width:16px;height:16px;border-radius:50%;background:${c};border:2px solid #111;display:flex;align-items:center;justify-content:center;font-size:6px;font-weight:800;color:#111;box-shadow:0 2px 5px rgba(0,0,0,.7)">${s.numero}</div>`,
+            html: `<div style="width:22px;height:22px;border-radius:50%;background:${c};border:2px solid #111;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#111;box-shadow:0 2px 5px rgba(0,0,0,.7)">${s.numero}</div>`,
             iconSize: [16,16], iconAnchor: [8,8],
           })
           Lf.marker([s.lat, s.lng] as [number,number], { icon })

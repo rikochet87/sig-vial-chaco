@@ -508,8 +508,8 @@ export default function PlantaPage() {
           const c = s.color || '#F5C300'
           const icon = Lf.divIcon({
             className: '',
-            html: `<div style="width:18px;height:18px;border-radius:50%;background:${c};border:2px solid #111;display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:800;color:#111;box-shadow:0 2px 6px rgba(0,0,0,.7)">${s.numero}</div>`,
-            iconSize: [18, 18], iconAnchor: [9, 9],
+            html: `<div style="width:22px;height:22px;border-radius:50%;background:${c};border:2px solid #111;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#111;box-shadow:0 2px 6px rgba(0,0,0,.7)">${s.numero}</div>`,
+            iconSize: [22, 22], iconAnchor: [11, 11],
           })
           Lf.marker([s.lat, s.lng], { icon })
             .bindTooltip(
@@ -884,10 +884,10 @@ export default function PlantaPage() {
       poly.bindTooltip(
         `<div style="font-family:monospace;padding:4px">` +
         `<div style="font-size:11px;color:${color};font-weight:700">${label}</div>` +
-        (modal.descripcion ? `<div style="font-size:10px;color:#aaa">${modal.descripcion}</div>` : '') +
-        `<div style="font-size:10px;color:#aaa">${(modal.lengthM/1000).toFixed(3)} km · ±${modal.halfWidth.toFixed(0)} m</div>` +
+        (modal.descripcion ? `<div style="font-size:11px;color:#aaa">${modal.descripcion}</div>` : '') +
+        `<div style="font-size:11px;color:#aaa">${(modal.lengthM/1000).toFixed(3)} km · ±${modal.halfWidth.toFixed(0)} m</div>` +
         (accentResult ? `<div style="font-size:11px;color:${color}">${accentResult.label}: ${accentResult.value}</div>` : '') +
-        (modal.precioModal > 0 && accentResult?.numericValue ? `<div style="font-size:10px;color:#888">Total: ${Math.round(accentResult.numericValue * modal.precioModal).toLocaleString('es-AR')} ARS</div>` : '') +
+        (modal.precioModal > 0 && accentResult?.numericValue ? `<div style="font-size:11px;color:#888">Total: ${Math.round(accentResult.numericValue * modal.precioModal).toLocaleString('es-AR')} ARS</div>` : '') +
         `</div>`,
         { permanent: false, sticky: true, className: '' }
       )
@@ -957,7 +957,7 @@ export default function PlantaPage() {
       <style>{`
         .leaflet-container:focus { outline: none !important; }
         .leaflet-container { outline: none !important; }
-        .leaflet-tooltip.planta-tt { background: transparent; border: none; box-shadow: none; color: #aaa; font-size: 10px; font-family: monospace; }
+        .leaflet-tooltip.planta-tt { background: transparent; border: none; box-shadow: none; color: #aaa; font-size:11px; font-family: monospace; }
         .leaflet-tooltip { background: rgba(10,10,10,0.88); border: 1px solid #2a2a2a; color: #ccc; font-family: monospace; font-size: 11px; padding: 4px 8px; border-radius: 0; box-shadow: none; }
         .leaflet-tooltip::before { display: none; }
         input[type=color] { -webkit-appearance: none; border: none; padding: 0; cursor: pointer; }
