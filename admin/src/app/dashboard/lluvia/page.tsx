@@ -303,6 +303,11 @@ export default function LluviaPage() {
                     <span style={{ display: 'block', fontSize: 11, color: '#555', marginTop: 1 }}>
                       {c.zona}{c.dias > 0 ? ` · ${c.dias} día${c.dias === 1 ? '' : 's'} con agua` : ' · sin agua'}
                       {c.mmMaxDia > 0 ? ` · pico ${n1(c.mmMaxDia)}` : ''}
+                      {/* Un solo punto = no hay traza de su red en el bundle */}
+                      {c.puntos === 1 && (
+                        <span title="Este consorcio no tiene su red cargada: se mide en un solo punto, no promediado sobre los caminos"
+                          style={{ color: '#E8833A' }}> · 1 punto</span>
+                      )}
                     </span>
                   </span>
                   <span style={{ fontSize: 14, fontWeight: 700, color: nivel.color, whiteSpace: 'nowrap' }}>

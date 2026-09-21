@@ -252,6 +252,35 @@ desborda.
   de Maven, `429 Too Many Requests` de Maven Central. Antes de tocar nada,
   revisar el log de "Run gradlew" y `status.expo.dev`
 
+## Datos geográficos — huecos conocidos
+
+`admin/public/geo/geo_cc.json` es la red vial por consorcio y alimenta tanto el
+mapa como el muestreo de lluvia. Tiene dos faltantes verificados contra los
+kilómetros declarados en la ficha de cada consorcio (la mediana del resto da
+1,00, así que el archivo está sano salvo por estos):
+
+| | Declarado | Trazado | Efecto |
+|---|---|---|---|
+| **CC 96** "Colonia La Esperanza" | 138,8 km | **0 km** | Sin caminos en el mapa. Para la lluvia cae al centroide de QGIS: un punto en vez de promedio. La pantalla lo marca con "1 punto" en naranja |
+| **CC 49** | 252,1 km | 140,1 km | Sin sesgo medible: lo trazado está entremezclado con lo que falta, su centroide queda a 1,48 km del de QGIS (mejor que la mediana de 2,09) |
+
+Al actualizar el bundle desde QGIS hay que **regenerar los puntos de lluvia**:
+
+```bash
+cd admin && python3 scripts/build_puntos_lluvia.py
+```
+
+Y después volver a ingerir desde la pantalla de Lluvias, porque los milímetros
+guardados salieron de los puntos viejos.
+
+Los 26 tramos del **CC 44** venían en POSGAR 94 faja 5 (EPSG:22185) en vez de
+WGS84 y quedaban fuera del mapa. Ya están reproyectados en el bundle; si se
+regenera desde la fuente original, revisar que no vuelvan a entrar proyectados.
+
+`docs/geo/centroides-red-cc.geojson` son los centroides calculados en QGIS sobre
+la red completa. Se usan de respaldo donde no hay traza, y sirven de control
+cruzado del procesamiento.
+
 ## Base de datos
 
 No hay migraciones versionadas en el repo: el SQL se aplica en el editor de

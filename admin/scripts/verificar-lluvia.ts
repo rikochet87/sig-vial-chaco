@@ -14,6 +14,7 @@ import {
   diasEntre, UMBRALES, type RegistroLluvia,
 } from '../src/lib/lluvia'
 import { SEDES_CONSORCIOS } from '../src/data/sedesConsorcios'
+import { PUNTOS_LLUVIA } from '../src/data/puntosLluvia'
 
 let fallos = 0
 const ok = (etiqueta: string, real: unknown, esperado: unknown) => {
@@ -29,6 +30,34 @@ ok('todos con número entero', SEDES_CONSORCIOS.every(s => Number.isInteger(s.nu
 ok('todos dentro de Chaco (lat)', SEDES_CONSORCIOS.every(s => s.lat < -24 && s.lat > -28.5), true)
 ok('todos dentro de Chaco (lng)', SEDES_CONSORCIOS.every(s => s.lng < -58 && s.lng > -63.5), true)
 ok('sin números repetidos', new Set(SEDES_CONSORCIOS.map(s => s.numero)).size, 103)
+
+console.log('\n— Puntos de muestreo sobre la red —')
+{
+  const porCC = new Map<number, typeof PUNTOS_LLUVIA>()
+  for (const p of PUNTOS_LLUVIA) {
+    const a = porCC.get(p.cc) ?? []
+    a.push(p); porCC.set(p.cc, a)
+  }
+  const pesosMal = [...porCC.entries()]
+    .filter(([, ps]) => Math.abs(ps.reduce((s, p) => s + p.peso, 0) - 1) > 1e-3)
+    .map(([cc]) => cc)
+
+  ok('hay puntos cargados', PUNTOS_LLUVIA.length > 500, true)
+  ok('cubre los 103 consorcios', porCC.size, 103)
+  ok('los pesos de cada consorcio suman 1', pesosMal, [])
+  ok('ningun peso negativo o cero', PUNTOS_LLUVIA.every(p => p.peso > 0), true)
+  ok('todos dentro de Chaco',
+    PUNTOS_LLUVIA.every(p => p.lat < -24 && p.lat > -28.5 && p.lng < -58 && p.lng > -63.5), true)
+  // El CC 96 no tiene traza en el bundle: va con un solo punto, su centroide
+  ok('sólo el CC 96 queda con un punto único',
+    [...porCC.entries()].filter(([, ps]) => ps.length === 1).map(([cc]) => cc), [96])
+  ok('el resto tiene varios puntos',
+    [...porCC.values()].filter(ps => ps.length > 1).length, 102)
+  // La sede no puede ser el punto de muestreo: ese era justamente el problema
+  const coincideConSede = SEDES_CONSORCIOS.filter(s =>
+    (porCC.get(s.numero) ?? []).some(p => Math.abs(p.lat - s.lat) < 1e-4 && Math.abs(p.lng - s.lng) < 1e-4))
+  ok('ningun punto es exactamente la sede', coincideConSede.length, 0)
+}
 
 console.log('\n— Clasificación (valores de borde) —')
 ok('0 mm → sin',            clasificar(0).nivel,     'sin')

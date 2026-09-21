@@ -16,8 +16,14 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { requireAdmin, dbError } from '@/lib/apiAuth'
 import { consultarLluvia, hace, aISO, diasEntre } from '@/lib/lluvia'
 
-/** Tope de días por corrida: 103 consorcios × 400 días ya son 41 mil filas. */
-const MAX_DIAS = 400
+/**
+ * Tope de días por corrida.
+ *
+ * Un año son 102 consorcios × 370 días ≈ 38 mil filas, y del lado del servicio
+ * 746 puntos × 370 días. Con las llamadas en paralelo eso entra cómodo en el
+ * minuto que tiene la función; pedir más es arriesgarse a un corte a la mitad.
+ */
+const MAX_DIAS = 370
 
 export const maxDuration = 60
 

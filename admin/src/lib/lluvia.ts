@@ -9,11 +9,22 @@
  * APA en comisarías más 15 en establecimientos rurales, pero ese dato se levanta
  * por radio y se publica en PDF y prensa, no en un formato consultable. Hasta
  * que exista, Open-Meteo da cobertura de toda la provincia sin que nadie cargue
- * nada. Es un modelo grillado: sirve para el orden de magnitud y el patrón
- * espacial, no reemplaza al pluviómetro. Por eso la tabla guarda `fuente`, para
- * poder sumar mediciones reales más adelante sin mezclarlas.
+ * nada. Sirve reanálisis de Copernicus y ECMWF: observación real de estaciones,
+ * radar y satélite, rellenada por un modelo físico donde no había nadie
+ * midiendo — que en el interior de Chaco es casi todo. Sirve para el orden de
+ * magnitud y el patrón espacial, no reemplaza al pluviómetro. Por eso la tabla
+ * guarda `fuente`, para poder sumar mediciones reales sin mezclarlas.
+ *
+ * Dónde se mide cada consorcio: en varios puntos repartidos sobre su red vial,
+ * no en la sede. La sede está en el pueblo, que suele quedar en el borde del
+ * área — en 68 de 101 consorcios ni siquiera cae en la celda de la grilla donde
+ * está el grueso del camino. Y como la red se extiende 45 km de mediana y toca
+ * 13 celdas, un punto único tampoco alcanza: lo que se busca es cuánta agua
+ * cayó sobre los caminos, así que se promedia ponderando por kilómetros. Ver
+ * `scripts/build_puntos_lluvia.py`.
  */
 
+import { PUNTOS_LLUVIA } from '@/data/puntosLluvia'
 import { SEDES_CONSORCIOS } from '@/data/sedesConsorcios'
 
 /**
@@ -25,8 +36,17 @@ import { SEDES_CONSORCIOS } from '@/data/sedesConsorcios'
  */
 const API = 'https://archive-api.open-meteo.com/v1/archive'
 
-/** Puntos por llamada. Con 40 la respuesta vuelve en ~350 ms; de a 103 es pedirle demasiado. */
+/** Puntos por llamada. Con 40 la respuesta vuelve en ~350 ms; de a 746 es pedirle demasiado. */
 const LOTE = 40
+
+/**
+ * Llamadas simultáneas.
+ *
+ * Con 746 puntos son 19 llamadas, y en secuencia sobre un rango de un año se
+ * iban a los 50 y pico de segundos — demasiado cerca del tope de la función.
+ * De a 4 baja a unos 15 s sin castigar al servicio, que es gratuito.
+ */
+const PARALELO = 4
 
 // ── Clasificación ─────────────────────────────────────────────────────────────
 
@@ -102,16 +122,24 @@ function lotes<T>(xs: T[], n: number): T[][] {
 /**
  * Trae los milímetros diarios de cada consorcio para el rango pedido.
  *
- * Open-Meteo acepta varios puntos por llamada mandando las coordenadas separadas
- * por coma, y devuelve un arreglo en el mismo orden. Con eso los 103 consorcios
- * salen en tres llamadas en vez de 103.
+ * Consulta los ~746 puntos de muestreo repartidos sobre las redes viales y
+ * promedia los de cada consorcio ponderando por el peso de cada punto, que es
+ * la fracción de camino que representa. El resultado es "cuánta agua cayó sobre
+ * los caminos de este consorcio", no "cuánta cayó sobre su oficina".
+ *
+ * Open-Meteo acepta varios puntos por llamada separando las coordenadas por
+ * coma y devuelve un arreglo en el mismo orden, así que los 746 puntos salen en
+ * 19 llamadas.
  */
 export async function consultarLluvia(desde: string, hasta: string): Promise<RegistroLluvia[]> {
-  const registros: RegistroLluvia[] = []
+  // consorcio → fecha → { suma ponderada, peso efectivamente consultado }
+  const acum = new Map<number, Map<string, { mm: number; peso: number }>>()
 
-  for (const grupo of lotes(SEDES_CONSORCIOS, LOTE)) {
-    const url = `${API}?latitude=${grupo.map(s => s.lat).join(',')}`
-              + `&longitude=${grupo.map(s => s.lng).join(',')}`
+  const grupos = lotes(PUNTOS_LLUVIA, LOTE)
+
+  const traer = async (grupo: typeof PUNTOS_LLUVIA) => {
+    const url = `${API}?latitude=${grupo.map(p => p.lat).join(',')}`
+              + `&longitude=${grupo.map(p => p.lng).join(',')}`
               + `&start_date=${desde}&end_date=${hasta}`
               + `&daily=precipitation_sum&timezone=America%2FArgentina%2FCordoba`
 
@@ -120,22 +148,51 @@ export async function consultarLluvia(desde: string, hasta: string): Promise<Reg
 
     const json = await res.json()
     // Con un solo punto devuelve un objeto; con varios, un arreglo
-    const puntos = Array.isArray(json) ? json : [json]
-
-    puntos.forEach((p, i) => {
-      const sede = grupo[i]
-      const fechas: string[] = p?.daily?.time ?? []
-      const mms: (number | null)[] = p?.daily?.precipitation_sum ?? []
-      fechas.forEach((fecha, j) => {
-        const mm = mms[j]
-        // Un null es "el modelo no tiene ese día", que no es lo mismo que cero:
-        // guardarlo como 0 sería inventar un día seco.
-        if (mm == null) return
-        registros.push({ consorcio_numero: sede.numero, fecha, mm })
-      })
-    })
+    return { grupo, respuestas: Array.isArray(json) ? json : [json] }
   }
 
+  // De a PARALELO tandas por vez, acumulando a medida que llegan
+  for (let i = 0; i < grupos.length; i += PARALELO) {
+    const tanda = await Promise.all(grupos.slice(i, i + PARALELO).map(traer))
+
+    for (const { grupo, respuestas } of tanda) {
+      respuestas.forEach((r, k) => {
+        const punto = grupo[k]
+        if (!punto) return
+        const fechas: string[] = r?.daily?.time ?? []
+        const mms: (number | null)[] = r?.daily?.precipitation_sum ?? []
+
+        let porFecha = acum.get(punto.cc)
+        if (!porFecha) { porFecha = new Map(); acum.set(punto.cc, porFecha) }
+
+        fechas.forEach((fecha, j) => {
+          const mm = mms[j]
+          // Un null es "el modelo no tiene ese día", que no es lo mismo que
+          // cero: guardarlo como 0 sería inventar un día seco.
+          if (mm == null) return
+          const a = porFecha.get(fecha) ?? { mm: 0, peso: 0 }
+          a.mm += mm * punto.peso
+          a.peso += punto.peso
+          porFecha.set(fecha, a)
+        })
+      })
+    }
+  }
+
+  const registros: RegistroLluvia[] = []
+  for (const [cc, porFecha] of acum) {
+    for (const [fecha, a] of porFecha) {
+      // Se divide por el peso realmente consultado, no por 1: si a algún punto
+      // le faltó el día, el promedio sale de los que sí respondieron en vez de
+      // diluirse hacia abajo.
+      if (a.peso <= 0) continue
+      registros.push({
+        consorcio_numero: cc,
+        fecha,
+        mm: Math.round((a.mm / a.peso) * 100) / 100,
+      })
+    }
+  }
   return registros
 }
 
@@ -153,7 +210,21 @@ export interface ResumenConsorcio {
   mmMaxDia: number
   fechaMaxDia: string | null
   dias: number
+  /**
+   * Cuántos puntos de la red se promediaron.
+   *
+   * Se expone para poder avisar en pantalla cuando un consorcio se mide en un
+   * solo punto: hoy le pasa al CC 96, que no tiene traza en el bundle y cae al
+   * centroide. Un número que se va a citar tiene que poder decir de dónde sale.
+   */
+  puntos: number
 }
+
+/** Cuántos puntos de muestreo tiene cada consorcio */
+const PUNTOS_POR_CC = PUNTOS_LLUVIA.reduce<Record<number, number>>((acc, p) => {
+  acc[p.cc] = (acc[p.cc] ?? 0) + 1
+  return acc
+}, {})
 
 export function resumirPorConsorcio(registros: RegistroLluvia[]): ResumenConsorcio[] {
   const porNumero = new Map<number, RegistroLluvia[]>()
@@ -177,6 +248,7 @@ export function resumirPorConsorcio(registros: RegistroLluvia[]): ResumenConsorc
       mm: Math.round(mm * 10) / 10,
       mmMaxDia: Math.round(mmMaxDia * 10) / 10,
       fechaMaxDia, dias,
+      puntos: PUNTOS_POR_CC[s.numero] ?? 0,
     }
   })
 }
