@@ -52,6 +52,9 @@ export default function LluviaPage() {
   const [seleccionado, setSeleccionado] = useState<number | null>(null)
   const [orden, setOrden] = useState<Orden>('mm')
   const [ingiriendo, setIngiriendo] = useState(false)
+  const [progreso, setProgreso] = useState<
+    { hecho: number; total: number; desde: string; hasta: string } | null
+  >(null)
   const [autoEpisodio, setAutoEpisodio] = useState(true)
 
   const cargar = useCallback(async (d: string, h: string) => {
@@ -98,17 +101,50 @@ export default function LluviaPage() {
   const promedio = conDato.length ? conDato.reduce((s, d) => s + d.mm, 0) / conDato.length : 0
   const afectados = datos.filter(d => d.mm >= 40).length
 
+  /**
+   * Trae el rango en ventanas de dos semanas, de a una.
+   *
+   * El servicio cobra una llamada por ubicación y corta en 600 por minuto: con
+   * ~450 puntos, una ventana de 14 días entra justa y un mes entero no. Antes
+   * un rango largo moría con un 429 y el mensaje crudo del servicio; ahora se
+   * parte solo, se espera entre ventanas y se ve el avance.
+   *
+   * Cada ventana se guarda apenas llega, así que si se corta a la mitad lo
+   * cargado queda: al reintentar sólo se repite lo que falta.
+   */
   async function ingerir() {
-    setIngiriendo(true); setError(null)
+    const VENTANA_DIAS = 14
+    const PAUSA_MS = 20_000   // el cupo se libera por minuto
+
+    const dia = 86_400_000
+    const ventanas: [string, string][] = []
+    for (let t = Date.parse(desde); t <= Date.parse(hasta); t += VENTANA_DIAS * dia) {
+      const fin = Math.min(t + (VENTANA_DIAS - 1) * dia, Date.parse(hasta))
+      ventanas.push([aISO(new Date(t)), aISO(new Date(fin))])
+    }
+
+    setIngiriendo(true); setError(null); setProgreso(null)
     try {
-      const r = await fetch(`/api/lluvia/ingesta?desde=${desde}&hasta=${hasta}`, { method: 'POST' })
-      const j = await r.json()
-      if (!r.ok) throw new Error(j.error ?? 'No se pudo actualizar')
+      for (let i = 0; i < ventanas.length; i++) {
+        const [d, h] = ventanas[i]
+        setProgreso({ hecho: i, total: ventanas.length, desde: d, hasta: h })
+
+        const r = await fetch(`/api/lluvia/ingesta?desde=${d}&hasta=${h}`, { method: 'POST' })
+        const j = await r.json().catch(() => ({}))
+        if (!r.ok) throw new Error(j.error ?? 'No se pudo actualizar')
+
+        // Entre ventanas hay que dejar respirar al cupo; en la última no
+        if (i < ventanas.length - 1) await new Promise(res => setTimeout(res, PAUSA_MS))
+      }
+      setProgreso(null)
       await cargar(desde, hasta)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error al actualizar')
+      // Lo que alcanzó a cargarse ya está guardado: mostrarlo
+      await cargar(desde, hasta)
     } finally {
       setIngiriendo(false)
+      setProgreso(null)
     }
   }
 
@@ -188,10 +224,38 @@ export default function LluviaPage() {
               background: 'transparent', border: `1px solid ${ingiriendo ? '#333' : '#2e6b3e'}`,
               color: ingiriendo ? '#555' : '#7BC47F', fontWeight: 700,
             }}>
-            {ingiriendo ? 'Actualizando…' : '↻ Actualizar rango'}
+            {ingiriendo
+              ? progreso
+                ? `Cargando ${progreso.hecho + 1} de ${progreso.total}…`
+                : 'Actualizando…'
+              : '↻ Actualizar rango'}
           </button>
         )}
       </div>
+
+      {/* Avance de la carga */}
+      {progreso && (
+        <div style={{
+          ...mono, fontSize: 13, color: '#7BC47F', background: '#0a1408',
+          border: '1px solid #2e6b3e', padding: '9px 13px', marginBottom: 12,
+          flexShrink: 0, lineHeight: 1.5,
+        }}>
+          Trayendo {fmtFecha(progreso.desde)} → {fmtFecha(progreso.hasta)} · ventana{' '}
+          {progreso.hecho + 1} de {progreso.total}
+          <div style={{ height: 3, background: '#1a2a1a', marginTop: 7 }}>
+            <div style={{
+              height: '100%', background: '#2e6b3e',
+              width: `${(progreso.hecho / progreso.total) * 100}%`,
+              transition: 'width .3s',
+            }} />
+          </div>
+          <div style={{ color: '#4a6a4a', fontSize: 12, marginTop: 6 }}>
+            Va de a dos semanas con una pausa entre medio, porque el servicio limita
+            las consultas por minuto. Cada ventana se guarda apenas llega: si cortás,
+            no se pierde lo cargado.
+          </div>
+        </div>
+      )}
 
       {/* Avisos */}
       {error && (
@@ -327,8 +391,11 @@ export default function LluviaPage() {
       </div>
 
       <div style={{ ...mono, fontSize: 12, color: '#3a3a3a', marginTop: 8, flexShrink: 0 }}>
-        Datos modelados por Open-Meteo sobre la ubicación de cada sede. Sirven para el
-        orden de magnitud y el patrón espacial; no reemplazan al pluviómetro.
+        Cada círculo es un consorcio: el color y el tamaño son los milímetros acumulados
+        en el período, promediados sobre varios puntos de su red vial y ponderados por
+        kilómetros de camino. Datos de Open-Meteo (reanálisis de Copernicus y ECMWF, celda
+        de 9 km): sirven para el orden de magnitud y el patrón espacial, no reemplazan al
+        pluviómetro.
       </div>
     </div>
   )

@@ -25,9 +25,13 @@ from collections import defaultdict
 ENTRADA    = 'public/geo/geo_cc.json'
 CENTROIDES = '../docs/geo/centroides-red-cc.geojson'
 SALIDA     = 'src/data/puntosLluvia.ts'
-CEL_KM   = 9.0     # resolución del modelo
+# Open-Meteo cobra UNA llamada por ubicación, no por pedido HTTP, y el plan
+# libre corta en 600 por minuto. Con celdas de 9 km y tope 10 salían 746 puntos
+# y la ingesta moría con 429. Estos valores dejan 453 consultas únicas: 25 % de
+# margen, y sigue cubriendo el 70 % de la red.
+CEL_KM    = 11.0   # algo más gruesa que la celda del modelo (9 km), a propósito
 COBERTURA = 0.80   # fracción de la red que se busca cubrir
-TOPE     = 10      # puntos por consorcio
+TOPE      = 6      # puntos por consorcio
 
 R = 6371.0
 def hav(a, b):
@@ -36,6 +40,19 @@ def hav(a, b):
     return 2*R*math.asin(math.sqrt(h))
 
 def en_chaco(lo, la): return -63.5 < lo < -58 and -28.5 < la < -24
+
+paso_lat = CEL_KM / 111.0
+
+def celda_lat(la):
+    """Banda de latitud y ancho de celda en longitud, determinista.
+
+    El paso en longitud se deriva de la latitud de la BANDA, no del punto: si se
+    usa la del punto, dos consorcios vecinos calculan un ancho apenas distinto y
+    terminan pidiendo coordenadas que difieren en metros. Suena inocuo, pero cada
+    coordenada distinta es una llamada más contra el cupo del servicio.
+    """
+    ila = round(la / paso_lat)
+    return ila, paso_lat / math.cos(math.radians(ila * paso_lat))
 
 cc = json.load(open(ENTRADA))
 
@@ -55,8 +72,8 @@ for f in json.load(open(CENTROIDES))['features']:
         centroides[n] = (la, lo)
 
 # CC -> celda -> acumulado ponderado por km
-red = defaultdict(lambda: defaultdict(lambda: {'lat': 0.0, 'lng': 0.0, 'km': 0.0}))
-paso_lat = CEL_KM / 111.0
+red = defaultdict(lambda: defaultdict(
+    lambda: {'lat': 0.0, 'lng': 0.0, 'km': 0.0, 'cla': 0.0, 'clo': 0.0}))
 
 for zona, fc in cc.items():
     if not isinstance(fc, dict) or fc.get('type') != 'FeatureCollection':
@@ -78,10 +95,11 @@ for zona, fc in cc.items():
                 if km <= 0:
                     continue
                 mla, mlo = (la1+la2)/2, (lo1+lo2)/2
-                paso_lng = paso_lat / math.cos(math.radians(mla))
-                celda = (round(mla/paso_lat), round(mlo/paso_lng))
-                a = red[n][celda]
+                ila, clo_paso = celda_lat(mla)
+                ilo = round(mlo/clo_paso)
+                a = red[n][(ila, ilo)]
                 a['lat'] += mla*km; a['lng'] += mlo*km; a['km'] += km
+                a['cla'], a['clo'] = ila*paso_lat, ilo*clo_paso
 
 filas, total_puntos, sin_red = [], 0, []
 
@@ -107,21 +125,33 @@ for n in sorted(red):
     km_sel = sum(a['km'] for a in elegidas)
     total_puntos += len(elegidas)
     for a in elegidas:
+        # Se consulta el CENTRO de la celda, no el centro de gravedad del camino
+        # dentro de ella. El modelo devuelve el mismo valor para toda la celda,
+        # asi que la diferencia no cambia el dato — pero hace que dos consorcios
+        # vecinos pidan exactamente la misma coordenada y la consulta pueda
+        # preguntarla una sola vez. Es la diferencia entre 518 y ~450 llamadas
+        # contra un cupo de 600 por minuto.
         filas.append(
-            f"  {{ cc: {n}, lat: {a['lat']/a['km']:.5f}, lng: {a['lng']/a['km']:.5f}, "
+            f"  {{ cc: {n}, lat: {a['cla']:.5f}, lng: {a['clo']:.5f}, "
             f"peso: {a['km']/km_sel:.4f} }},"
         )
 
 cab = f'''/**
  * Puntos donde se consulta la lluvia de cada consorcio — GENERADO, no editar.
  *
- * Uno por celda de {CEL_KM:.0f} km de la grilla del servicio meteorológico, tomando las
- * celdas con más camino hasta cubrir el {COBERTURA*100:.0f} % de la red (tope {TOPE}). `peso` es la
- * fracción de camino que representa el punto: los mm del consorcio son el
- * promedio de sus puntos ponderado por ese peso.
+ * Uno por celda de {CEL_KM:.0f} km, tomando las celdas con más camino hasta cubrir el
+ * {COBERTURA*100:.0f} % de la red (tope {TOPE} por consorcio). `peso` es la fracción de camino que
+ * representa el punto: los mm del consorcio son el promedio ponderado por peso.
  *
  * Se usa esto y no la sede porque la sede está en el pueblo, y en 68 de 101
  * consorcios ni siquiera cae en la celda donde está el grueso del camino.
+ *
+ * La celda es de {CEL_KM:.0f} km y no de 9 (la del modelo) por el cupo de la API: Open-Meteo
+ * cobra una llamada por ubicación y el plan libre corta en 600 por minuto. Con
+ * 9 km salían 746 puntos y la ingesta moría con 429.
+ *
+ * Consorcios vecinos comparten puntos, así que la consulta los deduplica antes
+ * de salir: son menos pedidos que filas de esta tabla.
  *
  * Regenerar:  python3 scripts/build_puntos_lluvia.py
  */

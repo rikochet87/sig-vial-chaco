@@ -19,11 +19,15 @@ import { consultarLluvia, hace, aISO, diasEntre } from '@/lib/lluvia'
 /**
  * Tope de días por corrida.
  *
- * Un año son 102 consorcios × 370 días ≈ 38 mil filas, y del lado del servicio
- * 746 puntos × 370 días. Con las llamadas en paralelo eso entra cómodo en el
- * minuto que tiene la función; pedir más es arriesgarse a un corte a la mitad.
+ * Open-Meteo cuenta una llamada por ubicación, y además cobra más caro los
+ * rangos de más de dos semanas: dos semanas valen 1, cuatro valen 3. Con 453
+ * puntos, una ventana de 14 días son ~453 llamadas contra el cupo de 600 por
+ * minuto. Pedir un mes ya duplicaría el costo y saltaría el límite.
+ *
+ * Los rangos largos no se rechazan: la pantalla los parte en ventanas de 14
+ * días y las manda de a una. Ver `ingerirPorVentanas` en la página de Lluvias.
  */
-const MAX_DIAS = 370
+export const MAX_DIAS = 14
 
 export const maxDuration = 60
 
@@ -57,7 +61,11 @@ export async function POST(req: NextRequest) {
   }
   if (dias > MAX_DIAS) {
     return NextResponse.json(
-      { error: `El rango es de ${dias} días y el máximo por corrida es ${MAX_DIAS}. Partilo en tramos.` },
+      {
+        error: `El rango es de ${dias} días y el máximo por corrida es ${MAX_DIAS}, `
+             + 'por el cupo del servicio de lluvia.',
+        maxDias: MAX_DIAS,
+      },
       { status: 400 },
     )
   }

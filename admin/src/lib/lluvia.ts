@@ -36,17 +36,31 @@ import { SEDES_CONSORCIOS } from '@/data/sedesConsorcios'
  */
 const API = 'https://archive-api.open-meteo.com/v1/archive'
 
-/** Puntos por llamada. Con 40 la respuesta vuelve en ~350 ms; de a 746 es pedirle demasiado. */
+/** Coordenadas por pedido HTTP. Con 40 la respuesta vuelve en ~350 ms. */
 const LOTE = 40
 
 /**
- * Llamadas simultáneas.
+ * Pedidos simultáneos.
  *
- * Con 746 puntos son 19 llamadas, y en secuencia sobre un rango de un año se
- * iban a los 50 y pico de segundos — demasiado cerca del tope de la función.
- * De a 4 baja a unos 15 s sin castigar al servicio, que es gratuito.
+ * En secuencia, un rango largo se iba a los 50 y pico de segundos, demasiado
+ * cerca del tope de la función. De a 3 baja bastante sin amontonar pedidos
+ * contra el límite por minuto.
  */
-const PARALELO = 4
+const PARALELO = 3
+
+/**
+ * Reintentos ante un 429.
+ *
+ * Open-Meteo cuenta UNA llamada por ubicación, no por pedido HTTP: 500 puntos
+ * son 500 llamadas contra un cupo de 600 por minuto. Entra, pero si alguien
+ * apretó "Actualizar" hace un rato el contador todavía está cargado y salta el
+ * límite. Antes eso tiraba la ingesta entera con un error críptico; ahora
+ * espera y sigue.
+ */
+const REINTENTOS = 3
+const ESPERA_429_MS = 20_000
+
+const dormir = (ms: number) => new Promise(r => setTimeout(r, ms))
 
 // ── Clasificación ─────────────────────────────────────────────────────────────
 
@@ -135,23 +149,53 @@ export async function consultarLluvia(desde: string, hasta: string): Promise<Reg
   // consorcio → fecha → { suma ponderada, peso efectivamente consultado }
   const acum = new Map<number, Map<string, { mm: number; peso: number }>>()
 
-  const grupos = lotes(PUNTOS_LLUVIA, LOTE)
+  /**
+   * Coordenadas únicas.
+   *
+   * Consorcios vecinos comparten celdas, así que la misma coordenada aparece
+   * en varias filas. Preguntarla una sola vez ahorra llamadas contra el cupo,
+   * que es el recurso escaso acá.
+   */
+  const clave = (p: { lat: number; lng: number }) => `${p.lat},${p.lng}`
+  const porCoord = new Map<string, { lat: number; lng: number }>()
+  for (const p of PUNTOS_LLUVIA) if (!porCoord.has(clave(p))) porCoord.set(clave(p), p)
+  const coords = [...porCoord.values()]
 
-  const traer = async (grupo: typeof PUNTOS_LLUVIA) => {
+  // coordenada → { fecha → mm }
+  const mmPorCoord = new Map<string, Map<string, number>>()
+
+  const grupos = lotes(coords, LOTE)
+
+  const traer = async (grupo: typeof coords) => {
     const url = `${API}?latitude=${grupo.map(p => p.lat).join(',')}`
               + `&longitude=${grupo.map(p => p.lng).join(',')}`
               + `&start_date=${desde}&end_date=${hasta}`
               + `&daily=precipitation_sum&timezone=America%2FArgentina%2FCordoba`
 
-    const res = await fetch(url)
-    if (!res.ok) throw new Error(`Open-Meteo respondió ${res.status} — ${await res.text()}`)
-
-    const json = await res.json()
-    // Con un solo punto devuelve un objeto; con varios, un arreglo
-    return { grupo, respuestas: Array.isArray(json) ? json : [json] }
+    for (let intento = 0; ; intento++) {
+      const res = await fetch(url)
+      if (res.ok) {
+        const json = await res.json()
+        // Con un solo punto devuelve un objeto; con varios, un arreglo
+        return { grupo, respuestas: Array.isArray(json) ? json : [json] }
+      }
+      const cuerpo = await res.text()
+      if (res.status === 429 && intento < REINTENTOS) {
+        // El cupo se libera por minuto: esperar es la respuesta correcta
+        await dormir(ESPERA_429_MS)
+        continue
+      }
+      if (res.status === 429) {
+        throw new Error(
+          'Se agotó el cupo por minuto del servicio de lluvia. Esperá un minuto y '
+          + 'volvé a intentar, o cargá el rango en tramos más cortos.',
+        )
+      }
+      throw new Error(`Open-Meteo respondió ${res.status} — ${cuerpo}`)
+    }
   }
 
-  // De a PARALELO tandas por vez, acumulando a medida que llegan
+  // De a PARALELO pedidos por vez, acumulando a medida que llegan
   for (let i = 0; i < grupos.length; i += PARALELO) {
     const tanda = await Promise.all(grupos.slice(i, i + PARALELO).map(traer))
 
@@ -162,20 +206,31 @@ export async function consultarLluvia(desde: string, hasta: string): Promise<Reg
         const fechas: string[] = r?.daily?.time ?? []
         const mms: (number | null)[] = r?.daily?.precipitation_sum ?? []
 
-        let porFecha = acum.get(punto.cc)
-        if (!porFecha) { porFecha = new Map(); acum.set(punto.cc, porFecha) }
-
+        const serie = new Map<string, number>()
         fechas.forEach((fecha, j) => {
           const mm = mms[j]
           // Un null es "el modelo no tiene ese día", que no es lo mismo que
           // cero: guardarlo como 0 sería inventar un día seco.
-          if (mm == null) return
-          const a = porFecha.get(fecha) ?? { mm: 0, peso: 0 }
-          a.mm += mm * punto.peso
-          a.peso += punto.peso
-          porFecha.set(fecha, a)
+          if (mm != null) serie.set(fecha, mm)
         })
+        mmPorCoord.set(clave(punto), serie)
       })
+    }
+  }
+
+  // Repartir lo consultado entre los consorcios que comparten cada coordenada
+  for (const punto of PUNTOS_LLUVIA) {
+    const serie = mmPorCoord.get(clave(punto))
+    if (!serie) continue
+
+    let porFecha = acum.get(punto.cc)
+    if (!porFecha) { porFecha = new Map(); acum.set(punto.cc, porFecha) }
+
+    for (const [fecha, mm] of serie) {
+      const a = porFecha.get(fecha) ?? { mm: 0, peso: 0 }
+      a.mm += mm * punto.peso
+      a.peso += punto.peso
+      porFecha.set(fecha, a)
     }
   }
 
