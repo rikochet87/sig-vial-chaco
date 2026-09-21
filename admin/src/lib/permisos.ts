@@ -15,6 +15,7 @@ export type PermisoKey =
   | 'consorcios'
   | 'relevamientos'
   | 'herramientas'
+  | 'lluvia'
   | 'obras'
   | 'calc_ripio'
   | 'calc_desmalezado'
@@ -26,6 +27,7 @@ export const PERMISOS_OPCIONES: { key: PermisoKey; label: string }[] = [
   { key: 'consorcios',       label: 'Consorcios' },
   { key: 'relevamientos',    label: 'Relevamientos' },
   { key: 'herramientas',     label: 'Herramientas' },
+  { key: 'lluvia',           label: 'Lluvias' },
   { key: 'obras',            label: 'Obras (lista y planta)' },
   { key: 'calc_ripio',       label: 'Calculadora — Ripio' },
   { key: 'calc_desmalezado', label: 'Calculadora — Desmalezado' },
@@ -59,6 +61,7 @@ export const REGLAS_RUTAS: Regla[] = [
   { prefijo: '/dashboard/consorcios',         permisos: ['consorcios'] },
   { prefijo: '/dashboard/relevamientos',      permisos: ['relevamientos'] },
   { prefijo: '/dashboard/herramientas',       permisos: ['herramientas'] },
+  { prefijo: '/dashboard/lluvia',             permisos: ['lluvia'] },
   { prefijo: '/dashboard',                    permisos: ['dashboard'], exacto: true },
 ]
 
@@ -106,6 +109,7 @@ export function rutaInicialPara(perfil: PerfilPermisos): string {
     '/dashboard/obras/calculadoras',
     '/dashboard/consorcios',
     '/dashboard/herramientas',
+    '/dashboard/lluvia',
   ]
   return candidatas.find(r => puedeAcceder(perfil, r)) ?? '/acceso-denegado'
 }

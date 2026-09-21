@@ -42,6 +42,14 @@ const ICONS = {
       <circle cx="9.5" cy="5.5" r="1" fill="currentColor" />
     </svg>
   ),
+  lluvia: (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <path d="M4.2 9.5a2.6 2.6 0 0 1 .3-5.2 3.4 3.4 0 0 1 6.5.6 2.3 2.3 0 0 1-.4 4.6H4.2z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
+      <line x1="5" y1="11.5" x2="4.2" y2="14" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+      <line x1="8" y1="11.5" x2="7.2" y2="14" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+      <line x1="11" y1="11.5" x2="10.2" y2="14" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+    </svg>
+  ),
   obras: (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
       <polyline points="1,13 1,10 5,10 5,7 9,7 9,4 13,4 13,1" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
@@ -54,6 +62,7 @@ const NAV_ITEMS = [
   { href: '/dashboard',               label: 'Dashboard',      icon: ICONS.dashboard,     exact: true },
   { href: '/dashboard/tecnicos',      label: 'Usuarios',       icon: ICONS.tecnicos,      exact: false },
   { href: '/dashboard/consorcios',    label: 'Consorcios',     icon: ICONS.consorcios,    exact: false },
+  { href: '/dashboard/lluvia',        label: 'Lluvias',        icon: ICONS.lluvia,        exact: false },
 ]
 
 // Sub-ítems de Relevamientos
@@ -147,6 +156,7 @@ export default function Sidebar() {
           if (item.href === '/dashboard/tecnicos') return isAdmin
           if (item.href === '/dashboard') return hasPermiso('dashboard')
           if (item.href === '/dashboard/consorcios') return hasPermiso('consorcios')
+          if (item.href === '/dashboard/lluvia') return hasPermiso('lluvia')
           return true
         }).map(item => {
           const isActive  = item.exact ? pathname === item.href : pathname.startsWith(item.href)
