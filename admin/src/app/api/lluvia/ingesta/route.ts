@@ -46,11 +46,28 @@ async function autorizado(req: NextRequest): Promise<true | NextResponse> {
   return true
 }
 
+/**
+ * Tope de días para el recálculo de fusión.
+ *
+ * Éste no toca Open-Meteo —los milímetros del modelo ya están guardados— así que
+ * el límite no es el cupo sino el minuto que da Vercel. Cada fecha con parte es
+ * una llamada corta a la APA; con 90 días entran de sobra.
+ */
+const MAX_DIAS_FUSION = 90
+
 export async function POST(req: NextRequest) {
   const ok = await autorizado(req)
   if (ok instanceof NextResponse) return ok
 
   const { searchParams } = new URL(req.url)
+
+  // Recalcular la fusión sin volver a pedir el modelo
+  if (searchParams.get('soloFusion') === '1') {
+    return recalcularFusion(
+      searchParams.get('desde') ?? hace(30),
+      searchParams.get('hasta') ?? aISO(new Date()),
+    )
+  }
   // Por defecto, la última semana. El cron corre todos los días y repisa: si un
   // día falló, la corrida siguiente lo recupera sin que nadie intervenga.
   const desde = searchParams.get('desde') ?? hace(7)
@@ -121,6 +138,96 @@ export async function POST(req: NextRequest) {
       filasConPluviometro: fusion.conPluviometro,
       aviso: fusion.aviso,
     },
+  })
+}
+
+/**
+ * Recalcula `mm_fusion` sobre lo que ya está guardado.
+ *
+ * El motivo de que exista aparte: la ingesta completa vuelve a consultar
+ * Open-Meteo en 452 puntos por cada ventana de 14 días, y para arreglar la
+ * fusión de tres meses eso son siete vueltas con pausas de 20 segundos —
+ * gastando cupo para traer números que ya están en la tabla. Acá sólo se leen
+ * las filas existentes, se cruzan con los partes de la APA y se actualizan las
+ * columnas de fusión.
+ */
+async function recalcularFusion(desde: string, hasta: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(desde) || !/^\d{4}-\d{2}-\d{2}$/.test(hasta)) {
+    return NextResponse.json({ error: 'Fechas inválidas: se espera AAAA-MM-DD' }, { status: 400 })
+  }
+  const dias = diasEntre(desde, hasta)
+  if (dias <= 0) return NextResponse.json({ error: 'El rango está al revés o vacío' }, { status: 400 })
+  if (dias > MAX_DIAS_FUSION) {
+    return NextResponse.json({
+      error: `El rango es de ${dias} días y el máximo por recálculo es ${MAX_DIAS_FUSION}.`,
+      maxDias: MAX_DIAS_FUSION,
+    }, { status: 400 })
+  }
+
+  const supabase = createServiceClient()
+
+  // Lo que ya está guardado del modelo, que es lo que se usa de respaldo
+  const registros: { consorcio_numero: number; fecha: string; mm: number }[] = []
+  for (let off = 0; ; off += 1000) {
+    const { data, error } = await supabase
+      .from('precipitaciones')
+      .select('consorcio_numero, fecha, mm')
+      .gte('fecha', desde).lte('fecha', hasta)
+      .range(off, off + 999)
+    if (error) return dbError(error)
+    if (!data?.length) break
+    for (const r of data) {
+      registros.push({
+        consorcio_numero: r.consorcio_numero as number,
+        fecha: r.fecha as string,
+        mm: Number(r.mm),
+      })
+    }
+    if (data.length < 1000) break
+  }
+
+  if (registros.length === 0) {
+    return NextResponse.json({
+      ok: true, filas: 0,
+      aviso: 'No hay milímetros guardados en ese rango. Primero hay que ingerir el modelo.',
+    })
+  }
+
+  const fusion = await fusionar(registros, desde, hasta)
+  if (fusion.porClave.size === 0) {
+    return NextResponse.json({
+      ok: true, filas: 0,
+      aviso: fusion.aviso
+        ?? 'La APA no tiene partes en ese rango, así que no hay con qué cruzar.',
+    })
+  }
+
+  // Sólo se tocan las columnas de fusión: `mm` no se pisa
+  const ahora = new Date().toISOString()
+  const filas = registros
+    .filter(r => fusion.porClave.has(`${r.consorcio_numero}|${r.fecha}`))
+    .map(r => ({
+      consorcio_numero: r.consorcio_numero,
+      fecha: r.fecha,
+      mm: r.mm,
+      actualizado_en: ahora,
+      ...fusion.porClave.get(`${r.consorcio_numero}|${r.fecha}`)!,
+    }))
+
+  for (let i = 0; i < filas.length; i += 2000) {
+    const { error } = await supabase
+      .from('precipitaciones')
+      .upsert(filas.slice(i, i + 2000), { onConflict: 'consorcio_numero,fecha' })
+    if (error) return dbError(error)
+  }
+
+  return NextResponse.json({
+    ok: true,
+    desde, hasta, dias,
+    filas: filas.length,
+    fechasConParte: fusion.fechasConParte,
+    fechasSinParte: fusion.fechasSinParte,
+    aviso: fusion.aviso,
   })
 }
 

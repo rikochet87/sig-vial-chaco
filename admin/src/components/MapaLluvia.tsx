@@ -114,6 +114,8 @@ export default function MapaLluvia({ datos, seleccionado, onSeleccionar, estacio
 
   const [verIso, setVerIso] = useState(false)
   const [verZonas, setVerZonas] = useState(false)
+  const [verCirculos, setVerCirculos] = useState(true)
+  const [verCaminos, setVerCaminos] = useState(true)
   const [niveles, setNiveles] = useState<number[]>([])
 
   /**
@@ -460,6 +462,26 @@ export default function MapaLluvia({ datos, seleccionado, onSeleccionar, estacio
     return () => { cancelado = true }
   }, [verZonas, estaciones])
 
+  /**
+   * Prender y apagar capas sin recrearlas.
+   *
+   * Los caminos son casi diez mil polilíneas y los círculos 103: sacarlos del
+   * mapa y volver a construirlos en cada clic trababa todo. Se quitan y se
+   * reponen los grupos enteros, que es instantáneo.
+   */
+  useEffect(() => {
+    const mapa = mapaRef.current
+    if (!mapa) return
+    for (const [capa, visible] of [
+      [capaRedRef.current, verCaminos],
+      [capaRef.current, verCirculos],
+    ] as const) {
+      if (!capa) continue
+      if (visible && !mapa.hasLayer(capa)) capa.addTo(mapa)
+      if (!visible && mapa.hasLayer(capa)) mapa.removeLayer(capa)
+    }
+  }, [verCaminos, verCirculos, datos, red])
+
   // ── Resaltar el seleccionado ─────────────────────────────────────────────
   useEffect(() => {
     // Los caminos del consorcio elegido se engrosan; el resto se atenúa, así
@@ -481,13 +503,15 @@ export default function MapaLluvia({ datos, seleccionado, onSeleccionar, estacio
         color: activo ? '#F5C300' : '#111',
         weight: activo ? 3 : 1,
       })
-      if (activo) circulo.bringToFront()
+      // Con la capa apagada el círculo no está en el mapa y traerlo al frente
+      // revienta: Leaflet busca un contenedor que no existe.
+      if (activo && verCirculos) circulo.bringToFront()
     }
     if (seleccionado != null && mapaRef.current) {
       const c = datos.find(d => d.numero === seleccionado)
       if (c) mapaRef.current.setView([c.lat, c.lng], Math.max(mapaRef.current.getZoom(), 8))
     }
-  }, [seleccionado, datos])
+  }, [seleccionado, datos, verCirculos])
 
   const hayEstaciones = (estaciones?.length ?? 0) > 0
 
@@ -501,6 +525,21 @@ export default function MapaLluvia({ datos, seleccionado, onSeleccionar, estacio
         background: 'rgba(24,24,24,.93)', border: '1px solid #333', borderRadius: 3,
         padding: '9px 12px', fontFamily: 'monospace', maxWidth: 236,
       }}>
+        <div style={{ fontSize: 11, color: '#6a6a6a', textTransform: 'uppercase',
+          letterSpacing: 0.8, marginBottom: 7 }}>
+          Capas
+        </div>
+
+        <Interruptor
+          titulo="Círculos por consorcio" activo={verCirculos} onChange={setVerCirculos}
+          nota="El acumulado de cada red." />
+        <div style={{ height: 7 }} />
+        <Interruptor
+          titulo="Caminos" activo={verCaminos} onChange={setVerCaminos}
+          nota="La red vial, pintada por nivel." />
+
+        <div style={{ borderTop: '1px solid #2d2d2d', margin: '8px 0' }} />
+
         {!hayEstaciones ? (
           <div style={{ fontSize: 12, color: '#8a8a8a', lineHeight: 1.5 }}>
             Sin mediciones de la APA en el período.<br />

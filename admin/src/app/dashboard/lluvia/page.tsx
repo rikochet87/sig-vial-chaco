@@ -172,6 +172,28 @@ export default function LluviaPage() {
     }
   }
 
+  /**
+   * Recalcula la fusión sin volver a pedirle nada a Open-Meteo.
+   *
+   * Los milímetros del modelo ya están guardados; lo único que falta es cruzarlos
+   * con los partes de la APA. Por eso este botón no dispara la ingesta completa,
+   * que tardaría minutos y gastaría cupo para traer lo que ya está.
+   */
+  const [recalculando, setRecalculando] = useState(false)
+  async function recalcularFusion() {
+    setRecalculando(true); setError(null)
+    try {
+      const r = await fetch(`/api/lluvia/ingesta?soloFusion=1&desde=${desde}&hasta=${hasta}`,
+        { method: 'POST' })
+      const j = await r.json().catch(() => ({}))
+      if (!r.ok) throw new Error(j.error ?? 'No se pudo recalcular')
+      await cargar(desde, hasta)
+      if (!j.filas) setError(j.aviso ?? 'No había nada para recalcular en ese rango.')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Error al recalcular')
+    } finally { setRecalculando(false) }
+  }
+
   const hoy = aISO(new Date())
   const desactualizado = ultimaCarga !== null && ultimaCarga < hace(1)
 
@@ -344,14 +366,14 @@ export default function LluviaPage() {
             Estos milímetros son <b style={{ color: '#e0e0e0' }}>la estimación del modelo</b>:
             el período todavía no se cruzó con los pluviómetros de la APA.
           </span>
-          <button onClick={ingerir} disabled={ingiriendo}
+          <button onClick={recalcularFusion} disabled={recalculando}
             style={{
               ...mono, fontSize: 12, padding: '5px 12px', fontWeight: 700, whiteSpace: 'nowrap',
-              cursor: ingiriendo ? 'default' : 'pointer', background: 'transparent',
-              border: `1px solid ${ingiriendo ? '#333' : '#F5C300'}`,
-              color: ingiriendo ? '#555' : '#F5C300',
+              cursor: recalculando ? 'default' : 'pointer', background: 'transparent',
+              border: `1px solid ${recalculando ? '#333' : '#F5C300'}`,
+              color: recalculando ? '#555' : '#F5C300',
             }}>
-            {ingiriendo ? 'Recalculando…' : 'Recalcular con los pluviómetros'}
+            {recalculando ? 'Recalculando…' : 'Recalcular con los pluviómetros'}
           </button>
         </div>
       )}

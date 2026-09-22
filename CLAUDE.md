@@ -418,6 +418,20 @@ sobreestima alrededor del 15 %. **Cualquier métrica nueva sobre estos datos hay
 que calcularla sobre las 11.502 combinaciones estación-fecha, no sobre las 3.334
 mediciones.**
 
+### Dos operaciones distintas, y conviene no confundirlas
+
+| | Qué hace | Cuesta |
+|---|---|---|
+| **Ingesta** (`POST /api/lluvia/ingesta`) | trae el modelo de Open-Meteo y de paso fusiona | 452 puntos por ventana de 14 días, contra el cupo |
+| **Recálculo** (`?soloFusion=1`) | sólo cruza lo guardado con los partes de la APA | nada: no toca Open-Meteo |
+
+El botón **"Recalcular con los pluviómetros"** del cartel usa el segundo. Antes
+disparaba la ingesta completa, y arreglar la fusión de tres meses eran siete
+vueltas con pausas de 20 segundos gastando cupo para traer números que ya
+estaban en la tabla. El recálculo aguanta 90 días de una.
+
+Sólo escribe las columnas de fusión: `mm` no se pisa nunca.
+
 ### Importación
 
 Desde la pantalla de Lluvias, botón **Importar**: trae las fechas que falten,
