@@ -406,6 +406,56 @@ Supabase. Los scripts nuevos van en `docs/sql/` como referencia.
 Al escribir SQL: `create table if not exists`, `add column if not exists` y
 `on conflict do nothing`, para que se pueda volver a correr sin romper nada.
 
+`docs/sql/00-diagnostico.sql` es de sólo lectura y devuelve un informe de texto
+con el estado real: tablas, RLS, políticas, grants, claves foráneas, CHECK,
+índices sin uso y funciones SECURITY DEFINER. Correlo antes de tocar el esquema.
+
+### Dónde está la frontera de seguridad
+
+**Las 21 rutas del panel usan el `service_role`, que saltea RLS por completo.**
+Ahí la autorización la hace `lib/apiAuth.ts`, no la base.
+
+La app móvil, en cambio, pega directo contra Supabase con la clave anónima
+—`relevamientos`, `obras`, `obra_destinatarios`, `profiles`, `consorcios`— y
+todas las tablas tienen `grant` completo a `anon` y `authenticated`, que es el
+default de Supabase. O sea: **en esas cinco tablas, RLS es lo único que separa
+el teléfono de un técnico de los datos de todos los demás.**
+
+Consecuencia práctica: **un bug de RLS es invisible desde la oficina.** Los dos
+que se encontraron en la auditoría del 22/09/2026 vivieron sin que nadie los
+notara justamente por eso, y sólo se detectan probando con una cuenta de técnico
+real:
+
+- Los técnicos **no podían ver las obras publicadas**. Las políticas de `obras`
+  daban acceso sólo por `created_by = auth.uid()`, y el creador es el usuario de
+  oficina. Todo el circuito de publicar al celular estaba cortado.
+- **Reenviar un relevamiento editado fallaba**: había política de INSERT y de
+  SELECT pero no de UPDATE, y la app sincroniza con `upsert(onConflict: 'id')`.
+  Un relevamiento que se escribió pero cuya respuesta se perdió quedaba en
+  'error' y el auto-sync lo reintentaba para siempre.
+
+Los arregla `docs/sql/09-seguridad.sql`, ya aplicado.
+
+### Cosas del esquema que no son obvias
+
+- **`es_destinatario()` es SECURITY DEFINER a propósito.** Si la política de
+  `obras` consultara `obra_destinatarios` con una subconsulta, y la de
+  `obra_destinatarios` consulta `obras`, Postgres entra en recursión infinita.
+  La función corta el ciclo porque no aplica RLS adentro. Lo mismo vale para
+  `is_admin()`. **Toda función SECURITY DEFINER necesita `set search_path`** o es
+  un vector de escalada de privilegios.
+- **`precipitaciones`, `mediciones_lluvia` y `estaciones_lluvia` tienen RLS y
+  cero políticas, a propósito.** Sólo se acceden con la clave de servicio. No es
+  un olvido: si algún día el navegador necesita leerlas, se agrega una política
+  de select, **no** se desactiva RLS.
+- **Siete tablas no tienen script de creación en el repo** — `profiles`,
+  `obras`, `relevamientos`, `proyectos_ripio`, `ripios`, `obra_destinatarios` y
+  `consorcios` se armaron a mano en el editor de Supabase. Sólo quedaron los
+  `alter table` posteriores. Es deuda pendiente: no se puede reconstruir la base
+  ni levantar un entorno de prueba.
+- `precipitaciones.estaciones_usadas` guarda cuántas estaciones informaron ese
+  día **en toda la provincia**, no cuántas se usaron para ese consorcio.
+
 ## Git en Windows
 
 - **NUNCA hacer git commit/push desde el sandbox Linux** (WSL/virtiofs). Usar
