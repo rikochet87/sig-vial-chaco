@@ -104,6 +104,28 @@ export function radioLluvia(mm: number): number {
   return Math.min(4 + Math.sqrt(mm) * 2.2, 30)
 }
 
+/**
+ * El valor como rango, no como número exacto.
+ *
+ * "80,7 mm" transmite una precisión de un décimo de milímetro que el dato no
+ * tiene ni de lejos: contra el pluviómetro el error típico fue de 7 mm. Mostrar
+ * el decimal invita a decidir por diferencias que son puro ruido.
+ *
+ * El ancho del intervalo crece con el valor, porque el error también: con 5 mm
+ * la incertidumbre es de unos pocos milímetros, con 80 es de decenas.
+ */
+export function rangoLluvia(mm: number): string {
+  if (mm <= 0) return '0 mm'
+  if (mm < 1) return '<1 mm'
+  const paso = mm < 20 ? 5 : mm < 60 ? 10 : 20
+  const desde = Math.floor(mm / paso) * paso
+  return `${desde === 0 ? 1 : desde}–${desde + paso} mm`
+}
+
+/** Para totales y promedios, donde el rango no aplica: redondeo sin decimales */
+export const mmRedondeado = (mm: number): string =>
+  `${Math.round(mm).toLocaleString('es-AR')} mm`
+
 // ── Fechas ────────────────────────────────────────────────────────────────────
 
 export const aISO = (d: Date) => d.toISOString().slice(0, 10)
@@ -304,6 +326,17 @@ const RESUMEN_PUNTOS = (() => {
   }
   return out
 })()
+
+/**
+ * Dónde se mide cada consorcio.
+ *
+ * Lo usa la calibración para emparejar cada pluviómetro con el consorcio cuyo
+ * número le corresponde comparar.
+ */
+export const CENTROS_CONSORCIO: { numero: number; lat: number; lng: number }[] =
+  [...RESUMEN_PUNTOS.entries()]
+    .filter(([, p]) => p.lat != null && p.lng != null)
+    .map(([numero, p]) => ({ numero, lat: p.lat!, lng: p.lng! }))
 
 export function resumirPorConsorcio(registros: RegistroLluvia[]): ResumenConsorcio[] {
   const porNumero = new Map<number, RegistroLluvia[]>()

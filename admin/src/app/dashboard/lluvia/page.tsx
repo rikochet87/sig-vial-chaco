@@ -16,7 +16,12 @@
 import { useEffect, useMemo, useState, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import { useUser } from '@/lib/UserContext'
-import { UMBRALES, clasificar, hace, aISO, type ResumenConsorcio, type Episodio } from '@/lib/lluvia'
+import {
+  UMBRALES, clasificar, hace, aISO, rangoLluvia, mmRedondeado,
+  type ResumenConsorcio, type Episodio,
+} from '@/lib/lluvia'
+
+const PanelMediciones = dynamic(() => import('@/components/PanelMediciones'), { ssr: false })
 
 const MapaLluvia = dynamic(() => import('@/components/MapaLluvia'), {
   ssr: false,
@@ -34,7 +39,6 @@ const inp: React.CSSProperties = {
 }
 
 const fmtFecha = (f: string) => f.split('-').reverse().join('/')
-const n1 = (v: number) => v.toLocaleString('es-AR', { maximumFractionDigits: 1 })
 
 type Orden = 'mm' | 'pico' | 'numero'
 
@@ -56,6 +60,7 @@ export default function LluviaPage() {
     { hecho: number; total: number; desde: string; hasta: string } | null
   >(null)
   const [autoEpisodio, setAutoEpisodio] = useState(true)
+  const [vista, setVista] = useState<'mapa' | 'precision'>('mapa')
 
   const cargar = useCallback(async (d: string, h: string) => {
     setCargando(true); setError(null)
@@ -159,12 +164,31 @@ export default function LluviaPage() {
         <h1 style={{ color: '#e0e0e0', fontSize: 20, fontWeight: 700, letterSpacing: 0.5, ...mono, margin: 0 }}>
           Lluvias
         </h1>
-        {!cargando && (
+        {!cargando && vista === 'mapa' && (
           <span style={{ color: '#444', fontSize: 13, ...mono }}>
             {conDato.length} de {datos.length} consorcios con registro
           </span>
         )}
+
+        <div style={{ display: 'flex', border: '1px solid #252525' }}>
+          {([['mapa', 'Mapa'], ['precision', 'Precisión']] as const).map(([v, t]) => (
+            <button key={v} onClick={() => setVista(v)} style={{
+              ...mono, fontSize: 13, padding: '5px 14px', cursor: 'pointer',
+              border: 'none', letterSpacing: 0.5,
+              background: vista === v ? '#1e1e1e' : 'transparent',
+              color: vista === v ? '#F5C300' : '#555',
+            }}>{t}</button>
+          ))}
+        </div>
       </div>
+
+      {vista === 'precision' && (
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+          <PanelMediciones esAdmin={esAdmin} />
+        </div>
+      )}
+
+      {vista === 'mapa' && (<>
 
       {/* Episodios detectados */}
       {episodios.length > 0 && (
@@ -182,7 +206,7 @@ export default function LluviaPage() {
                   color: activo ? '#F5C300' : '#777', textAlign: 'left', lineHeight: 1.45,
                 }}>
                 {e.desde === e.hasta ? fmtFecha(e.desde) : `${fmtFecha(e.desde)} → ${fmtFecha(e.hasta)}`}
-                <span style={{ color: '#555' }}> · pico {n1(e.mmPico)} mm</span>
+                <span style={{ color: '#555' }}> · pico {mmRedondeado(e.mmPico)}</span>
               </button>
             )
           })}
@@ -283,8 +307,8 @@ export default function LluviaPage() {
       {!cargando && conDato.length > 0 && (
         <div style={{ display: 'flex', gap: 10, marginBottom: 12, flexWrap: 'wrap', flexShrink: 0 }}>
           {[
-            { label: 'Máximo',    val: `${n1(maximo)} mm`,   color: '#F5C300' },
-            { label: 'Promedio',  val: `${n1(promedio)} mm`, color: '#4A90C2' },
+            { label: 'Máximo',    val: mmRedondeado(maximo),   color: '#F5C300' },
+            { label: 'Promedio',  val: mmRedondeado(promedio), color: '#4A90C2' },
             { label: 'Consorcios sobre 40 mm', val: String(afectados), color: afectados > 0 ? '#E8833A' : '#555' },
           ].map(({ label, val, color }) => (
             <div key={label} style={{ background: '#191919', border: '1px solid #1e1e1e',
@@ -369,7 +393,7 @@ export default function LluviaPage() {
                     </span>
                     <span style={{ display: 'block', fontSize: 11, color: '#555', marginTop: 1 }}>
                       {c.zona}{c.dias > 0 ? ` · ${c.dias} día${c.dias === 1 ? '' : 's'} con agua` : ' · sin agua'}
-                      {c.mmMaxDia > 0 ? ` · pico ${n1(c.mmMaxDia)}` : ''}
+                      {c.mmMaxDia > 0 ? ` · pico ${Math.round(c.mmMaxDia)}` : ''}
                       {/* Un solo punto = no hay traza de su red en el bundle */}
                       {c.puntos === 1 && (
                         <span title="Este consorcio no tiene su red cargada: se mide en un solo punto, no promediado sobre los caminos"
@@ -377,8 +401,13 @@ export default function LluviaPage() {
                       )}
                     </span>
                   </span>
-                  <span style={{ fontSize: 14, fontWeight: 700, color: nivel.color, whiteSpace: 'nowrap' }}>
-                    {n1(c.mm)}
+                  <span style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                    <span style={{ display: 'block', fontSize: 12, fontWeight: 700, color: nivel.color }}>
+                      {nivel.label}
+                    </span>
+                    <span style={{ display: 'block', fontSize: 12, color: '#777', marginTop: 1 }}>
+                      {rangoLluvia(c.mm)}
+                    </span>
                   </span>
                 </button>
               )
@@ -392,6 +421,8 @@ export default function LluviaPage() {
           </div>
         </div>
       </div>
+
+      </>)}
 
       <div style={{ ...mono, fontSize: 12, color: '#3a3a3a', marginTop: 8, flexShrink: 0 }}>
         Los caminos van pintados con el nivel de lluvia de su consorcio; el círculo, en el

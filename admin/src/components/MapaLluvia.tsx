@@ -21,7 +21,9 @@
 
 import { useEffect, useRef, useState } from 'react'
 import 'leaflet/dist/leaflet.css'
-import { colorLluvia, radioLluvia, clasificar, type ResumenConsorcio } from '@/lib/lluvia'
+import {
+  colorLluvia, radioLluvia, clasificar, rangoLluvia, type ResumenConsorcio,
+} from '@/lib/lluvia'
 
 /** Red vial por zona, tal como la sirve `public/geo/geo_cc.json` */
 type RedVial = Record<string, {
@@ -196,11 +198,13 @@ export default function MapaLluvia({ datos, seleccionado, onSeleccionar }: Props
           `<div style="font-family:monospace;font-size:12px;line-height:1.5">
              <b style="color:#F5C300">CC N° ${c.numero}</b><br/>
              ${c.nombre.replace(/^Consorcio Caminero N°?\s*\d+\s*/i, '').replace(/"/g, '')}<br/>
-             <b style="font-size:14px">${c.mm.toLocaleString('es-AR')} mm</b> acumulados<br/>
-             <span style="color:#aaa">Día pico: ${c.mmMaxDia.toLocaleString('es-AR')} mm${
+             <b style="font-size:14px">${rangoLluvia(c.mm)}</b> acumulados<br/>
+             <span style="color:#aaa">Día pico: ${Math.round(c.mmMaxDia)} mm${
                c.fechaMaxDia ? ` (${c.fechaMaxDia.split('-').reverse().join('/')})` : ''
              }</span><br/>
-             <span style="color:${nivel.color}">${nivel.label} — ${nivel.nota}</span>
+             <span style="color:${nivel.color}">${nivel.label} — ${nivel.nota}</span><br/>
+             <span style="color:#666;font-size:11px">Estimación modelada: el error
+             típico contra pluviómetro es de unos 7 mm</span>
            </div>`,
           { sticky: true, direction: 'top', opacity: 0.96 },
         )
