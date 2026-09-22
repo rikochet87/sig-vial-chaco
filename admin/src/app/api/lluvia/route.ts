@@ -57,7 +57,11 @@ export async function GET(req: NextRequest) {
   // que la APA no publicó parte.
   const registros: RegistroLluvia[] = []
   const proc = new Map<number, { peor: string; dist: number; n: number; fusionadas: number }>()
-  const ORDEN: Record<string, number> = { medido: 0, interpolado: 1, estimado: 2 }
+  // `sin_calcular` es la peor de todas: significa que el número que se está
+  // mostrando ni siquiera pasó por los pluviómetros todavía.
+  const ORDEN: Record<string, number> = {
+    medido: 0, interpolado: 1, estimado: 2, sin_calcular: 3,
+  }
 
   for (let desplazamiento = 0; ; desplazamiento += PAGINA) {
     const { data, error } = await supabase
@@ -78,7 +82,14 @@ export async function GET(req: NextRequest) {
       })
       // La procedencia del período es la peor de sus días: si algún día del
       // rango salió del modelo, el acumulado no es enteramente medido.
-      const p = (r.procedencia as string) ?? 'estimado'
+      //
+      // Sin `mm_fusion` la fila nunca se cruzó con los pluviómetros, y eso NO
+      // es lo mismo que "no había ninguno cerca". Etiquetarlo como `estimado`
+      // hacía que el mapa afirmara "sin pluviómetro a menos de 60 km" sobre
+      // consorcios que tienen uno a 12 km.
+      const p = r.mm_fusion == null
+        ? 'sin_calcular'
+        : ((r.procedencia as string) ?? 'sin_calcular')
       let a = proc.get(cc)
       if (!a) { a = { peor: 'medido', dist: 0, n: 0, fusionadas: 0 }; proc.set(cc, a) }
       if (ORDEN[p] > ORDEN[a.peor]) a.peor = p
@@ -100,7 +111,7 @@ export async function GET(req: NextRequest) {
     const a = proc.get(c.numero)
     return {
       ...c,
-      procedencia: a?.peor ?? 'estimado',
+      procedencia: a?.peor ?? 'sin_calcular',
       distanciaKm: a && a.n ? Math.round((a.dist / a.n) * 10) / 10 : null,
     }
   })

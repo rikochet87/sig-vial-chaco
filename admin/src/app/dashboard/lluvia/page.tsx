@@ -175,6 +175,14 @@ export default function LluviaPage() {
   const hoy = aISO(new Date())
   const desactualizado = ultimaCarga !== null && ultimaCarga < hace(1)
 
+  /**
+   * Si más de la mitad de los consorcios todavía no se cruzó con los
+   * pluviómetros, lo que se está mirando es el modelo crudo. Se avisa arriba en
+   * vez de dejarlo escondido en el globo de cada uno de los 103 círculos.
+   */
+  const sinRecalcular = datos.length > 0
+    && datos.filter(d => d.procedencia === 'sin_calcular').length > datos.length / 2
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 60px)', minHeight: 0 }}>
 
@@ -319,6 +327,32 @@ export default function LluviaPage() {
         <div style={{ ...mono, fontSize: 13, color: '#E8833A', background: '#1a1206',
           border: '1px solid #5a3a00', padding: '8px 12px', marginBottom: 12, flexShrink: 0 }}>
           El último día cargado es el {fmtFecha(ultimaCarga!)}. La carga automática puede haberse salteado.
+        </div>
+      )}
+
+      {/*
+        Sin este aviso, el único lugar donde se entera de que está mirando el
+        modelo crudo es el globo de cada círculo — y hay 103. Cuando el grueso
+        del rango no se cruzó con los pluviómetros hay que decirlo arriba, con
+        el botón que lo arregla al lado.
+      */}
+      {!error && !cargando && sinRecalcular && (
+        <div style={{ ...mono, fontSize: 13, color: '#bdbdbd', background: '#17191a',
+          border: '1px solid #33383a', padding: '9px 12px', marginBottom: 12, flexShrink: 0,
+          display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <span style={{ lineHeight: 1.6 }}>
+            Estos milímetros son <b style={{ color: '#e0e0e0' }}>la estimación del modelo</b>:
+            el período todavía no se cruzó con los pluviómetros de la APA.
+          </span>
+          <button onClick={ingerir} disabled={ingiriendo}
+            style={{
+              ...mono, fontSize: 12, padding: '5px 12px', fontWeight: 700, whiteSpace: 'nowrap',
+              cursor: ingiriendo ? 'default' : 'pointer', background: 'transparent',
+              border: `1px solid ${ingiriendo ? '#333' : '#F5C300'}`,
+              color: ingiriendo ? '#555' : '#F5C300',
+            }}>
+            {ingiriendo ? 'Recalculando…' : 'Recalcular con los pluviómetros'}
+          </button>
         </div>
       )}
 

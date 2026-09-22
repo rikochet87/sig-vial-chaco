@@ -318,7 +318,7 @@ export interface ResumenConsorcio {
    * ninguno dentro del radio y quedó el modelo. La agrega la API al leer; el
    * motor de agregación no la conoce.
    */
-  procedencia?: 'medido' | 'interpolado' | 'estimado'
+  procedencia?: 'medido' | 'interpolado' | 'estimado' | 'sin_calcular'
   /** Distancia media al pluviómetro más cercano, en km */
   distanciaKm?: number | null
 }

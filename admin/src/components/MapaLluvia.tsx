@@ -214,7 +214,7 @@ export default function MapaLluvia({ datos, seleccionado, onSeleccionar, estacio
 
       for (const c of ordenados) {
         const nivel = clasificar(c.mm)
-        const p = TEXTO_PROCEDENCIA[c.procedencia ?? 'estimado']
+        const p = TEXTO_PROCEDENCIA[c.procedencia ?? 'sin_calcular']
         const cerca = c.distanciaKm != null
           ? ` — pluviómetro a ${c.distanciaKm.toLocaleString('es-AR')} km`
           : ''

@@ -51,8 +51,18 @@ export interface PuntoConsulta {
   lng: number
 }
 
-/** De dónde salió el número, para poder decirlo en pantalla */
-export type Procedencia = 'medido' | 'interpolado' | 'estimado'
+/**
+ * De dónde salió el número, para poder decirlo en pantalla.
+ *
+ * `sin_calcular` no lo produce este motor: lo pone la API cuando la fila de
+ * `precipitaciones` todavía no tiene `mm_fusion`, sea porque es anterior a que
+ * esto existiera o porque no se reingirió. **Tiene que ser un estado aparte.**
+ * Antes esas filas se etiquetaban como `estimado`, y el mapa afirmaba "sin
+ * pluviómetro a menos de 60 km" sobre consorcios que tienen uno a 12 km. Decir
+ * "no lo calculé todavía" es la verdad; inventar el motivo es peor que no decir
+ * nada.
+ */
+export type Procedencia = 'medido' | 'interpolado' | 'estimado' | 'sin_calcular'
 
 export interface Estimacion {
   mm: number
@@ -173,7 +183,9 @@ export interface ResultadoConsorcio {
   fraccionEstimada: number
 }
 
-const ORDEN: Record<Procedencia, number> = { medido: 0, interpolado: 1, estimado: 2 }
+const ORDEN: Record<Procedencia, number> = {
+  medido: 0, interpolado: 1, estimado: 2, sin_calcular: 3,
+}
 
 /**
  * Agrega por consorcio: estima en cada punto de muestreo y promedia ponderando
@@ -237,5 +249,11 @@ export const TEXTO_PROCEDENCIA: Record<Procedencia, { label: string; nota: strin
     nota: `Sin pluviómetro a menos de ${RADIO_KM} km: es la salida del modelo, `
         + 'con un error típico de unos 7 mm.',
     color: '#EF9F27',
+  },
+  sin_calcular: {
+    label: 'Sin recalcular',
+    nota: 'Esta fecha todavía no se cruzó con los pluviómetros, así que el número '
+        + 'es la salida del modelo. Tocá «Actualizar rango» para recalcularla.',
+    color: '#9aa0a6',
   },
 }
