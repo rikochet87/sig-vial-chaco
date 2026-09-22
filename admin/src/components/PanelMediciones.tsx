@@ -1,16 +1,40 @@
 'use client'
 /**
- * Cargar partes de la APA y ver cuánto se equivoca el modelo.
+ * Traer las mediciones de la APA, y de paso ver cómo anda el modelo de respaldo.
  *
- * El parte se publica en prosa, así que el flujo es pegar el texto, revisar lo
- * que el lector entendió y recién ahí guardar. El paso de revisión no es
- * decorativo: el lector acierta 43 de 43 en el parte de referencia, pero cada
- * nota está redactada distinto y conviene mirar antes de meter un número que
- * después se va a usar para corregir el modelo.
+ * ── Orden de la pantalla ──────────────────────────────────────────────────────
  *
- * Abajo, las métricas acumuladas. Mientras haya un solo evento no se puede
- * corregir nada —cualquier factor estaría ajustado al ruido de ese día— y el
- * panel lo dice en vez de mostrar un número que parezca respuesta.
+ * Arriba va **la acción**, no el diagnóstico. El trabajo de quien entra acá es
+ * traer los pluviómetros; los indicadores son consecuencia. La versión anterior
+ * abría con seis números y el botón quedaba abajo, y eso hacía que la pantalla
+ * pareciera un tablero cuando en realidad es un formulario de una sola tarea.
+ *
+ * Los indicadores se resumen en **una frase en castellano**. El detalle técnico
+ * —MAE, sesgo, Spearman— queda plegado: sigue estando para quien lo busque, pero
+ * no es lo primero que ve alguien que sólo quiere cargar los datos del mes.
+ *
+ * ── Qué se sacó y por qué ─────────────────────────────────────────────────────
+ *
+ * Había un cartel de "Corrección sugerida: multiplicar por X". Se sacó por dos
+ * motivos, los dos medidos el 22/09/2026:
+ *
+ *   1. **Corregir con un factor único está mal.** El modelo subestima la lluvia
+ *      liviana y aplasta los picos (`APA ≈ 2,3·modelo^0,68`), así que un factor
+ *      arregla el promedio y empeora los eventos grandes, que son los que
+ *      importan.
+ *   2. **Ya no viene al caso.** El número que se muestra en el mapa sale de
+ *      interpolar los pluviómetros, no del modelo. Esta pantalla mide el
+ *      respaldo.
+ *
+ * El factor nunca se aplicaba a nada —era informativo— pero invitaba a hacer
+ * algo que no conviene.
+ *
+ * ── Una advertencia sobre los indicadores ─────────────────────────────────────
+ *
+ * Se calculan sólo sobre los pares donde la APA reportó lluvia, y por eso se dan
+ * vuelta según la muestra: con 5 fechas el modelo parecía sobreestimar 28 %, con
+ * 162 parecía subestimar 26 %. La pantalla lo dice en vez de mostrar el número
+ * pelado como si fuera una verdad.
  */
 
 import { useEffect, useState, useCallback } from 'react'
@@ -33,6 +57,8 @@ interface Precision {
   mediciones: number
   eventos: number
   comparables?: number
+  /** Cuántos pares se resolvieron en la coordenada exacta de la estación */
+  enCoordenadaExacta?: number
   metricas: Metricas | null
   factor: number | null
   evaluacion: EvaluacionCorreccion | null
@@ -52,6 +78,8 @@ export default function PanelMediciones({ esAdmin }: { esAdmin: boolean }) {
   const [error, setError] = useState<string | null>(null)
   const [aviso, setAviso] = useState<string | null>(null)
   const [precision, setPrecision] = useState<Precision | null>(null)
+  const [verDetalle, setVerDetalle] = useState(false)
+  const [verManual, setVerManual] = useState(false)
 
   // Importación automática: por defecto, el último mes
   const hoy = new Date().toISOString().slice(0, 10)
@@ -138,78 +166,23 @@ export default function PanelMediciones({ esAdmin }: { esAdmin: boolean }) {
   }
 
   const m = precision?.metricas
-  const ev = precision?.evaluacion
+  const hay = (precision?.mediciones ?? 0) > 0
 
   return (
     <div style={{ padding: '4px 0 20px' }}>
 
-      {/* ── Precisión actual ── */}
-      <div style={caja}>
-        <div style={{ ...lbl, marginBottom: 10 }}>Qué tan cerca está el modelo</div>
-
-        {!precision || precision.mediciones === 0 ? (
-          <div style={{ ...mono, fontSize: 13, color: '#777', lineHeight: 1.6 }}>
-            Todavía no hay mediciones cargadas. Cargá el parte de la APA después de
-            cada lluvia y acá vas a ver cuánto se equivoca el modelo.
-          </div>
-        ) : (
-          <>
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
-              {[
-                { l: 'Mediciones', v: String(precision.mediciones), c: '#90A4AE' },
-                { l: 'Eventos',    v: String(precision.eventos),    c: '#90A4AE' },
-                { l: 'Acierta si llovió', v: m ? `${Math.round(m.aciertoLlovioONo * 100)} %` : '—', c: '#7BC47F' },
-                { l: 'Error típico', v: m ? `${m.errorAbsMedio} mm` : '—', c: '#E8833A' },
-                { l: 'Sesgo', v: m?.sesgoRelativo != null
-                    ? `${m.sesgoRelativo > 0 ? '+' : ''}${Math.round(m.sesgoRelativo * 100)} %` : '—',
-                  c: '#E8833A' },
-                { l: 'Ordena bien', v: m?.spearman != null ? String(m.spearman) : '—', c: '#4A90C2' },
-              ].map(x => (
-                <div key={x.l} style={{ background: '#111', border: '1px solid #222',
-                  borderLeft: `3px solid ${x.c}`, padding: '7px 12px' }}>
-                  <div style={{ ...mono, fontSize: 11, color: '#555', textTransform: 'uppercase',
-                    letterSpacing: 0.8 }}>{x.l}</div>
-                  <div style={{ ...mono, fontSize: 15, fontWeight: 700, color: x.c, marginTop: 2 }}>{x.v}</div>
-                </div>
-              ))}
-            </div>
-
-            {/* Corrección: sólo si se probó fuera de muestra */}
-            <div style={{
-              ...mono, fontSize: 13, lineHeight: 1.6, padding: '9px 12px',
-              background: ev?.mejora ? '#0a1408' : '#151005',
-              border: `1px solid ${ev?.mejora ? '#2e6b3e' : '#4a3a00'}`,
-              color: ev?.mejora ? '#7BC47F' : '#C9A227',
-            }}>
-              {precision.eventos < 4 ? (
-                <>Con {precision.eventos} evento{precision.eventos === 1 ? '' : 's'} no se puede
-                corregir el sesgo: cualquier factor estaría ajustado al ruido de esos días.
-                Hacen falta al menos cuatro para poder ajustar con unos y probar con otros.</>
-              ) : ev == null ? (
-                <>Todavía no hay suficientes pares comparables para evaluar una corrección.</>
-              ) : ev.mejora ? (
-                <>Corrección sugerida: multiplicar por <b>{ev.factor}</b>. Ajustada con{' '}
-                {ev.eventosAjuste} eventos y probada en los {ev.eventosPrueba} restantes, el error
-                típico baja de <b>{ev.antes.errorAbsMedio}</b> a <b>{ev.despues.errorAbsMedio} mm</b>.</>
-              ) : (
-                <>El factor <b>{ev.factor}</b> no mejora fuera de muestra (el error va de{' '}
-                {ev.antes.errorAbsMedio} a {ev.despues.errorAbsMedio} mm), así que no conviene
-                aplicarlo. El sesgo todavía no es estable.</>
-              )}
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* ── Importar de la APA ── */}
+      {/* ── Paso 1: traer los datos. Es la tarea de esta pantalla ── */}
       {esAdmin && (
-        <div style={caja}>
-          <div style={{ ...lbl, marginBottom: 6 }}>Traer los partes de la APA</div>
-          <div style={{ ...mono, fontSize: 12, color: '#666', marginBottom: 10, lineHeight: 1.55 }}>
-            La APA publica sus mediciones en <b style={{ color: '#888' }}>mapas.apachaco.gob.ar</b> y
-            se pueden leer directo, sin transcribir nada. Trae sólo las fechas que
-            todavía no estén cargadas, de a {25} por vez, y consulta el modelo en la
-            coordenada de cada estación para dejar la comparación armada.
+        <div style={{ ...caja, borderLeft: '3px solid #F5C300' }}>
+          <div style={{ ...mono, fontSize: 15, fontWeight: 700, color: '#e0e0e0', marginBottom: 6 }}>
+            Traer las mediciones de la APA
+          </div>
+          <div style={{ ...mono, fontSize: 13, color: '#8a8a8a', marginBottom: 12, lineHeight: 1.6 }}>
+            Elegí un período y tocá Importar. Trae sólo las fechas que falten, de a 25
+            por vez — si quedan más, volvé a tocarlo hasta que avise que no hay nada nuevo.
+            <br />
+            <b style={{ color: '#a8a8a8' }}>Esto es lo que alimenta el mapa</b>: los milímetros
+            de cada consorcio y las isohietas salen de acá.
           </div>
 
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
@@ -234,17 +207,119 @@ export default function PanelMediciones({ esAdmin }: { esAdmin: boolean }) {
           </div>
 
           {resumenImp && (
-            <div style={{ ...mono, fontSize: 12, color: '#8fb98f', marginTop: 10, lineHeight: 1.6 }}>
+            <div style={{ ...mono, fontSize: 13, color: '#8fb98f', marginTop: 10, lineHeight: 1.6 }}>
               {resumenImp}
             </div>
           )}
         </div>
       )}
 
-      {/* ── Cargar un parte a mano ── */}
-      {esAdmin && (
+      {/* ── Qué hay cargado, en una frase ── */}
+      <div style={caja}>
+        {!hay ? (
+          <div style={{ ...mono, fontSize: 13, color: '#8a8a8a', lineHeight: 1.6 }}>
+            Todavía no hay ninguna medición cargada. Importá un período de arriba y el
+            mapa va a empezar a mostrar los milímetros de los pluviómetros en vez de la
+            estimación del modelo.
+          </div>
+        ) : (
+          <>
+            <div style={{ ...mono, fontSize: 14, color: '#d0d0d0', lineHeight: 1.65 }}>
+              Hay <b style={{ color: '#F5C300' }}>{precision!.mediciones.toLocaleString('es-AR')}</b>{' '}
+              mediciones de pluviómetro cargadas, de{' '}
+              <b style={{ color: '#F5C300' }}>{precision!.eventos}</b>{' '}
+              {precision!.eventos === 1 ? 'día de lluvia' : 'días de lluvia'}
+              {precision!.rango && (
+                <> — entre el {fmtFecha(precision!.rango.desde)} y el {fmtFecha(precision!.rango.hasta)}</>
+              )}.
+            </div>
+
+            {m && (
+              <div style={{ ...mono, fontSize: 13, color: '#8a8a8a', marginTop: 8, lineHeight: 1.65 }}>
+                Comparadas contra el modelo de respaldo, coinciden en si llovió o no{' '}
+                <b style={{ color: '#7BC47F' }}>{Math.round(m.aciertoLlovioONo * 100)} de cada 100 veces</b>,
+                y cuando los dos marcan lluvia se llevan{' '}
+                <b style={{ color: '#E8833A' }}>{m.errorAbsMedio} mm</b> de diferencia en promedio.
+              </div>
+            )}
+
+            <div style={{ ...mono, fontSize: 12, color: '#6a6a6a', marginTop: 10, lineHeight: 1.6 }}>
+              Esto mide <b style={{ color: '#8a8a8a' }}>el modelo de respaldo</b>, no lo que ves en el
+              mapa. El número del mapa sale de interpolar estos mismos pluviómetros, y el modelo
+              sólo aparece donde no hay ninguna estación a menos de 60 km.
+            </div>
+
+            <button onClick={() => setVerDetalle(v => !v)}
+              style={{
+                ...mono, fontSize: 12, marginTop: 10, padding: '4px 10px', cursor: 'pointer',
+                background: 'transparent', border: '1px solid #333', color: '#8a8a8a',
+              }}>
+              {verDetalle ? 'Ocultar el detalle técnico' : 'Ver el detalle técnico'}
+            </button>
+
+            {verDetalle && m && (
+              <div style={{ marginTop: 12, borderTop: '1px solid #262626', paddingTop: 12 }}>
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                  {[
+                    { l: 'Pares comparables', v: String(precision!.comparables ?? precision!.mediciones) },
+                    { l: 'Error absoluto medio', v: `${m.errorAbsMedio} mm` },
+                    { l: 'Sesgo relativo', v: m.sesgoRelativo != null
+                        ? `${m.sesgoRelativo > 0 ? '+' : ''}${Math.round(m.sesgoRelativo * 100)} %` : '—' },
+                    { l: 'Spearman', v: m.spearman != null ? String(m.spearman) : '—' },
+                    { l: 'En coordenada exacta', v: String(precision!.enCoordenadaExacta ?? 0) },
+                  ].map(x => (
+                    <div key={x.l} style={{ background: '#111', border: '1px solid #222', padding: '7px 12px' }}>
+                      <div style={{ ...mono, fontSize: 11, color: '#555', textTransform: 'uppercase',
+                        letterSpacing: 0.8 }}>{x.l}</div>
+                      <div style={{ ...mono, fontSize: 14, fontWeight: 700, color: '#bdbdbd', marginTop: 2 }}>
+                        {x.v}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/*
+                  Este aviso no es un tecnicismo de más: sin él, el sesgo se lee como
+                  una propiedad del modelo cuando es un artefacto de la muestra.
+                */}
+                <div style={{ ...mono, fontSize: 12, color: '#C9A227', marginTop: 12, lineHeight: 1.6,
+                  background: '#151005', border: '1px solid #3a2e05', padding: '9px 12px' }}>
+                  Estos indicadores se calculan sólo donde la APA reportó lluvia, así que
+                  <b> se dan vuelta según cuántas fechas haya cargadas</b>: con 5 fechas el modelo
+                  parecía sobreestimar 28 %, y con las 162 parecía subestimar 26 %. No los tomes
+                  como una medida fija de cuánto se equivoca.
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/*
+        Cargar a mano es el camino raro: sólo sirve si el mapa de la APA está
+        caído. Va plegado para que no compita con Importar, que es lo que se usa
+        siempre.
+      */}
+      {esAdmin && !verManual && (
+        <button onClick={() => setVerManual(true)}
+          style={{
+            ...mono, fontSize: 12, padding: '7px 12px', cursor: 'pointer', marginBottom: 12,
+            background: 'transparent', border: '1px solid #262626', color: '#6a6a6a',
+          }}>
+          ¿La APA no responde? Cargar un parte a mano
+        </button>
+      )}
+
+      {esAdmin && verManual && (
         <div style={caja}>
-          <div style={{ ...lbl, marginBottom: 6 }}>Cargar un parte a mano</div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 6 }}>
+            <div style={{ ...lbl, marginBottom: 0 }}>Cargar un parte a mano</div>
+            <button onClick={() => setVerManual(false)}
+              style={{ ...mono, fontSize: 11, background: 'transparent', border: 'none',
+                color: '#6a6a6a', cursor: 'pointer', padding: 0 }}>
+              ocultar
+            </button>
+          </div>
           <div style={{ ...mono, fontSize: 12, color: '#666', marginBottom: 10, lineHeight: 1.5 }}>
             Respaldo para cuando el mapa de la APA no responde y el dato sólo está en la prensa.
           </div>
