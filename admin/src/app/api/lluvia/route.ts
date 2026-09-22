@@ -55,13 +55,28 @@ export async function GET(req: NextRequest) {
   // que se muestra; `mm` es el modelo y queda de respaldo para las fechas que
   // todavía no se fusionaron —las anteriores a que esto existiera, o aquellas en
   // que la APA no publicó parte.
+  /**
+   * La procedencia del período se pesa **por milímetros**, no por días.
+   *
+   * La primera versión tomaba la peor procedencia de todos los días del rango, y
+   * eso daba una etiqueta absurda: en una semana con dos días de lluvia y seis
+   * secos, los seis secos no tienen parte de la APA —no hay nada que fusionar—
+   * así que marcaban todo el acumulado como "sin recalcular", tapando que el
+   * 100 % de los milímetros venía de pluviómetros.
+   *
+   * El número que se muestra es una suma. Un día que aportó 0 mm no aporta nada
+   * al resultado, así que su procedencia no debería decidir la etiqueta. Se mira
+   * de dónde vinieron los milímetros que efectivamente hay.
+   */
   const registros: RegistroLluvia[] = []
-  const proc = new Map<number, { peor: string; dist: number; n: number; fusionadas: number }>()
-  // `sin_calcular` es la peor de todas: significa que el número que se está
-  // mostrando ni siquiera pasó por los pluviómetros todavía.
-  const ORDEN: Record<string, number> = {
-    medido: 0, interpolado: 1, estimado: 2, sin_calcular: 3,
-  }
+  const proc = new Map<number, {
+    mmPorProc: Record<string, number>
+    mmTotal: number
+    dist: number; n: number; fusionadas: number
+  }>()
+
+  /** Con menos de este aporte, la procedencia de esos días no cambia la etiqueta */
+  const UMBRAL = 0.05
 
   for (let desplazamiento = 0; ; desplazamiento += PAGINA) {
     const { data, error } = await supabase
@@ -75,14 +90,9 @@ export async function GET(req: NextRequest) {
 
     for (const r of data) {
       const cc = r.consorcio_numero as number
-      registros.push({
-        consorcio_numero: cc,
-        fecha: r.fecha as string,
-        mm: Number(r.mm_fusion ?? r.mm),
-      })
-      // La procedencia del período es la peor de sus días: si algún día del
-      // rango salió del modelo, el acumulado no es enteramente medido.
-      //
+      const mm = Number(r.mm_fusion ?? r.mm)
+      registros.push({ consorcio_numero: cc, fecha: r.fecha as string, mm })
+
       // Sin `mm_fusion` la fila nunca se cruzó con los pluviómetros, y eso NO
       // es lo mismo que "no había ninguno cerca". Etiquetarlo como `estimado`
       // hacía que el mapa afirmara "sin pluviómetro a menos de 60 km" sobre
@@ -90,9 +100,11 @@ export async function GET(req: NextRequest) {
       const p = r.mm_fusion == null
         ? 'sin_calcular'
         : ((r.procedencia as string) ?? 'sin_calcular')
+
       let a = proc.get(cc)
-      if (!a) { a = { peor: 'medido', dist: 0, n: 0, fusionadas: 0 }; proc.set(cc, a) }
-      if (ORDEN[p] > ORDEN[a.peor]) a.peor = p
+      if (!a) { a = { mmPorProc: {}, mmTotal: 0, dist: 0, n: 0, fusionadas: 0 }; proc.set(cc, a) }
+      a.mmPorProc[p] = (a.mmPorProc[p] ?? 0) + mm
+      a.mmTotal += mm
       if (r.dist_pluviometro_km != null) { a.dist += Number(r.dist_pluviometro_km); a.n++ }
       if (r.mm_fusion != null) a.fusionadas++
     }
@@ -107,11 +119,31 @@ export async function GET(req: NextRequest) {
     .limit(1)
     .maybeSingle()
 
+  /**
+   * La peor procedencia **entre las que aportan milímetros de verdad**.
+   *
+   * Si todo el período dio 0 mm no hay de dónde agarrarse, así que ahí sí manda
+   * la peor de todas: no llovió y tampoco se recalculó, y eso hay que decirlo.
+   */
+  const ORDEN: Record<string, number> = {
+    medido: 0, interpolado: 1, estimado: 2, sin_calcular: 3,
+  }
+  const etiqueta = (a?: { mmPorProc: Record<string, number>; mmTotal: number }) => {
+    if (!a) return 'sin_calcular'
+    const claves = Object.keys(a.mmPorProc)
+    if (claves.length === 0) return 'sin_calcular'
+    const relevantes = a.mmTotal > 0
+      ? claves.filter(k => a.mmPorProc[k] / a.mmTotal > UMBRAL)
+      : claves
+    return (relevantes.length ? relevantes : claves)
+      .sort((x, y) => ORDEN[y] - ORDEN[x])[0]
+  }
+
   const consorcios = resumirPorConsorcio(registros).map(c => {
     const a = proc.get(c.numero)
     return {
       ...c,
-      procedencia: a?.peor ?? 'sin_calcular',
+      procedencia: etiqueta(a),
       distanciaKm: a && a.n ? Math.round((a.dist / a.n) * 10) / 10 : null,
     }
   })

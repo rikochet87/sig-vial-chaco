@@ -315,10 +315,25 @@ Tres cosas que **no** hay que rehacer porque ya se midieron y salieron mal:
 - **Corregir el sesgo con un factor único** empeora los eventos que importan. El
   modelo subestima la lluvia liviana y aplasta los picos: `APA ≈ 2,3·modelo^0,68`.
 
-`procedencia` dice de dónde salió cada fila —`medido`, `interpolado`,
-`estimado`— y eso va a pantalla: un número que se va a citar tiene que poder
-decir de dónde sale. Tres consorcios (80, 81 y **84**, con el 82 % de su red
-descubierta) caen al modelo; es el hueco real de la red de la APA, no un error.
+### Procedencia: de dónde salió cada número
+
+Cuatro estados, y los cuatro van a pantalla: `medido`, `interpolado`, `estimado`
+y `sin_calcular`. Un número que se va a citar tiene que poder decir de dónde
+sale. Tres consorcios (80, 81 y **84**, con el 82 % de su red descubierta) caen
+al modelo; es el hueco real de la red de la APA, no un error.
+
+**`sin_calcular` tiene que ser un estado aparte.** Una fila sin `mm_fusion` nunca
+se cruzó con los pluviómetros, y eso no es lo mismo que "no había ninguno cerca".
+Etiquetarla como `estimado` hacía que el mapa afirmara *"sin pluviómetro a menos
+de 60 km"* sobre consorcios que tienen uno a 12 km.
+
+**Y la procedencia del período se pesa por milímetros, no por días.** La primera
+versión tomaba la peor de todos los días del rango: en una semana con dos días de
+lluvia y seis secos, los seis secos no tienen parte de la APA —no hay nada que
+fusionar— y marcaban los 103 consorcios como "sin recalcular", tapando que el
+100 % de los milímetros venía de pluviómetros. El número que se muestra es una
+suma; un día que aportó 0 mm no debería decidir su etiqueta. El umbral está en
+`UMBRAL` dentro de `api/lluvia/route.ts`.
 
 Lo que falta probar —IMERG, radar, kriging— está en `docs/lluvia-pendientes.md`
 con el procedimiento para medirlo.
@@ -342,6 +357,27 @@ render, no el código.
 Los **ojos de buey** —curvas cerradas chiquitas alrededor de cada pluviómetro—
 son el artefacto propio del IDW, no un patrón meteorológico. Se ven sobre todo
 en el nivel más alto.
+
+### Zonas de pluviómetro (Thiessen)
+
+`lib/thiessen.ts` dibuja los polígonos de Thiessen sobre el mapa: la zona donde
+cada estación es la más cercana. Es una **capa de cobertura, no el campo de
+lluvia** — contesta "¿de qué pluviómetro lee este lugar?", que es otra pregunta
+que la de cuántos milímetros cayeron.
+
+Que el polígono no sea el método de cálculo no lo vuelve mentira: bajo IDW el
+pluviómetro más cercano es también el que más pesa. Pero **los milímetros no se
+calculan así** — Thiessen usa una sola estación y midió peor (MAE 4,47 contra
+3,98). Se dibuja porque para mirar la cobertura es insuperable: se ve de un
+vistazo si la red de un consorcio cae dentro de un polígono o está partida.
+
+Está resuelto por fuerza bruta sobre una grilla de 2 km, no con un Voronoi
+analítico: con 71 estaciones son unos pocos millones de distancias, tarda menos
+que el pintado del mapa y evita una dependencia.
+
+**La Vicuña y Paraje Kolbacks comparten coordenada**, así que una gana siempre el
+desempate y la otra queda sin polígono: 70 zonas para 71 estaciones activas. El
+test lo afirma para que no se lea como un error del algoritmo.
 
 ### La API de la APA
 

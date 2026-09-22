@@ -26,6 +26,37 @@ import {
 } from '@/lib/lluvia'
 import { TEXTO_PROCEDENCIA, RADIO_KM } from '@/lib/fusion'
 import { calcularGrilla, curvasDeNivel, nivelesSugeridos } from '@/lib/isohietas'
+import { rasterThiessen, bordesThiessen } from '@/lib/thiessen'
+
+/** Un interruptor de capa: título clickeable y una línea de qué hace */
+function Interruptor({ titulo, nota, activo, onChange }: {
+  titulo: string; nota: string; activo: boolean; onChange: (v: boolean) => void
+}) {
+  return (
+    <label style={{ display: 'block', cursor: 'pointer' }}>
+      <span style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#e0e0e0', fontSize: 13 }}>
+        <input type="checkbox" checked={activo} onChange={e => onChange(e.target.checked)}
+          style={{ width: 15, height: 15, accentColor: '#F5C300', cursor: 'pointer' }} />
+        {titulo}
+      </span>
+      <span style={{ display: 'block', fontSize: 11, color: '#7a7a7a', marginLeft: 23, marginTop: 2 }}>
+        {nota}
+      </span>
+    </label>
+  )
+}
+
+/** Una línea de leyenda: cuadradito de color y texto */
+function Fila({ color, texto }: { color: string; texto: string }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 3,
+      fontSize: 11, color: '#c4c4c4' }}>
+      <span style={{ width: 16, height: 11, background: color, border: '1px solid #444',
+        flexShrink: 0 }} />
+      {texto}
+    </div>
+  )
+}
 
 /** '#RRGGBB' → [r, g, b], para poder escribirlo en el lienzo */
 function aRGB(hex: string): [number, number, number] {
@@ -78,7 +109,11 @@ export default function MapaLluvia({ datos, seleccionado, onSeleccionar, estacio
   const onSelRef = useRef(onSeleccionar)
   onSelRef.current = onSeleccionar
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const capaZonasRef = useRef<any>(null)
+
   const [verIso, setVerIso] = useState(false)
+  const [verZonas, setVerZonas] = useState(false)
   const [niveles, setNiveles] = useState<number[]>([])
 
   /**
@@ -115,9 +150,12 @@ export default function MapaLluvia({ datos, seleccionado, onSeleccionar, estacio
       mapaRef.current = mapa
       // Orden de abajo hacia arriba: las isohietas son el fondo, después los
       // caminos, y los círculos arriba de todo para que se puedan clickear.
-      capaIsoRef.current = L.layerGroup().addTo(mapa)
-      capaRedRef.current = L.layerGroup().addTo(mapa)
-      capaRef.current    = L.layerGroup().addTo(mapa)
+      capaIsoRef.current   = L.layerGroup().addTo(mapa)
+      capaRedRef.current   = L.layerGroup().addTo(mapa)
+      // Las zonas van por encima de los caminos: el sentido de la capa es
+      // justamente ver qué red cae dentro de qué polígono.
+      capaZonasRef.current = L.layerGroup().addTo(mapa)
+      capaRef.current      = L.layerGroup().addTo(mapa)
 
       // El contenedor arranca con alto 0 mientras el layout se acomoda
       setTimeout(() => mapa.invalidateSize(), 120)
@@ -353,6 +391,75 @@ export default function MapaLluvia({ datos, seleccionado, onSeleccionar, estacio
     return () => { cancelado = true }
   }, [verIso, estaciones])
 
+  /**
+   * Zonas de pluviómetro: los polígonos de Thiessen y las estaciones.
+   *
+   * Contesta de un vistazo "¿de qué pluviómetro lee este consorcio?". Los bordes
+   * van como imagen —son un raster de a 2 km— y las estaciones como puntos, que
+   * llevan el nombre y lo que midieron.
+   *
+   * Es una capa de cobertura, no el campo de lluvia: los milímetros salen de IDW
+   * promediando varias estaciones, no del polígono. Sirve igual, porque bajo IDW
+   * el pluviómetro más cercano es también el que más pesa.
+   */
+  useEffect(() => {
+    if (!capaZonasRef.current) return
+    let cancelado = false
+
+    if (!verZonas || !estaciones?.length) {
+      capaZonasRef.current.clearLayers()
+      return
+    }
+
+    ;(async () => {
+      const L = (await import('leaflet')).default
+      if (cancelado || !capaZonasRef.current) return
+
+      const r = rasterThiessen(estaciones, 2)
+      capaZonasRef.current.clearLayers()
+      if (!r) return
+
+      const bordes = bordesThiessen(r)
+      const lienzo = document.createElement('canvas')
+      lienzo.width = r.nx
+      lienzo.height = r.ny
+      const ctx = lienzo.getContext('2d')
+      if (ctx) {
+        const img = ctx.createImageData(r.nx, r.ny)
+        for (let j = 0; j < r.ny; j++) {
+          for (let i = 0; i < r.nx; i++) {
+            if (!bordes[j * r.nx + i]) continue
+            // La grilla va de sur a norte y la imagen de arriba hacia abajo
+            const k = ((r.ny - 1 - j) * r.nx + i) * 4
+            img.data[k] = 30; img.data[k + 1] = 32; img.data[k + 2] = 34
+            img.data[k + 3] = 130
+          }
+        }
+        ctx.putImageData(img, 0, 0)
+        L.imageOverlay(lienzo.toDataURL(), [
+          [r.lat0, r.lng0],
+          [r.lat0 + (r.ny - 1) * r.dLat, r.lng0 + (r.nx - 1) * r.dLng],
+        ], { interactive: false }).addTo(capaZonasRef.current)
+      }
+
+      for (const e of estaciones) {
+        L.circleMarker([e.lat, e.lng], {
+          radius: 3.5, color: '#fff', weight: 1.2,
+          fillColor: e.mm > 0 ? '#C0392B' : '#4a4a4a', fillOpacity: 1,
+        })
+          .bindTooltip(
+            `<div style="font-family:monospace;font-size:12px;line-height:1.5">
+               <b>${e.nombre}</b><br/>${e.mm.toLocaleString('es-AR')} mm en el período
+             </div>`,
+            { direction: 'top', opacity: 0.96 },
+          )
+          .addTo(capaZonasRef.current)
+      }
+    })()
+
+    return () => { cancelado = true }
+  }, [verZonas, estaciones])
+
   // ── Resaltar el seleccionado ─────────────────────────────────────────────
   useEffect(() => {
     // Los caminos del consorcio elegido se engrosan; el resto se atenúa, así
@@ -388,61 +495,57 @@ export default function MapaLluvia({ datos, seleccionado, onSeleccionar, estacio
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
       <div ref={divRef} style={{ width: '100%', height: '100%', background: '#111' }} />
 
-      {/* Control: un solo interruptor, con el motivo a la vista si no se puede usar */}
+      {/* Capas: dos interruptores y nada más. Cada uno explica qué muestra. */}
       <div style={{
         position: 'absolute', top: 10, right: 10, zIndex: 500,
         background: 'rgba(24,24,24,.93)', border: '1px solid #333', borderRadius: 3,
-        padding: '8px 11px', fontFamily: 'monospace', maxWidth: 230,
+        padding: '9px 12px', fontFamily: 'monospace', maxWidth: 236,
       }}>
-        <label style={{
-          display: 'flex', alignItems: 'center', gap: 8,
-          cursor: hayEstaciones ? 'pointer' : 'default',
-          color: hayEstaciones ? '#e0e0e0' : '#666', fontSize: 13,
-        }}>
-          <input
-            type="checkbox" checked={verIso} disabled={!hayEstaciones}
-            onChange={e => setVerIso(e.target.checked)}
-            style={{ width: 15, height: 15, accentColor: '#F5C300', cursor: 'inherit' }} />
-          Isohietas
-        </label>
-
-        <div style={{ fontSize: 11, color: '#7a7a7a', marginTop: 5, lineHeight: 1.45 }}>
-          {!hayEstaciones
-            ? 'Necesita mediciones de la APA en el período. Cargalas desde Precisión.'
-            : verIso
-              ? 'Curvas de igual lluvia, interpoladas entre pluviómetros.'
-              : 'Ver la lluvia como curvas de nivel.'}
-        </div>
-
-        {verIso && niveles.length > 0 && (
-          <div style={{ marginTop: 9, borderTop: '1px solid #2d2d2d', paddingTop: 8 }}>
-            {niveles.map(n => (
-              <div key={n} style={{
-                display: 'flex', alignItems: 'center', gap: 7, marginBottom: 3,
-                fontSize: 11, color: '#c4c4c4',
-              }}>
-                <span style={{
-                  width: 16, height: 11, background: colorLluvia(n),
-                  border: '1px solid #444', flexShrink: 0,
-                }} />
-                {n.toLocaleString('es-AR')} mm
-              </div>
-            ))}
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 7, marginBottom: 3,
-              fontSize: 11, color: '#c4c4c4',
-            }}>
-              <span style={{
-                width: 16, height: 11, background: '#54564f',
-                border: '1px solid #444', flexShrink: 0,
-              }} />
-              0 mm — no llovió
-            </div>
-            <div style={{ fontSize: 11, color: '#6a6a6a', marginTop: 7, lineHeight: 1.45 }}>
-              Sin pintar: no hay pluviómetro a menos de {RADIO_KM} km, así que no
-              se puede afirmar nada.
-            </div>
+        {!hayEstaciones ? (
+          <div style={{ fontSize: 12, color: '#8a8a8a', lineHeight: 1.5 }}>
+            Sin mediciones de la APA en el período.<br />
+            <span style={{ color: '#6a6a6a' }}>Traelas desde la pestaña Precisión.</span>
           </div>
+        ) : (
+          <>
+            <Interruptor
+              titulo="Isohietas" activo={verIso} onChange={setVerIso}
+              nota="Curvas de igual lluvia." />
+
+            {verIso && niveles.length > 0 && (
+              <div style={{ margin: '7px 0 9px 23px' }}>
+                {niveles.map(n => (
+                  <Fila key={n} color={colorLluvia(n)} texto={`${n.toLocaleString('es-AR')} mm`} />
+                ))}
+                <Fila color="#54564f" texto="0 mm — no llovió" />
+                <div style={{ fontSize: 11, color: '#6a6a6a', marginTop: 5, lineHeight: 1.45 }}>
+                  Sin pintar: no hay pluviómetro a menos de {RADIO_KM} km.
+                </div>
+              </div>
+            )}
+
+            <div style={{ borderTop: '1px solid #2d2d2d', margin: '8px 0' }} />
+
+            <Interruptor
+              titulo="Zonas de pluviómetro" activo={verZonas} onChange={setVerZonas}
+              nota="De qué estación lee cada lugar." />
+
+            {verZonas && (
+              <div style={{ margin: '7px 0 0 23px', fontSize: 11, color: '#7a7a7a',
+                lineHeight: 1.5 }}>
+                Cada polígono es la zona de una estación. Mirá si la red de un
+                consorcio cae dentro de uno solo o está partida entre varios.
+                <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 6 }}>
+                  <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#C0392B',
+                    border: '1px solid #fff', flexShrink: 0 }} />
+                  <span style={{ color: '#c4c4c4' }}>midió lluvia</span>
+                  <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#4a4a4a',
+                    border: '1px solid #fff', flexShrink: 0 }} />
+                  <span style={{ color: '#c4c4c4' }}>midió cero</span>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
