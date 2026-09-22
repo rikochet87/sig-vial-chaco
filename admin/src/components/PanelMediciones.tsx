@@ -53,6 +53,13 @@ export default function PanelMediciones({ esAdmin }: { esAdmin: boolean }) {
   const [aviso, setAviso] = useState<string | null>(null)
   const [precision, setPrecision] = useState<Precision | null>(null)
 
+  // Importación automática: por defecto, el último mes
+  const hoy = new Date().toISOString().slice(0, 10)
+  const haceUnMes = new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10)
+  const [impDesde, setImpDesde] = useState(haceUnMes)
+  const [impHasta, setImpHasta] = useState(hoy)
+  const [resumenImp, setResumenImp] = useState<string | null>(null)
+
   const cargarPrecision = useCallback(async () => {
     try {
       const r = await fetch('/api/lluvia/mediciones')
@@ -60,6 +67,37 @@ export default function PanelMediciones({ esAdmin }: { esAdmin: boolean }) {
     } catch { /* el panel de precisión es informativo: si falla, no molesta */ }
   }, [])
   useEffect(() => { cargarPrecision() }, [cargarPrecision])
+
+  async function importar() {
+    setOcupado(true); setError(null); setAviso(null); setResumenImp(null)
+    try {
+      const r = await fetch('/api/lluvia/mediciones', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ importar: true, desde: impDesde, hasta: impHasta }),
+      })
+      const j = await r.json()
+      if (!r.ok) throw new Error(j.error ?? 'No se pudo importar')
+
+      if (!j.guardadas) {
+        setResumenImp(j.aviso ?? 'No había nada nuevo para traer.')
+      } else {
+        const partes = [
+          `${j.guardadas} mediciones de ${j.fechas} ${j.fechas === 1 ? 'fecha' : 'fechas'}`,
+          j.conModelo != null && `${j.conModelo} con el modelo ya comparado`,
+          j.periodo && `período informado ${j.periodo}`,
+          j.pendientes > 0 && `quedan ${j.pendientes} fechas: volvé a tocar Importar`,
+        ].filter(Boolean)
+        setResumenImp(partes.join(' · '))
+      }
+      if (j.aviso && j.guardadas) setAviso(j.aviso)
+      if (j.sinReconocer?.length) {
+        setAviso(`La APA informó estaciones que no están en la lista: ${j.sinReconocer.join(', ')}`)
+      }
+      await cargarPrecision()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Error al importar')
+    } finally { setOcupado(false) }
+  }
 
   async function leer() {
     setOcupado(true); setError(null); setAviso(null)
@@ -163,10 +201,53 @@ export default function PanelMediciones({ esAdmin }: { esAdmin: boolean }) {
         )}
       </div>
 
-      {/* ── Cargar un parte ── */}
+      {/* ── Importar de la APA ── */}
       {esAdmin && (
         <div style={caja}>
-          <div style={{ ...lbl, marginBottom: 10 }}>Cargar un parte de la APA</div>
+          <div style={{ ...lbl, marginBottom: 6 }}>Traer los partes de la APA</div>
+          <div style={{ ...mono, fontSize: 12, color: '#666', marginBottom: 10, lineHeight: 1.55 }}>
+            La APA publica sus mediciones en <b style={{ color: '#888' }}>mapas.apachaco.gob.ar</b> y
+            se pueden leer directo, sin transcribir nada. Trae sólo las fechas que
+            todavía no estén cargadas, de a {25} por vez, y consulta el modelo en la
+            coordenada de cada estación para dejar la comparación armada.
+          </div>
+
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+            <div>
+              <label style={lbl}>Desde</label>
+              <input type="date" value={impDesde} onChange={e => setImpDesde(e.target.value)} style={inp} />
+            </div>
+            <div>
+              <label style={lbl}>Hasta</label>
+              <input type="date" value={impHasta} onChange={e => setImpHasta(e.target.value)} style={inp} />
+            </div>
+            <button onClick={importar} disabled={ocupado || !impDesde || !impHasta}
+              style={{
+                ...mono, fontSize: 13, padding: '7px 16px', fontWeight: 700,
+                cursor: ocupado || !impDesde || !impHasta ? 'default' : 'pointer',
+                background: 'transparent',
+                border: `1px solid ${ocupado || !impDesde || !impHasta ? '#333' : '#F5C300'}`,
+                color: ocupado || !impDesde || !impHasta ? '#555' : '#F5C300',
+              }}>
+              {ocupado ? 'Trayendo…' : 'Importar'}
+            </button>
+          </div>
+
+          {resumenImp && (
+            <div style={{ ...mono, fontSize: 12, color: '#8fb98f', marginTop: 10, lineHeight: 1.6 }}>
+              {resumenImp}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Cargar un parte a mano ── */}
+      {esAdmin && (
+        <div style={caja}>
+          <div style={{ ...lbl, marginBottom: 6 }}>Cargar un parte a mano</div>
+          <div style={{ ...mono, fontSize: 12, color: '#666', marginBottom: 10, lineHeight: 1.5 }}>
+            Respaldo para cuando el mapa de la APA no responde y el dato sólo está en la prensa.
+          </div>
 
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: 10 }}>
             <div>

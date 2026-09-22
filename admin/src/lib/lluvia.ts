@@ -155,36 +155,36 @@ function lotes<T>(xs: T[], n: number): T[][] {
   return out
 }
 
-/**
- * Trae los milímetros diarios de cada consorcio para el rango pedido.
- *
- * Consulta los ~746 puntos de muestreo repartidos sobre las redes viales y
- * promedia los de cada consorcio ponderando por el peso de cada punto, que es
- * la fracción de camino que representa. El resultado es "cuánta agua cayó sobre
- * los caminos de este consorcio", no "cuánta cayó sobre su oficina".
- *
- * Open-Meteo acepta varios puntos por llamada separando las coordenadas por
- * coma y devuelve un arreglo en el mismo orden, así que los 746 puntos salen en
- * 19 llamadas.
- */
-export async function consultarLluvia(desde: string, hasta: string): Promise<RegistroLluvia[]> {
-  // consorcio → fecha → { suma ponderada, peso efectivamente consultado }
-  const acum = new Map<number, Map<string, { mm: number; peso: number }>>()
+/** Clave de una coordenada, para deduplicar y volver a encontrarla después */
+export const claveCoord = (p: { lat: number; lng: number }) => `${p.lat},${p.lng}`
 
-  /**
-   * Coordenadas únicas.
-   *
-   * Consorcios vecinos comparten celdas, así que la misma coordenada aparece
-   * en varias filas. Preguntarla una sola vez ahorra llamadas contra el cupo,
-   * que es el recurso escaso acá.
-   */
-  const clave = (p: { lat: number; lng: number }) => `${p.lat},${p.lng}`
+/**
+ * Consulta el modelo en un conjunto de coordenadas y devuelve, por coordenada,
+ * la serie de milímetros diarios.
+ *
+ * Es el único lugar que habla con Open-Meteo. Lo usan tanto la ingesta por
+ * consorcio —sobre los puntos de muestreo de la red vial— como la comparación
+ * contra los pluviómetros de la APA, que pregunta en la coordenada exacta de
+ * cada estación. Que sea uno solo importa: el cupo se factura **por
+ * ubicación**, no por pedido HTTP, y la deduplicación y la espera ante el 429
+ * tienen que valer para los dos usos.
+ *
+ * Open-Meteo acepta varias coordenadas por llamada separándolas con coma y
+ * devuelve un arreglo en el mismo orden.
+ */
+export async function consultarPuntos(
+  puntos: { lat: number; lng: number }[],
+  desde: string,
+  hasta: string,
+): Promise<Map<string, Map<string, number>>> {
+  // Coordenadas únicas: preguntar dos veces la misma gasta cupo al pedo
   const porCoord = new Map<string, { lat: number; lng: number }>()
-  for (const p of PUNTOS_LLUVIA) if (!porCoord.has(clave(p))) porCoord.set(clave(p), p)
+  for (const p of puntos) if (!porCoord.has(claveCoord(p))) porCoord.set(claveCoord(p), p)
   const coords = [...porCoord.values()]
 
   // coordenada → { fecha → mm }
   const mmPorCoord = new Map<string, Map<string, number>>()
+  if (coords.length === 0) return mmPorCoord
 
   const grupos = lotes(coords, LOTE)
 
@@ -235,14 +235,31 @@ export async function consultarLluvia(desde: string, hasta: string): Promise<Reg
           // cero: guardarlo como 0 sería inventar un día seco.
           if (mm != null) serie.set(fecha, mm)
         })
-        mmPorCoord.set(clave(punto), serie)
+        mmPorCoord.set(claveCoord(punto), serie)
       })
     }
   }
 
+  return mmPorCoord
+}
+
+/**
+ * Trae los milímetros diarios de cada consorcio para el rango pedido.
+ *
+ * Promedia los puntos de muestreo repartidos sobre la red vial de cada
+ * consorcio, ponderando por el peso de cada punto, que es la fracción de camino
+ * que representa. El resultado es "cuánta agua cayó sobre los caminos de este
+ * consorcio", no "cuánta cayó sobre su oficina".
+ */
+export async function consultarLluvia(desde: string, hasta: string): Promise<RegistroLluvia[]> {
+  // consorcio → fecha → { suma ponderada, peso efectivamente consultado }
+  const acum = new Map<number, Map<string, { mm: number; peso: number }>>()
+
+  const mmPorCoord = await consultarPuntos(PUNTOS_LLUVIA, desde, hasta)
+
   // Repartir lo consultado entre los consorcios que comparten cada coordenada
   for (const punto of PUNTOS_LLUVIA) {
-    const serie = mmPorCoord.get(clave(punto))
+    const serie = mmPorCoord.get(claveCoord(punto))
     if (!serie) continue
 
     let porFecha = acum.get(punto.cc)
@@ -295,6 +312,15 @@ export interface ResumenConsorcio {
    * centroide. Un número que se va a citar tiene que poder decir de dónde sale.
    */
   puntos: number
+  /**
+   * De dónde salió el número: `medido` si hay un pluviómetro de la APA sobre la
+   * red, `interpolado` si se promediaron los cercanos, `estimado` si no había
+   * ninguno dentro del radio y quedó el modelo. La agrega la API al leer; el
+   * motor de agregación no la conoce.
+   */
+  procedencia?: 'medido' | 'interpolado' | 'estimado'
+  /** Distancia media al pluviómetro más cercano, en km */
+  distanciaKm?: number | null
 }
 
 /**

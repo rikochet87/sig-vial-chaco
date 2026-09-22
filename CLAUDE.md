@@ -281,6 +281,123 @@ regenera desde la fuente original, revisar que no vuelvan a entrar proyectados.
 la red completa. Se usan de respaldo donde no hay traza, y sirven de control
 cruzado del procesamiento.
 
+## Lluvia — de dónde sale cada número
+
+Hay **dos fuentes** y no significan lo mismo:
+
+| | Qué es | Cobertura | Dónde |
+|---|---|---|---|
+| **APA** | pluviómetro, medición real | 71 estaciones que informan, sólo días con parte | `lib/apa.ts` → `mediciones_lluvia` |
+| **Open-Meteo** | reanálisis, estimación modelada | toda la provincia, cualquier fecha | `lib/lluvia.ts` → `precipitaciones.mm` |
+
+**El número que se muestra sale de los pluviómetros, no del modelo.**
+`lib/fusion.ts` interpola las mediciones de la APA sobre los puntos de muestreo
+de la red vial con IDW —potencia 2, radio 60 km— y el resultado va a
+`precipitaciones.mm_fusion`. El modelo queda de respaldo, sólo donde no hay
+ninguna estación dentro del radio, y como control.
+
+Validado dejando cada estación afuera, sobre 162 eventos y 11.502
+combinaciones estación-fecha:
+
+| Método | MAE | RMSE | r |
+|---|---|---|---|
+| Modelo crudo | 6,82 | 15,17 | 0,47 |
+| Modelo corregido + pluviómetros | 4,60 | 12,34 | 0,68 |
+| Thiessen | 4,47 | 12,50 | 0,70 |
+| **IDW² radio 60 km** | **3,98** | **10,47** | **0,77** |
+
+Tres cosas que **no** hay que rehacer porque ya se midieron y salieron mal:
+
+- **Anclar en el modelo y corregirlo con los pluviómetros** sale peor que
+  ignorar el modelo: arrastra su patrón espacial, que correlaciona 0,47.
+- **Mezclar los dos gradualmente por distancia** sale peor todavía (MAE 4,94):
+  contamina la buena estimación de cerca. El cambio al modelo es duro, a 60 km.
+- **Corregir el sesgo con un factor único** empeora los eventos que importan. El
+  modelo subestima la lluvia liviana y aplasta los picos: `APA ≈ 2,3·modelo^0,68`.
+
+`procedencia` dice de dónde salió cada fila —`medido`, `interpolado`,
+`estimado`— y eso va a pantalla: un número que se va a citar tiene que poder
+decir de dónde sale. Tres consorcios (80, 81 y **84**, con el 82 % de su red
+descubierta) caen al modelo; es el hueco real de la red de la APA, no un error.
+
+Lo que falta probar —IMERG, radar, kriging— está en `docs/lluvia-pendientes.md`
+con el procedimiento para medirlo.
+
+### Isohietas
+
+`lib/isohietas.ts` dibuja las curvas de igual lluvia: evalúa el **mismo** IDW en
+una grilla de 5 km y saca los contornos con marching squares. Todo en el
+navegador, con los 71 valores que devuelve `/api/lluvia/estaciones`.
+
+Usa el mismo motor a propósito. Si las curvas se trazaran con otro método, el
+mapa y la tabla se contradirían, y de las dos cosas la que termina en un
+expediente es el número de la tabla.
+
+El mapa tiene **tres estados y hay que poder distinguirlos**: color = llovió,
+gris tenue = midió cero, sin pintar = no hay pluviómetro a menos de 60 km. Los
+nodos fuera de radio quedan en `NaN` y ninguna curva los cruza. Pintar la zona
+sin cobertura igual que la zona seca fue un error que se detectó mirando el
+render, no el código.
+
+Los **ojos de buey** —curvas cerradas chiquitas alrededor de cada pluviómetro—
+son el artefacto propio del IDW, no un patrón meteorológico. Se ven sobre todo
+en el nivel más alto.
+
+### La API de la APA
+
+`mapas.apachaco.gob.ar` publica las mediciones en JSON, sin clave ni registro:
+
+```
+GET /public/localidades                → 111 estaciones con coordenadas
+GET /public/precipitaciones/fechas     → fechas con parte cargado
+GET /public/precipitaciones?fecha=…    → FeatureCollection con los mm
+```
+
+Cuatro cosas que **rompen la interpretación** si se pierden de vista:
+
+- **Sólo vienen las estaciones que informaron.** Un día grande devuelve 56 de
+  111; uno chico, una. Una estación ausente puede ser "no llovió" o "no
+  informó", y desde afuera no se distingue. Nunca completar ceros: medido
+  contra un cero inventado da 36 % de falsas alarmas que no existen.
+- **El período no es el día calendario.** `meta.periodo` viene `17-07`, de las
+  17:00 a las 07:00. Se probó comparar contra esa ventana horaria del modelo y
+  **empeora** (r 0,23 contra 0,30; sesgo −48 % contra +28 %), así que la
+  comparación se hace por día calendario. Está medido, no supuesto.
+- **`meta.periodo` es global**, el mismo para todas las fechas: no sirve para
+  saber bajo qué ventana se tomó un parte viejo.
+- **No hay endpoint de rango**: una llamada por fecha, `desde`/`hasta` da 400.
+
+En el origen, **La Vicuña** y **Paraje Kolbacks** comparten coordenada de
+relleno, y **Sáenz Peña** (id 2) y **Presidencia Roque Sáenz Peña** (id 189) son
+la misma ciudad cargada dos veces — la APA informa siempre en la segunda, por
+eso en `buscarEstacion` **el alias gana sobre el nombre literal**.
+
+### Cuidado con las métricas condicionadas
+
+Comparar sólo donde la APA informó da resultados que se dan vuelta según la
+muestra: con 5 fechas de septiembre el modelo parecía sobreestimar 28 %, con las
+162 parecía subestimar 26 %. Las dos lecturas son artefactos de mirar únicamente
+los casos con lluvia reportada. Contando los ceros deducidos, el modelo
+sobreestima alrededor del 15 %. **Cualquier métrica nueva sobre estos datos hay
+que calcularla sobre las 11.502 combinaciones estación-fecha, no sobre las 3.334
+mediciones.**
+
+### Importación
+
+Desde la pantalla de Lluvias, botón **Importar**: trae las fechas que falten,
+de a 25 por corrida, y consulta el modelo en la coordenada exacta de cada
+estación para guardar el par ya armado en `mediciones_lluvia.mm_modelo`. Queda
+congelado: si mañana el modelo revisa sus números, la comparación histórica no
+se mueve.
+
+`consultarPuntos()` en `lib/lluvia.ts` es el **único** lugar que habla con
+Open-Meteo. Importa que sea uno solo: el cupo se factura **por ubicación**, no
+por pedido HTTP, y la deduplicación y la espera ante el 429 tienen que valer
+para la ingesta por consorcio y para la comparación por estación.
+
+`admin/src/data/estacionesApa.ts` se **genera** desde `docs/geo/localidades-apa.json`
+— no editar a mano.
+
 ## Base de datos
 
 No hay migraciones versionadas en el repo: el SQL se aplica en el editor de

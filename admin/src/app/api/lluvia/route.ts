@@ -50,21 +50,41 @@ export async function GET(req: NextRequest) {
   }
 
   // ── Provincia entera ─────────────────────────────────────────────────────
+  //
+  // `mm_fusion` es la interpolación de los pluviómetros de la APA y es el número
+  // que se muestra; `mm` es el modelo y queda de respaldo para las fechas que
+  // todavía no se fusionaron —las anteriores a que esto existiera, o aquellas en
+  // que la APA no publicó parte.
   const registros: RegistroLluvia[] = []
+  const proc = new Map<number, { peor: string; dist: number; n: number; fusionadas: number }>()
+  const ORDEN: Record<string, number> = { medido: 0, interpolado: 1, estimado: 2 }
+
   for (let desplazamiento = 0; ; desplazamiento += PAGINA) {
     const { data, error } = await supabase
       .from('precipitaciones')
-      .select('consorcio_numero, fecha, mm')
+      .select('consorcio_numero, fecha, mm, mm_fusion, procedencia, dist_pluviometro_km')
       .gte('fecha', desde).lte('fecha', hasta)
       .order('fecha')
       .range(desplazamiento, desplazamiento + PAGINA - 1)
     if (error) return dbError(error)
     if (!data?.length) break
-    registros.push(...data.map(r => ({
-      consorcio_numero: r.consorcio_numero as number,
-      fecha: r.fecha as string,
-      mm: Number(r.mm),
-    })))
+
+    for (const r of data) {
+      const cc = r.consorcio_numero as number
+      registros.push({
+        consorcio_numero: cc,
+        fecha: r.fecha as string,
+        mm: Number(r.mm_fusion ?? r.mm),
+      })
+      // La procedencia del período es la peor de sus días: si algún día del
+      // rango salió del modelo, el acumulado no es enteramente medido.
+      const p = (r.procedencia as string) ?? 'estimado'
+      let a = proc.get(cc)
+      if (!a) { a = { peor: 'medido', dist: 0, n: 0, fusionadas: 0 }; proc.set(cc, a) }
+      if (ORDEN[p] > ORDEN[a.peor]) a.peor = p
+      if (r.dist_pluviometro_km != null) { a.dist += Number(r.dist_pluviometro_km); a.n++ }
+      if (r.mm_fusion != null) a.fusionadas++
+    }
     if (data.length < PAGINA) break
   }
 
@@ -76,11 +96,22 @@ export async function GET(req: NextRequest) {
     .limit(1)
     .maybeSingle()
 
+  const consorcios = resumirPorConsorcio(registros).map(c => {
+    const a = proc.get(c.numero)
+    return {
+      ...c,
+      procedencia: a?.peor ?? 'estimado',
+      distanciaKm: a && a.n ? Math.round((a.dist / a.n) * 10) / 10 : null,
+    }
+  })
+
   return NextResponse.json({
     desde, hasta,
-    consorcios: resumirPorConsorcio(registros),
+    consorcios,
     episodios: detectarEpisodios(registros),
     ultimaFechaCargada: ultima?.fecha ?? null,
     filas: registros.length,
+    // Cuántas de las filas del rango ya tienen la interpolación calculada
+    fusionadas: [...proc.values()].reduce((s, a) => s + a.fusionadas, 0),
   })
 }

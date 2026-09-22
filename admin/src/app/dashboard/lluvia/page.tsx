@@ -21,6 +21,8 @@ import {
   type ResumenConsorcio, type Episodio,
 } from '@/lib/lluvia'
 
+import type { EstacionLluvia } from '@/components/MapaLluvia'
+
 const PanelMediciones = dynamic(() => import('@/components/PanelMediciones'), { ssr: false })
 
 const MapaLluvia = dynamic(() => import('@/components/MapaLluvia'), {
@@ -80,6 +82,23 @@ export default function LluviaPage() {
   }, [])
 
   useEffect(() => { cargar(desde, hasta) }, [cargar, desde, hasta])
+
+  /**
+   * Las mediciones de la APA del período, para las isohietas.
+   *
+   * Va aparte de `cargar` a propósito: son 71 números y el mapa los usa sólo si
+   * el usuario prende la capa, así que si esta consulta falla no tiene que
+   * arrastrar al resto de la pantalla.
+   */
+  const [estaciones, setEstaciones] = useState<EstacionLluvia[]>([])
+  useEffect(() => {
+    let vivo = true
+    fetch(`/api/lluvia/estaciones?desde=${desde}&hasta=${hasta}`)
+      .then(r => (r.ok ? r.json() : null))
+      .then(j => { if (vivo) setEstaciones(j?.estaciones ?? []) })
+      .catch(() => { if (vivo) setEstaciones([]) })
+    return () => { vivo = false }
+  }, [desde, hasta])
 
   /**
    * Al entrar, saltar al último episodio en vez de quedarse en "los últimos 7
@@ -325,7 +344,8 @@ export default function LluviaPage() {
 
         <div style={{ flex: 1, minWidth: 0, position: 'relative',
           background: '#191919', border: '1px solid #1e1e1e' }}>
-          <MapaLluvia datos={datos} seleccionado={seleccionado} onSeleccionar={setSeleccionado} />
+          <MapaLluvia datos={datos} seleccionado={seleccionado} onSeleccionar={setSeleccionado}
+            estaciones={estaciones} />
 
           {/* Referencias */}
           <div style={{
@@ -428,8 +448,10 @@ export default function LluviaPage() {
         Los caminos van pintados con el nivel de lluvia de su consorcio; el círculo, en el
         centro de gravedad de esa red, resume los milímetros acumulados del período —
         promediados sobre varios puntos de la red y ponderados por kilómetros de camino.
-        Datos de Open-Meteo (reanálisis de Copernicus y ECMWF, celda de 9 a 11 km): sirven
-        para el orden de magnitud y el patrón espacial, no reemplazan al pluviómetro.
+        El número sale de <b style={{ color: '#5a5a5a' }}>interpolar los pluviómetros de la
+        APA</b> que rodean cada red, pesando más a los cercanos (error típico ~4 mm). Donde
+        no hay ninguna estación a menos de 60 km queda la estimación del modelo de
+        Open-Meteo, con un error de unos 7 mm; el globo de cada círculo dice cuál es el caso.
       </div>
     </div>
   )

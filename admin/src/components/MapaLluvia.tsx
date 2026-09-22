@@ -24,6 +24,18 @@ import 'leaflet/dist/leaflet.css'
 import {
   colorLluvia, radioLluvia, clasificar, rangoLluvia, type ResumenConsorcio,
 } from '@/lib/lluvia'
+import { TEXTO_PROCEDENCIA, RADIO_KM } from '@/lib/fusion'
+import { calcularGrilla, curvasDeNivel, nivelesSugeridos } from '@/lib/isohietas'
+
+/** '#RRGGBB' → [r, g, b], para poder escribirlo en el lienzo */
+function aRGB(hex: string): [number, number, number] {
+  const h = hex.replace('#', '')
+  return [
+    parseInt(h.slice(0, 2), 16),
+    parseInt(h.slice(2, 4), 16),
+    parseInt(h.slice(4, 6), 16),
+  ]
+}
 
 /** Red vial por zona, tal como la sirve `public/geo/geo_cc.json` */
 type RedVial = Record<string, {
@@ -34,13 +46,22 @@ type RedVial = Record<string, {
   }[]
 }>
 
+/** Lo que midió cada pluviómetro en el período, para las isohietas */
+export interface EstacionLluvia {
+  nombre: string
+  lat: number
+  lng: number
+  mm: number
+}
+
 interface Props {
   datos: ResumenConsorcio[]
   seleccionado: number | null
   onSeleccionar: (numero: number | null) => void
+  estaciones?: EstacionLluvia[]
 }
 
-export default function MapaLluvia({ datos, seleccionado, onSeleccionar }: Props) {
+export default function MapaLluvia({ datos, seleccionado, onSeleccionar, estaciones }: Props) {
   const divRef  = useRef<HTMLDivElement>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mapaRef = useRef<any>(null)
@@ -52,8 +73,13 @@ export default function MapaLluvia({ datos, seleccionado, onSeleccionar }: Props
   const capaRedRef = useRef<any>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const tramosRef = useRef<Map<number, any[]>>(new Map())
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const capaIsoRef = useRef<any>(null)
   const onSelRef = useRef(onSeleccionar)
   onSelRef.current = onSeleccionar
+
+  const [verIso, setVerIso] = useState(false)
+  const [niveles, setNiveles] = useState<number[]>([])
 
   /**
    * La red vial pesa 8,6 MB, así que se trae una sola vez y aparte del primer
@@ -87,7 +113,9 @@ export default function MapaLluvia({ datos, seleccionado, onSeleccionar }: Props
       }).addTo(mapa)
 
       mapaRef.current = mapa
-      // La red va primero para que los círculos queden por encima
+      // Orden de abajo hacia arriba: las isohietas son el fondo, después los
+      // caminos, y los círculos arriba de todo para que se puedan clickear.
+      capaIsoRef.current = L.layerGroup().addTo(mapa)
       capaRedRef.current = L.layerGroup().addTo(mapa)
       capaRef.current    = L.layerGroup().addTo(mapa)
 
@@ -186,6 +214,10 @@ export default function MapaLluvia({ datos, seleccionado, onSeleccionar }: Props
 
       for (const c of ordenados) {
         const nivel = clasificar(c.mm)
+        const p = TEXTO_PROCEDENCIA[c.procedencia ?? 'estimado']
+        const cerca = c.distanciaKm != null
+          ? ` — pluviómetro a ${c.distanciaKm.toLocaleString('es-AR')} km`
+          : ''
         const circulo = L.circleMarker([c.lat, c.lng], {
           radius: radioLluvia(c.mm),
           color: '#111',
@@ -203,8 +235,8 @@ export default function MapaLluvia({ datos, seleccionado, onSeleccionar }: Props
                c.fechaMaxDia ? ` (${c.fechaMaxDia.split('-').reverse().join('/')})` : ''
              }</span><br/>
              <span style="color:${nivel.color}">${nivel.label} — ${nivel.nota}</span><br/>
-             <span style="color:#666;font-size:11px">Estimación modelada: el error
-             típico contra pluviómetro es de unos 7 mm</span>
+             <span style="color:${p.color};font-size:11px">${p.label}${cerca}</span><br/>
+             <span style="color:#666;font-size:11px">${p.nota}</span>
            </div>`,
           { sticky: true, direction: 'top', opacity: 0.96 },
         )
@@ -217,6 +249,109 @@ export default function MapaLluvia({ datos, seleccionado, onSeleccionar }: Props
 
     return () => { cancelado = true }
   }, [datos])
+
+  /**
+   * Isohietas: bandas rellenas + curvas rotuladas.
+   *
+   * El relleno va como imagen sobre el mapa, no como miles de polígonos: la
+   * grilla son ~14.000 nodos y dibujarlos uno por uno trabaría el mapa. Las
+   * curvas sí son vectores, porque tienen que verse nítidas en cualquier zoom y
+   * llevan el rótulo con los milímetros.
+   *
+   * Todo el cálculo pasa en el navegador. Los datos que necesita son 71 números,
+   * así que no hay nada que pedirle al servidor cada vez que se prende o apaga.
+   */
+  useEffect(() => {
+    if (!capaIsoRef.current) return
+    let cancelado = false
+
+    if (!verIso || !estaciones?.length) {
+      capaIsoRef.current.clearLayers()
+      setNiveles([])
+      return
+    }
+
+    ;(async () => {
+      const L = (await import('leaflet')).default
+      if (cancelado || !capaIsoRef.current) return
+
+      const grilla = calcularGrilla(estaciones)
+      capaIsoRef.current.clearLayers()
+      if (!grilla || grilla.max <= 0) { setNiveles([]); return }
+
+      // ── El relleno ─────────────────────────────────────────────────────────
+      const lienzo = document.createElement('canvas')
+      lienzo.width = grilla.nx
+      lienzo.height = grilla.ny
+      const ctx = lienzo.getContext('2d')
+      if (ctx) {
+        const img = ctx.createImageData(grilla.nx, grilla.ny)
+        for (let j = 0; j < grilla.ny; j++) {
+          for (let i = 0; i < grilla.nx; i++) {
+            const v = grilla.valores[j * grilla.nx + i]
+            // La imagen se dibuja de arriba hacia abajo y la grilla de sur a
+            // norte: hay que dar vuelta la fila.
+            const k = ((grilla.ny - 1 - j) * grilla.nx + i) * 4
+
+            // Sin pluviómetro cerca: transparente, y se ve el mapa pelado.
+            if (Number.isNaN(v)) { img.data[k + 3] = 0; continue }
+
+            // Midió cero: un gris tenue. **No es lo mismo que no saber**, y si
+            // las dos cosas se dibujaran transparentes nadie podría distinguir
+            // "acá no llovió" de "acá no hay con qué decirlo".
+            if (v <= 0) {
+              img.data[k] = 150; img.data[k + 1] = 152; img.data[k + 2] = 145
+              img.data[k + 3] = 46
+              continue
+            }
+
+            const [r, g, b] = aRGB(colorLluvia(v))
+            img.data[k] = r; img.data[k + 1] = g; img.data[k + 2] = b
+            img.data[k + 3] = 150
+          }
+        }
+        ctx.putImageData(img, 0, 0)
+
+        const limites: [[number, number], [number, number]] = [
+          [grilla.lat0, grilla.lng0],
+          [grilla.lat0 + (grilla.ny - 1) * grilla.dLat,
+           grilla.lng0 + (grilla.nx - 1) * grilla.dLng],
+        ]
+        L.imageOverlay(lienzo.toDataURL(), limites, { opacity: 1, interactive: false })
+          .addTo(capaIsoRef.current)
+      }
+
+      // ── Las curvas ─────────────────────────────────────────────────────────
+      const nivs = nivelesSugeridos(grilla.max)
+      for (const nivel of nivs) {
+        const curvas = curvasDeNivel(grilla, nivel)
+        // La más larga lleva el rótulo: repetirlo en cada trocito ensucia
+        let masLarga: [number, number][] | null = null
+        for (const c of curvas) {
+          L.polyline(c, {
+            color: '#1a1a1a', weight: 1.2, opacity: 0.55, interactive: false,
+          }).addTo(capaIsoRef.current)
+          if (!masLarga || c.length > masLarga.length) masLarga = c
+        }
+        if (masLarga && masLarga.length > 8) {
+          const medio = masLarga[Math.floor(masLarga.length / 2)]
+          L.marker(medio, {
+            interactive: false,
+            icon: L.divIcon({
+              className: '',
+              html: `<div style="font-family:monospace;font-size:11px;font-weight:700;
+                     color:#111;background:rgba(255,255,255,.85);padding:1px 4px;
+                     border-radius:2px;white-space:nowrap">${nivel} mm</div>`,
+              iconSize: [0, 0],
+            }),
+          }).addTo(capaIsoRef.current)
+        }
+      }
+      setNiveles(nivs)
+    })()
+
+    return () => { cancelado = true }
+  }, [verIso, estaciones])
 
   // ── Resaltar el seleccionado ─────────────────────────────────────────────
   useEffect(() => {
@@ -247,5 +382,69 @@ export default function MapaLluvia({ datos, seleccionado, onSeleccionar }: Props
     }
   }, [seleccionado, datos])
 
-  return <div ref={divRef} style={{ width: '100%', height: '100%', background: '#111' }} />
+  const hayEstaciones = (estaciones?.length ?? 0) > 0
+
+  return (
+    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+      <div ref={divRef} style={{ width: '100%', height: '100%', background: '#111' }} />
+
+      {/* Control: un solo interruptor, con el motivo a la vista si no se puede usar */}
+      <div style={{
+        position: 'absolute', top: 10, right: 10, zIndex: 500,
+        background: 'rgba(24,24,24,.93)', border: '1px solid #333', borderRadius: 3,
+        padding: '8px 11px', fontFamily: 'monospace', maxWidth: 230,
+      }}>
+        <label style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          cursor: hayEstaciones ? 'pointer' : 'default',
+          color: hayEstaciones ? '#e0e0e0' : '#666', fontSize: 13,
+        }}>
+          <input
+            type="checkbox" checked={verIso} disabled={!hayEstaciones}
+            onChange={e => setVerIso(e.target.checked)}
+            style={{ width: 15, height: 15, accentColor: '#F5C300', cursor: 'inherit' }} />
+          Isohietas
+        </label>
+
+        <div style={{ fontSize: 11, color: '#7a7a7a', marginTop: 5, lineHeight: 1.45 }}>
+          {!hayEstaciones
+            ? 'Necesita mediciones de la APA en el período. Cargalas desde Precisión.'
+            : verIso
+              ? 'Curvas de igual lluvia, interpoladas entre pluviómetros.'
+              : 'Ver la lluvia como curvas de nivel.'}
+        </div>
+
+        {verIso && niveles.length > 0 && (
+          <div style={{ marginTop: 9, borderTop: '1px solid #2d2d2d', paddingTop: 8 }}>
+            {niveles.map(n => (
+              <div key={n} style={{
+                display: 'flex', alignItems: 'center', gap: 7, marginBottom: 3,
+                fontSize: 11, color: '#c4c4c4',
+              }}>
+                <span style={{
+                  width: 16, height: 11, background: colorLluvia(n),
+                  border: '1px solid #444', flexShrink: 0,
+                }} />
+                {n.toLocaleString('es-AR')} mm
+              </div>
+            ))}
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 7, marginBottom: 3,
+              fontSize: 11, color: '#c4c4c4',
+            }}>
+              <span style={{
+                width: 16, height: 11, background: '#54564f',
+                border: '1px solid #444', flexShrink: 0,
+              }} />
+              0 mm — no llovió
+            </div>
+            <div style={{ fontSize: 11, color: '#6a6a6a', marginTop: 7, lineHeight: 1.45 }}>
+              Sin pintar: no hay pluviómetro a menos de {RADIO_KM} km, así que no
+              se puede afirmar nada.
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
 }

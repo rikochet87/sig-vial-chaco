@@ -67,7 +67,7 @@ const mm = Object.fromEntries(r.lecturas.map(l => [l.estacion, l.mm]))
 ok('reconoce al menos 30 estaciones', r.lecturas.length >= 30, true)
 ok('Pampa Almirón',                 mm['Pampa Almirón'], 46)
 ok('La Eduvigis',                   mm['La Eduvigis'], 37)
-ok('General San Martín',            mm['General San Martín'], 37)
+ok('General José de San Martín',    mm['General José de San Martín'], 37)
 ok('El Espinillo',                  mm['El Espinillo'], 23)
 ok('Presidencia Roca',              mm['Presidencia Roca'], 22)
 ok('Selvas del Río de Oro',         mm['Selvas del Río de Oro'], 19)
@@ -81,22 +81,25 @@ ok('Castelli por alias',            mm['Juan José Castelli'], 6)
 ok('Villa Berthet ("con 10")',      mm['Villa Berthet'], 10)
 ok('La Clotilde ("con 7")',         mm['La Clotilde'], 7)
 ok('San Bernardo ("con 4")',        mm['San Bernardo'], 4)
-// "Las Palmas" y "Miraflores" no tienen coordenadas todavía: caen en desconocidos
-ok('no inventa las que no tienen ubicación',
-  ['Las Palmas', 'Miraflores', 'Villa Rural El Palmar'].filter(n => mm[n] !== undefined), [])
+// Las tres que el geocodificador no resolvía ahora vienen de la propia APA.
+// "Villa Rural El Palmar" es como la nombra el parte; la APA la llama
+// "Villa El Palmar", y el alias las une.
+ok('Las Palmas, que antes se perdía',   mm['Las Palmas'], 39)
+ok('Miraflores, que antes se perdía',   mm['Miraflores'], 11)
+ok('Villa El Palmar, por alias',        mm['Villa El Palmar'], 16)
 ok('ningún valor absurdo', r.lecturas.every(l => l.mm >= 0 && l.mm <= 600), true)
 
 ok('Barranqueras no se come el "viernes 18"', mm['Barranqueras'], 6)
 ok('Puerto Tirol',                  mm['Puerto Tirol'], 8)
 ok('Las Breñas (enumeración con eñe)', mm['Las Breñas'], 1)
-ok('Villa Ángela (misma enumeración)',  mm['Villa Ángela'], 1)
+ok('Villa Angela (misma enumeración)',  mm['Villa Angela'], 1)
 ok('General Pinedo (misma enumeración)', mm['General Pinedo'], 1)
 ok('Nueva Pompeya (dos comparten 7)',  mm['Nueva Pompeya'], 7)
 ok('Villa Río Bermejito (idem)',       mm['Villa Río Bermejito'], 7)
 ok('Colonia Elisa y Benítez comparten 12',
   [mm['Colonia Elisa'], mm['Colonia Benítez']], [12, 12])
-ok('avisa de la estación que falta cargar',
-  r.desconocidos.some(d => /palmar/i.test(d.nombre)), true)
+ok('ya no queda ninguna localidad sin ubicar',
+  r.desconocidos.map(d => d.nombre), [])
 ok('no reporta recortes como estación nueva',
   r.desconocidos.some(d => d.nombre.trim() === 'Presidencia'), false)
 
