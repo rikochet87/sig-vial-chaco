@@ -379,6 +379,60 @@ Los **ojos de buey** —curvas cerradas chiquitas alrededor de cada pluviómetro
 son el artefacto propio del IDW, no un patrón meteorológico. Se ven sobre todo
 en el nivel más alto.
 
+### La lluvia bajada al camino
+
+`lib/redLluvia.ts` cruza el campo de lluvia con la red vial: **cada tramo lleva
+su propio número, no el de su consorcio**. Antes toda la red de un consorcio
+salía de un color solo, y una tormenta que mojaba una punta y no la otra quedaba
+tapada por el promedio — un consorcio puede tener 250 km.
+
+El número sale del **mismo IDW** que la tabla y las isohietas. El polígono de
+Thiessen queda como referencia —de qué pluviómetro lee el tramo y a cuántos km
+está— pero no calcula: como método midió peor (MAE 4,47 contra 3,98).
+
+Tres cosas que importan:
+
+- **Se muestrea cada 2 km, no vértice por vértice.** La red tiene 249.209
+  vértices; con 71 estaciones serían 17,7 millones de distancias por cambio de
+  fecha. Muestreando son 14.989 puntos y 40 ms. No pierde nada: la longitud de
+  decorrelación de la lluvia acá es de 42 km.
+- **El promedio del tramo se toma sólo sobre la parte cubierta**, pesado por
+  longitud. Promediar la parte sin pluviómetro como si fuera 0 mm diluía el
+  número hacia abajo e inventaba sequía donde sólo faltaba una estación.
+- **`mm: null` no es cero.** Un tramo sin ningún pluviómetro en el radio no tiene
+  dato, y se dibuja punteado y apagado, no seco. Mismo criterio que las
+  isohietas.
+
+**La red de consorcios son 28.756 km**, no los 29.128 del archivo: 372,3 km en
+26 tramos no pertenecen a ningún consorcio (vienen sin número de CC) y ya
+quedaban afuera del mapa.
+
+Hallazgo de mirar esto a nivel tramo: **son siete los consorcios con red fuera de
+cobertura, no tres.** La tabla por consorcio muestra 80, 81 y 84 porque promedia
+toda la red; tramo por tramo aparecen otros cuatro que el promedio tapaba.
+
+| | Sin cobertura | De | |
+|---|---|---|---|
+| **CC 84** | 217,3 km | 292,1 km | 74 % |
+| **CC 80** | 115,7 km | 350,4 km | 33 % |
+| **CC 81** | 97,5 km | 480,9 km | 20 % |
+| **CC 69** | 51,0 km | 421,5 km | 12 % |
+| **CC 53** | 36,4 km | 552,4 km | 7 % |
+| **CC 55** | 8,9 km | 275,3 km | 3 % |
+| **CC 87** | 1,8 km | 225,4 km | 1 % |
+
+Que este número no coincida con el de la tabla no es una contradicción: son dos
+preguntas distintas y la de acá es la más fina.
+
+`hooks/useRedLluvia.ts` hace el cálculo **una sola vez** y lo reparte al mapa, al
+resumen de kilómetros y a la descarga CSV. Si cada uno lo calculara por su
+cuenta podrían llegar a decir números distintos. Partir el GeoJSON en tramos
+cuesta ~300 ms y no depende de la fecha, así que se hace una vez; estimar la
+lluvia son 40 ms y se rehace en cada período.
+
+Los caminos siguen siendo `interactive: false` a propósito: el clic es de los
+círculos de consorcio, y 9.743 polilíneas interactivas se lo comerían.
+
 ### Zonas de pluviómetro (Thiessen)
 
 `lib/thiessen.ts` dibuja los polígonos de Thiessen sobre el mapa: la zona donde

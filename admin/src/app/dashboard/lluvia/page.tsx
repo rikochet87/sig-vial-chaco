@@ -3,10 +3,12 @@
  * Lluvias — cuántos milímetros cayeron y dónde.
  *
  * El caso de uso que manda es el de después de la tormenta: entrar y ver de un
- * vistazo qué consorcios recibieron más agua, para decidir a dónde mandar
- * equipos y a dónde no. Por eso la pantalla abre con el último episodio
- * detectado y no con un rango arbitrario: lo que se quiere mirar es el evento,
- * que puede haber durado dos o tres días.
+ * vistazo sobre qué parte de la red vial cayó el agua. Por eso la pantalla abre
+ * con el último episodio detectado y no con un rango arbitrario: lo que se
+ * quiere mirar es el evento, que puede haber durado dos o tres días.
+ *
+ * El número baja hasta el camino, no se queda en el consorcio: un consorcio
+ * puede tener 250 km y una tormenta mojar una punta y no la otra.
  *
  * Los otros dos usos salen de los mismos datos: el rango libre sirve para
  * documentar las fechas de una obra, y el acumulado por consorcio es el
@@ -22,6 +24,9 @@ import {
 } from '@/lib/lluvia'
 
 import type { EstacionLluvia } from '@/components/MapaLluvia'
+import { useRedLluvia } from '@/hooks/useRedLluvia'
+import { kmPorRango, kmSobre, csvTramos, CORTES_MM } from '@/lib/redLluvia'
+import { colorLluvia } from '@/lib/lluvia'
 
 const PanelMediciones = dynamic(() => import('@/components/PanelMediciones'), { ssr: false })
 
@@ -91,6 +96,9 @@ export default function LluviaPage() {
    * el usuario prende la capa, así que si esta consulta falla no tiene que
    * arrastrar al resto de la pantalla.
    */
+  /** Desde cuántos mm se resaltan los caminos en el mapa */
+  const [umbral, setUmbral] = useState(0)
+
   const [estaciones, setEstaciones] = useState<EstacionLluvia[]>([])
   useEffect(() => {
     let vivo = true
@@ -100,6 +108,39 @@ export default function LluviaPage() {
       .catch(() => { if (vivo) setEstaciones([]) })
     return () => { vivo = false }
   }, [desde, hasta])
+
+  /**
+   * La lluvia bajada al camino.
+   *
+   * Es el mismo IDW que alimenta la tabla por consorcio, pero evaluado sobre la
+   * traza de cada tramo en vez del centro de la red. Un consorcio puede tener
+   * 250 km y una tormenta mojar una punta y no la otra; el promedio lo tapaba.
+   */
+  const { tramos, lluvia } = useRedLluvia(estaciones)
+  const rangos = useMemo(
+    () => (tramos.length && lluvia.length ? kmPorRango(tramos, lluvia, seleccionado ?? undefined) : []),
+    [tramos, lluvia, seleccionado],
+  )
+  const kmTotalRango = useMemo(
+    () => Math.round(rangos.reduce((s, r) => s + r.km, 0)).toLocaleString('es-AR'),
+    [rangos],
+  )
+  const kmResaltados = useMemo(
+    () => (tramos.length && lluvia.length ? kmSobre(tramos, lluvia, Math.max(umbral, 0.05)) : 0),
+    [tramos, lluvia, umbral],
+  )
+
+  /** Descargar la lista completa de tramos con su lluvia */
+  const descargarCsv = () => {
+    const csv = csvTramos(tramos, lluvia, { desde, hasta })
+    // El BOM es lo que hace que Excel en español abra los acentos bien
+    const url = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' }))
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `lluvia-por-camino_${desde}_a_${hasta}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
 
   /**
    * Al entrar, saltar al último episodio en vez de quedarse en "los últimos 7
@@ -429,13 +470,81 @@ export default function LluviaPage() {
         </div>
       )}
 
+      {/*
+        Kilómetros de camino por rango de lluvia.
+
+        Es el número que se cita: "420 km recibieron más de 50 mm" dice algo que
+        "el CC 37 promedió 48 mm" no dice. Sale de cruzar cada tramo con el
+        mismo IDW, así que la barra y el mapa no pueden contradecirse.
+      */}
+      {rangos.length > 0 && rangos.some(r => r.km > 0) && (
+        <div style={{ ...mono, flexShrink: 0, marginBottom: 12,
+          background: '#191919', border: '1px solid #242424', padding: '10px 13px' }}>
+
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 8,
+            flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 11, color: '#6a6a6a', textTransform: 'uppercase',
+              letterSpacing: 0.8 }}>
+              Kilómetros de camino
+              {seleccionado != null && <> · CC N° {seleccionado}</>}
+            </span>
+            <span style={{ fontSize: 12, color: '#8a8a8a' }}>
+              {kmTotalRango} km en total
+            </span>
+            <button onClick={descargarCsv}
+              style={{ marginLeft: 'auto', ...mono, fontSize: 11, cursor: 'pointer',
+                background: 'transparent', color: '#9a9a9a',
+                border: '1px solid #3a3a3a', padding: '3px 9px' }}>
+              Descargar CSV
+            </button>
+          </div>
+
+          {/* Una barra proporcional: se ve el reparto sin leer los números */}
+          <div style={{ display: 'flex', height: 13, marginBottom: 7, gap: 1 }}>
+            {rangos.filter(r => r.km > 0).map(r => (
+              <div key={r.desde ?? 'sin'} title={`${r.km.toLocaleString('es-AR')} km`}
+                style={{
+                  flex: r.km,
+                  background: r.desde === null ? 'repeating-linear-gradient('
+                    + '45deg,#3a3a3a,#3a3a3a 3px,#2a2a2a 3px,#2a2a2a 6px)'
+                    : colorLluvia(r.desde),
+                }} />
+            ))}
+          </div>
+
+          <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+            {rangos.filter(r => r.km > 0).map(r => (
+              <span key={r.desde ?? 'sin'}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
+                <span style={{ width: 9, height: 9, flexShrink: 0,
+                  background: r.desde === null ? '#3a3a3a' : colorLluvia(r.desde),
+                  border: r.desde === null ? '1px dashed #6a6a6a' : 'none' }} />
+                <b style={{ color: '#fff' }}>{r.km.toLocaleString('es-AR')} km</b>
+                <span style={{ color: '#8a8a8a' }}>
+                  {r.desde === null ? 'sin pluviómetro cerca'
+                    : r.hasta === null ? `${r.desde} mm o más`
+                      : `${r.desde}–${r.hasta} mm`}
+                </span>
+              </span>
+            ))}
+          </div>
+
+          {umbral > 0 && (
+            <div style={{ fontSize: 12, color: '#F5C300', marginTop: 8 }}>
+              Resaltado en el mapa: {kmResaltados.toLocaleString('es-AR')} km desde {umbral} mm.
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Mapa + tabla */}
       <div style={{ flex: 1, minHeight: 0, display: 'flex', gap: 12 }}>
 
         <div style={{ flex: 1, minWidth: 0, position: 'relative',
           background: '#191919', border: '1px solid #1e1e1e' }}>
           <MapaLluvia datos={datos} seleccionado={seleccionado} onSeleccionar={setSeleccionado}
-            estaciones={estaciones} />
+            estaciones={estaciones} tramos={tramos} lluviaTramos={lluvia}
+            umbral={umbral} onUmbral={setUmbral} />
 
           {/* Referencias */}
           <div style={{
@@ -446,7 +555,8 @@ export default function LluviaPage() {
             <div style={{ fontSize: 11, color: '#666', textTransform: 'uppercase',
               letterSpacing: 1, marginBottom: 6 }}>Acumulado</div>
             <div style={{ fontSize: 11, color: '#555', marginBottom: 6, lineHeight: 1.4 }}>
-              Los caminos llevan el color de su consorcio
+              El círculo resume el consorcio.<br />
+              Cada camino lleva su propia lluvia.
             </div>
             {UMBRALES.slice().reverse().map(u => (
               <div key={u.nivel} style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 3 }}>

@@ -27,6 +27,7 @@ import {
 import { TEXTO_PROCEDENCIA, RADIO_KM } from '@/lib/fusion'
 import { calcularGrilla, curvasDeNivel, nivelesSugeridos } from '@/lib/isohietas'
 import { poligonosThiessen } from '@/lib/thiessen'
+import { CORTES_MM, type TramoRed, type LluviaTramo } from '@/lib/redLluvia'
 
 /** Un interruptor de capa: título clickeable y una línea de qué hace */
 function Interruptor({ titulo, nota, activo, onChange }: {
@@ -68,15 +69,6 @@ function aRGB(hex: string): [number, number, number] {
   ]
 }
 
-/** Red vial por zona, tal como la sirve `public/geo/geo_cc.json` */
-type RedVial = Record<string, {
-  type: string
-  features: {
-    properties: Record<string, unknown>
-    geometry: { type: string; coordinates: number[][][] | number[][] }
-  }[]
-}>
-
 /** Lo que midió cada pluviómetro en el período, para las isohietas */
 export interface EstacionLluvia {
   nombre: string
@@ -90,9 +82,19 @@ interface Props {
   seleccionado: number | null
   onSeleccionar: (numero: number | null) => void
   estaciones?: EstacionLluvia[]
+  /** La red vial partida en tramos; la calcula `useRedLluvia` */
+  tramos?: TramoRed[]
+  /** La lluvia de cada tramo, en el mismo orden */
+  lluviaTramos?: LluviaTramo[]
+  /** Sólo se muestran los caminos que llegaron a estos mm */
+  umbral: number
+  onUmbral: (mm: number) => void
 }
 
-export default function MapaLluvia({ datos, seleccionado, onSeleccionar, estaciones }: Props) {
+export default function MapaLluvia({
+  datos, seleccionado, onSeleccionar, estaciones,
+  tramos = [], lluviaTramos = [], umbral, onUmbral,
+}: Props) {
   const divRef  = useRef<HTMLDivElement>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mapaRef = useRef<any>(null)
@@ -102,8 +104,9 @@ export default function MapaLluvia({ datos, seleccionado, onSeleccionar, estacio
   const circulosRef = useRef<Map<number, any>>(new Map())
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const capaRedRef = useRef<any>(null)
+  /** Una polilínea por tramo, en el mismo orden que `tramos` */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const tramosRef = useRef<Map<number, any[]>>(new Map())
+  const lineasRef = useRef<any[]>([])
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const capaIsoRef = useRef<any>(null)
   const onSelRef = useRef(onSeleccionar)
@@ -118,19 +121,6 @@ export default function MapaLluvia({ datos, seleccionado, onSeleccionar, estacio
   const [verCaminos, setVerCaminos] = useState(true)
   const [niveles, setNiveles] = useState<number[]>([])
 
-  /**
-   * La red vial pesa 8,6 MB, así que se trae una sola vez y aparte del primer
-   * pintado: el mapa tiene que poder mostrarse antes de que llegue.
-   */
-  const [red, setRed] = useState<RedVial | null>(null)
-  useEffect(() => {
-    let vivo = true
-    fetch('/geo/geo_cc.json')
-      .then(r => r.json())
-      .then((j: RedVial) => { if (vivo) setRed(j) })
-      .catch(() => { /* sin red vial el mapa sigue sirviendo con los círculos */ })
-    return () => { vivo = false }
-  }, [])
 
   // ── Crear el mapa una sola vez ───────────────────────────────────────────
   useEffect(() => {
@@ -179,7 +169,7 @@ export default function MapaLluvia({ datos, seleccionado, onSeleccionar, estacio
    * archivo y después sólo se les cambia el color (efecto siguiente).
    */
   useEffect(() => {
-    if (!capaRedRef.current || !red) return
+    if (!capaRedRef.current || tramos.length === 0) return
     let cancelado = false
 
     ;(async () => {
@@ -187,57 +177,61 @@ export default function MapaLluvia({ datos, seleccionado, onSeleccionar, estacio
       if (cancelado || !capaRedRef.current) return
 
       capaRedRef.current.clearLayers()
-      tramosRef.current.clear()
-
-      for (const zona of Object.values(red)) {
-        if (!zona?.features) continue
-
-        for (const f of zona.features) {
-          // El bundle trae `CC` como entero, como '07' y como 6.0 según la
-          // fila. Los tramos que no son de un consorcio quedan afuera.
-          const cc = Number(f.properties?.CC)
-          if (!Number.isFinite(cc)) continue
-
-          const esMulti = f.geometry.type === 'MultiLineString'
-          const lineas = (esMulti
-            ? f.geometry.coordinates
-            : [f.geometry.coordinates]) as number[][][]
-
-          for (const linea of lineas) {
-            // GeoJSON viene [lng, lat]; Leaflet espera [lat, lng]
-            const pts = linea.map(p => [p[1], p[0]] as [number, number])
-            if (pts.length < 2) continue
-
-            const tramo = L.polyline(pts, {
-              color: '#2a2a2a', weight: 1, opacity: 0.35,
-              interactive: false,   // el clic es de los círculos
-            })
-            tramo.addTo(capaRedRef.current)
-
-            const arr = tramosRef.current.get(cc) ?? []
-            arr.push(tramo)
-            tramosRef.current.set(cc, arr)
-          }
-        }
-      }
+      lineasRef.current = tramos.map(t => {
+        const linea = L.polyline(t.puntos, {
+          color: '#2a2a2a', weight: 1, opacity: 0.35,
+          interactive: false,   // el clic es de los círculos
+        })
+        linea.addTo(capaRedRef.current)
+        return linea
+      })
     })()
 
     return () => { cancelado = true }
-  }, [red])
+  }, [tramos])
 
-  // ── Recolorear la red cuando cambian los milímetros ──────────────────────
+  /**
+   * Recolorear la red cuando cambian los milímetros o el umbral.
+   *
+   * Cada tramo lleva **su propio** número, no el de su consorcio. Antes toda la
+   * red de un consorcio salía de un color solo, y una tormenta que mojaba una
+   * punta y no la otra quedaba tapada por el promedio.
+   *
+   * Tres estados, como en las isohietas: pintado = llovió, gris tenue = midió
+   * cero, y punteado apagado = no hay pluviómetro a menos de {@link RADIO_KM},
+   * que no es lo mismo que seco.
+   *
+   * El umbral y el consorcio seleccionado se resuelven **acá adentro** y no en
+   * efectos aparte: son tres reglas sobre el mismo `setStyle`, y separadas se
+   * pisaban entre sí — al deseleccionar un consorcio los caminos quedaban
+   * atenuados para siempre, porque el efecto del color no se volvía a disparar.
+   */
   useEffect(() => {
-    if (tramosRef.current.size === 0) return
-    const porCC = new Map(datos.map(d => [d.numero, d]))
+    const lineas = lineasRef.current
+    if (lineas.length === 0 || lineas.length !== lluviaTramos.length) return
 
-    for (const [cc, tramos] of tramosRef.current) {
-      const d = porCC.get(cc)
-      const estilo = d
-        ? { color: colorLluvia(d.mm), weight: d.mm > 0 ? 1.6 : 1, opacity: d.mm > 0 ? 0.85 : 0.35 }
-        : { color: '#2a2a2a', weight: 1, opacity: 0.35 }
-      for (const t of tramos) t.setStyle(estilo)
+    for (let i = 0; i < lineas.length; i++) {
+      const mm = lluviaTramos[i].mm
+      const suyo = seleccionado == null || tramos[i].cc === seleccionado
+
+      if (mm === null) {
+        lineas[i].setStyle({
+          color: '#4a4a4a', weight: 1, opacity: suyo ? 0.35 : 0.1, dashArray: '2,4',
+        })
+        continue
+      }
+      // Bajo el umbral el camino no se borra: se atenúa, para que se siga
+      // viendo dónde está la red que no llegó a ese valor.
+      const pasa = mm >= umbral
+      const grueso = seleccionado != null && suyo ? 3 : mm > 0 ? 1.8 : 1
+      lineas[i].setStyle({
+        color: colorLluvia(mm),
+        weight: pasa ? grueso : 0.8,
+        opacity: !suyo ? 0.1 : !pasa ? 0.12 : mm > 0 ? 0.9 : 0.35,
+        dashArray: undefined,
+      })
     }
-  }, [datos, red])
+  }, [lluviaTramos, umbral, seleccionado, tramos])
 
   // ── Redibujar los círculos cuando cambian los datos ──────────────────────
   useEffect(() => {
@@ -480,23 +474,12 @@ export default function MapaLluvia({ datos, seleccionado, onSeleccionar, estacio
       if (visible && !mapa.hasLayer(capa)) capa.addTo(mapa)
       if (!visible && mapa.hasLayer(capa)) mapa.removeLayer(capa)
     }
-  }, [verCaminos, verCirculos, datos, red])
+  }, [verCaminos, verCirculos, datos, tramos])
 
   // ── Resaltar el seleccionado ─────────────────────────────────────────────
+  // Los caminos los atiende el efecto del color, más arriba; acá sólo los
+  // círculos y el encuadre del mapa.
   useEffect(() => {
-    // Los caminos del consorcio elegido se engrosan; el resto se atenúa, así
-    // se ve de una cuál es su red sin tener que adivinar por el color.
-    const hay = seleccionado != null
-    for (const [numero, tramos] of tramosRef.current) {
-      const activo = numero === seleccionado
-      for (const t of tramos) {
-        t.setStyle({
-          weight:  activo ? 3 : 1.6,
-          opacity: !hay ? 0.85 : activo ? 1 : 0.25,
-        })
-      }
-    }
-
     for (const [numero, circulo] of circulosRef.current) {
       const activo = numero === seleccionado
       circulo.setStyle({
@@ -536,7 +519,36 @@ export default function MapaLluvia({ datos, seleccionado, onSeleccionar, estacio
         <div style={{ height: 7 }} />
         <Interruptor
           titulo="Caminos" activo={verCaminos} onChange={setVerCaminos}
-          nota="La red vial, pintada por nivel." />
+          nota="Cada tramo, con la lluvia que le cayó encima." />
+
+        {verCaminos && lluviaTramos.length > 0 && (
+          <div style={{ margin: '7px 0 0 23px' }}>
+            {CORTES_MM.filter(c => c > 0).map(c => (
+              <Fila key={c} color={colorLluvia(c)} texto={`${c} mm o más`} />
+            ))}
+            <Fila color="#54564f" texto="0 mm — no llovió" />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 3 }}>
+              <span style={{ width: 16, height: 0, borderTop: '1px dashed #6a6a6a',
+                flexShrink: 0 }} />
+              <span style={{ fontSize: 11, color: '#8a8a8a' }}>sin pluviómetro cerca</span>
+            </div>
+
+            {/* Umbral: en vez de esconder lo que no llega, lo apaga. Así se
+                sigue viendo dónde está esa red, que también es información. */}
+            <label style={{ display: 'block', marginTop: 9 }}>
+              <span style={{ fontSize: 11, color: '#9a9a9a' }}>
+                Resaltar desde{' '}
+                <b style={{ color: umbral > 0 ? '#F5C300' : '#c4c4c4' }}>
+                  {umbral} mm
+                </b>
+              </span>
+              <input
+                type="range" min={0} max={100} step={5} value={umbral}
+                onChange={e => onUmbral(Number(e.target.value))}
+                style={{ width: '100%', accentColor: '#F5C300', marginTop: 2 }} />
+            </label>
+          </div>
+        )}
 
         <div style={{ borderTop: '1px solid #2d2d2d', margin: '8px 0' }} />
 
