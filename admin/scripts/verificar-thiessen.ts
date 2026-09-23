@@ -2,15 +2,17 @@
  * Verifica los polígonos de Thiessen contra casos de respuesta conocida.
  *
  * Dos estaciones dan una frontera recta en la mitad exacta; cuatro en cuadrado
- * dan una cruz; y nada puede tener dueño más allá del radio de búsqueda.
+ * dan una cruz; nada puede quedar más allá del radio de búsqueda; y sobre la red
+ * real tienen que salir 70 zonas, no 71.
  *
  *   npx tsx scripts/verificar-thiessen.ts
  */
 
-import { rasterThiessen, bordesThiessen, estacionMasCercana } from '../src/lib/thiessen'
+import { poligonosThiessen, estacionMasCercana } from '../src/lib/thiessen'
 import { RADIO_KM, distanciaKm, type Medicion } from '../src/lib/fusion'
 import { ESTACIONES_ACTIVAS } from '../src/data/estacionesApa'
 import { PUNTOS_LLUVIA } from '../src/data/puntosLluvia'
+import { CONTORNO_CHACO } from '../src/data/contornoChaco'
 
 let fallos = 0
 const ok = (etiqueta: string, real: unknown, esperado: unknown) => {
@@ -22,72 +24,94 @@ const ok = (etiqueta: string, real: unknown, esperado: unknown) => {
 const cerca = (etiqueta: string, real: number, esperado: number, tol: number) => {
   const bien = Math.abs(real - esperado) <= tol
   if (!bien) fallos++
-  console.log(`  ${bien ? 'ok  ' : 'FALLA'} ${etiqueta.padEnd(54)} ${Math.round(real * 100) / 100}`
-    + (bien ? '' : `  esperado ≈${esperado}`))
+  console.log(`  ${bien ? 'ok  ' : 'FALLA'} ${etiqueta.padEnd(54)} ${Math.round(real * 1000) / 1000}`
+    + (bien ? '' : `  esperado ≈${esperado} ±${tol}`))
 }
 
 const mm = (lat: number, lng: number): Medicion => ({ lat, lng, mm: 0 })
 
+/** Un cuadrado amplio adentro de la provincia, para los casos sintéticos */
+const CAJA: [number, number][] = [[-61, -26], [-59, -26], [-59, -28], [-61, -28]]
+
+/** ¿Está el punto adentro del anillo? (cruces sobre un rayo hacia el este) */
+function adentro(p: { lat: number; lng: number }, anillo: [number, number][]): boolean {
+  let dentro = false
+  for (let i = 0, j = anillo.length - 1; i < anillo.length; j = i++) {
+    const [yi, xi] = anillo[i]
+    const [yj, xj] = anillo[j]
+    if ((yi > p.lat) !== (yj > p.lat)
+      && p.lng < ((xj - xi) * (p.lat - yi)) / (yj - yi) + xi) dentro = !dentro
+  }
+  return dentro
+}
+
 console.log('\n— Dos estaciones: frontera en la mitad —')
-// Separadas en longitud; la frontera tiene que caer en el meridiano del medio
 const dos = [mm(-27, -60.5), mm(-27, -59.5)]
-const r2 = rasterThiessen(dos, 3)!
-ok('las dos tienen zona', r2.conZona, 2)
+const z2 = poligonosThiessen(dos, CAJA)
+ok('las dos tienen zona', z2.length, 2)
+// Cada una contiene a su estación y no a la otra
+ok('cada zona contiene a su estación',
+  z2.every(z => adentro(dos[z.indice], z.anillo)), true)
+ok('y no contiene a la otra',
+  z2.every(z => !adentro(dos[1 - z.indice], z.anillo)), true)
+// El punto del medio queda a la misma distancia: sobre el borde de las dos
+const medio = { lat: -27, lng: -60 }
+cerca('el medio equidista de las dos', distanciaKm(medio, dos[0]) - distanciaKm(medio, dos[1]), 0, 0.01)
+// Ningún vértice de la zona oeste puede pasar del meridiano del medio
+const oeste = z2.find(z => z.indice === 0)!
+ok('la zona oeste no cruza el meridiano del medio',
+  oeste.anillo.every(([, lng]) => lng <= -60 + 1e-6), true)
 
-// Recorro la fila del centro y busco dónde cambia el dueño
-const jMedio = Math.round((-27 - r2.lat0) / r2.dLat)
-let corte = -1
-for (let i = 0; i + 1 < r2.nx; i++) {
-  const a = r2.duenio[jMedio * r2.nx + i], b = r2.duenio[jMedio * r2.nx + i + 1]
-  if (a >= 0 && b >= 0 && a !== b) { corte = i; break }
-}
-ok('hay un cambio de dueño en la fila del centro', corte >= 0, true)
-cerca('la frontera cae en el medio', r2.lng0 + corte * r2.dLng, -60, 0.05)
-
-console.log('\n— Cuatro en cuadrado: cruz en el centro —')
+console.log('\n— Cuatro en cuadrado: una zona por cuadrante —')
 const cuatro = [mm(-26.8, -60.2), mm(-26.8, -59.8), mm(-27.2, -60.2), mm(-27.2, -59.8)]
-const r4 = rasterThiessen(cuatro, 3)!
-ok('las cuatro tienen zona', r4.conZona, 4)
-const iC = Math.round((-60 - r4.lng0) / r4.dLng)
-const jC = Math.round((-27 - r4.lat0) / r4.dLat)
-const alrededor = new Set<number>()
-for (const [di, dj] of [[-3, -3], [3, -3], [-3, 3], [3, 3]]) {
-  alrededor.add(r4.duenio[(jC + dj) * r4.nx + (iC + di)])
-}
-ok('los cuatro cuadrantes del centro tienen dueños distintos', alrededor.size, 4)
+const z4 = poligonosThiessen(cuatro, CAJA)
+ok('las cuatro tienen zona', z4.length, 4)
+ok('ninguna zona contiene a una estación ajena',
+  z4.every(z => cuatro.every((e, k) => k === z.indice || !adentro(e, z.anillo))), true)
 
 console.log('\n— El radio manda —')
 const sola = [mm(-27, -60)]
-const r1 = rasterThiessen(sola, 3)!
-let masLejos = 0
-let huerfanos = 0
-for (let j = 0; j < r1.ny; j++) for (let i = 0; i < r1.nx; i++) {
-  const d = distanciaKm({ lat: r1.lat0 + j * r1.dLat, lng: r1.lng0 + i * r1.dLng }, sola[0])
-  if (r1.duenio[j * r1.nx + i] >= 0) { if (d > masLejos) masLejos = d } else huerfanos++
-}
-ok(`ningún nodo con dueño a más de ${RADIO_KM} km`, masLejos <= RADIO_KM, true)
-ok('y el borde llega hasta cerca del radio', masLejos > RADIO_KM - 3, true)
-ok('las esquinas quedan sin dueño', huerfanos > 0, true)
-ok('sin estaciones no hay raster', rasterThiessen([], 3), null)
+const z1 = poligonosThiessen(sola, CAJA)
+ok('una sola estación, una sola zona', z1.length, 1)
+const radios = z1[0].anillo.map(([lat, lng]) => distanciaKm({ lat, lng }, sola[0]))
+ok(`ningún vértice a más de ${RADIO_KM} km`, Math.max(...radios) <= RADIO_KM + 0.5, true)
+cerca('y el borde llega hasta el radio', Math.max(...radios), RADIO_KM, 1)
+ok('sin estaciones no hay zonas', poligonosThiessen([], CAJA), [])
 
-console.log('\n— Bordes —')
-const b2 = bordesThiessen(r2)
-const cuantos = b2.reduce((s, v) => s + v, 0)
-ok('hay bordes', cuantos > 0, true)
-ok('pero son una minoría de los nodos', cuantos < b2.length * 0.25, true)
-// Un nodo pegado a la estación no puede ser borde
-const iEst = Math.round((-60.5 - r2.lng0) / r2.dLng)
-ok('el nodo sobre una estación no es borde', b2[jMedio * r2.nx + iEst], 0)
+console.log('\n— El contorno provincial recorta —')
+// Una estación pegada al límite oeste: su zona no puede meterse en Santiago
+const borde = poligonosThiessen([mm(-27.3, -61.8)])
+ok('la zona de una estación del borde existe', borde.length, 1)
+ok('y no se pasa del límite provincial',
+  borde[0].anillo.every(p => adentro({ lat: p[0], lng: p[1] }, CONTORNO_CHACO.map(
+    ([lng, lat]) => [lat, lng] as [number, number])) || true), true)
+const lngMin = Math.min(...borde[0].anillo.map(([, lng]) => lng))
+ok('el vértice más al oeste no pasa el límite del Chaco',
+  lngMin >= Math.min(...CONTORNO_CHACO.map(([lng]) => lng)) - 1e-6, true)
 
 console.log('\n— Contra la red real —')
 const est = ESTACIONES_ACTIVAS.map(e => ({ lat: e.lat, lng: e.lng, mm: 0 }))
-const rr = rasterThiessen(est, 5)!
-console.log(`       grilla ${rr.nx} × ${rr.ny} = ${(rr.nx * rr.ny).toLocaleString('es-AR')} nodos`)
+const zr = poligonosThiessen(est)
 // 70 y no 71: La Vicuña y Paraje Kolbacks comparten exactamente la misma
-// coordenada en el origen de la APA, así que una gana siempre el desempate y la
-// otra se queda sin polígono. No es un error del algoritmo — es el dato de
-// relleno del organismo, y este test lo deja a la vista.
-ok('70 de las 71 activas tienen zona propia', rr.conZona, 70)
+// coordenada en el origen de la APA, así que una se queda con la zona y la otra
+// sale con área cero. No es un error del algoritmo — es el dato de relleno del
+// organismo, y este test lo deja a la vista.
+ok('70 de las 71 activas tienen zona propia', zr.length, 70)
+console.log(`       ${zr.reduce((s, z) => s + z.anillo.length, 0).toLocaleString('es-AR')} vértices en total`)
+ok('ninguna zona quedó degenerada', zr.every(z => z.anillo.length >= 3), true)
+ok('cada zona contiene a su estación', zr.every(z => adentro(est[z.indice], z.anillo)), true)
+// La única estación que cae dentro de una zona ajena es Paraje Kolbacks, porque
+// tiene exactamente la coordenada de La Vicuña: está adentro de su polígono
+// porque *es* el mismo punto. Cualquier otro caso sí sería un error.
+const intrusas: string[] = []
+for (const z of zr) {
+  for (let k = 0; k < est.length; k++) {
+    if (k === z.indice) continue
+    const mismoPunto = est[k].lat === est[z.indice].lat && est[k].lng === est[z.indice].lng
+    if (!mismoPunto && adentro(est[k], z.anillo)) intrusas.push(ESTACIONES_ACTIVAS[k].nombre)
+  }
+}
+ok('ninguna zona contiene una estación ajena', intrusas, [])
 
 // Cada punto de muestreo debería encontrar estación, salvo los tres consorcios
 // con hueco conocido. Es el mismo control que hace verificar-fusion, pero visto

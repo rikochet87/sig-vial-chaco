@@ -21,104 +21,136 @@
  *
  * ── Cómo está hecho ───────────────────────────────────────────────────────────
  *
- * Por fuerza bruta sobre una grilla, no con un Voronoi analítico. Para cada nodo
- * se busca la estación más cercana y se guarda su índice; las fronteras son los
- * nodos cuyo dueño difiere del vecino. Con 71 estaciones y una grilla de 5 km
- * son unos 800 mil cálculos de distancia, que en el navegador tardan menos de lo
- * que tarda en pintarse el mapa — y evita una dependencia nueva.
+ * Los polígonos son **exactos y vectoriales**, por recorte de semiplanos: se
+ * arranca del contorno de la provincia y se lo va cortando por el bisector
+ * contra cada una de las otras estaciones. Lo que sobrevive es, por definición,
+ * el conjunto de puntos más cercanos a esta estación que a cualquier otra.
  *
- * Fuera del radio de búsqueda no hay dueño: ese hueco es información y tiene que
- * verse vacío, igual que en las isohietas.
+ * La versión anterior resolvía lo mismo por fuerza bruta sobre una grilla de
+ * 2 km y se dibujaba como imagen. **Se veía mal y ese fue el motivo del cambio**:
+ * al ampliar, el navegador escalaba el raster unas cinco veces por celda y una
+ * línea de un píxel se convertía en una banda gris difusa. Con vectores el borde
+ * queda fino en todos los niveles de zoom, se puede pintar y resaltar cada zona
+ * por separado, y de paso se calcula más rápido — 70 recortes contra 70
+ * bisectores en vez de ochocientas mil distancias.
+ *
+ * Dos recortes más, que no son decoración:
+ *
+ * - **Contra el contorno provincial.** Sin él las zonas del borde se estiran
+ *   hacia Santiago, Salta y Formosa, donde no hay red vial que mirar.
+ * - **Contra el radio de búsqueda.** Más allá de {@link RADIO_KM} no hay dueño,
+ *   y ese hueco es un dato: es donde la fusión cae al modelo. Tiene que verse
+ *   vacío, igual que en las isohietas.
+ *
+ * El plano es equirrectangular local en km (la escala en longitud se toma a la
+ * latitud media de la provincia). Sobre 500 km de ancho el error es despreciable
+ * para dibujar, y a cambio los bisectores son rectas de verdad.
  */
 
 import { distanciaKm, RADIO_KM, type Medicion } from './fusion'
+import { CONTORNO_CHACO } from '@/data/contornoChaco'
 
-/** A quién pertenece cada nodo de la grilla */
-export interface RasterThiessen {
-  nx: number
-  ny: number
-  lat0: number
-  lng0: number
-  dLat: number
-  dLng: number
-  /** Índice de la estación más cercana por nodo; −1 si está fuera de radio */
-  duenio: Int16Array
-  /** Cuántas estaciones terminaron con al menos un nodo propio */
-  conZona: number
+/** Una zona de pluviómetro ya recortada, lista para dibujar */
+export interface ZonaThiessen {
+  /** Índice en el arreglo de estaciones que se pasó */
+  indice: number
+  /** Anillo cerrado en `[lat, lng]`, como lo quiere Leaflet */
+  anillo: [number, number][]
+}
+
+/** Con cuántos lados se aproxima el círculo del radio de búsqueda */
+const LADOS_CIRCULO = 64
+
+type Punto = { x: number; y: number }
+
+/**
+ * Recorta un polígono con un semiplano (Sutherland–Hodgman).
+ *
+ * `dentro(p) <= 0` define qué lado se conserva. El polígono de entrada puede ser
+ * cóncavo —el contorno provincial lo es— porque el que tiene que ser convexo es
+ * el recorte, y un semiplano siempre lo es.
+ */
+function recortar(poly: Punto[], f: (p: Punto) => number): Punto[] {
+  const salida: Punto[] = []
+  for (let i = 0; i < poly.length; i++) {
+    const p = poly[i]
+    const q = poly[(i + 1) % poly.length]
+    const fp = f(p)
+    const fq = f(q)
+    if (fp <= 0) salida.push(p)
+    if ((fp <= 0) !== (fq <= 0)) {
+      const t = fp / (fp - fq)
+      salida.push({ x: p.x + t * (q.x - p.x), y: p.y + t * (q.y - p.y) })
+    }
+  }
+  return salida
 }
 
 /**
- * Paso de la grilla, en km.
+ * Calcula las zonas de todas las estaciones.
  *
- * Más fino que el de las isohietas: acá lo que se mira es el borde entre
- * polígonos, y con 5 km los bordes salen escalonados a simple vista.
+ * Estaciones que comparten exactamente la misma coordenada: la primera se queda
+ * con la zona y la otra sale sin polígono, porque su celda tiene área cero. No
+ * es un error — en el origen de la APA, La Vicuña y Paraje Kolbacks tienen la
+ * misma coordenada de relleno, y por eso salen 70 zonas para 71 estaciones.
  */
-export const PASO_KM = 3
+export function poligonosThiessen(
+  estaciones: Medicion[],
+  contorno: [number, number][] = CONTORNO_CHACO,
+): ZonaThiessen[] {
+  if (estaciones.length === 0 || contorno.length < 3) return []
 
-export function rasterThiessen(estaciones: Medicion[], pasoKm = PASO_KM): RasterThiessen | null {
-  if (estaciones.length === 0) return null
+  const latMedia = contorno.reduce((s, p) => s + p[1], 0) / contorno.length
+  const kx = 111.32 * Math.cos((latMedia * Math.PI) / 180)
+  const ky = 111.32
+  const aKm = (lng: number, lat: number): Punto => ({ x: lng * kx, y: lat * ky })
 
-  const lats = estaciones.map(e => e.lat)
-  const lngs = estaciones.map(e => e.lng)
-  const latMedia = (Math.min(...lats) + Math.max(...lats)) / 2
-  const kmPorGradoLng = 111.32 * Math.cos((latMedia * Math.PI) / 180)
+  const molde = contorno.map(([lng, lat]) => aKm(lng, lat))
+  const sitios = estaciones.map(e => aKm(e.lng, e.lat))
 
-  const margenLat = RADIO_KM / 111.32
-  const margenLng = RADIO_KM / kmPorGradoLng
-  const lat0 = Math.min(...lats) - margenLat
-  const lng0 = Math.min(...lngs) - margenLng
-  const dLat = pasoKm / 111.32
-  const dLng = pasoKm / kmPorGradoLng
-  const nx = Math.max(2, Math.ceil(((Math.max(...lngs) + margenLng) - lng0) / dLng) + 1)
-  const ny = Math.max(2, Math.ceil(((Math.max(...lats) + margenLat) - lat0) / dLat) + 1)
+  const zonas: ZonaThiessen[] = []
+  for (let k = 0; k < sitios.length; k++) {
+    const s = sitios[k]
+    let poly = molde
 
-  const duenio = new Int16Array(nx * ny).fill(-1)
-  const vistas = new Set<number>()
-
-  for (let j = 0; j < ny; j++) {
-    const lat = lat0 + j * dLat
-    for (let i = 0; i < nx; i++) {
-      const p = { lat, lng: lng0 + i * dLng }
-      let mejor = -1
-      let dMin = RADIO_KM
-      for (let k = 0; k < estaciones.length; k++) {
-        const d = distanciaKm(p, estaciones[k])
-        if (d < dMin) { dMin = d; mejor = k }
+    // Bisector contra cada una de las demás: me quedo con mi lado
+    for (let j = 0; j < sitios.length && poly.length >= 3; j++) {
+      if (j === k) continue
+      const o = sitios[j]
+      const mx = (s.x + o.x) / 2
+      const my = (s.y + o.y) / 2
+      const nx = o.x - s.x
+      const ny = o.y - s.y
+      if (nx === 0 && ny === 0) {
+        // Coordenada compartida: la primera se queda con todo
+        if (j < k) { poly = []; break }
+        continue
       }
-      duenio[j * nx + i] = mejor
-      if (mejor >= 0) vistas.add(mejor)
+      poly = recortar(poly, p => (p.x - mx) * nx + (p.y - my) * ny)
+    }
+
+    // Y el radio de búsqueda, como polígono tangente
+    for (let i = 0; i < LADOS_CIRCULO && poly.length >= 3; i++) {
+      const a = (2 * Math.PI * i) / LADOS_CIRCULO
+      const cx = s.x + RADIO_KM * Math.cos(a)
+      const cy = s.y + RADIO_KM * Math.sin(a)
+      const nx = cx - s.x
+      const ny = cy - s.y
+      poly = recortar(poly, p => (p.x - cx) * nx + (p.y - cy) * ny)
+    }
+
+    if (poly.length >= 3) {
+      zonas.push({ indice: k, anillo: poly.map(p => [p.y / ky, p.x / kx] as [number, number]) })
     }
   }
-
-  return { nx, ny, lat0, lng0, dLat, dLng, duenio, conZona: vistas.size }
-}
-
-/**
- * Marca los nodos que están sobre una frontera.
- *
- * Un nodo es borde si su dueño difiere del de la derecha o del de abajo. Se
- * incluye el borde contra el vacío —dueño −1— porque ese es justamente el
- * límite de la cobertura, que es lo que más interesa ver.
- */
-export function bordesThiessen(r: RasterThiessen): Uint8Array {
-  const borde = new Uint8Array(r.nx * r.ny)
-  for (let j = 0; j < r.ny; j++) {
-    for (let i = 0; i < r.nx; i++) {
-      const k = j * r.nx + i
-      const d = r.duenio[k]
-      const derecha = i + 1 < r.nx ? r.duenio[k + 1] : d
-      const abajo = j + 1 < r.ny ? r.duenio[k + r.nx] : d
-      if (d !== derecha || d !== abajo) borde[k] = 1
-    }
-  }
-  return borde
+  return zonas
 }
 
 /**
  * Qué estación le toca a un punto cualquiera, y a qué distancia.
  *
- * No usa el raster: se resuelve directo, que es exacto y para un punto suelto
- * cuesta nada. Sirve para el globo del mapa — "este consorcio lee del
+ * No usa los polígonos: se resuelve directo, que es exacto y para un punto
+ * suelto cuesta nada. Sirve para el globo del mapa — "este consorcio lee del
  * pluviómetro de Machagai, a 14 km".
  */
 export function estacionMasCercana(

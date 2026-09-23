@@ -392,9 +392,23 @@ calculan así** — Thiessen usa una sola estación y midió peor (MAE 4,47 cont
 3,98). Se dibuja porque para mirar la cobertura es insuperable: se ve de un
 vistazo si la red de un consorcio cae dentro de un polígono o está partida.
 
-Está resuelto por fuerza bruta sobre una grilla de 2 km, no con un Voronoi
-analítico: con 71 estaciones son unos pocos millones de distancias, tarda menos
-que el pintado del mapa y evita una dependencia.
+Los polígonos son **exactos y vectoriales**, por recorte de semiplanos: se parte
+del contorno provincial y se lo corta por el bisector contra cada otra estación.
+La primera versión lo resolvía por fuerza bruta sobre una grilla de 2 km y lo
+dibujaba como imagen; **se veía mal y por eso se cambió** — al ampliar, el
+navegador escalaba el raster unas cinco veces por celda y una línea de un píxel
+quedaba como una banda gris difusa. Con vectores el borde queda fino a cualquier
+zoom, cada zona se puede resaltar sola, y encima se calcula más rápido.
+
+Dos recortes que no son decoración: el **contorno provincial**
+(`data/contornoChaco.ts`, **generado** con `scripts/build_contorno.py` desde
+`geo_bundle.json` — no editar a mano), sin el cual las zonas del borde se estiran
+hacia Santiago y Formosa; y el **radio de 60 km**, porque más allá no hay dueño y
+ese hueco es el dato — es donde la fusión cae al modelo.
+
+Las zonas van en un panel propio de Leaflet (`zonasThiessen`, z-index 390): son
+polígonos con relleno y si compartieran panel se comerían los clics de los
+círculos de consorcio, que se dibujan después.
 
 **La Vicuña y Paraje Kolbacks comparten coordenada**, así que una gana siempre el
 desempate y la otra queda sin polígono: 70 zonas para 71 estaciones activas. El

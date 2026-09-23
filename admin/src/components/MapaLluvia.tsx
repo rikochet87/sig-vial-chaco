@@ -26,7 +26,7 @@ import {
 } from '@/lib/lluvia'
 import { TEXTO_PROCEDENCIA, RADIO_KM } from '@/lib/fusion'
 import { calcularGrilla, curvasDeNivel, nivelesSugeridos } from '@/lib/isohietas'
-import { rasterThiessen, bordesThiessen } from '@/lib/thiessen'
+import { poligonosThiessen } from '@/lib/thiessen'
 
 /** Un interruptor de capa: título clickeable y una línea de qué hace */
 function Interruptor({ titulo, nota, activo, onChange }: {
@@ -154,8 +154,10 @@ export default function MapaLluvia({ datos, seleccionado, onSeleccionar, estacio
       // caminos, y los círculos arriba de todo para que se puedan clickear.
       capaIsoRef.current   = L.layerGroup().addTo(mapa)
       capaRedRef.current   = L.layerGroup().addTo(mapa)
-      // Las zonas van por encima de los caminos: el sentido de la capa es
-      // justamente ver qué red cae dentro de qué polígono.
+      // Las zonas de Thiessen van en su propio panel, por debajo del resto. Son
+      // polígonos con relleno, así que si compartieran panel se comerían los
+      // clics de los círculos de consorcio, que se dibujan después.
+      mapa.createPane('zonasThiessen').style.zIndex = '390'
       capaZonasRef.current = L.layerGroup().addTo(mapa)
       capaRef.current      = L.layerGroup().addTo(mapa)
 
@@ -396,9 +398,14 @@ export default function MapaLluvia({ datos, seleccionado, onSeleccionar, estacio
   /**
    * Zonas de pluviómetro: los polígonos de Thiessen y las estaciones.
    *
-   * Contesta de un vistazo "¿de qué pluviómetro lee este consorcio?". Los bordes
-   * van como imagen —son un raster de a 2 km— y las estaciones como puntos, que
-   * llevan el nombre y lo que midieron.
+   * Contesta de un vistazo "¿de qué pluviómetro lee este consorcio?". Cada zona
+   * es un polígono de verdad —no una imagen— así que el borde queda fino a
+   * cualquier zoom y se puede resaltar la zona al pasarle por encima. Las
+   * estaciones van como puntos, con el nombre y lo que midieron.
+   *
+   * Donde no hay polígono no hay pluviómetro a menos de {@link RADIO_KM}: ese
+   * hueco es información, y por eso las zonas van con relleno tenue y el fondo
+   * descubierto queda limpio.
    *
    * Es una capa de cobertura, no el campo de lluvia: los milímetros salen de IDW
    * promediando varias estaciones, no del polígono. Sirve igual, porque bajo IDW
@@ -417,31 +424,24 @@ export default function MapaLluvia({ datos, seleccionado, onSeleccionar, estacio
       const L = (await import('leaflet')).default
       if (cancelado || !capaZonasRef.current) return
 
-      const r = rasterThiessen(estaciones, 2)
       capaZonasRef.current.clearLayers()
-      if (!r) return
 
-      const bordes = bordesThiessen(r)
-      const lienzo = document.createElement('canvas')
-      lienzo.width = r.nx
-      lienzo.height = r.ny
-      const ctx = lienzo.getContext('2d')
-      if (ctx) {
-        const img = ctx.createImageData(r.nx, r.ny)
-        for (let j = 0; j < r.ny; j++) {
-          for (let i = 0; i < r.nx; i++) {
-            if (!bordes[j * r.nx + i]) continue
-            // La grilla va de sur a norte y la imagen de arriba hacia abajo
-            const k = ((r.ny - 1 - j) * r.nx + i) * 4
-            img.data[k] = 30; img.data[k + 1] = 32; img.data[k + 2] = 34
-            img.data[k + 3] = 130
-          }
-        }
-        ctx.putImageData(img, 0, 0)
-        L.imageOverlay(lienzo.toDataURL(), [
-          [r.lat0, r.lng0],
-          [r.lat0 + (r.ny - 1) * r.dLat, r.lng0 + (r.nx - 1) * r.dLng],
-        ], { interactive: false }).addTo(capaZonasRef.current)
+      const base = { pane: 'zonasThiessen' }
+      const normal = { color: '#54606b', weight: 1, opacity: 0.6, fillColor: '#54606b', fillOpacity: 0.05 }
+      const encima = { color: '#2C2C2C', weight: 1.6, opacity: 0.95, fillColor: '#F5C300', fillOpacity: 0.22 }
+
+      for (const { indice, anillo } of poligonosThiessen(estaciones)) {
+        const e = estaciones[indice]
+        const zona = L.polygon(anillo, { ...base, ...normal })
+          .bindTooltip(
+            `<div style="font-family:monospace;font-size:12px;line-height:1.5">
+               zona de <b>${e.nombre}</b><br/>${e.mm.toLocaleString('es-AR')} mm en el período
+             </div>`,
+            { sticky: true, opacity: 0.96 },
+          )
+        zona.on('mouseover', () => { zona.setStyle(encima); zona.bringToFront() })
+        zona.on('mouseout', () => zona.setStyle(normal))
+        zona.addTo(capaZonasRef.current!)
       }
 
       for (const e of estaciones) {
