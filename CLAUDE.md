@@ -281,6 +281,27 @@ regenera desde la fuente original, revisar que no vuelvan a entrar proyectados.
 la red completa. Se usan de respaldo donde no hay traza, y sirven de control
 cruzado del procesamiento.
 
+## Lluvia — para qué es la pantalla
+
+**Para ver cómo impacta la lluvia sobre la red vial de la provincia y decidir en
+base a eso.** El que mira es quien decide; la herramienta muestra el dato.
+
+Eso marca un límite que conviene respetar: **no se calculan índices de estado ni
+de transitabilidad**. Se propuso un índice de humedad antecedente y se descartó,
+por una razón de fondo — no existe ni una observación de cómo quedó un camino
+después de una lluvia, así que cualquier índice sería una hipótesis presentada
+como resultado. Si algún día la app móvil releva transitabilidad, la discusión
+se reabre con datos.
+
+Dato que enmarca todo: **el 98 % de la red de consorcios es de tierra** (9.595 de
+9.772 tramos en `geo_cc.json`; sólo 16 son pavimento).
+
+La pantalla apunta a escalar hacia simulación de escenarios —eventos del Niño,
+por ejemplo—, y para eso el campo de lluvia tiene que quedar separado de su
+lectura: la misma vista debería poder alimentarse de lluvia observada, de un
+pronóstico o de un análogo histórico. Hoy falta profundidad histórica: hay un
+año de datos, y ERA5 permitiría décadas.
+
 ## Lluvia — de dónde sale cada número
 
 Hay **dos fuentes** y no significan lo mismo:

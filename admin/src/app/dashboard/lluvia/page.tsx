@@ -63,6 +63,7 @@ export default function LluviaPage() {
   >(null)
   const [autoEpisodio, setAutoEpisodio] = useState(true)
   const [vista, setVista] = useState<'mapa' | 'precision'>('mapa')
+  const [verRango, setVerRango] = useState(false)
 
   const cargar = useCallback(async (d: string, h: string) => {
     setCargando(true); setError(null)
@@ -121,6 +122,9 @@ export default function LluviaPage() {
   }, [datos, orden])
 
   const conDato = datos.filter(d => d.mm > 0)
+  const mayor   = conDato.length
+    ? conDato.reduce((a, b) => (b.mm > a.mm ? b : a))
+    : null
   const maximo  = conDato.length ? Math.max(...conDato.map(d => d.mm)) : 0
   const promedio = conDato.length ? conDato.reduce((s, d) => s + d.mm, 0) / conDato.length : 0
   const afectados = datos.filter(d => d.mm >= 40).length
@@ -239,10 +243,14 @@ export default function LluviaPage() {
 
       {vista === 'mapa' && (<>
 
-      {/* Episodios detectados */}
+      {/*
+        Los episodios son el control principal, no las fechas.
+        La pantalla contesta "qué pasó en tal evento", y el evento lo detecta
+        solo el motor. Elegir fechas a mano es el caso raro, así que va plegado.
+      */}
       {episodios.length > 0 && (
         <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap', alignItems: 'center', flexShrink: 0 }}>
-          <span style={{ ...lbl, marginBottom: 0 }}>Episodios</span>
+          <span style={{ ...lbl, marginBottom: 0 }}>Qué evento mirar</span>
           {episodios.slice(0, 6).map(e => {
             const activo = e.desde === desde && e.hasta === hasta
             return (
@@ -262,7 +270,17 @@ export default function LluviaPage() {
         </div>
       )}
 
+      {!verRango && (
+        <button onClick={() => setVerRango(true)}
+          style={{ ...mono, fontSize: 12, padding: '5px 11px', cursor: 'pointer', marginBottom: 12,
+            background: 'transparent', border: '1px solid #242424', color: '#6a6a6a',
+            flexShrink: 0, alignSelf: 'flex-start' }}>
+          Otro rango de fechas
+        </button>
+      )}
+
       {/* Filtros */}
+      {verRango && (
       <div style={{
         background: '#191919', border: '1px solid #1e1e1e', padding: '12px 16px',
         marginBottom: 12, display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'flex-end', flexShrink: 0,
@@ -304,7 +322,14 @@ export default function LluviaPage() {
               : '↻ Actualizar rango'}
           </button>
         )}
+
+        <button onClick={() => setVerRango(false)}
+          style={{ ...mono, fontSize: 12, padding: '7px 10px', cursor: 'pointer',
+            background: 'transparent', border: 'none', color: '#5a5a5a' }}>
+          ocultar
+        </button>
       </div>
+      )}
 
       {/* Avance de la carga */}
       {progreso && (
@@ -378,20 +403,29 @@ export default function LluviaPage() {
         </div>
       )}
 
-      {/* Resumen */}
+      {/*
+        Una frase en vez de tres tarjetas de números.
+        Máximo, promedio y "consorcios sobre 40 mm" son los mismos datos, pero
+        sueltos obligan a interpretarlos; en una oración se leen de corrido.
+      */}
       {!cargando && conDato.length > 0 && (
-        <div style={{ display: 'flex', gap: 10, marginBottom: 12, flexWrap: 'wrap', flexShrink: 0 }}>
-          {[
-            { label: 'Máximo',    val: mmRedondeado(maximo),   color: '#F5C300' },
-            { label: 'Promedio',  val: mmRedondeado(promedio), color: '#4A90C2' },
-            { label: 'Consorcios sobre 40 mm', val: String(afectados), color: afectados > 0 ? '#E8833A' : '#555' },
-          ].map(({ label, val, color }) => (
-            <div key={label} style={{ background: '#191919', border: '1px solid #1e1e1e',
-              borderLeft: `3px solid ${color}`, padding: '7px 13px' }}>
-              <div style={{ color: '#555', fontSize: 12, letterSpacing: 1, textTransform: 'uppercase', ...mono }}>{label}</div>
-              <div style={{ color, fontSize: 16, fontWeight: 700, ...mono, marginTop: 2 }}>{val}</div>
-            </div>
-          ))}
+        <div style={{
+          ...mono, fontSize: 14, lineHeight: 1.65, color: '#d8d8d8', flexShrink: 0,
+          background: '#191919', borderLeft: '3px solid #F5C300',
+          padding: '11px 14px', marginBottom: 12,
+        }}>
+          {desde === hasta
+            ? <>El <b style={{ color: '#fff' }}>{fmtFecha(desde)}</b> </>
+            : <>Entre el <b style={{ color: '#fff' }}>{fmtFecha(desde)}</b> y el{' '}
+               <b style={{ color: '#fff' }}>{fmtFecha(hasta)}</b> </>}
+          llovió en <b style={{ color: '#fff' }}>{conDato.length}</b> de los {datos.length}{' '}
+          consorcios. El máximo fue de{' '}
+          <b style={{ color: '#F5C300' }}>{mmRedondeado(maximo)}</b>
+          {mayor && <> en el <b style={{ color: '#fff' }}>CC N° {mayor.numero}</b></>}
+          {afectados > 0
+            ? <>, y <b style={{ color: '#E8833A' }}>{afectados}</b>{' '}
+               {afectados === 1 ? 'pasó' : 'pasaron'} los 40 mm.</>
+            : <>, y ninguno pasó los 40 mm.</>}
         </div>
       )}
 
@@ -500,14 +534,14 @@ export default function LluviaPage() {
 
       </>)}
 
+      {/*
+        El pie tenía siete renglones explicando el método. Eso pertenece al globo
+        de cada círculo, que lo dice para el caso concreto en vez de en abstracto.
+        Acá queda sólo de dónde sale el dato.
+      */}
       <div style={{ ...mono, fontSize: 12, color: '#3a3a3a', marginTop: 8, flexShrink: 0 }}>
-        Los caminos van pintados con el nivel de lluvia de su consorcio; el círculo, en el
-        centro de gravedad de esa red, resume los milímetros acumulados del período —
-        promediados sobre varios puntos de la red y ponderados por kilómetros de camino.
-        El número sale de <b style={{ color: '#5a5a5a' }}>interpolar los pluviómetros de la
-        APA</b> que rodean cada red, pesando más a los cercanos (error típico ~4 mm). Donde
-        no hay ninguna estación a menos de 60 km queda la estimación del modelo de
-        Open-Meteo, con un error de unos 7 mm; el globo de cada círculo dice cuál es el caso.
+        Pluviómetros de la Administración Provincial del Agua, interpolados sobre la red
+        vial de cada consorcio. Tocá un círculo para ver de dónde sale su número.
       </div>
     </div>
   )
