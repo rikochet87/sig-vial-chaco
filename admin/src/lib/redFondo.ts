@@ -60,7 +60,10 @@ export function asegurarPanelFondo(map: any) {
 export interface TramoInfo {
   /** Número de consorcio, o null si el tramo no es de un consorcio */
   cc: number | null
-  ruta: string
+  /** Cómo se llama el tramo: "RP N° 57", "Tramo N° 028"… */
+  designacion: string
+  /** Código del bundle (`Nc`), que es como figura en el legajo */
+  codigo: string
   jurisdiccion: string
   material: string
   zona: string
@@ -85,7 +88,79 @@ const texto = (v: unknown): string =>
  * organismo— así que se muestran como red primaria a secas.
  */
 function zonaVisible(clave: string): string {
-  return clave.endsWith('_DVP') ? 'Red primaria' : `Zona ${clave}`
+  if (clave.endsWith('_DVP')) return 'Red primaria'
+  // 'ZIII' → 'Zona III': la Z de la clave ya significa zona, y dejarla daba
+  // "Zona ZIII" en pantalla
+  return `Zona ${clave.replace(/^Z/, '')}`
+}
+
+/**
+ * Cómo se llama el tramo.
+ *
+ * El bundle usa **dos campos excluyentes**: `Nm` es el número de ruta
+ * provincial y sólo lo traen 624 tramos; los otros 9.148 llevan el número de
+ * tramo del consorcio en `T`. Leyendo sólo `Nm` —que era el error— casi toda la
+ * red aparecía como "sin designación", que es justo lo contrario de lo que se
+ * quiere: los tramos de consorcio son el 94 % de lo que uno mira.
+ *
+ * Como último recurso se parsea `Nc`, el código compuesto (`Z1C005028` = zona 1,
+ * CC 005, tramo 028; `Z1C005RP049` = RP 049). Sesenta y cuatro tramos no tienen
+ * ni `Nm` ni `T` pero sí el código, y algunos incluso traen nombre propio
+ * —`Z1AccLag.Blanca`—, que es mejor dato que nada.
+ */
+function designacionTramo(p: Record<string, unknown>): { designacion: string; codigo: string } {
+  const crudo = texto(p.Nc)
+
+  // Dos códigos del bundle nombran al organismo ("00 Tramos Mantenidos por
+  // DVP"). El sistema es independiente y eso no va a pantalla: se descarta el
+  // código entero, porque sacarle la sigla deja una frase coja.
+  const codigo = /\bD\.?V\.?P\.?\b/i.test(crudo) ? '' : crudo
+  if (!codigo && crudo) return { designacion: 'Red primaria', codigo: '' }
+
+  const nm = texto(p.Nm ?? p.nm)
+  if (nm) return { designacion: `RP N° ${nm}`, codigo }
+
+  const t = texto(p.T ?? p.t)
+  if (t) return { designacion: `Tramo N° ${t}`, codigo }
+
+  const porRuta = codigo.match(/RP\s*([\w.-]+)$/i)
+  if (porRuta) return { designacion: `RP N° ${porRuta[1]}`, codigo }
+
+  const porTramo = codigo.match(/^Z\d+C\d{3}(\d+)$/i)
+  if (porTramo) return { designacion: `Tramo N° ${porTramo[1]}`, codigo }
+
+  // Lo que queda del código sacándole el prefijo de zona y consorcio: suele ser
+  // un nombre propio de acceso
+  const resto = codigo.replace(/^Z\d+(C\d{3})?/i, '').trim()
+  return { designacion: resto || 'sin designación', codigo }
+}
+
+/**
+ * Normaliza la jurisdicción.
+ *
+ * El campo viene cargado a mano y tiene erratas —PRIMRARIA, TIERCIARIA,
+ * SECUNDARI, SECUNDRAR— y 26 filas donde alguien puso un material (TIERRA) o
+ * una letra suelta en el campo equivocado. Mostrar el error crudo hace dudar del
+ * resto del dato, y corregirlo en el bundle es otra tarea: acá se normaliza para
+ * pantalla y lo que no se entiende se omite, que es más honesto que inventarlo.
+ */
+function jurisdiccionVisible(v: unknown): string {
+  const s = texto(v).toUpperCase()
+  if (/^PRIM/.test(s)) return 'PRIMARIA'
+  if (/^SECUND/.test(s)) return 'SECUNDARIA'
+  if (/^T[IE]ERC/.test(s)) return 'TERCIARIA'
+  return ''
+}
+
+/** Normaliza el material, con el mismo criterio que la jurisdicción */
+function materialVisible(v: unknown): string {
+  const s = texto(v).toUpperCase()
+  if (!s) return ''
+  if (s.includes('PAVIMENT')) return 'PAVIMENTO'
+  if (s.includes('CONSOLIDADO')) return 'CONSOLIDADO'
+  if (s.includes('RIPIO') || s.startsWith('MEJORA')) return 'MEJORADA (RIPIO)'
+  if (s.includes('TIERRA')) return 'TIERRA'
+  return s
 }
 
 /** Distancia en km de un punto a un segmento, en plano equirectangular local */
@@ -130,9 +205,9 @@ export class RedFondo {
         const ccNum = Number(p.CC ?? p.cc)
         const info = {
           cc: Number.isFinite(ccNum) ? ccNum : null,
-          ruta: texto(p.Nm ?? p.nm ?? p.Nombre),
-          jurisdiccion: texto(p.J ?? p.j),
-          material: texto(p.M ?? p.m),
+          ...designacionTramo(p),
+          jurisdiccion: jurisdiccionVisible(p.J ?? p.j),
+          material: materialVisible(p.M ?? p.m),
           zona: nombreZona,
         }
 

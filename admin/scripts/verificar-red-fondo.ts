@@ -60,6 +60,45 @@ ok('los tramos sin consorcio quedan con cc null y no en NaN',
   red.tramos.every(t => t.info.cc === null || Number.isFinite(t.info.cc)), true)
 ok('ninguna zona menciona el organismo',
   red.tramos.every(t => !/DVP/i.test(t.info.zona)), true)
+ok('ninguna zona repite la Z ("Zona ZIII")',
+  red.tramos.every(t => !/Zona Z/i.test(t.info.zona)), true)
+
+console.log('\n— Designación: el 94 % de la red no va sobre una ruta —')
+// El fallo que motivó esto: se leía sólo `Nm`, que traen 624 tramos, y los
+// 9.148 que llevan el número en `T` salían todos como "sin designación".
+const sinDesignar = red.tramos.filter(t => t.info.designacion === 'sin designación')
+console.log(`       ${sinDesignar.length} tramos sin designación de ${red.tramos.length.toLocaleString('es-AR')}`)
+ok('casi ningún tramo queda sin designación', sinDesignar.length < 30, true)
+
+const porTipo = { rp: 0, tramo: 0, otro: 0 }
+for (const t of red.tramos) {
+  if (/^RP N° /.test(t.info.designacion)) porTipo.rp++
+  else if (/^Tramo N° /.test(t.info.designacion)) porTipo.tramo++
+  else porTipo.otro++
+}
+console.log(`       RP: ${porTipo.rp}  ·  Tramo: ${porTipo.tramo.toLocaleString('es-AR')}  ·  otros: ${porTipo.otro}`)
+ok('hay rutas provinciales', porTipo.rp > 600, true)
+ok('y muchísimos más tramos de consorcio', porTipo.tramo > 9000, true)
+// 50 sin código: 24 que el bundle no trae, más los 26 que se descartan porque
+// el código nombraba al organismo.
+ok('los tramos sin código son los pocos conocidos',
+  red.tramos.filter(t => !t.info.codigo).length, 50)
+ok('los que perdieron el código quedan como red primaria',
+  red.tramos.filter(t => !t.info.codigo && t.info.zona === 'Red primaria')
+    .every(t => t.info.designacion === 'Red primaria'), true)
+ok('ninguna designación filtra el organismo',
+  red.tramos.every(t => !/DVP/i.test(t.info.designacion) && !/DVP/i.test(t.info.codigo)), true)
+
+console.log('\n— Los campos cargados a mano vienen con erratas —')
+// J trae PRIMRARIA, TIERCIARIA, SECUNDARI, SECUNDRAR, y 26 filas con un
+// material o una letra suelta en el campo de jurisdicción.
+const juris = new Set(red.tramos.map(t => t.info.jurisdiccion))
+ok('la jurisdicción queda en tres valores más el vacío',
+  [...juris].sort(), ['', 'PRIMARIA', 'SECUNDARIA', 'TERCIARIA'])
+const mat = new Set(red.tramos.map(t => t.info.material))
+ok('el material no deja entrar una jurisdicción',
+  [...mat].every(m => !/PROVINCIAL|TERCIARIA/.test(m)), true)
+console.log(`       materiales: ${[...mat].filter(Boolean).sort().join(', ')}`)
 
 /** La respuesta correcta, revisando todos los segmentos de todos los tramos */
 function fuerzaBruta(p: { lat: number; lng: number }, tolKm: number) {
@@ -70,7 +109,7 @@ function fuerzaBruta(p: { lat: number; lng: number }, tolKm: number) {
         p, t.puntos[i][0], t.puntos[i][1], t.puntos[i + 1][0], t.puntos[i + 1][1],
       )
       if (dd < tolKm && (mejor === null || dd < mejor.km)) {
-        mejor = { ruta: t.info.ruta, cc: t.info.cc, km: dd }
+        mejor = { ruta: t.info.designacion, cc: t.info.cc, km: dd }
       }
     }
   }
@@ -101,7 +140,7 @@ for (const p of puntos) {
   msIndice += Date.now() - t1
   const bruta = fuerzaBruta(p, TOL)
 
-  const a = conIndice ? `${conIndice.ruta}|${conIndice.cc}` : 'nada'
+  const a = conIndice ? `${conIndice.designacion}|${conIndice.cc}` : 'nada'
   const b = bruta ? `${bruta.ruta}|${bruta.cc}` : 'nada'
   if (a === b) iguales++
   else console.log(`       difiere en ${p.lat},${p.lng}: índice ${a} / bruta ${b}`)

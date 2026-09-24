@@ -108,14 +108,17 @@ export function LecturaTramo({ tramo, activa, onActiva }: {
           {tramo ? (
             <>
               <div style={{ fontSize: 13, color: '#fff', lineHeight: 1.4 }}>
-                {tramo.ruta
-                  ? <b style={{ color: '#8fd0ff' }}>{tramo.ruta}</b>
-                  : <span style={{ color: '#8a8a8a' }}>sin designación</span>}
+                <b style={{ color: '#8fd0ff' }}>{tramo.designacion}</b>
                 {tramo.cc !== null && <span style={{ color: '#c8c8c8' }}> · CC N° {tramo.cc}</span>}
               </div>
               <div style={{ fontSize: 12, color: '#9aa3ad', marginTop: 2 }}>
                 {[tramo.jurisdiccion, tramo.material, tramo.zona].filter(Boolean).join(' · ') || '—'}
               </div>
+              {tramo.codigo && (
+                <div style={{ fontSize: 11, color: '#666e77', marginTop: 2 }}>
+                  {tramo.codigo}
+                </div>
+              )}
             </>
           ) : (
             <div style={{ fontSize: 12, color: '#6d757e', lineHeight: 1.4 }}>

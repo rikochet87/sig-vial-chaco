@@ -246,8 +246,21 @@ Detalles que importan:
 - **El archivo y el índice se comparten** entre los cuatro mapas: son cuatro
   calculadoras pero la red es la misma y pesa 8,6 MB. Un fetch fallido **no**
   queda cacheado, para que el próximo intento pueda reintentar.
-- Las capas `ZIV_DVP` y `ZV_DVP` se muestran como "Red primaria": el sufijo no va
-  a pantalla.
+- Las capas `ZIV_DVP` y `ZV_DVP` se muestran como "Red primaria", y los dos
+  códigos `Nc` que nombran al organismo se descartan enteros: sacarles la sigla
+  deja una frase coja.
+
+**`Nm` y `T` son excluyentes y hay que leer los dos.** `Nm` es el número de ruta
+provincial y sólo lo traen 624 tramos; los otros 9.148 llevan el número de tramo
+del consorcio en `T`. Leer sólo `Nm` —que fue el primer error— mostraba el 94 %
+de la red como "sin designación". Como último recurso se parsea `Nc`, el código
+compuesto: `Z1C005028` es zona 1, CC 005, tramo 028; `Z1C005RP049` es RP 049.
+
+**Los campos cargados a mano vienen con erratas y se normalizan para pantalla.**
+`J` trae PRIMRARIA, TIERCIARIA, SECUNDARI y SECUNDRAR, y 26 filas con un material
+o una letra suelta en el campo de jurisdicción; `M` tiene 'Mejora', '' y una
+jurisdicción entera metida adentro. Lo que no se entiende se omite, que es más
+honesto que inventarlo. Corregirlo en el bundle es otra tarea.
 
 ### Accesibilidad
 
