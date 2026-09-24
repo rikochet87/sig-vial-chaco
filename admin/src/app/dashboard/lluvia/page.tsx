@@ -234,8 +234,21 @@ export default function LluviaPage() {
    * pluviómetros, lo que se está mirando es el modelo crudo. Se avisa arriba en
    * vez de dejarlo escondido en el globo de cada uno de los 103 círculos.
    */
+  /**
+   * Dos estados que se veían igual y no lo son.
+   *
+   * `sin_calcular` se arregla recalculando: hay parte de la APA y esa fila
+   * todavía no se cruzó con él. `sin_parte` no: ese día la APA no publicó nada,
+   * así que no hay pluviómetro con qué cruzar y el botón no puede hacer nada.
+   *
+   * Mezclarlos hacía que el cartel ofreciera «Recalcular», que uno lo apretara,
+   * que el recálculo hiciera bien su trabajo — y que el cartel volviera igual,
+   * porque los días sin parte seguían ahí y siempre van a seguir.
+   */
   const sinRecalcular = datos.length > 0
     && datos.filter(d => d.procedencia === 'sin_calcular').length > datos.length / 2
+  const sinParte = datos.length > 0 && !sinRecalcular
+    && datos.filter(d => d.procedencia === 'sin_parte').length > datos.length / 2
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 60px)', minHeight: 0 }}>
@@ -425,7 +438,7 @@ export default function LluviaPage() {
           display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           <span style={{ lineHeight: 1.6 }}>
             Estos milímetros son <b style={{ color: '#e0e0e0' }}>la estimación del modelo</b>:
-            el período todavía no se cruzó con los pluviómetros de la APA.
+            el período tiene partes de la APA pero todavía no se cruzó con ellos.
           </span>
           <button onClick={recalcularFusion} disabled={recalculando}
             style={{
@@ -436,6 +449,20 @@ export default function LluviaPage() {
             }}>
             {recalculando ? 'Recalculando…' : 'Recalcular con los pluviómetros'}
           </button>
+        </div>
+      )}
+
+      {/*
+        Sin parte no hay nada que recalcular, así que este cartel no lleva
+        botón: ofrecer uno que no puede cambiar nada fue el error anterior.
+      */}
+      {!error && !cargando && sinParte && (
+        <div style={{ ...mono, fontSize: 13, color: '#9aa0a6', background: '#141618',
+          border: '1px solid #282c2e', padding: '9px 12px', marginBottom: 12, flexShrink: 0,
+          lineHeight: 1.6 }}>
+          En el grueso de este período <b style={{ color: '#c4c4c4' }}>la APA no publicó
+          parte</b>, así que no hay pluviómetros con qué cruzar y estos milímetros son
+          la estimación del modelo. No se arregla recalculando: el dato no existe.
         </div>
       )}
 

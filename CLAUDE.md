@@ -387,15 +387,36 @@ Tres cosas que **no** hay que rehacer porque ya se midieron y salieron mal:
 
 ### Procedencia: de dónde salió cada número
 
-Cuatro estados, y los cuatro van a pantalla: `medido`, `interpolado`, `estimado`
-y `sin_calcular`. Un número que se va a citar tiene que poder decir de dónde
-sale. Tres consorcios (80, 81 y **84**, con el 82 % de su red descubierta) caen
-al modelo; es el hueco real de la red de la APA, no un error.
+Cinco estados, y los cinco van a pantalla: `medido`, `interpolado`, `estimado`,
+`sin_parte` y `sin_calcular`. Un número que se va a citar tiene que poder decir
+de dónde sale. Tres consorcios (80, 81 y **84**, con el 82 % de su red
+descubierta) caen al modelo; es el hueco real de la red de la APA, no un error.
 
 **`sin_calcular` tiene que ser un estado aparte.** Una fila sin `mm_fusion` nunca
 se cruzó con los pluviómetros, y eso no es lo mismo que "no había ninguno cerca".
 Etiquetarla como `estimado` hacía que el mapa afirmara *"sin pluviómetro a menos
 de 60 km"* sobre consorcios que tienen uno a 12 km.
+
+**Y `sin_parte` tiene que ser otro más.** Hay dos motivos distintos para que una
+fila no tenga `mm_fusion`, y se los había juntado:
+
+| | Qué pasó | ¿Lo arregla recalcular? |
+|---|---|---|
+| `sin_calcular` | hay parte de la APA, pero esta fila todavía no se cruzó con él | **sí** |
+| `sin_parte` | ese día la APA no publicó nada | **no, nunca**: el dato no existe |
+
+**La APA publica parte sólo los días que llueve, así que la mayoría de los días
+no tiene ninguno.** En agosto-septiembre de 2026 hay parte en 6 días de 31. Con
+los dos estados mezclados, el cartel decía *"el período todavía no se cruzó con
+los pluviómetros"* y ofrecía «Recalcular»; uno lo apretaba, el recálculo hacía
+bien su trabajo sobre los días que sí tenían parte — y el cartel volvía igual,
+porque los días sin parte seguían ahí y van a seguir para siempre. Un botón que
+no puede cambiar nada es peor que no tener botón.
+
+Ahora la ingesta **marca esas filas** con `procedencia: 'sin_parte'` y
+`mm_fusion` en null, y la pantalla muestra un cartel distinto, informativo y sin
+botón. `precipitaciones.procedencia` es `text` sin CHECK, así que agregar el
+estado no necesitó SQL.
 
 **Y la procedencia del período se pesa por milímetros, no por días.** La primera
 versión tomaba la peor de todos los días del rango: en una semana con dos días de
@@ -585,6 +606,10 @@ vueltas con pausas de 20 segundos gastando cupo para traer números que ya
 estaban en la tabla. El recálculo aguanta 90 días de una.
 
 Sólo escribe las columnas de fusión: `mm` no se pisa nunca.
+
+El recálculo pagina la lectura de `precipitaciones` **con `order`**. Sin él
+Postgres no garantiza el orden entre páginas y el `range()` se saltea o repite
+filas, que es un bug silencioso: no falla, sólo deja filas sin recalcular.
 
 ### Importación
 

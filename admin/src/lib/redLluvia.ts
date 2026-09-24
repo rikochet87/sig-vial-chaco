@@ -199,7 +199,7 @@ export function lluviaPorTramo(
   estaciones: (Medicion & { nombre: string })[],
 ): LluviaTramo[] {
   const peor: Record<Procedencia, number> = {
-    medido: 0, interpolado: 1, estimado: 2, sin_calcular: 3,
+    medido: 0, interpolado: 1, estimado: 2, sin_parte: 3, sin_calcular: 4,
   }
 
   return tramos.map(t => {

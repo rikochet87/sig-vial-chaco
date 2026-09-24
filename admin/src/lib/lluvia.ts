@@ -26,6 +26,7 @@
 
 import { PUNTOS_LLUVIA } from '@/data/puntosLluvia'
 import { SEDES_CONSORCIOS } from '@/data/sedesConsorcios'
+import type { Procedencia } from '@/lib/fusion'
 
 /**
  * El endpoint de archivo, no el de pronóstico.
@@ -318,7 +319,8 @@ export interface ResumenConsorcio {
    * ninguno dentro del radio y quedó el modelo. La agrega la API al leer; el
    * motor de agregación no la conoce.
    */
-  procedencia?: 'medido' | 'interpolado' | 'estimado' | 'sin_calcular'
+  /** De dónde salió el número. Ver `TEXTO_PROCEDENCIA` en `lib/fusion.ts`. */
+  procedencia?: Procedencia
   /** Distancia media al pluviómetro más cercano, en km */
   distanciaKm?: number | null
 }

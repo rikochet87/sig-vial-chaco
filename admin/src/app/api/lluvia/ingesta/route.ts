@@ -118,7 +118,8 @@ export async function POST(req: NextRequest) {
     ...r,
     fuente: 'open-meteo',
     actualizado_en: ahora,
-    ...(fusion.porClave.get(`${r.consorcio_numero}|${r.fecha}`) ?? {}),
+    ...(fusion.porClave.get(`${r.consorcio_numero}|${r.fecha}`)
+        ?? (fusion.sinParte.has(r.fecha) ? SIN_PARTE : {})),
   }))
 
   let filas = 0
@@ -173,6 +174,8 @@ async function recalcularFusion(desde: string, hasta: string) {
       .from('precipitaciones')
       .select('consorcio_numero, fecha, mm')
       .gte('fecha', desde).lte('fecha', hasta)
+      // Sin `order` el paginado no es estable y se pierden o repiten filas
+      .order('fecha').order('consorcio_numero')
       .range(off, off + 999)
     if (error) return dbError(error)
     if (!data?.length) break
@@ -194,7 +197,7 @@ async function recalcularFusion(desde: string, hasta: string) {
   }
 
   const fusion = await fusionar(registros, desde, hasta)
-  if (fusion.porClave.size === 0) {
+  if (fusion.porClave.size === 0 && fusion.sinParte.size === 0) {
     return NextResponse.json({
       ok: true, filas: 0,
       aviso: fusion.aviso
@@ -205,13 +208,14 @@ async function recalcularFusion(desde: string, hasta: string) {
   // Sólo se tocan las columnas de fusión: `mm` no se pisa
   const ahora = new Date().toISOString()
   const filas = registros
-    .filter(r => fusion.porClave.has(`${r.consorcio_numero}|${r.fecha}`))
+    .filter(r => fusion.porClave.has(`${r.consorcio_numero}|${r.fecha}`)
+              || fusion.sinParte.has(r.fecha))
     .map(r => ({
       consorcio_numero: r.consorcio_numero,
       fecha: r.fecha,
       mm: r.mm,
       actualizado_en: ahora,
-      ...fusion.porClave.get(`${r.consorcio_numero}|${r.fecha}`)!,
+      ...(fusion.porClave.get(`${r.consorcio_numero}|${r.fecha}`) ?? SIN_PARTE),
     }))
 
   for (let i = 0; i < filas.length; i += 2000) {
@@ -263,8 +267,10 @@ async function fusionar(
   hasta: string,
 ) {
   const porClave = new Map<string, FilaFusion>()
+  /** Fechas del rango para las que la APA no publicó parte */
+  const sinParte = new Set<string>()
   const vacio = {
-    porClave, fechasConParte: 0, fechasSinParte: 0, conPluviometro: 0,
+    porClave, sinParte, fechasConParte: 0, fechasSinParte: 0, conPluviometro: 0,
     aviso: null as string | null,
   }
 
@@ -291,7 +297,10 @@ async function fusionar(
 
   let usadas = 0
   for (const fecha of fechasPedidas) {
-    if (!hay.has(fecha)) continue
+    // Sin parte no hay nada con qué cruzar, y eso **no** es lo mismo que "no se
+    // recalculó todavía": recalcular no lo puede arreglar porque el dato no
+    // existe. Se marca aparte para que la pantalla no ofrezca un botón inútil.
+    if (!hay.has(fecha)) { sinParte.add(fecha); continue }
 
     let lecturas
     try {
@@ -326,12 +335,22 @@ async function fusionar(
 
   return {
     porClave,
+    sinParte,
     fechasConParte: usadas,
-    fechasSinParte: fechasPedidas.length - usadas,
+    fechasSinParte: sinParte.size,
     conPluviometro: porClave.size,
     aviso: null,
   }
 }
+
+/** Marca de una fila cuya fecha no tiene parte de la APA */
+const SIN_PARTE = {
+  mm_fusion: null,
+  procedencia: 'sin_parte',
+  dist_pluviometro_km: null,
+  fraccion_estimada: 1,
+  estaciones_usadas: 0,
+} as const
 
 /** El cron de Vercel pega con GET. Mismo trabajo, rango por defecto. */
 export async function GET(req: NextRequest) {

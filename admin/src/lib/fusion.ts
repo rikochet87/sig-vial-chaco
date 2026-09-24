@@ -62,7 +62,8 @@ export interface PuntoConsulta {
  * "no lo calculé todavía" es la verdad; inventar el motivo es peor que no decir
  * nada.
  */
-export type Procedencia = 'medido' | 'interpolado' | 'estimado' | 'sin_calcular'
+export type Procedencia =
+  | 'medido' | 'interpolado' | 'estimado' | 'sin_parte' | 'sin_calcular'
 
 export interface Estimacion {
   mm: number
@@ -184,7 +185,7 @@ export interface ResultadoConsorcio {
 }
 
 const ORDEN: Record<Procedencia, number> = {
-  medido: 0, interpolado: 1, estimado: 2, sin_calcular: 3,
+  medido: 0, interpolado: 1, estimado: 2, sin_parte: 3, sin_calcular: 4,
 }
 
 /**
@@ -250,10 +251,17 @@ export const TEXTO_PROCEDENCIA: Record<Procedencia, { label: string; nota: strin
         + 'con un error típico de unos 7 mm.',
     color: '#EF9F27',
   },
+  sin_parte: {
+    label: 'Sin parte de la APA',
+    nota: 'Ese día la APA no publicó ningún parte, así que no hay pluviómetro con '
+        + 'qué cruzar y el número es la salida del modelo. No se arregla '
+        + 'recalculando: el dato no existe.',
+    color: '#8A8FA0',
+  },
   sin_calcular: {
     label: 'Sin recalcular',
-    nota: 'Esta fecha todavía no se cruzó con los pluviómetros, así que el número '
-        + 'es la salida del modelo. Tocá «Actualizar rango» para recalcularla.',
+    nota: 'Esta fecha tiene parte de la APA pero todavía no se cruzó con él, así '
+        + 'que el número es la salida del modelo. Se arregla recalculando.',
     color: '#9aa0a6',
   },
 }

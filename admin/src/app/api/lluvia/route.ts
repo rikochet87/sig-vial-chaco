@@ -93,13 +93,20 @@ export async function GET(req: NextRequest) {
       const mm = Number(r.mm_fusion ?? r.mm)
       registros.push({ consorcio_numero: cc, fecha: r.fecha as string, mm })
 
-      // Sin `mm_fusion` la fila nunca se cruzó con los pluviómetros, y eso NO
-      // es lo mismo que "no había ninguno cerca". Etiquetarlo como `estimado`
-      // hacía que el mapa afirmara "sin pluviómetro a menos de 60 km" sobre
-      // consorcios que tienen uno a 12 km.
+      // Sin `mm_fusion` la fila no tiene número de pluviómetros, y hay **dos
+      // motivos distintos** que no se pueden mezclar:
+      //
+      //   `sin_parte`    — ese día la APA no publicó nada. No hay con qué
+      //                    cruzar y recalcular no lo arregla: el dato no existe.
+      //   `sin_calcular` — hay parte, pero esta fila todavía no se cruzó. Eso sí
+      //                    se arregla recalculando.
+      //
+      // Juntarlos hacía que la pantalla ofreciera un botón de recalcular que no
+      // podía cambiar nada, y que volvía a aparecer después de apretarlo.
+      const marca = r.procedencia as string | null
       const p = r.mm_fusion == null
-        ? 'sin_calcular'
-        : ((r.procedencia as string) ?? 'sin_calcular')
+        ? (marca === 'sin_parte' ? 'sin_parte' : 'sin_calcular')
+        : (marca ?? 'sin_calcular')
 
       let a = proc.get(cc)
       if (!a) { a = { mmPorProc: {}, mmTotal: 0, dist: 0, n: 0, fusionadas: 0 }; proc.set(cc, a) }
@@ -126,7 +133,7 @@ export async function GET(req: NextRequest) {
    * la peor de todas: no llovió y tampoco se recalculó, y eso hay que decirlo.
    */
   const ORDEN: Record<string, number> = {
-    medido: 0, interpolado: 1, estimado: 2, sin_calcular: 3,
+    medido: 0, interpolado: 1, estimado: 2, sin_parte: 3, sin_calcular: 4,
   }
   const etiqueta = (a?: { mmPorProc: Record<string, number>; mmTotal: number }) => {
     if (!a) return 'sin_calcular'
