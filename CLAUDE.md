@@ -422,8 +422,19 @@ no puede cambiar nada es peor que no tener botón.
 
 Ahora la ingesta **marca esas filas** con `procedencia: 'sin_parte'` y
 `mm_fusion` en null, y la pantalla muestra un cartel distinto, informativo y sin
-botón. `precipitaciones.procedencia` es `text` sin CHECK, así que agregar el
-estado no necesitó SQL.
+botón.
+
+**Eso sí necesitó SQL, contra lo que decía acá antes.** `09-seguridad.sql` le
+había puesto a la columna un `check (procedencia in ('medido','interpolado',
+'estimado'))`, y el valor nuevo lo violaba: la interpolación fallaba al escribir
+con `23514 check_violation`. Lo arregla `docs/sql/10-procedencia-sin-parte.sql`.
+**Al agregar un valor a una columna con CHECK hay que tocar el CHECK**, y en
+este repo los CHECK viven en `docs/sql/`, no en el código.
+
+`sin_calcular` **no** está en el CHECK a propósito: nunca se escribe. Es lo que
+deduce `api/lluvia/route.ts` cuando `mm_fusion` es null y no hay marca de
+`sin_parte`. Si se pudiera persistir, dejaría de significar "no se hizo
+todavía".
 
 **Y la procedencia del período se pesa por milímetros, no por días.** La primera
 versión tomaba la peor de todos los días del rango: en una semana con dos días de
