@@ -13,7 +13,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { requireAdmin, dbError } from '@/lib/apiAuth'
+import { requireAdminRole, dbError } from '@/lib/apiAuth'
 import { consultarLluvia, hace, aISO, diasEntre } from '@/lib/lluvia'
 import { estimarPorConsorcio, type Medicion, type PuntoRed } from '@/lib/fusion'
 import { PUNTOS_LLUVIA } from '@/data/puntosLluvia'
@@ -40,8 +40,13 @@ async function autorizado(req: NextRequest): Promise<true | NextResponse> {
   const cabecera = req.headers.get('authorization')
   if (secreto && cabecera === `Bearer ${secreto}`) return true
 
-  // Sin secreto válido, tiene que ser una sesión de panel
-  const auth = await requireAdmin()
+  // Sin secreto válido, tiene que ser un admin de verdad.
+  //
+  // `requireAdmin()` **sólo verifica que haya sesión válida**, no el rol — el
+  // nombre engaña. Con eso, cualquier usuario de oficina logueado podía llamar
+  // a esta ruta y quemar el cupo de Open-Meteo; el botón estaba escondido en la
+  // pantalla, pero el endpoint quedaba abierto, que es seguridad por interfaz.
+  const auth = await requireAdminRole()
   if (auth instanceof NextResponse) return auth
   return true
 }

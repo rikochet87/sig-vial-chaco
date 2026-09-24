@@ -11,7 +11,7 @@
 
 import {
   clasificar, radioLluvia, resumirPorConsorcio, detectarEpisodios,
-  diasEntre, UMBRALES, type RegistroLluvia,
+  diasEntre, hace, aISO, UMBRALES, type RegistroLluvia,
 } from '../src/lib/lluvia'
 import { SEDES_CONSORCIOS } from '../src/data/sedesConsorcios'
 import { PUNTOS_LLUVIA } from '../src/data/puntosLluvia'
@@ -165,6 +165,23 @@ ok('el más reciente va primero', eps2[0]?.desde, '2026-09-10')
 ok('la segunda abarca dos días', [eps2[0]?.desde, eps2[0]?.hasta], ['2026-09-10', '2026-09-11'])
 ok('llovizna bajo el umbral no abre episodio',
   detectarEpisodios([{ consorcio_numero: 1, fecha: '2026-09-01', mm: 2 }]).length, 0)
+
+console.log('\n— Los presets de rango dan los días que prometen —')
+/*
+ * El rango se cuenta inclusive, así que `hace(d)` hasta hoy da d + 1 días. Con
+ * `hace(d)` los tres botones pedían un día de más: "7 días" traía 8, y "90 días"
+ * daba 91 — justo uno más que el máximo por recálculo, así que ese botón
+ * fallaba siempre con "El rango es de 91 días y el máximo es 90".
+ */
+const MAX_DIAS_FUSION = 90
+const hoy = aISO(new Date())
+for (const d of [7, 30, 90]) {
+  ok(`el preset de ${d} días da ${d} días`, diasEntre(hace(d - 1), hoy), d)
+}
+ok('y el de 90 entra en el máximo por recálculo',
+  diasEntre(hace(89), hoy) <= MAX_DIAS_FUSION, true)
+ok('mientras que el cálculo viejo se pasaba por uno',
+  diasEntre(hace(90), hoy) > MAX_DIAS_FUSION, true)
 
 console.log(fallos === 0 ? '\n✓ Todo bien.' : `\n✗ ${fallos} falla(s).`)
 process.exit(fallos === 0 ? 0 : 1)

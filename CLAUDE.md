@@ -161,6 +161,13 @@ Node.**
 - `requireAdminRole()` — exige rol admin
 - `checkOwnerOrAdmin()` — admin o dueño del recurso
 
+Ese nombre engañoso ya causó un agujero: `/api/lluvia/ingesta` usaba
+`requireAdmin()`, así que **cualquier usuario de oficina logueado podía disparar
+la ingesta y quemar el cupo de Open-Meteo**. El botón estaba escondido en la
+pantalla, pero el endpoint quedaba abierto — seguridad por interfaz, que no
+cuenta. Ya usa `requireAdminRole()`. **Al agregar una ruta que gasta cupo o
+escribe, revisar cuál de los dos corresponde.**
+
 ### Calculadoras de obra
 
 `admin/src/app/dashboard/obras/calculadoras/page.tsx` — Terraplén, Excavación,
@@ -593,6 +600,70 @@ sobreestima alrededor del 15 %. **Cualquier métrica nueva sobre estos datos hay
 que calcularla sobre las 11.502 combinaciones estación-fecha, no sobre las 3.334
 mediciones.**
 
+### Cómo se elige el período: `components/SelectorPeriodo.tsx`
+
+**Había tres acciones que se veían parecidas y no lo son**: cambiar lo que se
+mira (gratis, instantáneo), descargar la serie del modelo (gasta cupo, tarda
+minutos) e interpolar los pluviómetros (gratis). Las fechas ya se aplicaban solas
+al cambiarlas, así que el único botón visible del panel —*"↻ Actualizar rango"*—
+parecía el "aplicar" y en realidad disparaba la ingesta. El que quería ver otro
+rango lo apretaba siempre.
+
+Ahora van en **dos bloques separados**: arriba lo que cambia la vista, abajo lo
+que toca datos, con lo que cuesta al lado. Que estén separados importa más que
+cómo se llamen. Los presets son un grupo único —Eventos / 7 / 30 / 90 / Fechas—
+con el activo resaltado, y aplican al toque: en pantallas de reporte, un botón de
+"aplicar" hace que la gente asuma que es eso y no lo que realmente hace.
+
+**La confirmación va sólo en la acción cara.** Descargar tarda, gasta cupo y no
+se puede cancelar a la mitad: abre un diálogo que dice esas tres cosas con
+número. Interpolar es gratis e instantáneo; confirmarlo sería fricción sin
+motivo.
+
+**Descargar ya interpola** —la ingesta llama a `fusionar` internamente— así que
+no son dos pasos en orden. Interpolar por separado sirve para cuando la APA
+publicó el parte *después* de que se bajó la serie, que es lo habitual porque
+carga con retraso. El pie del bloque lo dice explícitamente: si no, la pregunta
+obvia es para qué está el segundo botón.
+
+La **línea de tiempo** de 90 días es la mejora de fondo: una barra por día con la
+lámina máxima de la provincia y el rango elegido resaltado. Convierte un rango de
+fechas abstracto en algo que se ve. Sale de `/api/lluvia/serie`, que existe
+aparte porque la línea muestra más días que el rango elegido y pedírselo al
+endpoint grande sería traer el resumen de 103 consorcios para quedarse con un
+número por fecha. Es el **máximo** entre consorcios, no el promedio: un temporal
+sobre tres consorcios desaparece en un promedio de 103.
+
+`/api/lluvia` devuelve además `cobertura` —días con serie, interpolados y sin
+parte— para que el estado esté siempre a la vista en vez de aparecer en un cartel
+cuando algo falta.
+
+### Vocabulario
+
+La pantalla usa el vocabulario estándar de hidrología, que ya estaba a mitad de
+camino —isohietas, polígonos de Thiessen, IDW— mientras los botones hablaban
+coloquial. La inconsistencia era el problema, no el nivel.
+
+| Concepto | Cómo se nombra |
+|---|---|
+| Lo que se acumula en el período | **lámina acumulada** |
+| El máximo de un día | **lámina máxima diaria** |
+| El promedio sobre la red de un consorcio | **lámina areal** |
+| Traer Open-Meteo | **descargar serie modelada** |
+| Cruzar con la APA | **interpolar pluviómetros (IDW)** |
+
+Lo que el sistema calcula por consorcio es **precipitación media areal**, el
+concepto de manual; los tres métodos clásicos son media aritmética, polígonos de
+Thiessen e isohietas, de los cuales usamos dos y agregamos IDW.
+
+Se evita **"reanálisis"** en la UI a propósito: ERA5 lo es, pero para fechas
+recientes Open-Meteo devuelve IFS operacional, que no. "Serie modelada" es
+correcto para los dos casos.
+
+**Los carteles de `sin_parte` y `sin_calcular` quedan en lenguaje llano.** No
+hablan de hidrología sino del estado del dato, y ahí "la APA no publicó parte ese
+día" es más claro que cualquier término.
+
 ### Dos operaciones distintas, y conviene no confundirlas
 
 | | Qué hace | Cuesta |
@@ -610,6 +681,13 @@ Sólo escribe las columnas de fusión: `mm` no se pisa nunca.
 El recálculo pagina la lectura de `precipitaciones` **con `order`**. Sin él
 Postgres no garantiza el orden entre páginas y el `range()` se saltea o repite
 filas, que es un bug silencioso: no falla, sólo deja filas sin recalcular.
+
+**Los presets de rango usan `hace(d - 1)`, no `hace(d)`.** El rango se cuenta
+inclusive, así que de hoy menos seis a hoy hay siete días. Con `hace(d)` los tres
+botones pedían un día de más —"7 días" traía 8— y el de 90 daba 91, uno más que
+`MAX_DIAS_FUSION`, así que ese botón fallaba siempre con *"El rango es de 91 días
+y el máximo es 90"*. El techo estaba bien; el preset estaba mal. El test lo
+afirma para los tres.
 
 ### Importación
 

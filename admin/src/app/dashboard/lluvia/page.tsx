@@ -26,6 +26,7 @@ import {
 import type { EstacionLluvia } from '@/components/MapaLluvia'
 import { useRedLluvia } from '@/hooks/useRedLluvia'
 import { csvTramos } from '@/lib/redLluvia'
+import SelectorPeriodo, { type PuntoSerie, type Cobertura } from '@/components/SelectorPeriodo'
 
 const PanelMediciones = dynamic(() => import('@/components/PanelMediciones'), { ssr: false })
 
@@ -52,7 +53,9 @@ export default function LluviaPage() {
   const { profile } = useUser()
   const esAdmin = profile?.rol === 'admin'
 
-  const [desde, setDesde] = useState(hace(7))
+  // hace(6), no hace(7): el rango se cuenta inclusive, así que desde hoy menos
+  // seis hay siete días. Ver el comentario de los presets más abajo.
+  const [desde, setDesde] = useState(hace(6))
   const [hasta, setHasta] = useState(aISO(new Date()))
   const [datos, setDatos] = useState<ResumenConsorcio[]>([])
   const [episodios, setEpisodios] = useState<Episodio[]>([])
@@ -67,7 +70,6 @@ export default function LluviaPage() {
   >(null)
   const [autoEpisodio, setAutoEpisodio] = useState(true)
   const [vista, setVista] = useState<'mapa' | 'precision'>('mapa')
-  const [verRango, setVerRango] = useState(false)
 
   const cargar = useCallback(async (d: string, h: string) => {
     setCargando(true); setError(null)
@@ -78,6 +80,7 @@ export default function LluviaPage() {
       setDatos(j.consorcios ?? [])
       setEpisodios(j.episodios ?? [])
       setUltimaCarga(j.ultimaFechaCargada ?? null)
+      setCobertura(j.cobertura ?? null)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error al consultar')
       setDatos([])
@@ -97,6 +100,26 @@ export default function LluviaPage() {
    */
   /** Desde cuántos mm se resaltan los caminos en el mapa */
   const [umbral, setUmbral] = useState(0)
+
+  /**
+   * La lámina máxima diaria de los últimos 90 días, para la línea de tiempo.
+   *
+   * Va por su propia ruta y no por `/api/lluvia`: la línea muestra más días que
+   * el rango elegido —su gracia es ver dónde cae el período dentro de los
+   * últimos meses— y pedirlo al endpoint grande sería traer el resumen de 103
+   * consorcios por 90 días para quedarse con un número por fecha.
+   */
+  const [serie, setSerie] = useState<PuntoSerie[]>([])
+  useEffect(() => {
+    let vivo = true
+    fetch('/api/lluvia/serie?dias=90')
+      .then(r => (r.ok ? r.json() : null))
+      .then(j => { if (vivo) setSerie(j?.serie ?? []) })
+      .catch(() => { /* sin línea de tiempo la pantalla sigue sirviendo */ })
+    return () => { vivo = false }
+  }, [ultimaCarga])
+
+  const [cobertura, setCobertura] = useState<Cobertura | null>(null)
 
   const [estaciones, setEstaciones] = useState<EstacionLluvia[]>([])
   useEffect(() => {
@@ -284,101 +307,15 @@ export default function LluviaPage() {
 
       {vista === 'mapa' && (<>
 
-      {/*
-        Los episodios son el control principal, no las fechas.
-        La pantalla contesta "qué pasó en tal evento", y el evento lo detecta
-        solo el motor. Elegir fechas a mano es el caso raro, así que va plegado.
-      */}
-      {episodios.length > 0 && (
-        <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap', alignItems: 'center', flexShrink: 0 }}>
-          <span style={{ ...lbl, marginBottom: 0 }}>Qué evento mirar</span>
-          {episodios.slice(0, 6).map(e => {
-            const activo = e.desde === desde && e.hasta === hasta
-            return (
-              <button key={e.desde + e.hasta}
-                onClick={() => { setDesde(e.desde); setHasta(e.hasta) }}
-                style={{
-                  ...mono, fontSize: 12, cursor: 'pointer', padding: '5px 10px',
-                  background: activo ? 'rgba(245,195,0,0.10)' : 'transparent',
-                  border: `1px solid ${activo ? '#5a4400' : '#222'}`,
-                  color: activo ? '#F5C300' : '#777', textAlign: 'left', lineHeight: 1.45,
-                }}>
-                {e.desde === e.hasta ? fmtFecha(e.desde) : `${fmtFecha(e.desde)} → ${fmtFecha(e.hasta)}`}
-                <span style={{ color: '#555' }}> · pico {mmRedondeado(e.mmPico)}</span>
-              </button>
-            )
-          })}
-        </div>
-      )}
-
-      {!verRango && (
-        <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexShrink: 0 }}>
-          <button onClick={() => setVerRango(true)}
-            style={{ ...mono, fontSize: 12, padding: '5px 11px', cursor: 'pointer',
-              background: 'transparent', border: '1px solid #242424', color: '#6a6a6a' }}>
-            Otro rango de fechas
-          </button>
-          {tramos.length > 0 && lluvia.length > 0 && (
-            <button onClick={descargarCsv}
-              style={{ ...mono, fontSize: 12, padding: '5px 11px', cursor: 'pointer',
-                background: 'transparent', border: '1px solid #242424', color: '#6a6a6a' }}>
-              Descargar la lluvia por camino (CSV)
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* Filtros */}
-      {verRango && (
-      <div style={{
-        background: '#191919', border: '1px solid #1e1e1e', padding: '12px 16px',
-        marginBottom: 12, display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'flex-end', flexShrink: 0,
-      }}>
-        <div>
-          <label style={lbl}>Desde</label>
-          <input type="date" value={desde} max={hasta}
-            onChange={e => { setAutoEpisodio(false); setDesde(e.target.value) }} style={inp} />
-        </div>
-        <div>
-          <label style={lbl}>Hasta</label>
-          <input type="date" value={hasta} min={desde} max={hoy}
-            onChange={e => { setAutoEpisodio(false); setHasta(e.target.value) }} style={inp} />
-        </div>
-        <div style={{ display: 'flex', gap: 6 }}>
-          {([['Últimos 7 días', 7], ['30 días', 30], ['90 días', 90]] as const).map(([txt, d]) => (
-            <button key={d} onClick={() => { setAutoEpisodio(false); setDesde(hace(d)); setHasta(hoy) }}
-              style={{ ...mono, fontSize: 12, cursor: 'pointer', padding: '6px 10px',
-                background: 'transparent', border: '1px solid #222', color: '#777' }}>
-              {txt}
-            </button>
-          ))}
-        </div>
-
-        <div style={{ flex: 1 }} />
-
-        {esAdmin && (
-          <button onClick={ingerir} disabled={ingiriendo}
-            title="Traer de nuevo los datos de este rango desde el servicio"
-            style={{
-              ...mono, fontSize: 13, cursor: ingiriendo ? 'default' : 'pointer', padding: '7px 14px',
-              background: 'transparent', border: `1px solid ${ingiriendo ? '#333' : '#2e6b3e'}`,
-              color: ingiriendo ? '#555' : '#7BC47F', fontWeight: 700,
-            }}>
-            {ingiriendo
-              ? progreso
-                ? `Cargando ${progreso.hecho + 1} de ${progreso.total}…`
-                : 'Actualizando…'
-              : '↻ Actualizar rango'}
-          </button>
-        )}
-
-        <button onClick={() => setVerRango(false)}
-          style={{ ...mono, fontSize: 12, padding: '7px 10px', cursor: 'pointer',
-            background: 'transparent', border: 'none', color: '#5a5a5a' }}>
-          ocultar
-        </button>
-      </div>
-      )}
+      <SelectorPeriodo
+        desde={desde} hasta={hasta} hoy={hoy}
+        episodios={episodios} serie={serie} cobertura={cobertura}
+        esAdmin={esAdmin}
+        onRango={(d, h) => { setAutoEpisodio(false); setDesde(d); setHasta(h) }}
+        onDescargar={ingerir} onInterpolar={recalcularFusion}
+        descargando={ingiriendo} interpolando={recalculando} progreso={progreso}
+        onDescargarCsv={tramos.length > 0 && lluvia.length > 0 ? descargarCsv : undefined}
+      />
 
       {/* Avance de la carga */}
       {progreso && (
@@ -427,28 +364,19 @@ export default function LluviaPage() {
       )}
 
       {/*
-        Sin este aviso, el único lugar donde se entera de que está mirando el
-        modelo crudo es el globo de cada círculo — y hay 103. Cuando el grueso
-        del rango no se cruzó con los pluviómetros hay que decirlo arriba, con
-        el botón que lo arregla al lado.
+        El aviso ya no lleva botón: la acción vive en la franja de datos del
+        selector, que además está siempre a la vista en vez de aparecer y
+        desaparecer. Acá queda sólo la advertencia, que es lo que le importa a
+        quien mira el número — incluido el usuario de oficina, que no puede
+        interpolar pero sí tiene que saber qué está leyendo.
       */}
       {!error && !cargando && sinRecalcular && (
         <div style={{ ...mono, fontSize: 13, color: '#bdbdbd', background: '#17191a',
           border: '1px solid #33383a', padding: '9px 12px', marginBottom: 12, flexShrink: 0,
-          display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          <span style={{ lineHeight: 1.6 }}>
-            Estos milímetros son <b style={{ color: '#e0e0e0' }}>la estimación del modelo</b>:
-            el período tiene partes de la APA pero todavía no se cruzó con ellos.
-          </span>
-          <button onClick={recalcularFusion} disabled={recalculando}
-            style={{
-              ...mono, fontSize: 12, padding: '5px 12px', fontWeight: 700, whiteSpace: 'nowrap',
-              cursor: recalculando ? 'default' : 'pointer', background: 'transparent',
-              border: `1px solid ${recalculando ? '#333' : '#F5C300'}`,
-              color: recalculando ? '#555' : '#F5C300',
-            }}>
-            {recalculando ? 'Recalculando…' : 'Recalcular con los pluviómetros'}
-          </button>
+          lineHeight: 1.6 }}>
+          Estas láminas son <b style={{ color: '#e0e0e0' }}>la estimación del modelo</b>:
+          el período tiene partes de la APA pero todavía no se interpolaron.
+          {esAdmin && ' Usá «Interpolar pluviómetros» arriba.'}
         </div>
       )}
 
@@ -461,8 +389,8 @@ export default function LluviaPage() {
           border: '1px solid #282c2e', padding: '9px 12px', marginBottom: 12, flexShrink: 0,
           lineHeight: 1.6 }}>
           En el grueso de este período <b style={{ color: '#c4c4c4' }}>la APA no publicó
-          parte</b>, así que no hay pluviómetros con qué cruzar y estos milímetros son
-          la estimación del modelo. No se arregla recalculando: el dato no existe.
+          parte</b>, así que no hay pluviómetros que interpolar y estas láminas son la
+          estimación del modelo. No se arregla recalculando: el dato no existe.
         </div>
       )}
 
@@ -482,7 +410,7 @@ export default function LluviaPage() {
             : <>Entre el <b style={{ color: '#fff' }}>{fmtFecha(desde)}</b> y el{' '}
                <b style={{ color: '#fff' }}>{fmtFecha(hasta)}</b> </>}
           llovió en <b style={{ color: '#fff' }}>{conDato.length}</b> de los {datos.length}{' '}
-          consorcios. El máximo fue de{' '}
+          consorcios. La lámina areal máxima fue de{' '}
           <b style={{ color: '#F5C300' }}>{mmRedondeado(maximo)}</b>
           {mayor && <> en el <b style={{ color: '#fff' }}>CC N° {mayor.numero}</b></>}
           {afectados > 0
@@ -510,7 +438,7 @@ export default function LluviaPage() {
           <div style={{ padding: '9px 12px', borderBottom: '1px solid #1e1e1e',
             display: 'flex', gap: 5, alignItems: 'center', flexShrink: 0 }}>
             <span style={{ ...lbl, marginBottom: 0, flex: 1 }}>Ordenar por</span>
-            {([['mm', 'Acumulado'], ['pico', 'Día pico'], ['numero', 'Nº']] as const).map(([k, t]) => (
+            {([['mm', 'Lámina acumulada'], ['pico', 'Lámina máx. diaria'], ['numero', 'Nº']] as const).map(([k, t]) => (
               <button key={k} onClick={() => setOrden(k)} style={{
                 ...mono, fontSize: 12, cursor: 'pointer', padding: '3px 8px', border: 'none',
                 background: orden === k ? '#252525' : 'transparent',
@@ -546,10 +474,10 @@ export default function LluviaPage() {
                     </span>
                     <span style={{ display: 'block', fontSize: 11, color: '#555', marginTop: 1 }}>
                       {c.zona}{c.dias > 0 ? ` · ${c.dias} día${c.dias === 1 ? '' : 's'} con agua` : ' · sin agua'}
-                      {c.mmMaxDia > 0 ? ` · pico ${Math.round(c.mmMaxDia)}` : ''}
+                      {c.mmMaxDia > 0 ? ` · lámina máx. ${Math.round(c.mmMaxDia)}` : ''}
                       {/* Un solo punto = no hay traza de su red en el bundle */}
                       {c.puntos === 1 && (
-                        <span title="Este consorcio no tiene su red cargada: se mide en un solo punto, no promediado sobre los caminos"
+                        <span title="Este consorcio no tiene su red cargada: la lámina areal sale de un solo punto, no promediada sobre los caminos"
                           style={{ color: '#E8833A' }}> · 1 punto</span>
                       )}
                     </span>
@@ -583,8 +511,9 @@ export default function LluviaPage() {
         Acá queda sólo de dónde sale el dato.
       */}
       <div style={{ ...mono, fontSize: 12, color: '#3a3a3a', marginTop: 8, flexShrink: 0 }}>
-        Pluviómetros de la Administración Provincial del Agua, interpolados sobre la traza
-        de cada camino. Elegí un consorcio en la lista para ver sólo su red.
+        Lámina interpolada por IDW desde los pluviómetros de la Administración Provincial
+        del Agua, sobre la traza de cada camino. Elegí un consorcio en la lista para ver
+        sólo su red.
       </div>
     </div>
   )

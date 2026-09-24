@@ -432,7 +432,7 @@ export default function MapaLluvia({
 
         <Interruptor
           titulo="Caminos" activo={verCaminos} onChange={setVerCaminos}
-          nota="Cada tramo, con la lluvia que le cayó encima." />
+          nota="La lámina que recibió cada tramo." />
 
         {verCaminos && lluviaTramos.length > 0 && (
           <div style={{ margin: '7px 0 0 23px' }}>
@@ -474,7 +474,7 @@ export default function MapaLluvia({
           <>
             <Interruptor
               titulo="Isohietas" activo={verIso} onChange={setVerIso}
-              nota="Curvas de igual lluvia." />
+              nota="Isohietas: curvas de igual lámina." />
 
             {verIso && niveles.length > 0 && (
               <div style={{ margin: '7px 0 9px 23px' }}>

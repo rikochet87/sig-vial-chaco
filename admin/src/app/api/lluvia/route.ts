@@ -12,7 +12,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { requireAdmin, dbError } from '@/lib/apiAuth'
-import { resumirPorConsorcio, detectarEpisodios, hace, aISO, type RegistroLluvia } from '@/lib/lluvia'
+import {
+  resumirPorConsorcio, detectarEpisodios, hace, aISO, diasEntre, type RegistroLluvia,
+} from '@/lib/lluvia'
 
 /** Supabase corta en 1000 filas por defecto; 103 consorcios × 400 días no entran. */
 const PAGINA = 1000
@@ -78,6 +80,16 @@ export async function GET(req: NextRequest) {
   /** Con menos de este aporte, la procedencia de esos días no cambia la etiqueta */
   const UMBRAL = 0.05
 
+  /**
+   * Estado de cada día del rango, para poder decirlo en pantalla.
+   *
+   * La pantalla necesita contestar "de estos 5 días, ¿cuántos tienen serie
+   * descargada y cuántos ya se interpolaron?" sin que el usuario tenga que
+   * deducirlo de un cartel que aparece y desaparece. Se arma acá porque las
+   * filas ya están leídas: agrupar por fecha no cuesta nada más.
+   */
+  const porFecha = new Map<string, { serie: boolean; interpolado: boolean; sinParte: boolean }>()
+
   for (let desplazamiento = 0; ; desplazamiento += PAGINA) {
     const { data, error } = await supabase
       .from('precipitaciones')
@@ -114,6 +126,12 @@ export async function GET(req: NextRequest) {
       a.mmTotal += mm
       if (r.dist_pluviometro_km != null) { a.dist += Number(r.dist_pluviometro_km); a.n++ }
       if (r.mm_fusion != null) a.fusionadas++
+
+      let f = porFecha.get(r.fecha as string)
+      if (!f) { f = { serie: false, interpolado: false, sinParte: false }; porFecha.set(r.fecha as string, f) }
+      f.serie = true
+      if (r.mm_fusion != null) f.interpolado = true
+      if (p === 'sin_parte') f.sinParte = true
     }
     if (data.length < PAGINA) break
   }
@@ -163,5 +181,18 @@ export async function GET(req: NextRequest) {
     filas: registros.length,
     // Cuántas de las filas del rango ya tienen la interpolación calculada
     fusionadas: [...proc.values()].reduce((s, a) => s + a.fusionadas, 0),
+    /**
+     * Cuántos días del rango están en cada estado.
+     *
+     * `sinParte` no es un subconjunto de "falta interpolar": son días que no se
+     * van a poder interpolar nunca porque la APA no publicó parte. Van
+     * separados justamente para que la pantalla no ofrezca arreglarlos.
+     */
+    cobertura: {
+      dias: diasEntre(desde, hasta),
+      conSerie: porFecha.size,
+      interpolados: [...porFecha.values()].filter(f => f.interpolado).length,
+      sinParte: [...porFecha.values()].filter(f => f.sinParte && !f.interpolado).length,
+    },
   })
 }
