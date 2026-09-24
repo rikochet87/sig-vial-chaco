@@ -100,6 +100,7 @@ export default function MapaLluvia({
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const capaZonasRef = useRef<any>(null)
+  const observadorRef = useRef<ResizeObserver | null>(null)
 
   const [verIso, setVerIso] = useState(false)
   const [verZonas, setVerZonas] = useState(false)
@@ -136,10 +137,27 @@ export default function MapaLluvia({
 
       // El contenedor arranca con alto 0 mientras el layout se acomoda
       setTimeout(() => mapa.invalidateSize(), 120)
+
+      /**
+       * Avisarle a Leaflet cada vez que el contenedor cambia de tamaño.
+       *
+       * Leaflet cachea las dimensiones al crear el mapa y no las vuelve a mirar
+       * solo. Con un `setTimeout` único alcanzaba mientras el alto era estable,
+       * pero los controles de arriba crecen y se encogen —el panel de fechas, la
+       * franja de datos, los carteles que aparecen— y cada vez que eso pasaba el
+       * mapa quedaba dibujando para un tamaño que ya no era el suyo: los tiles
+       * salían corridos y con la escala equivocada.
+       */
+      if (typeof ResizeObserver !== 'undefined' && divRef.current) {
+        observadorRef.current = new ResizeObserver(() => mapa.invalidateSize())
+        observadorRef.current.observe(divRef.current)
+      }
     })()
 
     return () => {
       cancelado = true
+      observadorRef.current?.disconnect()
+      observadorRef.current = null
       if (mapaRef.current) { mapaRef.current.remove(); mapaRef.current = null }
     }
   }, [])

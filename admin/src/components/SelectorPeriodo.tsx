@@ -168,14 +168,20 @@ export default function SelectorPeriodo({
         103. Se puede clickear para saltar a ese día.
       */}
       {serie.length > 0 && (
-        <div style={{ background: '#1b1e21', borderRadius: 4, padding: '10px 12px', marginBottom: 10 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', ...mono,
-            fontSize: 11, color: '#5e656d', marginBottom: 6 }}>
+        <div style={{ background: '#1b1e21', borderRadius: 4, padding: '7px 10px', marginBottom: 8 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
+            ...mono, fontSize: 11, color: '#5e656d', marginBottom: 4 }}>
             <span>{fmtCorta(serie[0].fecha)}</span>
-            <span>lámina máxima diaria de la provincia</span>
+            <span style={{ color: '#8b9299', fontSize: 12 }}>
+              <b style={{ color: '#F5C300', fontWeight: 400 }}>
+                {desde === hasta ? fmtCorta(desde) : `${fmtCorta(desde)} → ${fmtCorta(hasta)}`}
+              </b>
+              {dias > 0 && <> · {dias} {dias === 1 ? 'día' : 'días'}</>}
+              <span style={{ color: '#5e656d' }}> · lámina máx. diaria</span>
+            </span>
             <span>{fmtCorta(serie[serie.length - 1].fecha)}</span>
           </div>
-          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 1, height: 42 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 1, height: 26 }}>
             {serie.map(p => {
               const dentro = p.fecha >= desde && p.fecha <= hasta
               const mm = p.mm ?? 0
@@ -192,26 +198,26 @@ export default function SelectorPeriodo({
               )
             })}
           </div>
-          <div style={{ ...mono, fontSize: 12, color: '#8b9299', marginTop: 7 }}>
-            Mirando <b style={{ color: '#F5C300', fontWeight: 400 }}>
-              {desde === hasta ? fmtCorta(desde) : `${fmtCorta(desde)} → ${fmtCorta(hasta)}`}
-            </b>
-            {dias > 0 && <> · {dias} {dias === 1 ? 'día' : 'días'}</>}
-          </div>
         </div>
       )}
 
       {/* Los eventos detectados, como accesos directos */}
-      {episodios.length > 0 && (
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
+      {/*
+        Los eventos aparecen sólo con el preset «Eventos» activo. La línea de
+        tiempo ya los muestra como picos; tenerlos siempre desplegados agregaba
+        una fila permanente que le comía altura al mapa, y el mapa es la pantalla.
+      */}
+      {episodios.length > 0 && enEpisodio && (
+        <div style={{ display: 'flex', gap: 6, marginBottom: 8, overflowX: 'auto',
+          paddingBottom: 2 }}>
           {episodios.slice(0, 6).map(e => {
             const activo = e.desde === desde && e.hasta === hasta
             const n = Math.round((Date.parse(e.hasta) - Date.parse(e.desde)) / 86_400_000) + 1
             return (
               <button key={e.desde + e.hasta} onClick={() => onRango(e.desde, e.hasta)}
                 style={{
-                  ...mono, fontSize: 12, cursor: 'pointer', padding: '5px 10px',
-                  borderRadius: 3, textAlign: 'left', lineHeight: 1.5,
+                  ...mono, fontSize: 12, cursor: 'pointer', padding: '3px 9px',
+                  borderRadius: 3, textAlign: 'left', lineHeight: 1.4, whiteSpace: 'nowrap',
                   background: activo ? 'rgba(245,195,0,0.10)' : 'transparent',
                   border: `1px solid ${activo ? '#5a4400' : '#2a2e32'}`,
                   color: activo ? '#F5C300' : '#8b9299',
@@ -229,14 +235,9 @@ export default function SelectorPeriodo({
 
       {/* ── 2 · Datos de este período ─────────────────────────────────────── */}
       {esAdmin && cobertura && (
-        <div style={{ background: '#1b1e21', borderRadius: 4, padding: '11px 13px' }}>
-          <div style={{ ...mono, fontSize: 11, color: '#6a7078', letterSpacing: 0.8,
-            textTransform: 'uppercase', marginBottom: 8 }}>
-            Datos de este período
-          </div>
-
-          <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', ...mono,
-            fontSize: 12, color: '#8b9299', marginBottom: 11 }}>
+        <div style={{ background: '#1b1e21', borderRadius: 4, padding: '8px 11px' }}>
+          <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'center',
+            ...mono, fontSize: 12, color: '#8b9299' }}>
             <span>
               <b style={{ color: cobertura.conSerie >= cobertura.dias ? '#5DCAA5' : '#EF9F27',
                 fontWeight: 400 }}>●</b>{' '}
@@ -252,9 +253,8 @@ export default function SelectorPeriodo({
                 ● {cobertura.sinParte} {cobertura.sinParte === 1 ? 'día' : 'días'} sin parte de la APA
               </span>
             )}
-          </div>
 
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <span style={{ flex: 1 }} />
             <button onClick={() => setConfirmando(true)} disabled={descargando}
               style={{
                 ...mono, fontSize: 12, padding: '6px 11px', borderRadius: 3,
@@ -277,7 +277,7 @@ export default function SelectorPeriodo({
             </button>
           </div>
 
-          <div style={{ ...mono, fontSize: 11, color: '#5e656d', marginTop: 8, lineHeight: 1.55 }}>
+          <div style={{ ...mono, fontSize: 11, color: '#5e656d', marginTop: 6 }}>
             Descargar ya interpola. Interpolar solo, sirve cuando la APA cargó el parte después.
           </div>
         </div>

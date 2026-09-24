@@ -274,7 +274,13 @@ export default function LluviaPage() {
     && datos.filter(d => d.procedencia === 'sin_parte').length > datos.length / 2
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 60px)', minHeight: 0 }}>
+    <div style={{ display: 'flex', flexDirection: 'column',
+      // Alto mínimo, no fijo: con `height` fijo todo lo que crece arriba —la
+      // franja de datos, un cartel que aparece, el panel de fechas desplegado—
+      // le come altura al mapa hasta dejarlo en nada, y lo que sobra se derrama
+      // fuera de la pantalla sin barra para alcanzarlo. Así la página crece y el
+      // navegador scrollea, que es feo pero recuperable.
+      minHeight: 'calc(100vh - 60px)' }}>
 
       {/* Encabezado */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 14, flexShrink: 0 }}>
@@ -422,7 +428,7 @@ export default function LluviaPage() {
 
 
       {/* Mapa + tabla */}
-      <div style={{ flex: 1, minHeight: 0, display: 'flex', gap: 12 }}>
+      <div style={{ flex: 1, minHeight: 420, display: 'flex', gap: 12 }}>
 
         <div style={{ flex: 1, minWidth: 0, position: 'relative',
           background: '#191919', border: '1px solid #1e1e1e' }}>
