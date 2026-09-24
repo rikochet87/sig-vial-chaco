@@ -1,30 +1,23 @@
 'use client'
 /**
- * Mapa de precipitaciones, en dos capas que se complementan.
+ * Mapa de precipitaciones: la lluvia sobre los caminos.
  *
- * **Los caminos pintados** son el detalle: cada tramo lleva el color del nivel
- * de lluvia de su consorcio. Es lo más fiel al dato, porque el dato es
- * justamente cuánta agua cayó sobre esos caminos — y es lo que se quiere mirar
- * al acercarse: qué tramos quedaron comprometidos.
+ * **Cada tramo lleva su propio número**, no el de su consorcio. Es lo más fiel
+ * al dato, porque el dato es justamente cuánta agua cayó sobre esos caminos, y
+ * es lo que se quiere mirar: qué tramos quedaron comprometidos.
  *
- * **El círculo** es el resumen: va en el centro de gravedad de la red, con el
- * color del nivel y el radio según los milímetros, y lleva el tooltip con el
- * número. Sirve para leer el patrón de un vistazo en vista provincial, donde
- * los caminos son demasiado finos para distinguir un color.
- *
- * Sobre el radio del círculo: va con la raíz cuadrada de los milímetros (ver
- * `radioLluvia`), porque el ojo compara áreas y escalar el radio de forma
- * lineal exageraría los picos. Y va en píxeles, no en metros: el círculo
- * representa un valor, no una superficie. Lo que representa superficie son los
- * caminos, que sí escalan con el zoom porque son geometría real.
+ * Antes había además un círculo por consorcio en el centro de gravedad de su
+ * red, como resumen. **Se sacó**: una vez que cada camino lleva su propio
+ * número, el círculo promedia y tapa justamente lo que se vino a ver — una
+ * tormenta que moja una punta del consorcio y no la otra. El consorcio se sigue
+ * eligiendo desde la lista de la derecha, y elegirlo encuadra el mapa y resalta
+ * su red.
  */
 
 import { useEffect, useRef, useState } from 'react'
 import 'leaflet/dist/leaflet.css'
-import {
-  colorLluvia, radioLluvia, clasificar, rangoLluvia, type ResumenConsorcio,
-} from '@/lib/lluvia'
-import { TEXTO_PROCEDENCIA, RADIO_KM } from '@/lib/fusion'
+import { colorLluvia, type ResumenConsorcio } from '@/lib/lluvia'
+import { RADIO_KM } from '@/lib/fusion'
 import { calcularGrilla, curvasDeNivel, nivelesSugeridos } from '@/lib/isohietas'
 import { poligonosThiessen } from '@/lib/thiessen'
 import { CORTES_MM, type TramoRed, type LluviaTramo } from '@/lib/redLluvia'
@@ -80,7 +73,6 @@ export interface EstacionLluvia {
 interface Props {
   datos: ResumenConsorcio[]
   seleccionado: number | null
-  onSeleccionar: (numero: number | null) => void
   estaciones?: EstacionLluvia[]
   /** La red vial partida en tramos; la calcula `useRedLluvia` */
   tramos?: TramoRed[]
@@ -92,16 +84,12 @@ interface Props {
 }
 
 export default function MapaLluvia({
-  datos, seleccionado, onSeleccionar, estaciones,
+  datos, seleccionado, estaciones,
   tramos = [], lluviaTramos = [], umbral, onUmbral,
 }: Props) {
   const divRef  = useRef<HTMLDivElement>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mapaRef = useRef<any>(null)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const capaRef = useRef<any>(null)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const circulosRef = useRef<Map<number, any>>(new Map())
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const capaRedRef = useRef<any>(null)
   /** Una polilínea por tramo, en el mismo orden que `tramos` */
@@ -109,15 +97,12 @@ export default function MapaLluvia({
   const lineasRef = useRef<any[]>([])
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const capaIsoRef = useRef<any>(null)
-  const onSelRef = useRef(onSeleccionar)
-  onSelRef.current = onSeleccionar
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const capaZonasRef = useRef<any>(null)
 
   const [verIso, setVerIso] = useState(false)
   const [verZonas, setVerZonas] = useState(false)
-  const [verCirculos, setVerCirculos] = useState(true)
   const [verCaminos, setVerCaminos] = useState(true)
   const [niveles, setNiveles] = useState<number[]>([])
 
@@ -144,12 +129,10 @@ export default function MapaLluvia({
       // caminos, y los círculos arriba de todo para que se puedan clickear.
       capaIsoRef.current   = L.layerGroup().addTo(mapa)
       capaRedRef.current   = L.layerGroup().addTo(mapa)
-      // Las zonas de Thiessen van en su propio panel, por debajo del resto. Son
-      // polígonos con relleno, así que si compartieran panel se comerían los
-      // clics de los círculos de consorcio, que se dibujan después.
+      // Las zonas de Thiessen van en su propio panel, por debajo del resto:
+      // son polígonos con relleno y si compartieran panel taparían los caminos.
       mapa.createPane('zonasThiessen').style.zIndex = '390'
       capaZonasRef.current = L.layerGroup().addTo(mapa)
-      capaRef.current      = L.layerGroup().addTo(mapa)
 
       // El contenedor arranca con alto 0 mientras el layout se acomoda
       setTimeout(() => mapa.invalidateSize(), 120)
@@ -233,58 +216,6 @@ export default function MapaLluvia({
     }
   }, [lluviaTramos, umbral, seleccionado, tramos])
 
-  // ── Redibujar los círculos cuando cambian los datos ──────────────────────
-  useEffect(() => {
-    if (!capaRef.current) return
-    let cancelado = false
-
-    ;(async () => {
-      const L = (await import('leaflet')).default
-      if (cancelado || !capaRef.current) return
-
-      capaRef.current.clearLayers()
-      circulosRef.current.clear()
-
-      // Los de más lluvia se dibujan al final para que queden arriba
-      const ordenados = [...datos].sort((a, b) => a.mm - b.mm)
-
-      for (const c of ordenados) {
-        const nivel = clasificar(c.mm)
-        const p = TEXTO_PROCEDENCIA[c.procedencia ?? 'sin_calcular']
-        const cerca = c.distanciaKm != null
-          ? ` — pluviómetro a ${c.distanciaKm.toLocaleString('es-AR')} km`
-          : ''
-        const circulo = L.circleMarker([c.lat, c.lng], {
-          radius: radioLluvia(c.mm),
-          color: '#111',
-          weight: 1,
-          fillColor: colorLluvia(c.mm),
-          fillOpacity: c.mm > 0 ? 0.78 : 0.35,
-        })
-
-        circulo.bindTooltip(
-          `<div style="font-family:monospace;font-size:12px;line-height:1.5">
-             <b style="color:#F5C300">CC N° ${c.numero}</b><br/>
-             ${c.nombre.replace(/^Consorcio Caminero N°?\s*\d+\s*/i, '').replace(/"/g, '')}<br/>
-             <b style="font-size:14px">${rangoLluvia(c.mm)}</b> acumulados<br/>
-             <span style="color:#aaa">Día pico: ${Math.round(c.mmMaxDia)} mm${
-               c.fechaMaxDia ? ` (${c.fechaMaxDia.split('-').reverse().join('/')})` : ''
-             }</span><br/>
-             <span style="color:${nivel.color}">${nivel.label} — ${nivel.nota}</span><br/>
-             <span style="color:${p.color};font-size:11px">${p.label}${cerca}</span><br/>
-             <span style="color:#666;font-size:11px">${p.nota}</span>
-           </div>`,
-          { sticky: true, direction: 'top', opacity: 0.96 },
-        )
-
-        circulo.on('click', () => onSelRef.current(c.numero))
-        circulo.addTo(capaRef.current)
-        circulosRef.current.set(c.numero, circulo)
-      }
-    })()
-
-    return () => { cancelado = true }
-  }, [datos])
 
   /**
    * Isohietas: bandas rellenas + curvas rotuladas.
@@ -466,35 +397,21 @@ export default function MapaLluvia({
   useEffect(() => {
     const mapa = mapaRef.current
     if (!mapa) return
-    for (const [capa, visible] of [
-      [capaRedRef.current, verCaminos],
-      [capaRef.current, verCirculos],
-    ] as const) {
-      if (!capa) continue
-      if (visible && !mapa.hasLayer(capa)) capa.addTo(mapa)
-      if (!visible && mapa.hasLayer(capa)) mapa.removeLayer(capa)
-    }
-  }, [verCaminos, verCirculos, datos, tramos])
+    const capa = capaRedRef.current
+    if (!capa) return
+    if (verCaminos && !mapa.hasLayer(capa)) capa.addTo(mapa)
+    if (!verCaminos && mapa.hasLayer(capa)) mapa.removeLayer(capa)
+  }, [verCaminos, datos, tramos])
 
-  // ── Resaltar el seleccionado ─────────────────────────────────────────────
-  // Los caminos los atiende el efecto del color, más arriba; acá sólo los
-  // círculos y el encuadre del mapa.
+  // ── Encuadrar el consorcio elegido en la lista ───────────────────────────
+  // Los caminos —resaltar el suyo y atenuar el resto— los atiende el efecto del
+  // color, más arriba. Acá sólo queda mover el mapa.
   useEffect(() => {
-    for (const [numero, circulo] of circulosRef.current) {
-      const activo = numero === seleccionado
-      circulo.setStyle({
-        color: activo ? '#F5C300' : '#111',
-        weight: activo ? 3 : 1,
-      })
-      // Con la capa apagada el círculo no está en el mapa y traerlo al frente
-      // revienta: Leaflet busca un contenedor que no existe.
-      if (activo && verCirculos) circulo.bringToFront()
-    }
     if (seleccionado != null && mapaRef.current) {
       const c = datos.find(d => d.numero === seleccionado)
       if (c) mapaRef.current.setView([c.lat, c.lng], Math.max(mapaRef.current.getZoom(), 8))
     }
-  }, [seleccionado, datos, verCirculos])
+  }, [seleccionado, datos])
 
   const hayEstaciones = (estaciones?.length ?? 0) > 0
 
@@ -513,10 +430,6 @@ export default function MapaLluvia({
           Capas
         </div>
 
-        <Interruptor
-          titulo="Círculos por consorcio" activo={verCirculos} onChange={setVerCirculos}
-          nota="El acumulado de cada red." />
-        <div style={{ height: 7 }} />
         <Interruptor
           titulo="Caminos" activo={verCaminos} onChange={setVerCaminos}
           nota="Cada tramo, con la lluvia que le cayó encima." />

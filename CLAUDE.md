@@ -452,9 +452,18 @@ Tres cosas que importan:
   dato, y se dibuja punteado y apagado, no seco. Mismo criterio que las
   isohietas.
 
-**La red de consorcios son 28.756 km**, no los 29.128 del archivo: 372,3 km en
-26 tramos no pertenecen a ningún consorcio (vienen sin número de CC) y ya
-quedaban afuera del mapa.
+**Ojo con los kilómetros: hay dos números y miden cosas distintas.** El largo
+geométrico de las trazas del GeoJSON da **28.756 km** (29.128 contando los 372,3
+de los 26 tramos sin número de CC, que quedan afuera). La suma de `red_km`
+declarado en la ficha de cada consorcio da **28.347,3 km**. No es un error de
+ninguno de los dos: uno mide la traza dibujada y el otro lo que declara el
+consorcio, y ya se sabe que difieren por consorcio (ver los huecos del CC 96 y
+el CC 49 más arriba). **Al citar kilómetros hay que decir cuál de los dos es.**
+
+Por eso el resumen de kilómetros por rango que estuvo un rato en pantalla se
+sacó: mostraba el número geométrico sin aclarar cuál era, al lado de una tabla
+que usa el declarado. `kmPorRango()` y `kmSobre()` siguen en la librería y
+verificados, para cuando se decida cuál citar.
 
 Hallazgo de mirar esto a nivel tramo: **son siete los consorcios con red fuera de
 cobertura, no tres.** La tabla por consorcio muestra 80, 81 y 84 porque promedia
@@ -479,8 +488,15 @@ cuenta podrían llegar a decir números distintos. Partir el GeoJSON en tramos
 cuesta ~300 ms y no depende de la fecha, así que se hace una vez; estimar la
 lluvia son 40 ms y se rehace en cada período.
 
-Los caminos siguen siendo `interactive: false` a propósito: el clic es de los
-círculos de consorcio, y 9.743 polilíneas interactivas se lo comerían.
+Los caminos son `interactive: false`: 9.743 polilíneas recibiendo eventos traban
+el mapa, y no hay nada que clickear en ellas.
+
+**El círculo por consorcio se sacó.** Iba en el centro de gravedad de cada red,
+con el radio según los milímetros, como resumen para la vista provincial. Una vez
+que cada camino lleva su propio número el círculo promedia y tapa justamente lo
+que se vino a ver: la tormenta que moja una punta del consorcio y no la otra. El
+consorcio se elige desde la lista de la derecha, y elegirlo encuadra el mapa y
+atenúa el resto de la red.
 
 ### Zonas de pluviómetro (Thiessen)
 
