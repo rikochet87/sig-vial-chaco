@@ -103,6 +103,19 @@ export default function SelectorPeriodo({
 
   const maxSerie = Math.max(1, ...serie.map(p => p.mm ?? 0))
 
+  /**
+   * Clickear una barra elige el evento entero, no el día suelto.
+   *
+   * Es lo que uno quiere el 90 % de las veces: los picos de la línea **son** los
+   * eventos. Con esto la fila de chips de evento dejó de hacer falta, y eran
+   * 50 px permanentes que le comían altura al mapa.
+   */
+  const alClickearDia = (fecha: string) => {
+    const e = episodios.find(x => fecha >= x.desde && fecha <= x.hasta)
+    if (e) onRango(e.desde, e.hasta)
+    else onRango(fecha, fecha)
+  }
+
   return (
     <div style={{ flexShrink: 0, marginBottom: 12 }}>
 
@@ -165,7 +178,7 @@ export default function SelectorPeriodo({
         agua, cuándo, y dónde está parado el período elegido. Cada barra es la
         lámina máxima de la provincia ese día — el máximo y no el promedio,
         porque un temporal sobre tres consorcios desaparece en un promedio de
-        103. Se puede clickear para saltar a ese día.
+        103. Clickear una barra elige el evento al que pertenece ese día.
       */}
       {serie.length > 0 && (
         <div style={{ background: '#1b1e21', borderRadius: 4, padding: '7px 10px', marginBottom: 8 }}>
@@ -177,7 +190,7 @@ export default function SelectorPeriodo({
                 {desde === hasta ? fmtCorta(desde) : `${fmtCorta(desde)} → ${fmtCorta(hasta)}`}
               </b>
               {dias > 0 && <> · {dias} {dias === 1 ? 'día' : 'días'}</>}
-              <span style={{ color: '#5e656d' }}> · lámina máx. diaria</span>
+              <span style={{ color: '#5e656d' }}> · lámina máx. diaria · clic = evento</span>
             </span>
             <span>{fmtCorta(serie[serie.length - 1].fecha)}</span>
           </div>
@@ -188,7 +201,7 @@ export default function SelectorPeriodo({
               const alto = p.mm === null ? 2 : Math.max(2, Math.round((mm / maxSerie) * 40))
               return (
                 <div key={p.fecha}
-                  onClick={() => onRango(p.fecha, p.fecha)}
+                  onClick={() => alClickearDia(p.fecha)}
                   title={`${fmtCorta(p.fecha)} · ${p.mm === null ? 'sin dato' : mmRedondeado(mm)}`}
                   style={{
                     flex: 1, height: alto, cursor: 'pointer', minWidth: 2,
@@ -202,37 +215,6 @@ export default function SelectorPeriodo({
       )}
 
       {/* Los eventos detectados, como accesos directos */}
-      {/*
-        Los eventos aparecen sólo con el preset «Eventos» activo. La línea de
-        tiempo ya los muestra como picos; tenerlos siempre desplegados agregaba
-        una fila permanente que le comía altura al mapa, y el mapa es la pantalla.
-      */}
-      {episodios.length > 0 && enEpisodio && (
-        <div style={{ display: 'flex', gap: 6, marginBottom: 8, overflowX: 'auto',
-          paddingBottom: 2 }}>
-          {episodios.slice(0, 6).map(e => {
-            const activo = e.desde === desde && e.hasta === hasta
-            const n = Math.round((Date.parse(e.hasta) - Date.parse(e.desde)) / 86_400_000) + 1
-            return (
-              <button key={e.desde + e.hasta} onClick={() => onRango(e.desde, e.hasta)}
-                style={{
-                  ...mono, fontSize: 12, cursor: 'pointer', padding: '3px 9px',
-                  borderRadius: 3, textAlign: 'left', lineHeight: 1.4, whiteSpace: 'nowrap',
-                  background: activo ? 'rgba(245,195,0,0.10)' : 'transparent',
-                  border: `1px solid ${activo ? '#5a4400' : '#2a2e32'}`,
-                  color: activo ? '#F5C300' : '#8b9299',
-                }}>
-                {e.desde === e.hasta ? fmtCorta(e.desde) : `${fmtCorta(e.desde)} → ${fmtCorta(e.hasta)}`}
-                <span style={{ display: 'block', fontSize: 11,
-                  color: activo ? '#8a7530' : '#5e656d' }}>
-                  {n} {n === 1 ? 'día' : 'días'} · lámina máx. {mmRedondeado(e.mmPico)}
-                </span>
-              </button>
-            )
-          })}
-        </div>
-      )}
-
       {/* ── 2 · Datos de este período ─────────────────────────────────────── */}
       {esAdmin && cobertura && (
         <div style={{ background: '#1b1e21', borderRadius: 4, padding: '8px 11px' }}>

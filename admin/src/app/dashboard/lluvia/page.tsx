@@ -370,13 +370,13 @@ export default function LluviaPage() {
       )}
 
       {/*
-        El aviso ya no lleva botón: la acción vive en la franja de datos del
-        selector, que además está siempre a la vista en vez de aparecer y
-        desaparecer. Acá queda sólo la advertencia, que es lo que le importa a
-        quien mira el número — incluido el usuario de oficina, que no puede
-        interpolar pero sí tiene que saber qué está leyendo.
+        Este aviso es **sólo para quien no es admin**. El admin ya tiene la
+        franja de datos del selector, que dice lo mismo con más detalle y con el
+        botón al lado; repetirlo eran 53 px de alto que le sacaban al mapa. Pero
+        el usuario de oficina no ve esa franja y sí tiene que saber qué está
+        leyendo.
       */}
-      {!error && !cargando && sinRecalcular && (
+      {!error && !cargando && sinRecalcular && !esAdmin && (
         <div style={{ ...mono, fontSize: 13, color: '#bdbdbd', background: '#17191a',
           border: '1px solid #33383a', padding: '9px 12px', marginBottom: 12, flexShrink: 0,
           lineHeight: 1.6 }}>
@@ -390,7 +390,7 @@ export default function LluviaPage() {
         Sin parte no hay nada que recalcular, así que este cartel no lleva
         botón: ofrecer uno que no puede cambiar nada fue el error anterior.
       */}
-      {!error && !cargando && sinParte && (
+      {!error && !cargando && sinParte && !esAdmin && (
         <div style={{ ...mono, fontSize: 13, color: '#9aa0a6', background: '#141618',
           border: '1px solid #282c2e', padding: '9px 12px', marginBottom: 12, flexShrink: 0,
           lineHeight: 1.6 }}>
@@ -407,9 +407,9 @@ export default function LluviaPage() {
       */}
       {!cargando && conDato.length > 0 && (
         <div style={{
-          ...mono, fontSize: 14, lineHeight: 1.65, color: '#d8d8d8', flexShrink: 0,
+          ...mono, fontSize: 13, lineHeight: 1.5, color: '#d8d8d8', flexShrink: 0,
           background: '#191919', borderLeft: '3px solid #F5C300',
-          padding: '11px 14px', marginBottom: 12,
+          padding: '7px 12px', marginBottom: 10,
         }}>
           {desde === hasta
             ? <>El <b style={{ color: '#fff' }}>{fmtFecha(desde)}</b> </>
