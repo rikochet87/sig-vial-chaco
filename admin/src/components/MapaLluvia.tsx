@@ -21,6 +21,26 @@ import { RADIO_KM } from '@/lib/fusion'
 import { calcularGrilla, curvasDeNivel, nivelesSugeridos } from '@/lib/isohietas'
 import { poligonosThiessen } from '@/lib/thiessen'
 import { CORTES_MM, type TramoRed, type LluviaTramo } from '@/lib/redLluvia'
+import { CONTORNO_CHACO } from '@/data/contornoChaco'
+
+/**
+ * Los límites de la provincia, para encuadrar el mapa.
+ *
+ * El encuadre se calcula, no se fija. Con un `center` y un `zoom` a mano, cuanto
+ * más alto es el contenedor más superficie abarca: la provincia queda chica
+ * adentro de medio continente, y el usuario tiene que acercarse a mano cada vez.
+ * Con `fitBounds` el mapa muestra el Chaco y nada más, sea cual sea el tamaño.
+ */
+const LIMITES: [[number, number], [number, number]] = (() => {
+  let latMin = 90, latMax = -90, lngMin = 180, lngMax = -180
+  for (const [lng, lat] of CONTORNO_CHACO) {
+    if (lat < latMin) latMin = lat
+    if (lat > latMax) latMax = lat
+    if (lng < lngMin) lngMin = lng
+    if (lng > lngMax) lngMax = lng
+  }
+  return [[latMin, lngMin], [latMax, lngMax]]
+})()
 
 /** Un interruptor de capa: título clickeable y una línea de qué hace */
 function Interruptor({ titulo, nota, activo, onChange }: {
@@ -101,6 +121,10 @@ export default function MapaLluvia({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const capaZonasRef = useRef<any>(null)
   const observadorRef = useRef<ResizeObserver | null>(null)
+  /** ¿El usuario ya movió el mapa? Entonces no se le vuelve a encuadrar */
+  const movioRef = useRef(false)
+  /** Para no confundir nuestros propios ajustes con un movimiento del usuario */
+  const ajustandoRef = useRef(false)
 
   const [verIso, setVerIso] = useState(false)
   const [verZonas, setVerZonas] = useState(false)
@@ -121,6 +145,7 @@ export default function MapaLluvia({
         center: [-26.4, -60.5], zoom: 7, attributionControl: false,
         zoomControl: true, preferCanvas: true,
       })
+      mapa.fitBounds(LIMITES, { padding: [12, 12], animate: false })
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 18,
       }).addTo(mapa)
@@ -135,21 +160,45 @@ export default function MapaLluvia({
       mapa.createPane('zonasThiessen').style.zIndex = '390'
       capaZonasRef.current = L.layerGroup().addTo(mapa)
 
-      // El contenedor arranca con alto 0 mientras el layout se acomoda
-      setTimeout(() => mapa.invalidateSize(), 120)
-
       /**
-       * Avisarle a Leaflet cada vez que el contenedor cambia de tamaño.
+       * Reajustar el mapa cuando cambia el tamaño de su contenedor.
        *
-       * Leaflet cachea las dimensiones al crear el mapa y no las vuelve a mirar
-       * solo. Con un `setTimeout` único alcanzaba mientras el alto era estable,
-       * pero los controles de arriba crecen y se encogen —el panel de fechas, la
-       * franja de datos, los carteles que aparecen— y cada vez que eso pasaba el
-       * mapa quedaba dibujando para un tamaño que ya no era el suyo: los tiles
-       * salían corridos y con la escala equivocada.
+       * Tres cosas, y ninguna es obvia:
+       *
+       * 1. Leaflet cachea las dimensiones al crear el mapa y no las vuelve a
+       *    mirar solo. El contenedor arranca en cero mientras el layout se
+       *    acomoda, y después crece y se encoge con los controles de arriba.
+       *
+       * 2. **`invalidateSize()` no conserva el centro: conserva la esquina
+       *    superior izquierda.** Panea por la mitad del cambio de tamaño. Con el
+       *    contenedor creciendo y el observador llamándolo una y otra vez, el
+       *    mapa se fue derivando hacia el norte hasta terminar mostrando
+       *    Venezuela.
+       *
+       * 3. Mientras el usuario no haya movido el mapa, se **vuelve a encuadrar
+       *    la provincia** en vez de conservar el encuadre anterior. Un zoom fijo
+       *    abarca más superficie cuanto más alto es el contenedor, y ahí el
+       *    Chaco queda perdido adentro de medio continente. Si el usuario ya se
+       *    acercó a mirar algo, se le respeta la vista.
        */
+      const reajustar = () => {
+        const centro = mapa.getCenter()
+        const zoom = mapa.getZoom()
+        ajustandoRef.current = true
+        mapa.invalidateSize({ pan: false })
+        if (movioRef.current) mapa.setView(centro, zoom, { animate: false })
+        else mapa.fitBounds(LIMITES, { padding: [12, 12], animate: false })
+        ajustandoRef.current = false
+      }
+      setTimeout(reajustar, 120)
+
+      // Sólo cuenta como movimiento del usuario lo que no disparamos nosotros
+      mapa.on('dragstart zoomstart', () => {
+        if (!ajustandoRef.current) movioRef.current = true
+      })
+
       if (typeof ResizeObserver !== 'undefined' && divRef.current) {
-        observadorRef.current = new ResizeObserver(() => mapa.invalidateSize())
+        observadorRef.current = new ResizeObserver(reajustar)
         observadorRef.current.observe(divRef.current)
       }
     })()

@@ -275,12 +275,15 @@ export default function LluviaPage() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column',
-      // Alto mínimo, no fijo: con `height` fijo todo lo que crece arriba —la
-      // franja de datos, un cartel que aparece, el panel de fechas desplegado—
-      // le come altura al mapa hasta dejarlo en nada, y lo que sobra se derrama
-      // fuera de la pantalla sin barra para alcanzarlo. Así la página crece y el
-      // navegador scrollea, que es feo pero recuperable.
-      minHeight: 'calc(100vh - 60px)' }}>
+      // Alto **definido** más `overflow: auto`, no `minHeight`.
+      //
+      // Con `minHeight` la cadena flex se queda sin altura definida, y entonces
+      // el `overflowY: auto` de la lista de consorcios no se activa nunca: la
+      // lista crece, estira la fila del mapa y la página se va a cualquier lado.
+      // Con alto fijo la lista scrollea adentro, que es lo que corresponde; y el
+      // `overflow: auto` de acá es la red de contención para cuando los
+      // controles de arriba crecen tanto que el mapa no entra en su piso.
+      height: 'calc(100vh - 60px)', overflow: 'auto' }}>
 
       {/* Encabezado */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 14, flexShrink: 0 }}>
