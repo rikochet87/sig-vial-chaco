@@ -173,22 +173,35 @@ async function recalcularFusion(desde: string, hasta: string) {
   const supabase = createServiceClient()
 
   // Lo que ya está guardado del modelo, que es lo que se usa de respaldo
-  const registros: { consorcio_numero: number; fecha: string; mm: number }[] = []
+  /**
+   * Se lee también el estado actual de la fusión, no sólo `mm`.
+   *
+   * Sirve para no reescribir lo que ya está bien. Sin esto, un recálculo de 90
+   * días reescribía las ~9.300 filas del rango **todas las veces**, incluidas
+   * las ~7.200 de días sin parte de la APA, que van a tener siempre el mismo
+   * valor. Era la mayor parte del trabajo y no cambiaba nada.
+   */
+  const registros: {
+    consorcio_numero: number; fecha: string; mm: number
+    mmFusion: number | null; procedencia: string | null
+  }[] = []
   for (let off = 0; ; off += 1000) {
     const { data, error } = await supabase
       .from('precipitaciones')
-      .select('consorcio_numero, fecha, mm')
+      .select('consorcio_numero, fecha, mm, mm_fusion, procedencia')
       .gte('fecha', desde).lte('fecha', hasta)
       // Sin `order` el paginado no es estable y se pierden o repiten filas
       .order('fecha').order('consorcio_numero')
       .range(off, off + 999)
-    if (error) return dbError(error)
+    if (error) return dbError(error, 400, 'leyendo precipitaciones')
     if (!data?.length) break
     for (const r of data) {
       registros.push({
         consorcio_numero: r.consorcio_numero as number,
         fecha: r.fecha as string,
         mm: Number(r.mm),
+        mmFusion: r.mm_fusion == null ? null : Number(r.mm_fusion),
+        procedencia: (r.procedencia as string | null) ?? null,
       })
     }
     if (data.length < 1000) break
@@ -210,30 +223,54 @@ async function recalcularFusion(desde: string, hasta: string) {
     })
   }
 
-  // Sólo se tocan las columnas de fusión: `mm` no se pisa
+  /**
+   * Sólo se escriben las filas que **cambian**.
+   *
+   * Es lo que hace que un rango de 90 días entre en el presupuesto de tiempo:
+   * la primera corrida escribe todo, y la segunda no escribe nada. Sin esto,
+   * cada recálculo reescribía las ~9.300 filas del rango aunque el resultado
+   * fuera idéntico, y sobre 90 días eso se pasaba del límite de la función.
+   *
+   * `mm` no se pisa nunca: va en el upsert porque la columna es obligatoria,
+   * con el valor que ya tenía.
+   */
   const ahora = new Date().toISOString()
-  const filas = registros
-    .filter(r => fusion.porClave.has(`${r.consorcio_numero}|${r.fecha}`)
-              || fusion.sinParte.has(r.fecha))
-    .map(r => ({
+  const filas = []
+  let sinCambio = 0
+  for (const r of registros) {
+    const nuevo = fusion.porClave.get(`${r.consorcio_numero}|${r.fecha}`)
+      ?? (fusion.sinParte.has(r.fecha) ? SIN_PARTE : null)
+    if (!nuevo) continue
+
+    const igual = r.procedencia === nuevo.procedencia
+      && (r.mmFusion === null
+        ? nuevo.mm_fusion === null
+        : nuevo.mm_fusion !== null && Math.abs(r.mmFusion - nuevo.mm_fusion) < 0.005)
+    if (igual) { sinCambio++; continue }
+
+    filas.push({
       consorcio_numero: r.consorcio_numero,
       fecha: r.fecha,
       mm: r.mm,
       actualizado_en: ahora,
-      ...(fusion.porClave.get(`${r.consorcio_numero}|${r.fecha}`) ?? SIN_PARTE),
-    }))
+      ...nuevo,
+    })
+  }
 
-  for (let i = 0; i < filas.length; i += 2000) {
+  // Tandas chicas: una sentencia gigante es lo que más cerca está de chocar
+  // con el tope de tiempo de la base
+  for (let i = 0; i < filas.length; i += 500) {
     const { error } = await supabase
       .from('precipitaciones')
-      .upsert(filas.slice(i, i + 2000), { onConflict: 'consorcio_numero,fecha' })
-    if (error) return dbError(error)
+      .upsert(filas.slice(i, i + 500), { onConflict: 'consorcio_numero,fecha' })
+    if (error) return dbError(error, 400, `escribiendo la fusión (tanda ${i / 500 + 1})`)
   }
 
   return NextResponse.json({
     ok: true,
     desde, hasta, dias,
     filas: filas.length,
+    sinCambio,
     fechasConParte: fusion.fechasConParte,
     fechasSinParte: fusion.fechasSinParte,
     aviso: fusion.aviso,

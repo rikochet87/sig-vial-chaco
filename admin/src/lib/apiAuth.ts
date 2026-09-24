@@ -63,13 +63,35 @@ export async function checkOwnerOrAdmin(
 
 /**
  * Sanitiza errores de Supabase antes de enviarlos al cliente.
- * En desarrollo muestra el mensaje original; en producción devuelve un mensaje genérico.
+ *
+ * En desarrollo muestra el mensaje original; en producción lo reemplaza por uno
+ * genérico, porque el mensaje de Postgres puede describir el esquema.
+ *
+ * **Pero "Error en la operación" a secas no se puede diagnosticar.** Pasó
+ * exactamente eso con el recálculo de lluvia: fallaba y no había forma de saber
+ * dónde ni por qué. Así que ahora van dos cosas más, y ninguna filta el esquema:
+ *
+ * - `donde`: qué estaba haciendo la ruta, escrito por quien la programó.
+ * - `codigo`: el código de error de Postgres (`57014` es tiempo agotado,
+ *   `23505` clave duplicada, `23503` clave foránea). Son cinco caracteres
+ *   públicos y documentados, no dicen nada de las tablas.
+ *
+ * Además el error completo va a `console.error`, que en Vercel queda en el log
+ * del servidor sin pasar por el navegador.
  */
-export function dbError(error: { message: string }, status = 400): NextResponse {
+export function dbError(
+  error: { message: string; code?: string; details?: string },
+  status = 400,
+  donde?: string,
+): NextResponse {
+  console.error('[dbError]', donde ?? '', error.code ?? '', error.message, error.details ?? '')
+
   const msg = process.env.NODE_ENV === 'development'
     ? error.message
-    : 'Error en la operación'
-  return NextResponse.json({ error: msg }, { status })
+    : donde
+      ? `Error en la operación al ${donde}`
+      : 'Error en la operación'
+  return NextResponse.json({ error: msg, codigo: error.code ?? null }, { status })
 }
 
 /**

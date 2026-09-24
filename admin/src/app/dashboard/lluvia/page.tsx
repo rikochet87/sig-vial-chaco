@@ -241,9 +241,15 @@ export default function LluviaPage() {
       const r = await fetch(`/api/lluvia/ingesta?soloFusion=1&desde=${desde}&hasta=${hasta}`,
         { method: 'POST' })
       const j = await r.json().catch(() => ({}))
-      if (!r.ok) throw new Error(j.error ?? 'No se pudo recalcular')
+      // El código de Postgres ayuda a distinguir un tiempo agotado de un error
+      // real sin tener que mirar el log del servidor
+      if (!r.ok) throw new Error((j.error ?? 'No se pudo interpolar') + (j.codigo ? ` (${j.codigo})` : ''))
       await cargar(desde, hasta)
-      if (!j.filas) setError(j.aviso ?? 'No había nada para recalcular en ese rango.')
+      if (!j.filas) {
+        setError(j.sinCambio
+          ? `Ya estaba interpolado: ${j.sinCambio.toLocaleString('es-AR')} filas sin cambios.`
+          : j.aviso ?? 'No había nada para interpolar en ese rango.')
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error al recalcular')
     } finally { setRecalculando(false) }

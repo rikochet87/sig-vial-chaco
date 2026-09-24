@@ -682,6 +682,20 @@ El recálculo pagina la lectura de `precipitaciones` **con `order`**. Sin él
 Postgres no garantiza el orden entre páginas y el `range()` se saltea o repite
 filas, que es un bug silencioso: no falla, sólo deja filas sin recalcular.
 
+**El recálculo escribe sólo las filas que cambian.** Lee `mm_fusion` y
+`procedencia` junto con `mm` y compara antes de escribir. Sin eso, un rango de
+90 días reescribía las ~9.300 filas **todas las veces** —incluidas las ~7.200 de
+días sin parte de la APA, que van a tener siempre el mismo valor— y eso se
+pasaba del tope de tiempo de la función: el botón fallaba con "Error en la
+operación". Ahora la primera corrida escribe y la segunda no escribe nada.
+
+`dbError()` recibe un tercer argumento `donde` y devuelve el **código de error de
+Postgres**. "Error en la operación" a secas no se puede diagnosticar, que fue
+justamente el problema acá: fallaba y no había forma de saber dónde. El código
+(`57014` tiempo agotado, `23505` clave duplicada) es público y no dice nada del
+esquema; el error completo va a `console.error`, que en Vercel queda en el log
+del servidor.
+
 **Los presets de rango usan `hace(d - 1)`, no `hace(d)`.** El rango se cuenta
 inclusive, así que de hoy menos seis a hoy hay siete días. Con `hace(d)` los tres
 botones pedían un día de más —"7 días" traía 8— y el de 90 daba 91, uno más que
