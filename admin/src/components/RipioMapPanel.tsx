@@ -1,6 +1,8 @@
 'use client'
 import 'leaflet/dist/leaflet.css'
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { useRedFondo, LecturaTramo } from '@/components/RedFondoLectura'
+import { PANE_RED_FONDO } from '@/lib/redFondo'
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 export type LatLng = [number, number]
@@ -160,7 +162,19 @@ export default function RipioMapPanel({
   const mapRef     = useRef<any>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const LfRef      = useRef<any>(null)
+
+  /**
+   * Red vial de fondo.
+   *
+   * Va en su propio panel por debajo del dibujo y no recibe eventos: el clic
+   * para marcar un vértice tiene que llegar siempre al dibujo, aunque caiga
+   * justo encima de un camino. Los datos del tramo salen del recuadro de
+   * lectura, que resuelve el hit-test por afuera de Leaflet.
+   */
+  const [verRedFondo, setVerRedFondo] = useState(true)
   const [mapReady, setMapReady] = useState(false)
+  const tramoFondo = useRedFondo(mapReady ? mapRef.current : null, verRedFondo)
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const ripioLayersRef = useRef<Map<string, any[]>>(new Map())
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -878,6 +892,15 @@ export default function RipioMapPanel({
         .ripio-ctx-popup .leaflet-popup-close-button { color: #555 !important; font-size: 14px !important; top: 6px !important; right: 8px !important; }
       `}</style>
       <div ref={mapDivRef} style={{ width: '100%', height: '100%' }} />
+
+
+        {/* Red vial: qué camino hay bajo el cursor */}
+        <div style={{
+          position: 'absolute', bottom: 12, left: '50%', transform: 'translateX(-50%)',
+          zIndex: 999, pointerEvents: 'none',
+        }}>
+          <LecturaTramo tramo={tramoFondo} activa={verRedFondo} onActiva={setVerRedFondo} />
+        </div>
 
       {/* Instrucción de dibujo */}
       {drawingId && (

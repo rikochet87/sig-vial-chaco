@@ -213,6 +213,42 @@ Los cuatro análisis comparten estructura (es el formato estándar de obra
 pública), así que `components/ripio/PanelAPU.tsx` es uno solo parametrizado que
 se instancia cuatro veces. Se distinguen por color, título y unidad.
 
+### La red vial de fondo en los mapas de cálculo
+
+`lib/redFondo.ts` + `components/RedFondoLectura.tsx` — los cuatro mapas donde se
+dibuja (`InlineMapDraw`, `InlineLineDraw`, `DesmMapPanel`, `RipioMapPanel`)
+muestran la red vial de fondo para saber sobre qué camino se está trabajando.
+
+**La capa es completamente inerte y eso es el punto.** Va en un panel propio
+(`redFondo`, z-index 350, `pointerEvents: none`) y con `interactive: false`.
+El motivo es concreto: `bindTooltip` sobre una polilínea la vuelve interactiva, y
+entonces al marcar un vértice encima de un camino **el clic se lo comía la capa
+en vez de llegar al dibujo**. Por eso las capas `cc*` del panel de capas también
+perdieron su tooltip.
+
+Los datos del tramo salen de un **hit-test propio**: el mapa escucha `mousemove`
+a nivel mapa —no a nivel capa— y `RedFondo.tramoEn()` contesta qué tramo hay bajo
+el cursor, que se muestra en un recuadro al pie. Resolverlo por afuera de Leaflet
+es lo que permite que la capa nunca participe del ruteo de eventos.
+
+Detalles que importan:
+
+- **Índice espacial en grilla de 0,05°** (~5 km). La red son 249.209 vértices y
+  recorrerlos en cada `mousemove` no cierra; una consulta mira la celda del
+  cursor y sus ocho vecinas. Verificado contra fuerza bruta: misma respuesta,
+  ~100 veces más rápido. La celda tiene que ser **más grande que la tolerancia**
+  o mirar las ocho vecinas no alcanzaría.
+- **La tolerancia es en píxeles, no en km.** `toleranciaKm()` la convierte al
+  zoom actual: a zoom 8 medio km es razonable, a zoom 16 agarraría media ciudad.
+- **Doble trazo**: uno oscuro grueso abajo y uno celeste fino arriba. Una línea
+  de un solo color siempre se pierde contra uno de los dos fondos, y estos mapas
+  alternan entre OSM claro y satélite.
+- **El archivo y el índice se comparten** entre los cuatro mapas: son cuatro
+  calculadoras pero la red es la misma y pesa 8,6 MB. Un fetch fallido **no**
+  queda cacheado, para que el próximo intento pueda reintentar.
+- Las capas `ZIV_DVP` y `ZV_DVP` se muestran como "Red primaria": el sufijo no va
+  a pantalla.
+
 ### Accesibilidad
 
 Hay usuarios con visión reducida. El piso de tamaño de texto es **11 px** —

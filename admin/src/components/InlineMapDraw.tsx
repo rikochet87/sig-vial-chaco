@@ -1,6 +1,8 @@
 'use client'
 import 'leaflet/dist/leaflet.css'
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { useRedFondo, LecturaTramo } from '@/components/RedFondoLectura'
+import { PANE_RED_FONDO } from '@/lib/redFondo'
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 type LatLng   = [number, number]
@@ -151,6 +153,18 @@ export default function InlineMapDraw({ color, hideMonte = false, onConfirm, onD
   const mapRef       = useRef<any>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const LfRef        = useRef<any>(null)
+
+  /**
+   * Red vial de fondo.
+   *
+   * Va en su propio panel por debajo del dibujo y no recibe eventos: el clic
+   * para marcar un vértice tiene que llegar siempre al dibujo, aunque caiga
+   * justo encima de un camino. Los datos del tramo salen del recuadro de
+   * lectura, que resuelve el hit-test por afuera de Leaflet.
+   */
+  const [verRedFondo, setVerRedFondo] = useState(true)
+  const tramoFondo = useRedFondo(mapReady ? mapRef.current : null, verRedFondo)
+
   const drawStateRef = useRef<{ pts: LatLng[]; cleanup: () => void } | null>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const previewRef   = useRef<any[]>([])
@@ -714,18 +728,15 @@ export default function InlineMapDraw({ color, hideMonte = false, onConfirm, onD
         const ccData = geoCacheRef.current.cc[zona]
         const c      = LAYER_COLORS[key]
         if (ccData) {
+          // Sin tooltip y sin recibir eventos: los datos del tramo los da el
+          // recuadro de lectura, que resuelve el hit-test por afuera. Con
+          // `bindTooltip` la capa se vuelve interactiva, y al marcar un vértice
+          // encima de un camino el clic se lo comía la capa en vez de llegar
+          // al dibujo.
           Lf.geoJSON(ccData, {
+            pane: PANE_RED_FONDO,
+            interactive: false,
             style: { color: c, weight: 1.5, opacity: 0.85, fillOpacity: 0 },
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            onEachFeature(feature: any, layer: any) {
-              const p = feature.properties ?? {}
-              const ccNum = p.CC || p.cc || ''
-              const nm    = p.Nm || p.nm || p.Nombre || ''
-              layer.bindTooltip(
-                `<b style="color:${c}">CC ${ccNum}</b> · Zona ${zona}${nm ? '<br>' + nm : ''}`,
-                { sticky: true, direction: 'top' }
-              )
-            },
           }).addTo(group)
         }
       }
@@ -871,6 +882,15 @@ export default function InlineMapDraw({ color, hideMonte = false, onConfirm, onD
       {/* ── Mapa ── */}
       <div style={{ position: 'relative', flex: 1, minHeight: 0 }}>
         <div ref={mapDivRef} style={{ width: '100%', height: '100%' }} />
+
+
+        {/* Red vial: qué camino hay bajo el cursor */}
+        <div style={{
+          position: 'absolute', bottom: 12, left: '50%', transform: 'translateX(-50%)',
+          zIndex: 999, pointerEvents: 'none',
+        }}>
+          <LecturaTramo tramo={tramoFondo} activa={verRedFondo} onActiva={setVerRedFondo} />
+        </div>
 
         {/* HUD en tiempo real (solo durante dibujo o pre-confirm) */}
         {showHUD && !editingId && (
