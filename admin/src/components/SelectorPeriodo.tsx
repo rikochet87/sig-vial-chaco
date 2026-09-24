@@ -120,7 +120,7 @@ export default function SelectorPeriodo({
     <div style={{ flexShrink: 0, marginBottom: 12 }}>
 
       {/* ── 1 · Qué período mirar ─────────────────────────────────────────── */}
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', marginBottom: 10 }}>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', marginBottom: 12 }}>
         <span style={{ ...mono, fontSize: 11, color: '#6a7078', letterSpacing: 0.8,
           textTransform: 'uppercase', marginRight: 4 }}>
           Período
@@ -181,20 +181,26 @@ export default function SelectorPeriodo({
         103. Clickear una barra elige el evento al que pertenece ese día.
       */}
       {serie.length > 0 && (
-        <div style={{ background: '#1b1e21', borderRadius: 4, padding: '7px 10px', marginBottom: 8 }}>
+        <div style={{ background: '#1b1e21', borderRadius: 4, padding: '9px 12px', marginBottom: 10 }}>
+          {/*
+            Dos extremos y nada en el medio. Con un texto centrado, en cuanto el
+            de la izquierda crecía un poco se le montaba encima: "27 jun" quedaba
+            tapado por la descripción.
+          */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
-            ...mono, fontSize: 11, color: '#5e656d', marginBottom: 4 }}>
-            <span>{fmtCorta(serie[0].fecha)}</span>
-            <span style={{ color: '#8b9299', fontSize: 12 }}>
+            gap: 16, ...mono, fontSize: 11, color: '#5e656d', marginBottom: 7 }}>
+            <span>
+              {fmtCorta(serie[0].fecha)} → {fmtCorta(serie[serie.length - 1].fecha)}
+              <span style={{ color: '#4e555c' }}> · lámina máxima diaria · clic para elegir el evento</span>
+            </span>
+            <span style={{ fontSize: 12, color: '#8b9299', whiteSpace: 'nowrap' }}>
               <b style={{ color: '#F5C300', fontWeight: 400 }}>
                 {desde === hasta ? fmtCorta(desde) : `${fmtCorta(desde)} → ${fmtCorta(hasta)}`}
               </b>
               {dias > 0 && <> · {dias} {dias === 1 ? 'día' : 'días'}</>}
-              <span style={{ color: '#5e656d' }}> · lámina máx. diaria · clic = evento</span>
             </span>
-            <span>{fmtCorta(serie[serie.length - 1].fecha)}</span>
           </div>
-          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 1, height: 26 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 1, height: 34 }}>
             {serie.map(p => {
               const dentro = p.fecha >= desde && p.fecha <= hasta
               const mm = p.mm ?? 0
@@ -217,9 +223,17 @@ export default function SelectorPeriodo({
       {/* Los eventos detectados, como accesos directos */}
       {/* ── 2 · Datos de este período ─────────────────────────────────────── */}
       {esAdmin && cobertura && (
-        <div style={{ background: '#1b1e21', borderRadius: 4, padding: '8px 11px' }}>
-          <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'center',
+        <div style={{ background: '#1b1e21', borderRadius: 4, padding: '10px 12px' }}>
+          {/*
+            La etiqueta va **dentro** de la fila y no en un renglón propio: da el
+            ancla para entender qué es esto sin gastar una línea entera de alto.
+          */}
+          <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', alignItems: 'center',
             ...mono, fontSize: 12, color: '#8b9299' }}>
+            <span style={{ fontSize: 11, color: '#6a7078', letterSpacing: 0.8,
+              textTransform: 'uppercase' }}>
+              Datos
+            </span>
             <span>
               <b style={{ color: cobertura.conSerie >= cobertura.dias ? '#5DCAA5' : '#EF9F27',
                 fontWeight: 400 }}>●</b>{' '}
@@ -259,7 +273,7 @@ export default function SelectorPeriodo({
             </button>
           </div>
 
-          <div style={{ ...mono, fontSize: 11, color: '#5e656d', marginTop: 6 }}>
+          <div style={{ ...mono, fontSize: 11, color: '#5e656d', marginTop: 8 }}>
             Descargar ya interpola. Interpolar solo, sirve cuando la APA cargó el parte después.
           </div>
         </div>
