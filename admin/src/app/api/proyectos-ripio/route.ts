@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { requireAdmin, dbError, requireFields } from '@/lib/apiAuth'
+import { requireAdmin, requirePermiso, dbError, requireFields } from '@/lib/apiAuth'
 
 export async function GET(req: NextRequest) {
   const auth = await requireAdmin()
@@ -64,7 +64,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const auth = await requireAdmin()
+  // El mismo permiso que protege la calculadora de ripio. Con sólo `requireAdmin()`
+  // —que no verifica rol— cualquier usuario con sesión podía crear registros.
+  const auth = await requirePermiso('calc_ripio')
   if (auth instanceof NextResponse) return auth
   const body = await req.json()
   const invalid = requireFields(body, ['nombre'])

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { tienePermiso, type PermisoKey } from '@/lib/permisos'
 
 /**
  * Verifica que el request tenga una sesión de Supabase válida.
@@ -38,6 +39,43 @@ export async function requireAdminRole(): Promise<{ userId: string } | NextRespo
     .single()
   if (profile?.rol !== 'admin') {
     return NextResponse.json({ error: 'Se requiere rol de administrador' }, { status: 403 })
+  }
+  return auth
+}
+
+/**
+ * Verifica sesión válida **y** que el usuario tenga un permiso concreto.
+ *
+ * Es el guard que faltaba. Había sólo dos extremos —sesión a secas o rol admin—
+ * y varias rutas se quedaron con el primero por no romper a los usuarios de
+ * oficina, que no son admin pero sí tienen permisos. El resultado era que
+ * cualquiera con sesión podía llamarlas, incluido un técnico de la app móvil.
+ *
+ * Usa el mismo `tienePermiso()` que el middleware y el Sidebar, así que la lista
+ * de permisos sigue teniendo una sola fuente de verdad.
+ */
+export async function requirePermiso(
+  clave: PermisoKey,
+): Promise<{ userId: string } | NextResponse> {
+  const auth = await requireAdmin()
+  if (auth instanceof NextResponse) return auth
+
+  const supabase = createServiceClient()
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('rol, permisos')
+    .eq('id', auth.userId)
+    .single()
+
+  const perfil = {
+    rol: profile?.rol as string | undefined,
+    permisos: profile?.permisos as string[] | undefined,
+  }
+  if (!tienePermiso(perfil, clave)) {
+    return NextResponse.json(
+      { error: `Se requiere el permiso «${clave}»` },
+      { status: 403 },
+    )
   }
   return auth
 }

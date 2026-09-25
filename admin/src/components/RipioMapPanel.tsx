@@ -2,7 +2,7 @@
 import 'leaflet/dist/leaflet.css'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRedFondo, LecturaTramo } from '@/components/RedFondoLectura'
-import { PANE_RED_FONDO } from '@/lib/redFondo'
+import { PANE_RED_FONDO, asegurarPanelFondo } from '@/lib/redFondo'
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 export type LatLng = [number, number]
@@ -238,6 +238,14 @@ export default function RipioMapPanel({
         center, zoom, zoomControl: false, doubleClickZoom: false,
       })
       mapRef.current = map
+      // El panel de la red de fondo se crea **acá**, no donde se dibuja.
+      //
+      // Las capas CC del panel de capas también lo usan, y `RedFondo.montar()`
+      // —que era el único que lo creaba— es asíncrono: espera un archivo de
+      // 8,6 MB. Prender una capa CC antes de que esa descarga termine dejaba a
+      // Leaflet buscando un panel inexistente, y el try/catch de la carga se
+      // tragaba la excepción: la capa no aparecía y no se decía por qué.
+      asegurarPanelFondo(map)
 
       // Capas base
       const satellite = Lf.tileLayer('https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {

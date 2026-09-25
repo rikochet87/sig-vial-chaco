@@ -14,9 +14,17 @@ type UserContextType = {
   hasPermiso:  (key: string) => boolean
 }
 
+/**
+ * El valor por defecto es el de **un usuario sin permisos**.
+ *
+ * Sólo se usa si alguien llama a `useUser()` fuera del `UserProvider`, que es un
+ * error de programación. Antes ese default era `rol: 'admin'` con
+ * `hasPermiso: () => true`: un componente mal ubicado mostraba todo en vez de no
+ * mostrar nada, que es exactamente al revés de lo que conviene.
+ */
 const UserContext = createContext<UserContextType>({
-  profile:    { id: '', email: '', nombre: null, rol: 'admin', permisos: [] },
-  hasPermiso: () => true,
+  profile:    { id: '', email: '', nombre: null, rol: 'usuario', permisos: [] },
+  hasPermiso: () => false,
 })
 
 export function UserProvider({

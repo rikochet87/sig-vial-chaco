@@ -1,12 +1,17 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
-import { requireAdmin, dbError } from '@/lib/apiAuth'
+import { requirePermiso, dbError } from '@/lib/apiAuth'
 
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await requireAdmin()
+  // El mismo permiso que protege la pantalla desde donde se edita.
+  //
+  // Antes era `requireAdmin()`, que pese al nombre sólo valida que haya sesión:
+  // cualquier usuario logueado podía editar cualquier relevamiento. La lista
+  // blanca de campos de más abajo acotaba el daño, pero no es una autorización.
+  const auth = await requirePermiso('relevamientos')
   if (auth instanceof NextResponse) return auth
 
   const { id } = await params
@@ -30,7 +35,7 @@ export async function PATCH(
     .update(update)
     .eq('id', id)
 
-  if (error) return dbError(error, 500)
+  if (error) return dbError(error, 500, 'actualizar el relevamiento')
 
   return NextResponse.json({ ok: true })
 }

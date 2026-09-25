@@ -22,7 +22,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
     id:       user.id,
     email:    user.email ?? '',
     nombre:   profile?.nombre ?? null,
-    rol:      (profile?.rol ?? 'admin') as UserProfile['rol'],
+    // Menor privilegio si falta la fila de perfil. En la práctica no debería
+    // llegar acá —el middleware ya redirige a /acceso-denegado cuando no hay
+    // perfil— pero un default que abre todo es el que duele si esa capa falla.
+    rol:      (profile?.rol ?? 'usuario') as UserProfile['rol'],
     permisos: profile?.permisos ?? [],
   }
 

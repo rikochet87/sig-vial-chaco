@@ -36,7 +36,17 @@ npx next build
 npx expo-doctor               # desde la raíz — detecta incompatibilidades del SDK
 ```
 
-No hay lint ni tests configurados. La verificación es `tsc --noEmit` + `next build`.
+**La verificación real es `npx tsc --noEmit` + `next build` + los scripts de
+`admin/scripts/verificar-*.ts`.** Con dos advertencias que costaron encontrar:
+
+- **`next build` no corría el chequeo de tipos.** `next.config.ts` tenía
+  `typescript: { ignoreBuildErrors: true }`, así que el build decía *"Skipping
+  validation of types"* y pasaba con errores de tipo adentro. Ya se sacó, pero si
+  algún día vuelve a aparecer, el build deja de ser una barrera.
+- **Sí hay lint y falla.** Hay script `eslint` —87 errores y 84 advertencias al
+  25/09/2026— pero `next build` no lo corre, así que está muerto en la práctica.
+  Las reglas que más importan no son de estilo: `react-hooks/set-state-in-effect`
+  (26) y `react-hooks/refs` (9) suelen marcar bugs reales.
 
 ## Stack
 
@@ -159,14 +169,39 @@ Node.**
 - `requireAdmin()` — solo verifica sesión válida, **no** rol admin (el nombre
   engaña)
 - `requireAdminRole()` — exige rol admin
+- `requirePermiso(clave)` — exige un permiso concreto, con el mismo
+  `tienePermiso()` que usan el middleware y el Sidebar
 - `checkOwnerOrAdmin()` — admin o dueño del recurso
 
-Ese nombre engañoso ya causó un agujero: `/api/lluvia/ingesta` usaba
-`requireAdmin()`, así que **cualquier usuario de oficina logueado podía disparar
-la ingesta y quemar el cupo de Open-Meteo**. El botón estaba escondido en la
-pantalla, pero el endpoint quedaba abierto — seguridad por interfaz, que no
-cuenta. Ya usa `requireAdminRole()`. **Al agregar una ruta que gasta cupo o
-escribe, revisar cuál de los dos corresponde.**
+**`requirePermiso` es el que faltaba.** Había sólo dos extremos —sesión a secas o
+rol admin— y varias rutas se quedaron con el primero para no romper a los
+usuarios de oficina, que no son admin pero sí tienen permisos. El resultado era
+que cualquiera con sesión podía llamarlas, **incluido un técnico de la app
+móvil**, que tiene cuenta y puede obtener sesión en `/login` aunque el middleware
+después lo saque del panel. Toma `PermisoKey`, no `string`, así que un permiso
+mal escrito es error de compilación.
+
+Ese nombre engañoso ya causó varios agujeros, todos del mismo molde: el botón
+escondido en la pantalla y el endpoint abierto, que es seguridad por interfaz y
+no cuenta.
+
+| Ruta | Qué permitía | Ahora |
+|---|---|---|
+| `/api/lluvia/ingesta` | cualquier sesión quemaba el cupo de Open-Meteo | `requireAdminRole()` |
+| `/api/consorcios/[numero]` | cualquier sesión editaba cualquier consorcio, **y con `{...body}` escribía cualquier columna**, incluida `numero` | `requirePermiso('consorcios')` + lista blanca |
+| `/api/relevamientos/[id]` | cualquier sesión editaba cualquier relevamiento | `requirePermiso('relevamientos')` |
+| `/api/obras` POST | cualquier sesión creaba obras | `requirePermiso('obras')` |
+| `/api/proyectos-ripio` POST | cualquier sesión creaba proyectos | `requirePermiso('calc_ripio')` |
+
+**Al agregar una ruta que escribe o gasta cupo, elegir el guard a propósito.** Y
+nunca `update({ ...body })`: lista blanca de campos, como hace
+`/api/relevamientos/[id]`.
+
+**Los defaults de rol van al menor privilegio.** `/api/me`, el layout del
+dashboard y el contexto de usuario caían los tres a `rol: 'admin'` cuando faltaba
+la fila de perfil —el contexto además con `hasPermiso: () => true`—. El servidor
+no se dejaba engañar, pero la interfaz mostraba los controles de administrador.
+Un dato ausente tiene que significar no poder hacer nada.
 
 ### Calculadoras de obra
 
@@ -788,10 +823,21 @@ Los arregla `docs/sql/09-seguridad.sql`, ya aplicado.
 - `precipitaciones.estaciones_usadas` guarda cuántas estaciones informaron ese
   día **en toda la provincia**, no cuántas se usaron para ese consorcio.
 
-## Git en Windows
+## Git y npm en Windows
 
 - **NUNCA hacer git commit/push desde el sandbox Linux** (WSL/virtiofs). Usar
   siempre **Windows PowerShell**: el `index.lock` se corrompe en virtiofs.
+- **Tampoco `npm install`.** Mismo motivo, distinto síntoma: npm renombra
+  directorios para instalar y virtiofs devuelve `ENOTEMPTY: directory not empty,
+  rename ...`. La instalación queda a medias —paquete sin sus `.d.ts`, symlinks
+  de `.bin` sin crear— y el error aparece recién al correr `tsc`, lejos de la
+  causa. Desde el sandbox se pueden **editar** `package.json` y regenerar el
+  lockfile con `npm install --package-lock-only`, que no toca archivos; la
+  instalación real va desde PowerShell.
+- **`next build` tampoco corre desde el sandbox** una vez que se instaló desde
+  Windows: el binario de SWC es por plataforma, y queda el de Windows. Desde el
+  sandbox sirve `npx tsc --noEmit`, que es TypeScript puro y no usa binarios
+  nativos, más los scripts de verificación. El build lo corre el usuario.
 - Si aparece `.git/index.lock`, borrarlo desde el Explorador de Windows.
 - Cuando el usuario pide "el commit", responder **solo con el bloque de
   PowerShell**, sin explicación.
