@@ -36,32 +36,78 @@ npx next build
 npx expo-doctor               # desde la raíz — detecta incompatibilidades del SDK
 ```
 
-**La verificación real es `npx tsc --noEmit` + `next build` + los scripts de
-`admin/scripts/verificar-*.ts`.** Con dos advertencias que costaron encontrar:
+**Todo eso corre junto con `npm run verificar`** (desde `admin/`):
+`tsc --noEmit`, la barrera de lint, la sintaxis de los `.sql` y los nueve
+`scripts/verificar-*.ts`. `next build` queda afuera a propósito: tarda minutos y
+usa el binario nativo de SWC, así que sólo corre donde se instalaron los
+paquetes. El orquestador es `scripts/verificar-todo.mjs`, en Node y no en un
+`for` de shell **porque los scripts de npm corren bajo cmd.exe en Windows**, que
+es de donde se verifica este repo.
+
+**`shell` se decide por paso y ahí hay una trampa.** Con `shell: true` en
+Windows el comando se pasa a cmd.exe sin comillas, así que `process.execPath`
+—que es `C:\Program Files\nodejs\node.exe`— se parte en el espacio y cmd
+contesta *"C:\Program no se reconoce como un comando"*. Los pasos que llaman a
+Node van **sin** shell; los que llaman a `npx.cmd` lo **necesitan**, porque Node
+20+ no ejecuta archivos `.cmd` sin él. Los argumentos de esos pasos se citan si
+tienen espacios, para que mover el repo a una carpeta con espacio no lo rompa.
+
+**`tsx` es dependencia de desarrollo**, no algo que `npx` baje al vuelo: los
+nueve `verificar-*.ts` lo necesitan y sin declararlo `npm run verificar` se
+frenaba preguntando *"Ok to proceed?"* en medio de la corrida.
+
+Dos advertencias que costaron encontrar:
 
 - **`next build` no corría el chequeo de tipos.** `next.config.ts` tenía
   `typescript: { ignoreBuildErrors: true }`, así que el build decía *"Skipping
   validation of types"* y pasaba con errores de tipo adentro. Ya se sacó, pero si
   algún día vuelve a aparecer, el build deja de ser una barrera.
-- **Sí hay lint y falla.** Hay script `eslint` —81 errores al 25/09/2026— pero
-  `next build` no lo corre, así que está muerto en la práctica.
+- **El lint falla y `next build` no lo corre**, así que estaba muerto en la
+  práctica. Ahora lo corre `npm run verificar`.
 
-**No conviene llevarlo a cero a fuerza bruta**, y eso se revisó caso por caso:
+### La barrera de lint es por línea de base, no por cero
+
+`scripts/verificar-lint.mjs` compara el conteo **por regla** contra
+`scripts/lint-linea-base.json` (75 errores al 25/09/2026) y falla si alguna sube
+o aparece una nueva. Que baje no falla; ahí conviene correr `--actualizar` y
+commitear el piso más bajo.
+
+```bash
+npm run lint            # eslint crudo
+npm run lint:barrera    # compara contra la línea de base
+node scripts/verificar-lint.mjs --actualizar
+```
+
+**Es por regla y no por total a propósito**: un total deja pasar el caso de
+arreglar dos `prefer-const` y meter dos `any` nuevos. Probado metiendo un `any`:
+la barrera lo marca y sale con código 1.
+
+**No conviene llevar el lint a cero a fuerza bruta**, y eso se revisó caso por
+caso:
 
 | Regla | Cuántas | Qué son en este repo |
 |---|---|---|
 | `@typescript-eslint/no-explicit-any` | 39 | Casi todas el objeto mapa de Leaflet. Arreglarlas de verdad es tipar Leaflet, no poner `unknown` |
 | `react-hooks/set-state-in-effect` | 26 | **Mayormente falsos positivos acá.** Leer `localStorage` en un efecto es la forma *correcta* de evitar un desajuste de hidratación en SSR; la regla no sabe de hidratación. Reescribirlas con estado perezoso introduciría el bug que hoy no existe |
 | `react-hooks/refs` | 5 | Reales, pero adentro de componentes de mapa de mil líneas sin tests de interfaz |
-| el resto | 11 | Cosmético |
+| `react-hooks/preserve-manual-memoization` | 4 | |
+| `react-hooks/immutability` | 1 | |
 
 Las que **sí** eran bugs reales ya se arreglaron: `useRedFondo` recibía
 `mapRef.current` leído en render, `cargar()` usaba `setCobertura` antes de
 declararlo, y `PanelMediciones` llamaba `Date.now()` en el cuerpo del componente
 en vez de inicializar el estado de forma perezosa.
 
-**El valor que queda no está en llegar a cero sino en que el lint corra**, para
-que no se sigan acumulando. Hoy hay que correrlo a mano: `npx eslint src`.
+### Chequeo de sintaxis del SQL
+
+`scripts/verificar-sql.mjs` parsea todos los `docs/sql/*.sql` con el parser real
+de Postgres (`libpg_query`, vía `pglast` de Python). Existe porque **acá el SQL
+se aplica a mano en el editor de Supabase**: no hay migraciones ni nada que lo
+corra antes, así que un paréntesis de más se descubre pegándolo en producción.
+
+Sólo valida que **parsee** — no dice nada de si las tablas existen ni de si el
+script es reejecutable. Si `pglast` no está instalado, avisa y sale en verde:
+`pip install pglast` para habilitarlo.
 
 ## Stack
 
@@ -861,8 +907,20 @@ Los arregla `docs/sql/09-seguridad.sql`, ya aplicado.
 - **Siete tablas no tienen script de creación en el repo** — `profiles`,
   `obras`, `relevamientos`, `proyectos_ripio`, `ripios`, `obra_destinatarios` y
   `consorcios` se armaron a mano en el editor de Supabase. Sólo quedaron los
-  `alter table` posteriores. Es deuda pendiente: no se puede reconstruir la base
-  ni levantar un entorno de prueba.
+  `alter table` posteriores. Consecuencia: **no se puede reconstruir la base ni
+  levantar un entorno de prueba.**
+
+  `docs/sql/11-extraer-ddl.sql` lo destraba: son siete consultas de sólo lectura
+  que sacan el DDL real del catálogo de Postgres —columnas, restricciones,
+  índices, RLS y políticas, funciones SECURITY DEFINER, triggers y grants—. Se
+  corren en el editor de Supabase de a una y el resultado se pega en
+  `docs/sql/12-tablas-base.sql`.
+
+  **Sale del catálogo, no del código de la app**, que es la diferencia que
+  importa: leer los `select` de la app te da los campos que se usan, no los que
+  existen, ni los defaults, ni las políticas. Van como consultas separadas y no
+  como un informe único para que una diferencia de versión de Postgres no se
+  lleve puestas las otras seis.
 - `precipitaciones.estaciones_usadas` guarda cuántas estaciones informaron ese
   día **en toda la provincia**, no cuántas se usaron para ese consorcio.
 
@@ -884,6 +942,32 @@ Los arregla `docs/sql/09-seguridad.sql`, ya aplicado.
 - Si aparece `.git/index.lock`, borrarlo desde el Explorador de Windows.
 - Cuando el usuario pide "el commit", responder **solo con el bloque de
   PowerShell**, sin explicación.
+
+## Dependencias — cosas que costaron
+
+**`jspdf` 2.5.2 → 4.2.1 y `jspdf-autotable` 3.8.3 → 5.0.8** (25/09/2026). Era la
+última vulnerabilidad crítica que quedaba. Se probó antes: las trece llamadas que
+usa `calculadoras/page.tsx` andan igual, `doc.lastAutoTable.finalY` sigue
+existiendo aunque no esté en los tipos, y el default export de autotable sigue
+siendo la función.
+
+**`src/types/vendor.d.ts` se eliminó, y eso destapó un bug.** Declaraba
+`module 'jspdf'` a mano —herencia de un `npm install` que quedó a medias— y como
+tenía `[key: string]: any`, **apagaba el chequeo de tipos sobre todo el objeto
+`doc`**. Los dos paquetes traen sus propios tipos. Al sacarlo apareció que el
+presupuesto Ae-10 pasaba `fontFamily: 'monospace'` a autotable: esa opción no
+existe —la clave es `font`, y sólo acepta 'helvetica' | 'times' | 'courier'— así
+que **nunca hizo nada y el PDF se viene imprimiendo en helvetica**. Se sacó la
+línea para que el código diga lo que hace. Si se quiere monoespaciado de verdad
+es `font: 'courier'`, pero los `cellWidth` de esa tabla están calibrados contra
+helvetica y hay que rehacerlos.
+
+Moraleja: **un shim de tipos con índice `any` no es una molestia de tipado, es
+un chequeo apagado.** Antes de escribir uno, revisar si el paquete trae tipos.
+
+Quedan dos vulnerabilidades moderadas, las dos de `uuid` vía `exceljs`: el arreglo
+que ofrece npm es bajar a `exceljs@3.4.0`, un cambio mayor, por un chequeo de
+límites que sólo aplica cuando se le pasa un `buf` propio. No se toca.
 
 ## Documentación
 

@@ -1902,7 +1902,14 @@ function CalcDesbosque({ paramsRef, onGuardarObra, initialData }: { paramsRef?: 
         `$${fmt(Math.round(r.cant * r.precioUnit))}`,
       ]),
       foot: [['', 'TOTAL OBRA', '', '', '', `$${fmt(Math.round(presTotal))}`]],
-      styles:           { fontSize: 11, fontFamily: 'monospace', cellPadding: { top: 2, bottom: 2, left: 3, right: 3 } },
+      // `fontFamily` no es una opción de jspdf-autotable y nunca hizo nada: la
+      // clave es `font`, y los valores son 'helvetica' | 'times' | 'courier'.
+      // El shim de tipos que había en src/types/vendor.d.ts lo tapaba con un
+      // índice `[key: string]: any`. Se saca para que el PDF diga lo que hace.
+      // Si se quiere la tabla en monoespaciado, es `font: 'courier'` — pero los
+      // anchos de columna de abajo están calibrados contra helvetica, que es lo
+      // que se viene imprimiendo, así que hay que revisarlos.
+      styles:           { fontSize: 11, cellPadding: { top: 2, bottom: 2, left: 3, right: 3 } },
       headStyles:       { fillColor: [30, 30, 30], textColor: [200, 200, 200], fontStyle: 'bold', fontSize: 11 },
       footStyles:       { fillColor: [20, 20, 20], textColor: [200, 200, 200], fontStyle: 'bold' },
       alternateRowStyles: { fillColor: [248, 248, 248] },

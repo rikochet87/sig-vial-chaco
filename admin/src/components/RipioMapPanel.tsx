@@ -607,7 +607,7 @@ export default function RipioMapPanel({
     // toman la foto en dragstart, no en dragend: si no, se guardaría el
     // resultado del movimiento en vez del estado previo.
     const MAX_HISTORIAL = 50
-    let historial: LatLng[][] = []
+    const historial: LatLng[][] = []
     let futuro:    LatLng[][] = []
 
     const copiar = (p: LatLng[]): LatLng[] => p.map(c => [c[0], c[1]] as LatLng)

@@ -661,7 +661,7 @@ export default function InlineMapDraw({ color, hideMonte = false, onConfirm, onD
 
     setLayerLoading(prev => ({ ...prev, [key]: true }))
     try {
-      let group = Lf.layerGroup()
+      const group = Lf.layerGroup()
 
       // ── Base: zonas ──────────────────────────────────────────────────────
       if (key === 'zonas') {
@@ -957,7 +957,7 @@ export default function InlineMapDraw({ color, hideMonte = false, onConfirm, onD
           }}>
             <div style={{ color, marginBottom: 3, fontWeight: 700 }}>Modo edición</div>
             <div>Arrastrá los círculos blancos para mover vértices.</div>
-            <div style={{ color: '#444', marginTop: 2 }}>Presioná "Guardar edición" para confirmar los cambios.</div>
+            <div style={{ color: '#444', marginTop: 2 }}>Presioná &quot;Guardar edición&quot; para confirmar los cambios.</div>
           </div>
         )}
 

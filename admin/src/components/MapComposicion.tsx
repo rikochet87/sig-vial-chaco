@@ -312,7 +312,7 @@ export default function MapComposicion({
               fontSize: 7.5, color: '#666', textAlign: 'right', lineHeight: 1.6,
               maxWidth: 210, flexShrink: 0, fontStyle: 'italic', alignSelf: 'center',
             }}>
-              <div>"DONAR ÓRGANOS ES SALVAR VIDAS" Ley 4422</div>
+              <div>&quot;DONAR ÓRGANOS ES SALVAR VIDAS&quot; Ley 4422</div>
               <div>{new Date().getFullYear()} — Año del 40° Aniversario del Juicio a las Juntas Militares,</div>
               <div>Ley N° 4153-B</div>
             </div>
