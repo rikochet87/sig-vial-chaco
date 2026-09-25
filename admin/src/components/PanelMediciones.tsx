@@ -81,11 +81,18 @@ export default function PanelMediciones({ esAdmin }: { esAdmin: boolean }) {
   const [verDetalle, setVerDetalle] = useState(false)
   const [verManual, setVerManual] = useState(false)
 
-  // Importación automática: por defecto, el último mes
-  const hoy = new Date().toISOString().slice(0, 10)
-  const haceUnMes = new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10)
-  const [impDesde, setImpDesde] = useState(haceUnMes)
-  const [impHasta, setImpHasta] = useState(hoy)
+  /**
+   * Importación automática: por defecto, el último mes.
+   *
+   * Inicialización perezosa, no cálculo en el cuerpo del componente. `Date.now()`
+   * es impuro: corriéndolo en cada render devuelve un valor distinto cada vez,
+   * cuando lo único que se necesita es el de la primera. Además rompe los
+   * supuestos del compilador de React.
+   */
+  const [impDesde, setImpDesde] = useState(
+    () => new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10))
+  const [impHasta, setImpHasta] = useState(
+    () => new Date().toISOString().slice(0, 10))
   const [resumenImp, setResumenImp] = useState<string | null>(null)
 
   const cargarPrecision = useCallback(async () => {

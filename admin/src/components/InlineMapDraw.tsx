@@ -163,7 +163,7 @@ export default function InlineMapDraw({ color, hideMonte = false, onConfirm, onD
    * lectura, que resuelve el hit-test por afuera de Leaflet.
    */
   const [verRedFondo, setVerRedFondo] = useState(true)
-  const tramoFondo = useRedFondo(mapReady ? mapRef.current : null, verRedFondo)
+  const tramoFondo = useRedFondo(mapRef, mapReady, verRedFondo)
 
   const drawStateRef = useRef<{ pts: LatLng[]; cleanup: () => void } | null>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

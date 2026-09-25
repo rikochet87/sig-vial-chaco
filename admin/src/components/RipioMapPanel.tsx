@@ -173,7 +173,7 @@ export default function RipioMapPanel({
    */
   const [verRedFondo, setVerRedFondo] = useState(true)
   const [mapReady, setMapReady] = useState(false)
-  const tramoFondo = useRedFondo(mapReady ? mapRef.current : null, verRedFondo)
+  const tramoFondo = useRedFondo(mapRef, mapReady, verRedFondo)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const ripioLayersRef = useRef<Map<string, any[]>>(new Map())

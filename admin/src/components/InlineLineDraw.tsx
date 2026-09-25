@@ -174,7 +174,7 @@ export default function InlineLineDraw({ color, halfWidth, onConfirm, onCancel }
    * lectura, que resuelve el hit-test por afuera de Leaflet.
    */
   const [verRedFondo, setVerRedFondo] = useState(true)
-  const tramoFondo = useRedFondo(mapReady ? mapRef.current : null, verRedFondo)
+  const tramoFondo = useRedFondo(mapRef, mapReady, verRedFondo)
 
   const drawStateRef = useRef<{
     pts: LatLng[]

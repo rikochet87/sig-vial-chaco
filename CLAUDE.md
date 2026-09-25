@@ -43,10 +43,25 @@ npx expo-doctor               # desde la raíz — detecta incompatibilidades de
   `typescript: { ignoreBuildErrors: true }`, así que el build decía *"Skipping
   validation of types"* y pasaba con errores de tipo adentro. Ya se sacó, pero si
   algún día vuelve a aparecer, el build deja de ser una barrera.
-- **Sí hay lint y falla.** Hay script `eslint` —87 errores y 84 advertencias al
-  25/09/2026— pero `next build` no lo corre, así que está muerto en la práctica.
-  Las reglas que más importan no son de estilo: `react-hooks/set-state-in-effect`
-  (26) y `react-hooks/refs` (9) suelen marcar bugs reales.
+- **Sí hay lint y falla.** Hay script `eslint` —81 errores al 25/09/2026— pero
+  `next build` no lo corre, así que está muerto en la práctica.
+
+**No conviene llevarlo a cero a fuerza bruta**, y eso se revisó caso por caso:
+
+| Regla | Cuántas | Qué son en este repo |
+|---|---|---|
+| `@typescript-eslint/no-explicit-any` | 39 | Casi todas el objeto mapa de Leaflet. Arreglarlas de verdad es tipar Leaflet, no poner `unknown` |
+| `react-hooks/set-state-in-effect` | 26 | **Mayormente falsos positivos acá.** Leer `localStorage` en un efecto es la forma *correcta* de evitar un desajuste de hidratación en SSR; la regla no sabe de hidratación. Reescribirlas con estado perezoso introduciría el bug que hoy no existe |
+| `react-hooks/refs` | 5 | Reales, pero adentro de componentes de mapa de mil líneas sin tests de interfaz |
+| el resto | 11 | Cosmético |
+
+Las que **sí** eran bugs reales ya se arreglaron: `useRedFondo` recibía
+`mapRef.current` leído en render, `cargar()` usaba `setCobertura` antes de
+declararlo, y `PanelMediciones` llamaba `Date.now()` en el cuerpo del componente
+en vez de inicializar el estado de forma perezosa.
+
+**El valor que queda no está en llegar a cero sino en que el lint corra**, para
+que no se sigan acumulando. Hoy hay que correrlo a mano: `npx eslint src`.
 
 ## Stack
 
@@ -215,8 +230,7 @@ Replica el circuito formal de obra pública. Cuatro pestañas: **Cómputo**
 (tramos sobre el mapa), **Análisis de precios**, **Presupuesto** y
 **Composición** (plano A4).
 
-**`lib/ripioCalculo.ts`** — motor de cálculo puro, sin React. Verificado contra
-los valores de la planilla de referencia. Cadena:
+**`lib/ripioCalculo.ts`** — motor de cálculo puro, sin React. Cadena:
 
 ```
 precios del proyecto ──► coeficientes ──┬──► APU material      $/tn
@@ -254,6 +268,35 @@ número concreto.
 Los cuatro análisis comparten estructura (es el formato estándar de obra
 pública), así que `components/ripio/PanelAPU.tsx` es uno solo parametrizado que
 se instancia cuatro veces. Se distinguen por color, título y unidad.
+
+#### Cómo está verificado el motor, y hasta dónde llega esa verificación
+
+`scripts/verificar-ripio-motor.ts` **congela 158 salidas** del motor sobre un
+escenario fijo, guardadas en `ripio-motor-congelado.json`.
+
+**Es regresión, no validación.** Afirma que el motor sigue dando lo mismo, no que
+esos números sean los correctos: si un coeficiente estaba mal desde el principio,
+el test lo defiende igual. Se hizo así porque la planilla de obra pública con la
+que se verificó originalmente no está en el repo — **cuando aparezca, este
+archivo se reemplaza por uno que afirme los valores oficiales.**
+
+Existe porque tapa un agujero concreto: el único test que tocaba el motor era
+`verificar-excel-ripio.ts`, que compara **el Excel contra el motor**. Si alguien
+cambia una fórmula, los dos lados se mueven juntos y ese test pasa igual.
+
+```bash
+npx tsx scripts/verificar-ripio-motor.ts              # compara
+npx tsx scripts/verificar-ripio-motor.ts --actualizar # regraba
+```
+
+El congelado va en archivo aparte a propósito: al cambiar el motor **a
+propósito**, se regraba y el **diff de git muestra qué números se movieron y
+cuánto**. Eso es lo que hay que mirar en la revisión. Tiene sensibilidad
+medida: mover el IVA un 0,008 % produce 42 diferencias de 158, y el monto en
+letras del legajo cambia en veinte mil pesos.
+
+**Si `--actualizar` mueve números que no esperabas, eso es el hallazgo.** No se
+commitea sin entender la causa.
 
 ### La red vial de fondo en los mapas de cálculo
 

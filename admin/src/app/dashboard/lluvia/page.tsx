@@ -64,6 +64,10 @@ export default function LluviaPage() {
   const [error, setError] = useState<string | null>(null)
   const [seleccionado, setSeleccionado] = useState<number | null>(null)
   const [orden, setOrden] = useState<Orden>('mm')
+  /** Días del período con serie, interpolados y sin parte. Va declarado
+   *  acá arriba porque `cargar()` lo usa: si se declara más abajo, se lee
+   *  antes de existir y el compilador de React lo marca. */
+  const [cobertura, setCobertura] = useState<Cobertura | null>(null)
   const [ingiriendo, setIngiriendo] = useState(false)
   const [progreso, setProgreso] = useState<
     { hecho: number; total: number; desde: string; hasta: string } | null
@@ -119,7 +123,6 @@ export default function LluviaPage() {
     return () => { vivo = false }
   }, [ultimaCarga])
 
-  const [cobertura, setCobertura] = useState<Cobertura | null>(null)
 
   const [estaciones, setEstaciones] = useState<EstacionLluvia[]>([])
   useEffect(() => {

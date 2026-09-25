@@ -132,7 +132,7 @@ export default function DesmMapPanel({ tramosMap, pendingColor, onLineDone, onDr
    * lectura, que resuelve el hit-test por afuera de Leaflet.
    */
   const [verRedFondo, setVerRedFondo] = useState(true)
-  const tramoFondo = useRedFondo(mapReady ? mapRef.current : null, verRedFondo)
+  const tramoFondo = useRedFondo(mapRef, mapReady, verRedFondo)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const osmLayerRef  = useRef<any>(null)

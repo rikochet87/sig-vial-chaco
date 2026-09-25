@@ -21,15 +21,28 @@ import { cargarRedFondo, toleranciaKm, type RedFondo, type TramoInfo } from '@/l
  * Monta la red de fondo en un mapa de Leaflet y devuelve el tramo bajo el
  * cursor.
  *
- * @param map     el mapa, o null mientras todavía no existe
- * @param activa  permite apagar la capa sin desmontar el componente
+ * Recibe **la ref del mapa, no el mapa**, y la lee adentro del efecto. Antes los
+ * cuatro llamadores hacían `useRedFondo(mapReady ? mapRef.current : null, …)`,
+ * o sea leían `.current` durante el render: funcionaba de casualidad porque
+ * `mapReady` se pone justo después de asignar la ref y eso provoca el re-render,
+ * pero React no rastrea las refs. Si el mapa cambiara sin que cambie ningún
+ * estado, el hook no se enteraría.
+ *
+ * @param mapaRef  ref al mapa de Leaflet
+ * @param listo    si el mapa ya existe — es lo que dispara el re-render
+ * @param activa   permite apagar la capa sin desmontar el componente
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function useRedFondo(map: any, activa: boolean) {
+export function useRedFondo(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  mapaRef: { current: any },
+  listo: boolean,
+  activa: boolean,
+) {
   const [tramo, setTramo] = useState<TramoInfo | null>(null)
   const redRef = useRef<RedFondo | null>(null)
 
   useEffect(() => {
+    const map = listo ? mapaRef.current : null
     if (!map) return
     let vivo = true
 
@@ -63,7 +76,7 @@ export function useRedFondo(map: any, activa: boolean) {
       if (alMover) map.off('mousemove', alMover)
       redRef.current?.desmontar(map)
     }
-  }, [map, activa])
+  }, [mapaRef, listo, activa])
 
   return tramo
 }
