@@ -652,7 +652,53 @@ cuesta ~300 ms y no depende de la fecha, así que se hace una vez; estimar la
 lluvia son 40 ms y se rehace en cada período.
 
 Los caminos son `interactive: false`: 9.743 polilíneas recibiendo eventos traban
-el mapa, y no hay nada que clickear en ellas.
+el mapa. Como entonces no pueden contestar por sí mismas qué tramo son, la
+lectura bajo el cursor se resuelve **por afuera de Leaflet**, igual que en los
+mapas de las calculadoras: `lib/indiceTramos.ts` indexa los tramos ya extraídos
+en la misma grilla de 0,05°, el mapa escucha `mousemove` **a nivel mapa** y un
+recuadro al pie muestra designación, consorcio, kilómetros, jurisdicción,
+material, los milímetros del tramo y de qué pluviómetro lee.
+
+**No se reusa `RedFondo` para esto**, aunque haga algo parecido: aquél indexa el
+GeoJSON crudo que se baja aparte, y acá los tramos ya están partidos y con la
+lluvia calculada. Reusarlo significaría bajar y recorrer los 8,6 MB **una
+segunda vez** para llegar a los mismos 9.743 tramos que ya están en memoria. Lo
+que sí se reusa son sus dos piezas de geometría, que están verificadas:
+`distanciaAlSegmentoKm` y `toleranciaKm`.
+
+**Se indexa por segmento, no por tramo.** Un tramo de 50 km cruza muchas celdas;
+metido entero en la celda de su primer vértice sería invisible en casi todo su
+recorrido. El test lo afirma probando cinco puntos a lo largo del tramo más
+largo de la red.
+
+Verificado contra fuerza bruta sobre 42 puntos: misma respuesta, 2 ms contra
+435. **Y el primer test estaba mal medido**: cronometraba el índice y la fuerza
+bruta dentro del mismo bucle y le atribuía al índice los 10 ms por consulta que
+gastaba el control. Los tiempos van en bloques separados.
+
+**La capa de sedes** sale de `datos`, que ya trae la coordenada de cada
+consorcio, y no de `geo_bundle.json`: son los mismos 103 puntos y el archivo
+pesa 1,3 MB.
+
+#### Si la red vial no carga, hay que decirlo
+
+`useRedLluvia` bajaba los 8,6 MB con un `catch` vacío, justificado con que «la
+pantalla sigue sirviendo con los círculos por consorcio». **Los círculos se
+sacaron y con ellos se fue el motivo**: hoy, si la descarga falla, el mapa queda
+vacío. El comentario quedó defendiendo algo que había dejado de ser cierto, que
+es la peor clase de comentario.
+
+Faltaban tres cosas, y las tres se notaban como el mismo síntoma —"a veces entro
+y no aparece la capa de caminos"—:
+
+- **Mirar `r.ok`.** Un 404 o un 502 devuelven una página HTML de error; `.json()`
+  revienta al parsearla y el `catch` se lo tragaba, con síntoma idéntico al de un
+  corte de red.
+- **Reintentar.** Tres intentos con espera creciente (400 ms, 800 ms). Una
+  descarga de ese tamaño sobre una conexión mala falla de a ratos y anda al
+  segundo.
+- **Decirlo.** Agotados los intentos, la pantalla muestra qué pasó y un botón
+  para reintentar, en vez de un mapa vacío sin explicación.
 
 **El círculo por consorcio se sacó.** Iba en el centro de gravedad de cada red,
 con el radio según los milímetros, como resumen para la vista provincial. Una vez
@@ -695,6 +741,69 @@ círculos de consorcio, que se dibujan después.
 **La Vicuña y Paraje Kolbacks comparten coordenada**, así que una gana siempre el
 desempate y la otra queda sin polígono: 70 zonas para 71 estaciones activas. El
 test lo afirma para que no se lea como un error del algoritmo.
+
+**El recorte del radio es por rectas tangentes, así que el polígono queda
+circunscripto**, no inscripto: pasa los 60 km por 0,05 % en las esquinas y el
+área se va 0,08 % arriba del disco. Es lo que hay detrás del "60,183 km" que
+informa `verificar-thiessen.ts` como vértice más lejano. Está medido y asumido.
+
+### La media areal por Thiessen — el método del manual
+
+`lib/thiessenAreal.ts` calcula la fórmula clásica, que no estaba:
+
+```
+      Σ wᵢ Pᵢ
+ P̄ = ─────────
+        Σ wᵢ
+```
+
+Está para dos cosas: **poder citar el método de manual** —«precipitación media
+areal por polígonos de Thiessen», con la tabla de pesos al lado, se defiende
+ante cualquiera, mientras que IDW hay que explicarlo— y como **control
+cruzado**. Si los dos dan parecido el número está firme; si difieren mucho en un
+consorcio, eso mismo es el dato: la cobertura ahí es pobre o la traza está
+partida entre zonas con láminas muy distintas. **El número que manda en pantalla
+sigue siendo el de IDW.**
+
+**Hay dos pesos y la diferencia no es cosmética.** En hidrología clásica `wᵢ` es
+el **área**, porque el objeto que recibe la lluvia es la cuenca y toda ella
+cuenta igual. Acá el objeto de interés es la red vial:
+
+| | Peso | Dónde se puede |
+|---|---|---|
+| `arealPorSuperficie` | km² de zona dentro de la región | provincia, zona ZI–ZV, departamento |
+| `arealPorLongitud` | km de camino dentro de la zona | cualquier recorte, incluido consorcio |
+
+**Los 103 consorcios no tienen polígono.** En `geo_cc.json` son 9.772
+MultiLineString y nada más; lo único poligonal del proyecto es el límite
+provincial, los 25 departamentos y las 5 zonas. Por eso a nivel consorcio el
+peso es por longitud, y el panel dice por qué en vez de mostrar un guión. Si
+algún día se exporta la capa de límites de CC desde QGIS, entra sin tocar nada:
+`arealPorSuperficie` toma cualquier anillo.
+
+Pesar un consorcio por superficie tampoco sería lo que se quiere: le daría peso
+a territorio donde no hay ni un camino.
+
+**`areaKm2` exige la latitud de referencia y eso no es comodidad.** El factor
+que pasa grados de longitud a km depende de la latitud, así que dos anillos
+medidos cada uno con *su propia* latitud media quedan en planos distintos y sus
+áreas no son comparables. Todas las zonas de una región se miden con la misma
+referencia, **y tiene que ser la que usó `poligonosThiessen` para recortarlas**,
+o el área no sería la del polígono dibujado en el mapa. El test lo afirma con un
+triángulo que es la mitad de un cuadrado con la misma referencia y deja de serlo
+con referencias distintas.
+
+**El promedio se toma sólo sobre la parte cubierta**, y el resto va en
+`cobertura`. Repartir el hueco entre las estaciones que sí hay sería inventar un
+dato; promediarlo como 0 mm sería inventar sequía. Mismo criterio que
+`mm: null` en `redLluvia` y que la zona sin pintar en las isohietas.
+
+**El test no compara la lista de consorcios descubiertos contra la de
+`redLluvia`, y no sería válido**: aquella sale de las 71 estaciones que
+informaron en un evento real y el test carga las 111 del catálogo. Con otro
+conjunto de estaciones el hueco de cobertura es otro. Lo que se afirma son las
+invariantes: cobertura en [0,1], y que tener cobertura y tener media sean la
+misma cosa.
 
 ### La API de la APA
 
@@ -757,9 +866,66 @@ motivo.
 
 **Descargar ya interpola** —la ingesta llama a `fusionar` internamente— así que
 no son dos pasos en orden. Interpolar por separado sirve para cuando la APA
-publicó el parte *después* de que se bajó la serie, que es lo habitual porque
-carga con retraso. El pie del bloque lo dice explícitamente: si no, la pregunta
-obvia es para qué está el segundo botón.
+publicó el parte *después* de que se bajó la serie.
+
+#### Los botones aparecen sólo si harían algo
+
+Explicarlos en un pie no alcanzó, y el motivo es que **la explicación era
+abstracta cuando la respuesta es concreta**: la pantalla ya sabe, por
+`cobertura`, si descargar traería algún día que falta y si interpolar cambiaría
+alguna fila. Ahora:
+
+```
+faltanDias    = dias - conSerie
+porInterpolar = conSerie - interpolados - sinParte
+alDia         = faltanDias === 0 && porInterpolar === 0
+```
+
+Cada botón se muestra sólo si su número es mayor que cero, y lo dice en su
+propio texto: *"Descargar los 3 días que faltan…"*, *"Interpolar 2 días (IDW)"*.
+Con todo al día no queda ningún botón, sólo el estado y una línea que dice que
+la serie se descarga sola. Volver a descargar queda como enlace chico, que es lo
+que es: la excepción para cuando se regeneran los puntos de muestreo.
+
+**`sinParte` no entra en `porInterpolar`.** Son días que la APA nunca publicó y
+que no se van a poder interpolar jamás; contarlos era exactamente el error del
+cartel viejo — ofrecía arreglar algo sin arreglo y volvía a aparecer después de
+apretarlo. Es la misma regla de siempre: **un botón que no puede cambiar nada es
+peor que no tener botón.**
+
+#### Dos crons, y por qué el segundo
+
+`vercel.json` tiene dos, los dos sobre `/api/lluvia/ingesta`:
+
+| Horario UTC | Hora local | Qué hace | Cupo |
+|---|---|---|---|
+| `30 9 * * *` | 06:30 | ingesta de los últimos 7 días, e interpola al final | ~453 llamadas |
+| `0 15 * * *` | 12:00 | sólo reinterpola los últimos 7 días | **nada** |
+
+**El segundo existe por un desfasaje real.** A las 06:30 la APA todavía no
+publicó el parte del día —su período va de 17:00 a 07:00 y carga con retraso—,
+así que la ingesta interpolaba sin él y quedaba un paso manual diario. Un paso
+manual que hay que hacer todos los días es un paso que se olvida.
+
+**Se distinguen por la cabecera `x-vercel-cron-schedule`**, que es lo que Vercel
+documenta para dos crons que comparten ruta. **No se usa un query string en el
+`path`**: la documentación describe el `path` como la ruta a invocar y no dice
+nada de parámetros, así que apoyarse en eso sería construir sobre algo no
+documentado.
+
+La ventana del recálculo del cron es de 7 días y no los 30 del default de
+`recalcularFusion`: para una corrida diaria, 23 de esos días ya se recalcularon
+ayer. No cuesta cupo, pero tampoco aporta.
+
+**Que la serie se baje sola es la respuesta a "cada cuánto conviene
+descargar": nunca, salvo excepción.** Las excepciones son tres — mirar un
+período anterior a la ventana de 7 días, que el cron haya estado caído más de
+una semana, o haber regenerado los puntos de muestreo desde QGIS.
+
+Los 7 días de la ingesta tampoco son decorativos: **el modelo revisa sus propios
+números.** La consulta va contra `archive-api.open-meteo.com`, que para fechas
+recientes devuelve IFS operacional y no ERA5 definitivo. Bajar cada día una sola
+vez dejaría guardada para siempre la primera pasada del modelo.
 
 La **línea de tiempo** de 90 días es la mejora de fondo: una barra por día con la
 lámina máxima de la provincia y el rango elegido resaltado. Convierte un rango de
@@ -789,7 +955,9 @@ coloquial. La inconsistencia era el problema, no el nivel.
 
 Lo que el sistema calcula por consorcio es **precipitación media areal**, el
 concepto de manual; los tres métodos clásicos son media aritmética, polígonos de
-Thiessen e isohietas, de los cuales usamos dos y agregamos IDW.
+Thiessen e isohietas. Están los tres: isohietas se dibujan, Thiessen se calcula
+en `lib/thiessenAreal.ts` con los dos pesos, e IDW —que se agregó— es el que
+manda porque midió mejor.
 
 Se evita **"reanálisis"** en la UI a propósito: ERA5 lo es, pero para fechas
 recientes Open-Meteo devuelve IFS operacional, que no. "Serie modelada" es
@@ -938,7 +1106,20 @@ Los arregla `docs/sql/09-seguridad.sql`, ya aplicado.
 - **`next build` tampoco corre desde el sandbox** una vez que se instaló desde
   Windows: el binario de SWC es por plataforma, y queda el de Windows. Desde el
   sandbox sirve `npx tsc --noEmit`, que es TypeScript puro y no usa binarios
-  nativos, más los scripts de verificación. El build lo corre el usuario.
+  nativos. El build lo corre el usuario.
+- **Los `verificar-*.ts` tampoco, por lo mismo**, desde que `tsx` es dependencia
+  declarada: trae `esbuild`, que es nativo, y queda el de Windows —
+  *"You installed esbuild for another platform"*. Antes andaban porque `npx` se
+  bajaba una copia de Linux al vuelo. Para correrlos desde el sandbox hay que
+  instalar `tsx` aparte fuera del repo y llamarlo por su ruta:
+
+  ```bash
+  mkdir -p /tmp/tsxlinux && cd /tmp/tsxlinux && npm init -y && npm i tsx
+  cd <repo>/admin && node /tmp/tsxlinux/node_modules/tsx/dist/cli.mjs scripts/verificar-fusion.ts
+  ```
+
+  Los `.mjs` —la barrera de lint y la sintaxis SQL— sí corren, porque son Node
+  puro.
 - Si aparece `.git/index.lock`, borrarlo desde el Explorador de Windows.
 - Cuando el usuario pide "el commit", responder **solo con el bloque de
   PowerShell**, sin explicación.

@@ -18,6 +18,8 @@ import { useEffect, useRef, useState } from 'react'
 import 'leaflet/dist/leaflet.css'
 import { colorLluvia, type ResumenConsorcio } from '@/lib/lluvia'
 import { RADIO_KM } from '@/lib/fusion'
+import { IndiceTramos } from '@/lib/indiceTramos'
+import { toleranciaKm } from '@/lib/redFondo'
 import { calcularGrilla, curvasDeNivel, nivelesSugeridos } from '@/lib/isohietas'
 import { poligonosThiessen } from '@/lib/thiessen'
 import { CORTES_MM, type TramoRed, type LluviaTramo } from '@/lib/redLluvia'
@@ -129,7 +131,15 @@ export default function MapaLluvia({
   const [verIso, setVerIso] = useState(false)
   const [verZonas, setVerZonas] = useState(false)
   const [verCaminos, setVerCaminos] = useState(true)
+  const [verSedes, setVerSedes] = useState(false)
   const [niveles, setNiveles] = useState<number[]>([])
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const capaSedesRef = useRef<any>(null)
+  /** Índice espacial de los tramos, para el hit-test del cursor */
+  const indiceRef = useRef<IndiceTramos | null>(null)
+  /** Qué tramo está bajo el cursor ahora mismo */
+  const [bajoCursor, setBajoCursor] = useState<number | null>(null)
 
 
   // ── Crear el mapa una sola vez ───────────────────────────────────────────
@@ -470,6 +480,93 @@ export default function MapaLluvia({
     if (!verCaminos && mapa.hasLayer(capa)) mapa.removeLayer(capa)
   }, [verCaminos, datos, tramos])
 
+  /**
+   * Qué tramo hay bajo el cursor.
+   *
+   * **El hit-test se resuelve por afuera de Leaflet, igual que en los mapas de
+   * las calculadoras y por el mismo motivo**: los caminos son
+   * `interactive: false` a propósito —9.743 polilíneas recibiendo eventos traban
+   * el mapa— así que no pueden contestar por sí mismos. Se escucha `mousemove`
+   * **a nivel mapa**, una sola vez, y el índice contesta cuál está debajo.
+   *
+   * La tolerancia es en píxeles y se convierte al zoom actual: a zoom 8 medio
+   * kilómetro es razonable, a zoom 16 agarraría media ciudad.
+   */
+  useEffect(() => {
+    const mapa = mapaRef.current
+    if (!mapa) return
+
+    indiceRef.current = tramos.length > 0 ? new IndiceTramos(tramos) : null
+    if (!indiceRef.current) { setBajoCursor(null); return }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const alMover = (e: any) => {
+      const idx = indiceRef.current
+      if (!idx || !verCaminos) { setBajoCursor(null); return }
+      const hit = idx.tramoEn(e.latlng, toleranciaKm(mapa))
+      setBajoCursor(hit ? hit.indice : null)
+    }
+    const alSalir = () => setBajoCursor(null)
+
+    mapa.on('mousemove', alMover)
+    mapa.on('mouseout', alSalir)
+    return () => {
+      mapa.off('mousemove', alMover)
+      mapa.off('mouseout', alSalir)
+    }
+  }, [tramos, verCaminos])
+
+  /**
+   * Las sedes de los consorcios.
+   *
+   * Salen de `datos`, que ya trae la coordenada de cada consorcio, en vez de
+   * bajar `geo_bundle.json` sólo para esto: son los mismos 103 puntos y el
+   * archivo pesa 1,3 MB.
+   */
+  useEffect(() => {
+    const mapa = mapaRef.current
+    if (!mapa) return
+    let cancelado = false
+
+    ;(async () => {
+      const L = (await import('leaflet')).default
+      if (cancelado || !mapaRef.current) return
+
+      if (!capaSedesRef.current) capaSedesRef.current = L.layerGroup()
+      const capa = capaSedesRef.current
+      capa.clearLayers()
+
+      if (verSedes) {
+        for (const c of datos) {
+          if (!Number.isFinite(c.lat) || !Number.isFinite(c.lng)) continue
+          L.marker([c.lat, c.lng], {
+            icon: L.divIcon({
+              className: '',
+              html: `<div style="width:21px;height:21px;border-radius:50%;`
+                  + `background:#F5C300;border:2px solid #111;display:flex;`
+                  + `align-items:center;justify-content:center;font-size:11px;`
+                  + `font-weight:800;color:#111;font-family:monospace;`
+                  + `box-shadow:0 2px 6px rgba(0,0,0,.7)">${c.numero}</div>`,
+              iconSize: [21, 21], iconAnchor: [10, 10],
+            }),
+          })
+            .bindTooltip(
+              `<div style="font-family:monospace;font-size:12px;line-height:1.5">`
+              + `<b style="color:#F5C300">Sede CC ${c.numero}</b><br/>`
+              + `${c.nombre.replace(/"/g, '')}</div>`,
+              { direction: 'top', offset: [0, -10], opacity: 0.96 },
+            )
+            .addTo(capa)
+        }
+        if (!mapa.hasLayer(capa)) capa.addTo(mapa)
+      } else if (mapa.hasLayer(capa)) {
+        mapa.removeLayer(capa)
+      }
+    })()
+
+    return () => { cancelado = true }
+  }, [verSedes, datos])
+
   // ── Encuadrar el consorcio elegido en la lista ───────────────────────────
   // Los caminos —resaltar el suyo y atenuar el resto— los atiende el efecto del
   // color, más arriba. Acá sólo queda mover el mapa.
@@ -499,7 +596,7 @@ export default function MapaLluvia({
 
         <Interruptor
           titulo="Caminos" activo={verCaminos} onChange={setVerCaminos}
-          nota="La lámina que recibió cada tramo." />
+          nota="La lámina que recibió cada tramo. Pasá el cursor por encima para ver cuál es." />
 
         {verCaminos && lluviaTramos.length > 0 && (
           <div style={{ margin: '7px 0 0 23px' }}>
@@ -578,7 +675,67 @@ export default function MapaLluvia({
             )}
           </>
         )}
+
+        <div style={{ borderTop: '1px solid #2d2d2d', margin: '8px 0' }} />
+
+        <Interruptor
+          titulo="Sedes de consorcio" activo={verSedes} onChange={setVerSedes}
+          nota="Dónde está la sede de cada uno de los 103." />
       </div>
+
+      {/*
+        Lectura del tramo bajo el cursor.
+        Va al pie y sólo aparece cuando hay algo que decir: un recuadro fijo
+        vacío ocuparía lugar del mapa para no informar nada.
+      */}
+      {bajoCursor !== null && tramos[bajoCursor] && (
+        <div style={{
+          position: 'absolute', left: 10, bottom: 10, zIndex: 500,
+          background: 'rgba(24,24,24,.93)', border: '1px solid #333', borderRadius: 3,
+          padding: '7px 11px', fontFamily: 'monospace', fontSize: 12,
+          color: '#c4c4c4', lineHeight: 1.6, maxWidth: 420, pointerEvents: 'none',
+        }}>
+          <b style={{ color: '#F5C300' }}>{tramos[bajoCursor].ruta || 'Sin designación'}</b>
+          {Number.isFinite(tramos[bajoCursor].cc) && (
+            <span style={{ color: '#8a8a8a' }}>{'  ·  '}CC {tramos[bajoCursor].cc}</span>
+          )}
+          <span style={{ color: '#8a8a8a' }}>
+            {'  ·  '}{tramos[bajoCursor].km.toFixed(1).replace('.', ',')} km
+          </span>
+          <div style={{ color: '#8a8a8a', fontSize: 11 }}>
+            {[tramos[bajoCursor].jurisdiccion, tramos[bajoCursor].material]
+              .filter(Boolean).join('  ·  ') || 'sin datos de jurisdicción'}
+          </div>
+          {lluviaTramos[bajoCursor] && (
+            <div style={{ marginTop: 2 }}>
+              {lluviaTramos[bajoCursor].mm === null ? (
+                <span style={{ color: '#8a8a8a' }}>
+                  Sin pluviómetro a menos de {RADIO_KM} km — no hay dato
+                </span>
+              ) : (
+                <>
+                  <b style={{ color: colorLluvia(lluviaTramos[bajoCursor].mm!) }}>
+                    {lluviaTramos[bajoCursor].mm!.toFixed(1).replace('.', ',')} mm
+                  </b>
+                  {lluviaTramos[bajoCursor].estacion && (
+                    <span style={{ color: '#8a8a8a' }}>
+                      {'  ·  lee de '}{lluviaTramos[bajoCursor].estacion}
+                      {lluviaTramos[bajoCursor].estacionKm !== null &&
+                        ` a ${lluviaTramos[bajoCursor].estacionKm} km`}
+                    </span>
+                  )}
+                  {lluviaTramos[bajoCursor].cobertura < 0.999 && (
+                    <span style={{ color: '#E8833A' }}>
+                      {'  ·  '}
+                      {Math.round(lluviaTramos[bajoCursor].cobertura * 100)} % del tramo con dato
+                    </span>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

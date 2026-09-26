@@ -25,6 +25,7 @@ import {
 
 import type { EstacionLluvia } from '@/components/MapaLluvia'
 import { useRedLluvia } from '@/hooks/useRedLluvia'
+import PanelMediaAreal from '@/components/PanelMediaAreal'
 import { csvTramos } from '@/lib/redLluvia'
 import SelectorPeriodo, { type PuntoSerie, type Cobertura } from '@/components/SelectorPeriodo'
 
@@ -141,7 +142,8 @@ export default function LluviaPage() {
    * traza de cada tramo en vez del centro de la red. Un consorcio puede tener
    * 250 km y una tormenta mojar una punta y no la otra; el promedio lo tapaba.
    */
-  const { tramos, lluvia } = useRedLluvia(estaciones)
+  const { tramos, lluvia, arealProvincia, arealPorCC,
+    error: errorRed, reintentar: reintentarRed } = useRedLluvia(estaciones)
 
   /** Descargar la lista completa de tramos con su lluvia */
   const descargarCsv = () => {
@@ -444,6 +446,31 @@ export default function LluviaPage() {
 
         <div style={{ flex: 1, minWidth: 0, position: 'relative',
           background: '#191919', border: '1px solid #1e1e1e' }}>
+          {/*
+            Si la red vial no llegó, el mapa queda vacío. Antes eso pasaba en
+            silencio —el fetch tenía un catch vacío— y no había forma de saber
+            si era un problema o si no había llovido.
+          */}
+          {errorRed && (
+            <div style={{
+              position: 'absolute', top: 10, left: 10, zIndex: 600,
+              background: 'rgba(40,24,16,.96)', border: '1px solid #7a4a22',
+              borderRadius: 3, padding: '9px 12px', fontFamily: 'monospace',
+              fontSize: 12, color: '#E8A87C', lineHeight: 1.6, maxWidth: 360,
+            }}>
+              <b>No se pudo cargar la red vial.</b><br />
+              <span style={{ color: '#b98a64' }}>{errorRed}</span>
+              <br />
+              <button onClick={reintentarRed} style={{
+                fontFamily: 'monospace', fontSize: 12, marginTop: 6,
+                padding: '4px 10px', borderRadius: 3, cursor: 'pointer',
+                background: 'transparent', border: '1px solid #7a4a22', color: '#E8A87C',
+              }}>
+                Reintentar
+              </button>
+            </div>
+          )}
+
           <MapaLluvia datos={datos} seleccionado={seleccionado}
             estaciones={estaciones} tramos={tramos} lluviaTramos={lluvia}
             umbral={umbral} onUmbral={setUmbral} />
@@ -522,6 +549,25 @@ export default function LluviaPage() {
       </div>
 
       </>)}
+
+      {/*
+        La comparación de métodos va plegada y al pie: el número que manda es el
+        de IDW y esto es una segunda lectura. Sigue al consorcio elegido, así que
+        sin selección compara sobre toda la provincia — que además es el único
+        ámbito donde existe el peso por superficie.
+      */}
+      <PanelMediaAreal
+        ambito={seleccionado === null
+          ? 'toda la red de la provincia'
+          : `la red del consorcio Nº ${seleccionado}`}
+        mmIdw={seleccionado === null
+          ? (datos.length ? datos.reduce((s, c) => s + c.mm, 0) / datos.length : null)
+          : (datos.find(c => c.numero === seleccionado)?.mm ?? null)}
+        porLongitud={seleccionado === null
+          ? (arealProvincia?.porLongitud ?? null)
+          : (arealPorCC.get(seleccionado) ?? null)}
+        porSuperficie={seleccionado === null ? (arealProvincia?.porSuperficie ?? null) : null}
+      />
 
       {/*
         El pie tenía siete renglones explicando el método. Eso pertenece al globo

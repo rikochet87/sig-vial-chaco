@@ -19,13 +19,28 @@
  * que toca datos, con lo que cuesta escrito al lado. Que estén separados importa
  * más que cómo se llamen.
  *
+ * ── Los botones aparecen sólo si harían algo ──────────────────────────────────
+ *
+ * Explicar en un pie para qué sirve cada botón no alcanzó, y el motivo es que la
+ * explicación era abstracta cuando la respuesta es concreta: **la pantalla ya
+ * sabe** —por `cobertura`— si descargar traería algún día que falta y si
+ * interpolar cambiaría alguna fila. Si no cambian nada, no se muestran.
+ *
+ * Es la misma regla que se aplicó con `sin_parte`: **un botón que no puede
+ * cambiar nada es peor que no tener botón.** Ahí el cartel ofrecía «Recalcular»
+ * sobre días que la APA nunca publicó, uno lo apretaba y el cartel volvía igual.
+ *
+ * Con todo al día no queda ningún botón, sólo el estado y una línea que dice que
+ * lo trae el cron todos los días. Volver a descargar sigue siendo posible —hace
+ * falta si se regeneran los puntos de muestreo desde QGIS— pero como enlace
+ * chico, que es lo que es: una excepción.
+ *
  * ── Dos detalles que no son obvios ────────────────────────────────────────────
  *
  * **Descargar ya interpola.** La ingesta llama a la fusión internamente, así que
  * no son dos pasos en orden. Interpolar por separado sirve para cuando la APA
  * publicó el parte *después* de que se bajó la serie, que es lo habitual porque
- * carga con retraso. Por eso el pie lo dice explícitamente: si no, la pregunta
- * obvia es para qué está el segundo botón.
+ * carga con retraso.
  *
  * **Sólo se confirma lo que cuesta.** Descargar tarda, gasta cupo y no se puede
  * cancelar a la mitad: abre un diálogo que dice esas tres cosas con números.
@@ -93,6 +108,19 @@ export default function SelectorPeriodo({
   const [confirmando, setConfirmando] = useState(false)
 
   const dias = cobertura?.dias ?? 0
+
+  /*
+   * Qué haría cada botón, para decidir si mostrarlo.
+   *
+   * `sinParte` **no** se cuenta como pendiente: son días que la APA nunca
+   * publicó y que no se van a poder interpolar jamás. Meterlos en la cuenta era
+   * exactamente el error del cartel viejo — ofrecía arreglar algo que no tiene
+   * arreglo, y volvía a aparecer después de apretarlo.
+   */
+  const faltanDias    = Math.max(0, dias - (cobertura?.conSerie ?? 0))
+  const porInterpolar = Math.max(0,
+    (cobertura?.conSerie ?? 0) - (cobertura?.interpolados ?? 0) - (cobertura?.sinParte ?? 0))
+  const alDia = cobertura !== null && faltanDias === 0 && porInterpolar === 0
   const enEpisodio = episodios.some(e => e.desde === desde && e.hasta === hasta)
 
   /** ¿Este preset de N días es el rango actual? */
@@ -251,30 +279,65 @@ export default function SelectorPeriodo({
             )}
 
             <span style={{ flex: 1 }} />
-            <button onClick={() => setConfirmando(true)} disabled={descargando}
-              style={{
-                ...mono, fontSize: 12, padding: '6px 11px', borderRadius: 3,
-                cursor: descargando ? 'default' : 'pointer', background: 'transparent',
-                border: `1px solid ${descargando ? '#333' : '#2e5540'}`,
-                color: descargando ? '#555' : '#7BC47F',
-              }}>
-              {descargando
-                ? progreso ? `Descargando ${progreso.hecho + 1} de ${progreso.total}…` : 'Descargando…'
-                : 'Descargar serie modelada…'}
-            </button>
-            <button onClick={onInterpolar} disabled={interpolando}
-              style={{
-                ...mono, fontSize: 12, padding: '6px 11px', borderRadius: 3,
-                cursor: interpolando ? 'default' : 'pointer', background: 'transparent',
-                border: `1px solid ${interpolando ? '#333' : '#2a3f55'}`,
-                color: interpolando ? '#555' : '#85B7EB',
-              }}>
-              {interpolando ? 'Interpolando…' : 'Interpolar pluviómetros (IDW)'}
-            </button>
+
+            {/*
+              Descargar aparece sólo si hay días sin serie. Si están todos, el
+              botón no puede traer nada nuevo: la excepción va como enlace abajo.
+            */}
+            {(faltanDias > 0 || descargando) && (
+              <button onClick={() => setConfirmando(true)} disabled={descargando}
+                style={{
+                  ...mono, fontSize: 12, padding: '6px 11px', borderRadius: 3,
+                  cursor: descargando ? 'default' : 'pointer', background: 'transparent',
+                  border: `1px solid ${descargando ? '#333' : '#2e5540'}`,
+                  color: descargando ? '#555' : '#7BC47F',
+                }}>
+                {descargando
+                  ? progreso ? `Descargando ${progreso.hecho + 1} de ${progreso.total}…` : 'Descargando…'
+                  : `Descargar los ${faltanDias} días que faltan…`}
+              </button>
+            )}
+
+            {/*
+              Interpolar aparece sólo si hay días con serie y con parte de la APA
+              que todavía no se cruzaron. Los `sinParte` no cuentan: no se van a
+              poder interpolar nunca.
+            */}
+            {(porInterpolar > 0 || interpolando) && (
+              <button onClick={onInterpolar} disabled={interpolando}
+                style={{
+                  ...mono, fontSize: 12, padding: '6px 11px', borderRadius: 3,
+                  cursor: interpolando ? 'default' : 'pointer', background: 'transparent',
+                  border: `1px solid ${interpolando ? '#333' : '#2a3f55'}`,
+                  color: interpolando ? '#555' : '#85B7EB',
+                }}>
+                {interpolando
+                  ? 'Interpolando…'
+                  : `Interpolar ${porInterpolar} ${porInterpolar === 1 ? 'día' : 'días'} (IDW)`}
+              </button>
+            )}
           </div>
 
           <div style={{ ...mono, fontSize: 11, color: '#5e656d', marginTop: 8 }}>
-            Descargar ya interpola. Interpolar solo, sirve cuando la APA cargó el parte después.
+            {alDia ? (
+              <>
+                El período está completo. La serie se descarga sola todos los días;
+                no hace falta tocar nada.
+                {' '}
+                <button onClick={() => setConfirmando(true)} disabled={descargando}
+                  style={{
+                    ...mono, fontSize: 11, padding: 0, border: 'none', background: 'none',
+                    color: '#5e656d', textDecoration: 'underline', cursor: 'pointer',
+                  }}>
+                  Volver a descargarla
+                </button>
+                {' '}sólo si se regeneraron los puntos de muestreo.
+              </>
+            ) : porInterpolar > 0 && faltanDias === 0 ? (
+              'La APA publicó el parte después de que se bajó la serie. Interpolar es gratis e instantáneo.'
+            ) : (
+              'Descargar ya interpola al final: no son dos pasos en orden.'
+            )}
           </div>
         </div>
       )}

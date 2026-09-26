@@ -394,7 +394,38 @@ const SIN_PARTE = {
   estaciones_usadas: 0,
 } as const
 
-/** El cron de Vercel pega con GET. Mismo trabajo, rango por defecto. */
+/**
+ * Horario del cron que sólo reinterpola, sin salir a Open-Meteo.
+ *
+ * Existe por un desfasaje real: el cron de la mañana corre a las 09:30 UTC
+ * —06:30 acá— y **la APA todavía no publicó el parte del día**, cuyo período va
+ * de 17:00 a 07:00 y se carga con retraso. Así que la ingesta interpolaba sin el
+ * parte que iba a salir un rato después, y quedaba un paso manual: entrar a la
+ * pantalla y apretar «Interpolar». Un paso manual que hay que hacer todos los
+ * días es un paso que se olvida.
+ *
+ * El recálculo **no toca Open-Meteo** —los milímetros del modelo ya están
+ * guardados—, así que esta segunda corrida no gasta nada de cupo.
+ */
+const CRON_SOLO_FUSION = '0 15 * * *'
+
+/**
+ * El cron de Vercel pega con GET.
+ *
+ * Los dos horarios comparten ruta y se distinguen por `x-vercel-cron-schedule`,
+ * que es la cabecera que Vercel documenta para exactamente esto. **No se usa un
+ * query string en el `path` del cron**: la documentación describe el `path` como
+ * la ruta que se invoca y no dice nada de parámetros, así que apoyarse en eso
+ * sería construir sobre algo no documentado.
+ */
 export async function GET(req: NextRequest) {
+  if (req.headers.get('x-vercel-cron-schedule') === CRON_SOLO_FUSION) {
+    const ok = await autorizado(req)
+    if (ok instanceof NextResponse) return ok
+    // Siete días, la misma ventana que repisa la ingesta de la mañana. El
+    // default de `recalcularFusion` son 30 y para una corrida diaria es de más:
+    // no cuesta cupo, pero son 23 días que ya se recalcularon ayer.
+    return recalcularFusion(hace(7), aISO(new Date()))
+  }
   return POST(req)
 }

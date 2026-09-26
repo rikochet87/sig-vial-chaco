@@ -4,6 +4,10 @@
     {
       "path": "/api/lluvia/ingesta",
       "schedule": "30 9 * * *"
+    },
+    {
+      "path": "/api/lluvia/ingesta",
+      "schedule": "0 15 * * *"
     }
   ]
 }
