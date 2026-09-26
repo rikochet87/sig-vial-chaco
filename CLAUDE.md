@@ -913,6 +913,17 @@ documenta para dos crons que comparten ruta. **No se usa un query string en el
 nada de parámetros, así que apoyarse en eso sería construir sobre algo no
 documentado.
 
+**Verificado en producción** el 26/09/2026, disparando el de las 15:00 con el
+botón «Run» del panel de Vercel. El log lo confirma por tres lados: user agent
+`vercel-cron/1.0`, respuesta en **1,8 s** —la ingesta completa no puede terminar
+en ese tiempo, son 453 llamadas con espera— y en «External APIs» aparecen sólo
+Supabase y tres a `mapas.apachaco.gob.ar`, **ninguna a Open-Meteo**. O sea que
+tomó la rama del recálculo y no gastó cupo.
+
+**En Hobby la ventana es de ±1 hora**, como avisa la propia pantalla de Cron
+Jobs: el de las 15:00 UTC puede caer hasta las 15:59. Sigue holgado sobre el
+parte de la APA, que es lo que importa.
+
 La ventana del recálculo del cron es de 7 días y no los 30 del default de
 `recalcularFusion`: para una corrida diaria, 23 de esos días ya se recalcularon
 ayer. No cuesta cupo, pero tampoco aporta.
