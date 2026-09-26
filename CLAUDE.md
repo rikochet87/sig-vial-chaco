@@ -834,6 +834,143 @@ relleno, y **Sáenz Peña** (id 2) y **Presidencia Roque Sáenz Peña** (id 189)
 la misma ciudad cargada dos veces — la APA informa siempre en la segunda, por
 eso en `buscarEstacion` **el alias gana sobre el nombre literal**.
 
+## El río Paraná — Alerta Hidrológico del INA
+
+`lib/ina.ts`. **Es la segunda amenaza y no es la misma que la lluvia.**
+
+La crecida se genera en las cuencas altas —Paranaíba, Grande, Iguazú, y el
+Paraguay por el Pantanal—, a miles de kilómetros y con días o semanas de
+retardo. **Lo que llueve en Chaco no mueve la altura en Barranqueras.** Por eso
+el módulo no se mezcla con `lib/fusion.ts`: se traen las dos series, se las
+muestra sobre el mismo eje de tiempo, y la coincidencia la lee el que mira.
+
+Que sean independientes es lo que las vuelve peligrosas juntas: **con el río en
+cota alta el agua de una tormenta local no tiene dónde ir**, porque el río le
+pone condición de borde al drenaje. No se suman, se condicionan. Modelar eso
+necesita cotas y un modelo hidráulico; hasta entonces el sistema muestra las dos
+series y no afirma nada sobre su combinación.
+
+**Y el río se pronostica mejor que la lluvia**, al revés de lo que uno supone: el
+INA emite a ~11 días porque el agua ya está en tránsito. Para anticipar, esta
+serie es el dato más fuerte que hay.
+
+### La API
+
+`alerta.ina.gob.ar/a5` — **lectura abierta, sin token** (la `apiUI` de gestión sí
+pide sesión, pero no hace falta para leer). Verificado el 26/09/2026:
+
+```
+GET /a5/obs/puntual/estaciones?format=json              → 4.683 estaciones
+GET /a5/obs/puntual/series?estacion_id=N&format=json    → series de una estación
+GET /a5/obs/puntual/series/{id}/observaciones
+      ?timestart=…&timeend=…&format=json                → [{timestart, valor}]
+GET /a5/sim/calibrados/{cal_id}/corridas/last
+      ?series_id=N&includeProno=true&format=json        → el pronóstico
+```
+
+Cuatro cosas que importan:
+
+- **Los umbrales los pone el organismo.** Cada estación trae `nivel_alerta` y
+  `nivel_evacuacion`. **No se inventa ninguno acá** — mismo criterio que con la
+  procedencia de la lluvia: el número y la autoridad que lo respalda salen
+  juntos de la fuente. Y son **por estación**: Goya evacúa a 5,7 m y Corrientes
+  a 7, así que `estadoDe()` exige la estación y no acepta una altura suelta.
+- **El pronóstico es una banda, no una línea.** Cada punto trae
+  `qualifier: inferior | medio | superior`. Dibujar sólo el medio sería
+  presentar como certeza algo que la fuente entrega como rango.
+- **Se usa la serie de medición directa, no la simulada.** El número que se
+  muestra tiene que ser el que alguien leyó en la escala. Mismo criterio que los
+  pluviómetros frente al modelo.
+- **Corrientes tiene altura medida desde 1901** —47.954 registros— y caudal
+  desde 1910. Acá el histórico profundo **ya existe**, al revés de la lluvia
+  donde tenemos un año. Eso permite decir "es la mayor en N años", que es la
+  lectura que a la lluvia le falta.
+
+### Cómo se muestra: dos franjas, no dos líneas en un eje
+
+`components/PanelRio.tsx` + `app/api/rio/route.ts`.
+
+La tentación es superponer río y lluvia en el mismo gráfico. **Sería
+incorrecto**: una serie está en milímetros de lámina y la otra en metros de
+altura. Un eje Y compartido entre dos magnitudes distintas no significa nada y,
+peor, invita a leer cruces y paralelismos que son artefactos del escalado. Van
+en **franjas apiladas que comparten el eje X**: la coincidencia en el tiempo
+—lo único que se quiere ver— se lee de un vistazo y ninguna altura se compara
+contra ningún milímetro.
+
+**El eje vertical incluye siempre los dos umbrales**, aunque el río esté muy por
+debajo. Escalar sólo a los datos dejaría la línea de evacuación fuera del dibujo
+justo cuando el río está tranquilo, y entonces el gráfico no muestra cuán lejos
+está de ella — que es la única lectura que importa.
+
+**La ruta pasa por el servidor y no la pide el navegador**, por tres motivos en
+orden: no sabemos si el INA sirve CORS; son doce pedidos por pantalla —serie y
+pronóstico de seis estaciones— y multiplicarlos por cada navegador es maltratar
+a un organismo público sin motivo; y desde el servidor se puede cachear media
+hora, que es lo que tarda en haber algo nuevo.
+
+`Promise.allSettled` y no `all`: **una estación caída no puede tirar abajo las
+otras cinco**. Lo que no llegó se informa con `fallaron`, para que un panel con
+cuatro de seis diga que faltan dos en vez de mostrarse completo.
+
+**El guard es `requirePermiso('lluvia')`**, el permiso de la pantalla que lo
+consume. `/api/lluvia` y `/api/lluvia/serie` siguen con `requireAdmin()`, que
+sólo verifica sesión: son de sólo lectura y de datos públicos, así que el daño
+es bajo, pero es el mismo molde que ya causó agujeros acá. **Habría que
+emparejarlas.**
+
+### El hueco del datum
+
+**Barranqueras no tiene `cero_ign`.** Sin el cero de escala referido al datum del
+IGN, "6,5 m en la escala" y la cota de un modelo de elevación **están en dos
+sistemas verticales distintos y no se pueden comparar**. Corrientes, sobre el
+mismo tramo, sí lo tiene: **42,39**. Cualquier simulación futura se ancla ahí
+hasta conseguir el de Barranqueras — es un pedido al INA o a Prefectura, no un
+desarrollo. El script de relevamiento avisa si algún día aparece.
+
+### El relevamiento no entra en `npm run verificar`
+
+`scripts/relevar-ina.ts` **no es un test de lógica sino de contrato con un
+tercero**: lo que puede romperse no es nuestro código sino la API del INA — que
+cambie la forma de una respuesta, que una estación deje de ser pública, que
+muevan un umbral. Nada de eso lo atrapa `tsc`.
+
+Queda afuera de `verificar` a propósito: sale a la red y depende de que un
+organismo esté en línea. **Un chequeo que falla por motivos ajenos al commit
+enseña a ignorar los chequeos.** Se corre a mano, y tampoco desde el sandbox,
+cuyo acceso a red está limitado a dominios permitidos:
+
+```bash
+npx tsx scripts/relevar-ina.ts
+```
+
+Por eso se llama `relevar-` y no `verificar-`: `verificar-todo.mjs` levanta por
+prefijo, así que el nombre es lo que lo mantiene fuera.
+
+### Sobre el modelo digital de elevaciones
+
+Para cualquier simulación de mancha de inundación, lo relevado hasta ahora:
+
+| | Resolución | Error vertical | Nota |
+|---|---|---|---|
+| **IGN MDE-Ar v2.1** | 30 m | ~2 m | Nacional, libre, el citable en Argentina |
+| **FABDEM** | 30 m | ~1,5 m | El mejor de los globales en llanura; **le saca bosque y edificios** |
+| Copernicus / NASADEM / SRTM | 30 m | peor | SRTM y NASADEM **sobreestiman bajo dosel** — el Impenetrable |
+
+**El límite es real y está medido**: en la franja crítica de 0 a 6 m sobre el
+cauce, los errores verticales de los MDE globales son comparables o mayores que
+la profundidad real de la inundación. En terreno llano como el Chaco eso
+descalifica cualquier delimitación a escala de barrio.
+
+La salida publicada es **ICESat-2**: lidar satelital de precisión centimétrica
+pero disperso, que no sirve como MDE pero sí como verdad de campo para corregir
+uno. Hay trabajo que entrena una red sobre ICESat-2 para corregir y bajar FABDEM
+a 10 m, mejorando hasta 15 % la habilidad para reproducir la mancha.
+
+Antes de gastar en eso conviene averiguar si existe **lidar o fotogrametría
+sobre el Gran Resistencia**: las áreas urbanas suelen tener relevamientos mucho
+mejores que la grilla nacional.
+
 ### Cuidado con las métricas condicionadas
 
 Comparar sólo donde la APA informó da resultados que se dan vuelta según la

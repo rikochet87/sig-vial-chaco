@@ -26,6 +26,7 @@ import {
 import type { EstacionLluvia } from '@/components/MapaLluvia'
 import { useRedLluvia } from '@/hooks/useRedLluvia'
 import PanelMediaAreal from '@/components/PanelMediaAreal'
+import PanelRio from '@/components/PanelRio'
 import { csvTramos } from '@/lib/redLluvia'
 import SelectorPeriodo, { type PuntoSerie, type Cobertura } from '@/components/SelectorPeriodo'
 
@@ -556,6 +557,13 @@ export default function LluviaPage() {
         sin selección compara sobre toda la provincia — que además es el único
         ámbito donde existe el peso por superficie.
       */}
+      {/*
+        El río va antes que la comparación de métodos: es la otra amenaza, no
+        una segunda lectura de la misma. Comparte el eje de tiempo con la línea
+        de arriba y resalta el mismo período elegido.
+      */}
+      <PanelRio dias={90} desde={desde} hasta={hasta} />
+
       <PanelMediaAreal
         ambito={seleccionado === null
           ? 'toda la red de la provincia'
