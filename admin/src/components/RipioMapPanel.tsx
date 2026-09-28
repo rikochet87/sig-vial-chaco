@@ -7,23 +7,43 @@ import { PANE_RED_FONDO, asegurarPanelFondo } from '@/lib/redFondo'
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 export type LatLng = [number, number]
 
-export interface RipioTramo {
+/**
+ * Lo único que este panel necesita saber de un tramo.
+ *
+ * **El panel no tiene nada propio del ripio**: dibuja una polilínea con una
+ * banda de ancho `an`, la mide, y avisa. Por eso el tipo se extrajo — así lo
+ * puede usar terraplén, donde `an` es el ancho de base, sin hacer una quinta
+ * copia del mapa. Las cuatro que ya hay son la duplicación más grande del repo.
+ *
+ * El archivo sigue llamándose `RipioMapPanel` y los callbacks conservan nombres
+ * como `onDeleteRipio`: renombrar cruza mil ochocientas líneas de `CalcRipio`
+ * sin tests de interfaz que lo respalden, y el riesgo no compensa hoy. **El
+ * nombre miente un poco y está anotado acá**, que es mejor que un renombre
+ * apurado.
+ */
+export interface TramoDibujable {
   id: string
   nombre: string
+  /** Ancho de la banda que se dibuja sobre el terreno, en metros */
   an: number
-  e: number
-  rho: number
+  /** Longitud medida sobre el dibujo, en metros */
   l_m: number
   coords: LatLng[] | null
+  orden: number
+  /** Color personalizado; `null` usa la paleta automática */
+  color: string | null
+}
+
+export interface RipioTramo extends TramoDibujable {
+  e: number
+  rho: number
   empresa: string
   fecha_ejecucion: string | null
   precio_unitario: number
-  orden: number
-  color: string | null   // color personalizado; null = usar paleta automática
 }
 
 interface Props {
-  ripios:          RipioTramo[]
+  ripios:          TramoDibujable[]
   selectedId:      string | null
   drawingId:       string | null          // ripio en modo dibujo activo
   /** Ripio en modo edición de vértices (excluyente con drawingId) */

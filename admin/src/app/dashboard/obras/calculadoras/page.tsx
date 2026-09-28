@@ -8,6 +8,17 @@ import CalcRipioComponent from '@/components/CalcRipio'
 import DesmMapPanel, { type TramoForMap } from '@/components/DesmMapPanel'
 import MapComposicion, { type TramoComp } from '@/components/MapComposicion'
 import GuardarObraModal, { type GuardarObraData, type ObraTipo } from '@/components/GuardarObraModal'
+import CalcTerraplen from '@/components/CalcTerraplen'
+/*
+ * Las piezas compartidas viven en `components/calc/piezas.tsx`.
+ *
+ * Estaban acá adentro, que es una página: al sacar terraplén a su propio
+ * componente había que copiarlas o moverlas, y copiarlas habría sumado a la
+ * duplicación que ya es el problema de esta parte del repo.
+ */
+import {
+  panel, secLabel, lbl, inpStyle, Inp, Res, SectionTitle, Pipeline, HATCH, DimLine,
+} from '@/components/calc/piezas'
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 type Tab    = 'terraplen' | 'excavacion' | 'ripio' | 'canal' | 'limpieza'
@@ -26,23 +37,7 @@ const UNIDADES: Record<Tab, string> = {
 }
 
 // ── Estilos base ──────────────────────────────────────────────────────────────
-const panel: React.CSSProperties = {
-  background: '#0e0e0e', border: '1px solid #1e1e1e', borderRadius: 6, padding: 14,
-  overflowY: 'auto', minHeight: 0,
-}
-const secLabel: React.CSSProperties = {
-  fontSize: 13, color: '#444', textTransform: 'uppercase', letterSpacing: 1.2,
-  fontFamily: 'monospace', marginBottom: 10, marginTop: 16,
-}
-const inpStyle: React.CSSProperties = {
-  width: '100%', background: '#080808', border: '1px solid #222', color: '#e0e0e0',
-  fontFamily: 'monospace', fontSize: 17, padding: '6px 10px', borderRadius: 3,
-  outline: 'none', boxSizing: 'border-box',
-}
-const lbl: React.CSSProperties = {
-  fontSize: 13, color: '#555', textTransform: 'uppercase', letterSpacing: 0.8,
-  fontFamily: 'monospace', marginBottom: 3, marginTop: 10, display: 'block',
-}
+// `panel`, `secLabel` y los componentes base se importan de `calc/piezas`.
 const th: React.CSSProperties = {
   padding: '4px 8px', fontWeight: 400, fontSize: 12, color: '#555',
   textTransform: 'uppercase', letterSpacing: 0.8, textAlign: 'left', fontFamily: 'monospace',
@@ -86,182 +81,6 @@ function pesosEnLetras(n: number): string {
   const str = parts.join(' ') || 'cero'
   const cap = str.charAt(0).toUpperCase() + str.slice(1)
   return `Son pesos ${cap}${cts > 0 ? ` con ${cts}/100` : ''}.`
-}
-
-// ── Componentes base ──────────────────────────────────────────────────────────
-function Inp({ label, unit, value, onChange, step = 0.1, min = 0 }: {
-  label: string; unit?: string; value: number
-  onChange: (v: number) => void; step?: number; min?: number
-}) {
-  return (
-    <label style={{ display: 'block' }}>
-      <span style={lbl}>{label}{unit ? ` (${unit})` : ''}</span>
-      <input type="number" min={min} step={step} value={value}
-        onChange={e => { const v = parseFloat(e.target.value); if (!isNaN(v) && v >= min) onChange(v) }}
-        style={inpStyle} />
-    </label>
-  )
-}
-
-function Res({ label, value, unit, accent }: { label: string; value: string; unit: string; accent?: boolean }) {
-  return (
-    <div style={{ marginBottom: 6, paddingBottom: 6, borderBottom: '1px solid #141414' }}>
-      <div style={{ fontSize: 12, color: '#444', textTransform: 'uppercase', letterSpacing: 0.8, fontFamily: 'monospace' }}>{label}</div>
-      <div style={{ marginTop: 1 }}>
-        <span style={{ fontSize: accent ? 16 : 13, fontWeight: 700, color: accent ? '#F5C300' : '#bbb', fontFamily: 'monospace' }}>{value}</span>
-        <span style={{ fontSize: 12, color: '#444', marginLeft: 3, fontFamily: 'monospace' }}>{unit}</span>
-      </div>
-    </div>
-  )
-}
-
-function SectionTitle({ children }: { children: React.ReactNode }) {
-  return <div style={{ fontSize: 14, color: '#666', fontFamily: 'monospace', marginBottom: 6 }}>{children}</div>
-}
-
-// Pipeline de pasos
-function Pipeline({ steps, color }: {
-  steps: { label: string; formula: string; sub: string; result: string; accent?: boolean }[]
-  color: string
-}) {
-  return (
-    <div style={{ borderTop: '1px solid #1a1a1a', paddingTop: 12, marginTop: 8 }}>
-      <div style={{ fontSize: 12, color: '#333', textTransform: 'uppercase', letterSpacing: 1.2, fontFamily: 'monospace', marginBottom: 8 }}>
-        Procedimiento de cálculo
-      </div>
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-        {steps.map((s, i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'stretch', gap: 6 }}>
-            <div style={{
-              background: s.accent ? `${color}14` : '#080808',
-              border: `1px solid ${s.accent ? color + '44' : '#1a1a1a'}`,
-              borderRadius: 4, padding: '8px 10px', minWidth: 110,
-            }}>
-              <div style={{ fontSize: 12, color: '#444', fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 4 }}>{s.label}</div>
-              <div style={{ fontSize: 12, color: '#2a2a2a', fontFamily: 'monospace', lineHeight: 1.4 }}>{s.formula}</div>
-              <div style={{ fontSize: 12, color: '#383838', fontFamily: 'monospace', marginTop: 3, lineHeight: 1.4 }}>= {s.sub}</div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: s.accent ? color : '#666', fontFamily: 'monospace', marginTop: 4 }}>{s.result}</div>
-            </div>
-            {i < steps.length - 1 && (
-              <div style={{ display: 'flex', alignItems: 'center', color: '#222', fontSize: 14, paddingTop: 14 }}>→</div>
-            )}
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-// SVG helpers
-const HATCH = (y0: number, w: number) =>
-  Array.from({ length: 6 }, (_, i) => (
-    <line key={i} x1={0} y1={y0 + 6 + i * 9} x2={w} y2={y0 + 6 + i * 9}
-      stroke="#1a1a1a" strokeWidth={1} />
-  ))
-
-function DimLine({ x1, y1, x2, y2, label, textX, textY, rotate }: {
-  x1: number; y1: number; x2: number; y2: number
-  label: string; textX: number; textY: number; rotate?: string
-}) {
-  return (
-    <>
-      <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="#2a2a2a" strokeWidth={0.8} strokeDasharray="3 3" />
-      <text x={textX} y={textY} textAnchor="middle" fontSize={9} fill="#555"
-        fontFamily="monospace" transform={rotate}>{label}</text>
-    </>
-  )
-}
-
-// ── TERRAPLÉN ─────────────────────────────────────────────────────────────────
-function CalcTerraplen({ paramsRef }: { paramsRef?: React.MutableRefObject<Params> }) {
-  const [L, setL]     = useState(1000)
-  const [H, setH]     = useState(1.5)
-  const [Bc, setBc]   = useState(4.0)
-  const [m, setM]     = useState(1.5)
-  const [rho, setRho] = useState(1.80)
-  const [Fe, setFe]   = useState(20)
-  const [Fc, setFc]   = useState(90)
-
-  const Bb     = Bc + 2 * H * m
-  const A      = (Bc + Bb) / 2 * H
-  const Vneto  = A * L
-  const Vbanco = Vneto / (Fc / 100)
-  const Vesp   = Vbanco * (1 + Fe / 100)
-  const W      = Vbanco * rho
-
-  // Sincronizar params con ref del padre (para transferencia a Planta y Guardar Obra)
-  useEffect(() => {
-    if (paramsRef) paramsRef.current = { H, Bc, m, rho, Fe, Fc, W_t: W, L_m: L }
-  }, [paramsRef, L, H, Bc, m, rho, Fe, Fc, W])
-  const fmt    = (n: number) => Math.round(n).toLocaleString('es-AR')
-
-  const W_SVG = 420, H_SVG = 210, GY = 160, PAD = 50
-  const sc = Math.min((W_SVG - 2 * PAD) / Math.max(Bb, 1), (GY - 30) / Math.max(H, 0.1))
-  const dH = H * sc, dBb = Bb * sc, dBc = Bc * sc
-  const cx = W_SVG / 2
-  const pts = `${cx - dBb / 2},${GY} ${cx + dBb / 2},${GY} ${cx + dBc / 2},${GY - dH} ${cx - dBc / 2},${GY - dH}`
-  const color = CLR.terraplen
-
-  return (
-    <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr 148px', gap: 10, height: '100%' }}>
-      <div style={panel}>
-        <SectionTitle>Geometría</SectionTitle>
-        <Inp label="Longitud" unit="m"         value={L}   onChange={setL}   step={10} />
-        <Inp label="Altura media" unit="m"     value={H}   onChange={setH}   />
-        <Inp label="Ancho de corona" unit="m"  value={Bc}  onChange={setBc}  />
-        <Inp label="Talud H:V"                 value={m}   onChange={setM}   step={0.5} min={0.5} />
-        <div style={secLabel}>Material</div>
-        <Inp label="Densidad" unit="t/m³"      value={rho} onChange={setRho} step={0.05} min={1} />
-        <Inp label="Esponjamiento" unit="%"    value={Fe}  onChange={setFe}  step={1} />
-        <Inp label="Compactación" unit="%"     value={Fc}  onChange={setFc}  step={1} min={50} />
-        <div style={{ marginTop: 12, padding: '8px', background: '#0a0a0a', borderRadius: 4, fontSize: 12, color: '#333', fontFamily: 'monospace', lineHeight: 1.6 }}>
-          Ancho base = {Bb.toFixed(2)} m<br />
-          A sección  = {A.toFixed(3)} m²
-        </div>
-      </div>
-
-      <div style={{ ...panel, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
-        <SectionTitle>Sección tipo — Terraplén (escala proporcional)</SectionTitle>
-        <svg viewBox={`0 0 ${W_SVG} ${H_SVG}`} style={{ width: '100%', height: 'auto' }}>
-          {HATCH(GY, W_SVG)}
-          <line x1={0} y1={GY} x2={W_SVG} y2={GY} stroke="#2a2a2a" strokeWidth={1} />
-          <polygon points={pts} fill={`${color}18`} stroke={color} strokeWidth={2} strokeLinejoin="round" />
-          <DimLine x1={cx - dBc/2} y1={GY - dH - 14} x2={cx + dBc/2} y2={GY - dH - 14}
-            label={`Bc = ${Bc.toFixed(1)} m`} textX={cx} textY={GY - dH - 18} />
-          <DimLine x1={cx - dBb/2} y1={GY + 16} x2={cx + dBb/2} y2={GY + 16}
-            label={`Bb = ${Bb.toFixed(2)} m`} textX={cx} textY={GY + 26} />
-          <DimLine x1={cx - dBb/2 - 16} y1={GY} x2={cx - dBb/2 - 16} y2={GY - dH}
-            label={`H=${H.toFixed(1)}m`} textX={cx - dBb/2 - 30} textY={(GY + GY - dH)/2}
-            rotate={`rotate(-90,${cx - dBb/2 - 30},${(GY + GY - dH)/2})`} />
-          <text x={cx - dBb/2 + dBb*0.13} y={GY - dH*0.45} fontSize={9} fill="#555" fontFamily="monospace">{m}:1</text>
-          <text x={cx + dBb/2 - dBb*0.13} y={GY - dH*0.45} fontSize={9} fill="#555" fontFamily="monospace" textAnchor="end">{m}:1</text>
-          <text x={cx} y={(GY + GY - dH)/2 + 4} textAnchor="middle" fontSize={12}
-            fill={color} fontFamily="monospace" fontWeight="bold">A = {A.toFixed(2)} m²</text>
-        </svg>
-        <Pipeline color={color} steps={[
-          { label: 'Ancho base',      formula: 'Bb = Bc + 2·H·m',       sub: `${Bc} + 2·${H}·${m}`,                     result: `${Bb.toFixed(3)} m` },
-          { label: 'Sección',         formula: 'A = (Bc+Bb)/2 · H',     sub: `(${Bc}+${Bb.toFixed(2)})/2 · ${H}`,       result: `${A.toFixed(3)} m²` },
-          { label: 'Vol. compactado', formula: 'V = A · L',              sub: `${A.toFixed(3)} · ${L}`,                  result: `${fmt(Vneto)} m³` },
-          { label: 'Material banco',  formula: 'Vb = V / (Fc/100)',      sub: `${fmt(Vneto)} / ${(Fc/100).toFixed(2)}`,  result: `${fmt(Vbanco)} m³` },
-          { label: 'Vol. esponjado',  formula: 'Ve = Vb · (1+Fe/100)',   sub: `${fmt(Vbanco)} · ${(1+Fe/100).toFixed(2)}`, result: `${fmt(Vesp)} m³` },
-          { label: 'Peso total',      formula: 'W = Vb · ρ',             sub: `${fmt(Vbanco)} · ${rho}`,                 result: `${fmt(W)} t`, accent: true },
-        ]} />
-      </div>
-
-      <div style={panel}>
-        <SectionTitle>Cómputo</SectionTitle>
-        <Res label="Sección"             value={A.toFixed(3)}  unit="m²" />
-        <Res label="Volumen compactado"  value={fmt(Vneto)}    unit="m³" />
-        <Res label="Material en banco"   value={fmt(Vbanco)}   unit="m³" />
-        <Res label="Volumen esponjado"   value={fmt(Vesp)}     unit="m³" />
-        <Res label="Peso total"          value={fmt(W)}        unit="t" accent />
-        <div style={{ marginTop: 8, fontSize: 13, color: '#333', fontFamily: 'monospace', lineHeight: 1.8 }}>
-          Camiones 15t: ~{Math.ceil(W/15).toLocaleString('es-AR')}<br/>
-          Camiones 20t: ~{Math.ceil(W/20).toLocaleString('es-AR')}
-        </div>
-      </div>
-    </div>
-  )
 }
 
 // ── EXCAVACIÓN ────────────────────────────────────────────────────────────────
@@ -2756,6 +2575,13 @@ export default function CalculadorasPage() {
         // Navegar al tab correcto
         if (dc.calculadora === 'desmalezado' || dc.calculadora === 'desbosque') {
           setTab('limpieza')
+        } else if (dc.calculadora === 'terraplen') {
+          setTab('terraplen')
+          // El precio unitario se guarda con la obra: sin reponerlo, al abrir
+          // una obra para editar el presupuesto volvía en cero y el usuario
+          // tenía que acordarse del número.
+          const pu = Number(obra.precio_unitario)
+          if (Number.isFinite(pu) && pu > 0) setPrecio(pu)
         } else if (dc.calculadora === 'ripio') {
           setTab('ripio')
 
@@ -2843,7 +2669,14 @@ export default function CalculadorasPage() {
         ))}
       </div>
 
-      {/* Barra precio + botón Dibujar — oculto para Limpieza y Ripio (tienen gestión propia) */}
+      {/*
+        Barra de precio y dibujo.
+
+        **Terraplén ya no muestra acá el botón de guardar**: tiene el suyo junto
+        al cómputo, que manda `datos_calculadora` y permite reabrir la obra. El
+        de esta barra sigue sirviendo a Excavación y Canal, que todavía guardan
+        sólo el total — cuando se migren, se saca.
+      */}
       {tab !== 'limpieza' && tab !== 'ripio' && (
       <div style={{
         display: 'flex', alignItems: 'center', gap: 10,
@@ -2870,6 +2703,8 @@ export default function CalculadorasPage() {
           </span>
         )}
         <div style={{ flex: 1 }} />
+        {/* Terraplén dibuja en su propio panel: no manda a la pantalla de Planta */}
+        {tab !== 'terraplen' && (
         <button
           onClick={handleDraw}
           style={{
@@ -2881,18 +2716,21 @@ export default function CalculadorasPage() {
         >
           Dibujar en mapa →
         </button>
+        )}
 
-        <button
-          onClick={handleGuardarObra}
-          style={{
-            padding: '7px 18px', fontSize: 13, fontFamily: 'monospace',
-            fontWeight: 700, letterSpacing: 0.8, cursor: 'pointer',
-            border: '1px solid #F5C300', background: '#F5C30022',
-            color: '#F5C300', transition: 'background 0.15s',
-          }}
-        >
-          💾 Guardar obra
-        </button>
+        {tab !== 'terraplen' && (
+          <button
+            onClick={handleGuardarObra}
+            style={{
+              padding: '7px 18px', fontSize: 13, fontFamily: 'monospace',
+              fontWeight: 700, letterSpacing: 0.8, cursor: 'pointer',
+              border: '1px solid #F5C300', background: '#F5C30022',
+              color: '#F5C300', transition: 'background 0.15s',
+            }}
+          >
+            💾 Guardar obra
+          </button>
+        )}
       </div>
       )}
 
@@ -2901,7 +2739,19 @@ export default function CalculadorasPage() {
         flex: 1, minHeight: 0, marginTop: tab === 'ripio' ? 0 : 10,
         ...(tab !== 'limpieza' && tab !== 'ripio' ? { borderLeft: `2px solid ${color}44`, paddingLeft: 14 } : {}),
       }}>
-        {tab === 'terraplen'  && <CalcTerraplen  paramsRef={paramsRef} />}
+        {tab === 'terraplen'  && !editLoading && (
+          <CalcTerraplen
+            key={editId ?? 'nuevo'}
+            precio={precio}
+            initialData={editDC?.calculadora === 'terraplen' ? editDC : undefined}
+            onGuardarObra={(d) => { setGuardarData(d); setGuardarOpen(true) }}
+          />
+        )}
+        {tab === 'terraplen' && editLoading && (
+          <div style={{ color: '#555', fontFamily: 'monospace', fontSize: 13, padding: 20 }}>
+            Cargando obra…
+          </div>
+        )}
         {tab === 'excavacion' && <CalcExcavacion paramsRef={paramsRef} />}
         {tab === 'ripio'      && <CalcRipioComponent
           onGuardarObra={(d) => { setGuardarData(d); setGuardarOpen(true) }}
