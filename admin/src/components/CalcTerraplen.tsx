@@ -49,7 +49,7 @@
  * casi 10 % en el caso de prueba. Lo afirma `verificar-terraplen.ts`.
  */
 
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import RipioMapPanel, { type LatLng, type TramoDibujable } from '@/components/RipioMapPanel'
 import { type GuardarObraData } from '@/components/GuardarObraModal'
 import {
@@ -62,6 +62,18 @@ import {
 } from '@/lib/terraplenCalculo'
 
 const COLOR = '#8D6E63'
+
+/**
+ * Los límites del ancho de la columna.
+ *
+ * El mínimo no es estético: por debajo de 250 px los cuatro botones del tramo
+ * no entran y el perfil deja de leerse. El máximo deja siempre mapa visible —
+ * una columna que se come la pantalla convierte la pestaña de traza en otra
+ * cosa.
+ */
+const ANCHO_MIN = 250, ANCHO_MAX = 620
+const acotar = (w: number) => Math.min(ANCHO_MAX, Math.max(ANCHO_MIN, Math.round(w)))
+
 const mono: React.CSSProperties = { fontFamily: 'monospace' }
 
 const fmt = (n: number) => Math.round(n).toLocaleString('es-AR')
@@ -91,6 +103,45 @@ export default function CalcTerraplen({ onGuardarObra, initialData, precio = 0 }
   const [tramos, setTramos] = useState<TramoTerraplen[]>(
     Array.isArray(ini.tramos) && ini.tramos.length > 0 ? ini.tramos : [],
   )
+
+  /*
+   * El ancho de la columna de tramos, arrastrable.
+   *
+   * No es un capricho de layout: en esa columna conviven la lista de tramos, el
+   * perfil de la sección y el cómputo. Cuánto espacio merece cada cosa depende
+   * de qué se esté haciendo — al ajustar alturas se quiere el perfil grande, al
+   * trazar se quiere el mapa grande — y eso cambia de minuto a minuto, así que
+   * ningún ancho fijo es el correcto.
+   *
+   * Se guarda en localStorage, pero **se lee en el callback ref y no en un
+   * efecto**: el nodo llega ya montado, así que no hay desajuste de hidratación
+   * que evitar ni `setState` dentro de un efecto que sumar a la barrera de lint.
+   */
+  const CLAVE_ANCHO = 'terraplen.anchoColumna'
+  const [anchoCol, setAnchoCol] = useState(300)
+  const arrastreRef = useRef<{ x0: number; w0: number } | null>(null)
+
+  const montarColumna = useCallback((nodo: HTMLDivElement | null) => {
+    if (!nodo) return
+    try {
+      const v = parseInt(localStorage.getItem(CLAVE_ANCHO) ?? '', 10)
+      if (Number.isFinite(v)) setAnchoCol(acotar(v))
+    } catch { /* localStorage puede fallar; el valor por defecto sirve igual */ }
+  }, [])
+
+  const alBajarDivisor = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.currentTarget.setPointerCapture(e.pointerId)
+    arrastreRef.current = { x0: e.clientX, w0: anchoCol }
+  }
+  const alMoverDivisor = (e: React.PointerEvent<HTMLDivElement>) => {
+    const a = arrastreRef.current
+    if (a) setAnchoCol(acotar(a.w0 + (e.clientX - a.x0)))
+  }
+  const alSoltarDivisor = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.currentTarget.releasePointerCapture(e.pointerId)
+    arrastreRef.current = null
+    try { localStorage.setItem(CLAVE_ANCHO, String(anchoCol)) } catch { /* no es crítico */ }
+  }
 
   const [selectedId, setSelectedId] = useState<string | null>(ini.tramos?.[0]?.id ?? null)
   const [drawingId, setDrawingId]   = useState<string | null>(null)
@@ -266,7 +317,7 @@ export default function CalcTerraplen({ onGuardarObra, initialData, precio = 0 }
                 : <span style={{ color: '#E8833A' }}>  ·  altura de referencia: todavía no hay tramos</span>}
             </SectionTitle>
             <SeccionTerraplen H={Hdibujo} Bc={seccion.Bc} m={seccion.m}
-              A={perfil.A} Bb={perfil.Bb} color={COLOR} />
+              A={perfil.A} Bb={perfil.Bb} color={COLOR} alto={330} />
             {/*
               La cadena se corta acá: estos dos pasos dependen sólo de la
               sección. Los volúmenes y el peso necesitan la longitud medida, y
@@ -306,10 +357,12 @@ export default function CalcTerraplen({ onGuardarObra, initialData, precio = 0 }
         </div>
       ) : (
         // ── Traza y tramos ─────────────────────────────────────────────────
-        <div style={{ display: 'grid', gridTemplateColumns: '268px 1fr', gap: 10,
+        <div style={{ display: 'grid', gridTemplateColumns: `${anchoCol}px 10px 1fr`, gap: 0,
           flex: 1, minHeight: 0 }}>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minHeight: 0, overflowY: 'auto' }}>
+          <div ref={montarColumna}
+            style={{ display: 'flex', flexDirection: 'column', gap: 8, minHeight: 0,
+              minWidth: 0, overflowY: 'auto', paddingRight: 2 }}>
             <div style={{ ...panel, padding: 11, overflowY: 'visible' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                 <span style={{ fontSize: 11, color: '#6a6a6a', textTransform: 'uppercase',
@@ -364,20 +417,26 @@ export default function CalcTerraplen({ onGuardarObra, initialData, precio = 0 }
                       huella {c.anchoBanda.toFixed(2)} m · {fmt(c.W)} t
                     </div>
 
-                    <div style={{ display: 'flex', gap: 5 }} onClick={e => e.stopPropagation()}>
+                    {/*
+                      Grilla y no flex: con flex el botón de quitar se empujaba
+                      fuera de la columna y quedaba cortado por la mitad. Cuatro
+                      columnas iguales entran siempre, porque el ancho mínimo de
+                      la columna está fijado para que entren.
+                    */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 4 }}
+                      onClick={e => e.stopPropagation()}>
                       <button onClick={() => { setSelectedId(t.id); setEditingId(null); setDrawingId(p => p === t.id ? null : t.id) }}
                         style={btn(dibujando ? COLOR : '#3a3a3a', dibujando)}>
-                        {dibujando ? 'dibujando…' : t.coords?.length ? 'redibujar' : 'dibujar'}
+                        {dibujando ? 'dibujando' : t.coords?.length ? 'redibujar' : 'dibujar'}
                       </button>
                       <button disabled={!t.coords?.length}
                         onClick={() => { setSelectedId(t.id); setDrawingId(null); setEditingId(p => p === t.id ? null : t.id) }}
                         style={btn(editando ? '#85B7EB' : '#3a3a3a', editando, !t.coords?.length)}>
-                        {editando ? 'editando…' : 'editar'}
+                        {editando ? 'editando' : 'editar'}
                       </button>
                       <button disabled={!t.coords?.length}
                         onClick={() => t.coords?.length && setFitTo({ coords: t.coords, token: Date.now() })}
                         style={btn('#3a3a3a', false, !t.coords?.length)}>ver</button>
-                      <span style={{ flex: 1 }} />
                       <button onClick={() => eliminar(t.id)} style={btn('#7a3a3a', false)}>quitar</button>
                     </div>
                   </div>
@@ -390,9 +449,10 @@ export default function CalcTerraplen({ onGuardarObra, initialData, precio = 0 }
               <div style={{ ...panel, padding: 11, overflowY: 'visible' }}>
                 <div style={{ fontSize: 11, color: '#6a6a6a', textTransform: 'uppercase',
                   letterSpacing: 0.8, marginBottom: 4 }}>Sección del tramo</div>
+                {/* El alto sigue al ancho: ensanchar la columna agranda el perfil */}
                 <SeccionTerraplen H={sel.H} Bc={seccion.Bc} m={seccion.m}
                   A={computarTramo(seccion, sel).A} Bb={computarTramo(seccion, sel).Bb}
-                  color={COLOR} alto={150} />
+                  color={COLOR} alto={Math.round((anchoCol - 24) * 0.60)} />
                 <div style={{ fontSize: 11, color: '#4a4a4a', marginTop: 4, lineHeight: 1.45 }}>
                   Con la altura de <span style={{ color: '#8a8a8a' }}>{sel.nombre}</span>.
                   Al cambiarla se mueven el perfil y la huella del mapa.
@@ -446,6 +506,23 @@ export default function CalcTerraplen({ onGuardarObra, initialData, precio = 0 }
             </div>
           </div>
 
+          {/*
+            El divisor. Va con `touchAction: none` porque sin eso el navegador
+            se queda con el gesto y lo interpreta como scroll, y el arrastre no
+            llega nunca.
+          */}
+          <div
+            onPointerDown={alBajarDivisor}
+            onPointerMove={alMoverDivisor}
+            onPointerUp={alSoltarDivisor}
+            title="Arrastrar para ensanchar la columna"
+            style={{
+              cursor: 'col-resize', touchAction: 'none',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+            <div style={{ width: 2, height: 46, background: '#2a2a2a', borderRadius: 2 }} />
+          </div>
+
           <div style={{ ...panel, padding: 0, minHeight: 0, overflow: 'hidden' }}>
             <RipioMapPanel
               ripios={paraMapa}
@@ -470,7 +547,8 @@ export default function CalcTerraplen({ onGuardarObra, initialData, precio = 0 }
 }
 
 const btn = (color: string, activo: boolean, deshabilitado = false): React.CSSProperties => ({
-  ...mono, fontSize: 11, padding: '2px 7px',
+  ...mono, fontSize: 11, padding: '3px 2px', textAlign: 'center',
+  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
   cursor: deshabilitado ? 'default' : 'pointer',
   background: activo ? `${color}22` : 'transparent',
   border: `1px solid ${deshabilitado ? '#222' : color}`,
