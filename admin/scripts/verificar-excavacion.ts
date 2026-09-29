@@ -15,7 +15,7 @@
  */
 import {
   perfilDe, computarTramo, computarRecinto, computarObraLineal, computarObraArea,
-  geometriaAnillo, viajes, SECCION_POR_DEFECTO, CAPACIDADES_T,
+  geometriaAnillo, geometriaRectangulo, viajes, SECCION_POR_DEFECTO, CAPACIDADES_T,
   type SeccionExcavacion, type TramoExcavacion, type RecintoExcavacion,
 } from '../src/lib/excavacionCalculo'
 
@@ -194,6 +194,34 @@ ok('el fondo es cero', pozoHondo.areaFondo_m2, 0)
 ok('y entonces el cuerpo es una pirámide: V = A·H/3',
   cerca(pozoHondo.Vcorte, pozoHondo.area_m2 * 40 / 3, 1e-6))
 ok('el volumen sigue siendo finito y positivo', pozoHondo.Vcorte > 0 && Number.isFinite(pozoHondo.Vcorte))
+
+titulo('Un pozo cargado por medidas, sin dibujar')
+
+/*
+ * Un préstamo se define muchas veces por sus dimensiones antes de existir en el
+ * terreno. Con ancho y largo la geometría queda COMPLETA —área, perímetro y las
+ * cuatro esquinas rectas— así que el talud se aplica igual que sobre un
+ * polígono dibujado. Guardar sólo la superficie no alcanzaría: sin perímetro no
+ * hay cómo cerrar el fondo y el pozo volvería a ser un prisma.
+ */
+const gr = geometriaRectangulo(200, 100)
+ok('el área de las medidas', gr.area_m2, 20_000)
+ok('el perímetro de las medidas', gr.perim_m, 600)
+ok('y las cuatro esquinas rectas', gr.sumaCot, 4)
+
+const porMedidas: RecintoExcavacion = {
+  id: 'm', nombre: 'm', H: 2, area_ha: 0, coords: null, orden: 0, color: null,
+  ancho_m: 200, largo_m: 100,
+}
+const cm = computarRecinto(sec, porMedidas, 1.5)
+ok('da el mismo volumen que el mismo pozo dibujado',
+  cerca(cm.Vcorte, computarRecinto(sec, conTraza(2, rect(200, 100)), 1.5).Vcorte, 1))
+ok('y el mismo fondo', Math.round(cm.areaFondo_m2), 194 * 94)
+info('sin las medidas sería un prisma: el perímetro es lo que permite cerrar el fondo')
+
+const dibujadoGana: RecintoExcavacion = { ...porMedidas, ancho_m: 10, largo_m: 10, coords: rect(200, 100) }
+ok('si hay traza, la traza manda sobre las medidas',
+  Math.round(computarRecinto(sec, dibujadoGana, 1.5).area_m2), 20_000)
 
 titulo('Los recintos se suman')
 

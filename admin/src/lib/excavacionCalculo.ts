@@ -165,6 +165,18 @@ export interface RecintoExcavacion {
   coords: [number, number][] | null
   orden: number
   color: string | null
+  /**
+   * Medidas de un pozo **rectangular cargado a mano**, cuando no se dibujó.
+   *
+   * No es un atajo: un préstamo se define muchas veces por sus medidas antes de
+   * existir en el terreno, y entonces no hay nada que dibujar sobre la imagen.
+   * Con ancho y largo la geometría queda **completa y exacta** —área, perímetro
+   * y las cuatro esquinas rectas— así que el talud se aplica igual que sobre un
+   * polígono. Guardar sólo la superficie no alcanzaría: sin perímetro no hay
+   * forma de cerrar el fondo, y el pozo volvería a ser un prisma.
+   */
+  ancho_m?: number
+  largo_m?: number
 }
 
 export interface ComputoRecinto extends ComputoExcavacion {
@@ -278,12 +290,31 @@ export function geometriaAnillo(coords: [number, number][]): {
  * dato del proyecto, no un error del cálculo, y la pantalla tiene que mostrarlo
  * en vez de devolver un volumen como si nada pasara.
  */
+/**
+ * La geometría de un rectángulo cargado a mano.
+ *
+ * `sumaCot` vale 4 porque son cuatro ángulos rectos y `cot(45°) = 1`. Ese 4 es
+ * exactamente el término cuadrático de `(a−2d)(b−2d)`, así que el fondo sale
+ * exacto y no aproximado.
+ */
+export function geometriaRectangulo(ancho_m: number, largo_m: number) {
+  const a = Math.max(0, ancho_m), b = Math.max(0, largo_m)
+  return { area_m2: a * b, perim_m: 2 * (a + b), sumaCot: 4 }
+}
+
 export function computarRecinto(
   mat: MaterialExcavacion, r: RecintoExcavacion, talud = 0,
 ): ComputoRecinto {
+  /*
+   * De dónde sale la geometría, en orden: el polígono dibujado manda sobre las
+   * medidas tipeadas, porque si hay traza es lo que se va a ejecutar. Las
+   * medidas son la salida para un pozo que todavía no está en el terreno.
+   */
   const g = r.coords && r.coords.length >= 3
     ? geometriaAnillo(r.coords)
-    : { area_m2: r.area_ha * 10_000, perim_m: 0, sumaCot: 0 }
+    : (r.ancho_m && r.largo_m)
+      ? geometriaRectangulo(r.ancho_m, r.largo_m)
+      : { area_m2: r.area_ha * 10_000, perim_m: 0, sumaCot: 0 }
 
   const A = g.area_m2
   const d = Math.max(0, r.H * talud)

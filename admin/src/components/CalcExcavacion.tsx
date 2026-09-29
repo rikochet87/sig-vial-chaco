@@ -74,6 +74,7 @@ export default function CalcExcavacion({ onGuardarObra, initialData, precio = 0 
     seccion?: Partial<SeccionExcavacion>
     tramos?: TramoExcavacion[]
     recintos?: RecintoExcavacion[]
+    Hobra?: number
   }
 
   const [modo, setModo] = useState<ModoExcavacion>(ini.modo ?? 'lineal')
@@ -81,6 +82,23 @@ export default function CalcExcavacion({ onGuardarObra, initialData, precio = 0 
   const [seccion, setSeccion] = useState<SeccionExcavacion>({ ...SECCION_POR_DEFECTO, ...(ini.seccion ?? {}) })
   const [tramos, setTramos] = useState<TramoExcavacion[]>(ini.tramos ?? [])
   const [recintos, setRecintos] = useState<RecintoExcavacion[]>(ini.recintos ?? [])
+
+  /*
+   * La profundidad del pozo, a nivel de obra.
+   *
+   * Vive acá y no sólo en cada recinto por una razón de pantalla: la
+   * profundidad **es el dato que convierte una superficie en un volumen**, y
+   * estando únicamente dentro de cada recinto no aparecía hasta haber dibujado
+   * uno. Quien entraba veía densidad, esponjamiento y talud, y ningún lugar
+   * donde decir cuán hondo es el pozo.
+   *
+   * Es el valor con el que nace cada recinto nuevo, no un segundo número que
+   * compita con el suyo: **el que manda en el cómputo sigue siendo el del
+   * recinto**, porque un préstamo puede ser más hondo que el de al lado. Al
+   * cambiarlo acá se ofrece aplicarlo a los que ya están, en vez de moverlos
+   * por detrás.
+   */
+  const [Hobra, setHobra] = useState(ini.Hobra ?? PROFUNDIDAD_POR_DEFECTO)
 
   const [selectedId, setSelectedId] = useState<string | null>(ini.tramos?.[0]?.id ?? null)
   const [drawingId, setDrawingId]   = useState<string | null>(null)
@@ -221,10 +239,19 @@ export default function CalcExcavacion({ onGuardarObra, initialData, precio = 0 
   ) => {
     setRecintos(prev => [...prev, {
       id, nombre: `Préstamo ${prev.length + 1}`,
-      H: prev[prev.length - 1]?.H ?? PROFUNDIDAD_POR_DEFECTO,
+      H: Hobra,
       area_ha, coords: pts, orden: prev.length, color: null,
     }])
-  }, [])
+  }, [Hobra])
+
+  const agregarPorMedidas = useCallback(() => {
+    setRecintos(prev => [...prev, {
+      id: `r-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      nombre: `Préstamo ${prev.length + 1}`,
+      H: Hobra, area_ha: 0, coords: null, orden: prev.length, color: null,
+      ancho_m: 50, largo_m: 30,
+    }])
+  }, [Hobra])
 
   const alActualizarRecinto = useCallback((id: string, area_ha: number, pts: [number, number][]) => {
     patchRec(id, { area_ha, coords: pts })
@@ -257,7 +284,7 @@ export default function CalcExcavacion({ onGuardarObra, initialData, precio = 0 
         calculadora: 'excavacion',
         // El modo se guarda: sin él, una obra reabierta no sabría con qué
         // cómputo se hizo, y los dos dan números distintos para la misma traza.
-        inputs: { modo, seccion, tramos, recintos },
+        inputs: { modo, seccion, tramos, recintos, Hobra },
         computo: {
           modo,
           L_total: obraL.L_total, ha_total: obraA.ha_total,
@@ -549,8 +576,26 @@ export default function CalcExcavacion({ onGuardarObra, initialData, precio = 0 
                 letterSpacing: 0.8, marginBottom: 6 }}>Material extraído</div>
               <Inp label="Densidad natural" unit="t/m³" value={seccion.rho} onChange={v => setSec('rho', v)} step={0.05} min={0} />
               <Inp label="Esponjamiento" unit="%" value={seccion.Fe} onChange={v => setSec('Fe', v)} step={1} />
-              <div style={secLabel}>Taludes del pozo</div>
+              <div style={secLabel}>Geometría del pozo</div>
+              <Inp label="Profundidad" unit="m" value={Hobra} onChange={setHobra} />
               <Inp label="Talud H:V" value={seccion.m} onChange={v => setSec('m', v)} step={0.5} min={0} />
+              {/*
+                El botón aparece sólo si haría algo: si ya todos los recintos
+                tienen esta profundidad, no hay nada que aplicar. Misma regla que
+                en la pantalla de Lluvias — un botón que no puede cambiar nada es
+                peor que no tener botón.
+              */}
+              {recintos.some(r => r.H !== Hobra) && (
+                <button
+                  onClick={() => setRecintos(prev => prev.map(r => ({ ...r, H: Hobra })))}
+                  style={{
+                    ...mono, fontSize: 11, marginTop: 8, padding: '4px 8px', width: '100%',
+                    cursor: 'pointer', background: 'transparent',
+                    border: '1px solid #3a3a3a', color: '#8a8a8a',
+                  }}>
+                  Aplicar {Hobra} m a los {recintos.length} recinto(s)
+                </button>
+              )}
               {/*
                 No hay ancho de fondo: acá el fondo no se elige, **resulta** de
                 cerrar la boca dibujada con el talud. Ofrecerlo dejaría dos
@@ -563,13 +608,24 @@ export default function CalcExcavacion({ onGuardarObra, initialData, precio = 0 
             </div>
 
             <div style={panelCol}>
-              <div style={{ fontSize: 11, color: '#6a6a6a', textTransform: 'uppercase',
-                letterSpacing: 0.8, marginBottom: 6 }}>Recintos</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                <span style={{ fontSize: 11, color: '#6a6a6a', textTransform: 'uppercase',
+                  letterSpacing: 0.8, flex: 1 }}>Recintos</span>
+                {/*
+                  Cargar un pozo por medidas no es un atajo: un préstamo se
+                  define muchas veces por sus dimensiones antes de existir en el
+                  terreno, y entonces no hay nada que dibujar sobre la imagen.
+                */}
+                <button onClick={agregarPorMedidas} style={{
+                  ...mono, fontSize: 11, padding: '3px 8px', cursor: 'pointer',
+                  background: 'transparent', border: '1px solid #3a3a3a', color: '#8a8a8a',
+                }}>+ Por medidas</button>
+              </div>
 
               {recintos.length === 0 && (
                 <div style={{ fontSize: 12, color: '#5a5a5a', lineHeight: 1.6 }}>
-                  Dibujá el recinto sobre el mapa y después cargale su profundidad:
-                  la imagen da la planta, no la cota.
+                  Dibujá el recinto sobre el mapa. Nace con {Hobra} m de profundidad
+                  y después se la podés cambiar: la imagen da la planta, no la cota.
                 </div>
               )}
 
@@ -581,10 +637,31 @@ export default function CalcExcavacion({ onGuardarObra, initialData, precio = 0 
                       onChange={e => patchRec(r.id, { nombre: e.target.value })}
                       style={{ flex: 1, minWidth: 0, background: 'transparent', border: 'none',
                         color: '#ccc', ...mono, fontSize: 12, outline: 'none', padding: 0 }} />
-                    <span style={{ fontSize: 11, color: r.area_ha > 0 ? '#9a9a9a' : '#E8833A' }}>
-                      {r.area_ha > 0 ? fmtHa(r.area_ha) : 'sin dibujar'}
-                    </span>
+                    {/*
+                      La superficie sale del cómputo y no del `area_ha` guardado:
+                      un pozo cargado por medidas no tiene `area_ha`, y si la
+                      fila leyera ese campo diría "sin dibujar" sobre algo que sí
+                      está computando.
+                    */}
+                    <SupRecinto seccion={seccion} recinto={r} />
                   </div>
+                  {!r.coords?.length && (
+                    <div style={{ display: 'flex', gap: 6, marginBottom: 3 }}>
+                      {([['ancho_m', 'Ancho'], ['largo_m', 'Largo']] as const).map(([k, lbl]) => (
+                        <label key={k} style={{ display: 'flex', alignItems: 'center', gap: 4,
+                          fontSize: 11, flex: 1 }}>
+                          <span style={{ color: '#7a7a7a' }}>{lbl}</span>
+                          <input type="number" min={0} step={1} value={r[k] ?? 0}
+                            onChange={e => patchRec(r.id, { [k]: parseFloat(e.target.value) || 0 })}
+                            style={{ width: '100%', minWidth: 0, background: '#080808',
+                              border: '1px solid #222', color: '#e0e0e0', ...mono, fontSize: 11,
+                              padding: '2px 5px', outline: 'none' }} />
+                          <span style={{ color: '#4a4a4a' }}>m</span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+
                   <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
                     <span style={{ color: '#7a7a7a', flex: 1 }}>Profundidad media</span>
                     <input type="number" value={r.H} step={0.1} min={0}
@@ -726,5 +803,17 @@ function Guardar({ obra, precio, onGuardar }: {
         </div>
       )}
     </>
+  )
+}
+
+/** La superficie de un recinto, computada — no la que traiga guardada */
+function SupRecinto({ seccion, recinto }: {
+  seccion: SeccionExcavacion; recinto: RecintoExcavacion
+}) {
+  const m2 = computarRecinto(seccion, recinto, seccion.m).area_m2
+  return (
+    <span style={{ fontSize: 11, color: m2 > 0 ? '#9a9a9a' : '#E8833A' }}>
+      {m2 > 0 ? `${(m2 / 10_000).toFixed(m2 >= 100_000 ? 2 : 4)} ha` : 'sin superficie'}
+    </span>
   )
 }
