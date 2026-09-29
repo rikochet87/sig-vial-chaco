@@ -169,28 +169,163 @@ export interface RecintoExcavacion {
 
 export interface ComputoRecinto extends ComputoExcavacion {
   id: string
-  /** Superficie en m², que es la unidad en la que se computa */
+  /** Superficie de la boca, en m² — la que se dibujó sobre el terreno */
   area_m2: number
+  /** Superficie del fondo, en m² — la boca reducida por el talud */
+  areaFondo_m2: number
+  /** Perímetro de la boca, en metros */
+  perim_m: number
+  /**
+   * A qué profundidad el talud cierra el fondo, en metros.
+   *
+   * Pasada esa profundidad el pozo es una pirámide y no se puede seguir bajando
+   * con ese talud sin ensanchar la boca. `null` si no se puede calcular.
+   */
+  profundidadCierre: number | null
+  /** Si la profundidad cargada ya cerró el fondo */
+  fondoCerrado: boolean
 }
 
 /**
- * Computa un recinto.
+ * Geometría plana de un anillo de coordenadas: área, perímetro y esquinas.
  *
- * **El volumen es superficie por profundidad y nada más.** No se aplica talud:
- * el polígono que se dibujó sobre la imagen es la boca del pozo, y lo que el
- * talud haría es reducir el fondo, no agrandar lo excavado. Meterlo acá
- * duplicaría un efecto que la traza ya contiene.
+ * **Se proyecta con la latitud media del propio anillo.** Un grado de longitud
+ * mide distinto según la latitud, así que sin esa corrección el área y el
+ * perímetro no serían los del polígono dibujado. Es el mismo criterio que
+ * `areaKm2` en `thiessenAreal.ts`, y acá alcanza con la latitud propia porque
+ * cada recinto se mide solo, no se comparan entre sí.
  *
- * Que sea un prisma recto y no un tronco de pirámide es una **simplificación
- * declarada**: sobreestima el volumen frente a un pozo con taludes reales, y en
- * un préstamo poco profundo y extenso la diferencia es chica. Si algún día hace
- * falta la precisión, entra un talud acá y se vuelve un tronco — pero entonces
- * hay que decidir si el polígono dibujado es la boca o el fondo, que hoy no
- * está definido.
+ * `sumaCot` es `Σ cot(θᵢ/2)` sobre los ángulos interiores, y es lo que hace
+ * **exacta** la reducción del área al aplicar el talud: para un rectángulo da 4,
+ * que es justo el término cuadrático de `(a−2d)(b−2d)`.
  */
-export function computarRecinto(mat: MaterialExcavacion, r: RecintoExcavacion): ComputoRecinto {
-  const area_m2 = r.area_ha * 10_000
-  return { ...cerrar(area_m2 * r.H, mat), id: r.id, area_m2 }
+export function geometriaAnillo(coords: [number, number][]): {
+  area_m2: number; perim_m: number; sumaCot: number
+} {
+  const n = coords.length
+  if (n < 3) return { area_m2: 0, perim_m: 0, sumaCot: 0 }
+
+  const R = 6_371_008.8
+  const latMedia = coords.reduce((a, c) => a + c[0], 0) / n * Math.PI / 180
+  const kx = R * Math.cos(latMedia) * Math.PI / 180
+  const ky = R * Math.PI / 180
+  const p = coords.map(([lat, lng]) => [lng * kx, lat * ky] as [number, number])
+
+  let area2 = 0, perim = 0, sumaCot = 0
+  for (let i = 0; i < n; i++) {
+    const a = p[i], b = p[(i + 1) % n]
+    area2 += a[0] * b[1] - b[0] * a[1]
+    perim += Math.hypot(b[0] - a[0], b[1] - a[1])
+  }
+  const area_m2 = Math.abs(area2) / 2
+  const horario = area2 < 0
+
+  for (let i = 0; i < n; i++) {
+    const ant = p[(i - 1 + n) % n], v = p[i], sig = p[(i + 1) % n]
+    const u = [ant[0] - v[0], ant[1] - v[1]]
+    const w = [sig[0] - v[0], sig[1] - v[1]]
+    const nu = Math.hypot(u[0], u[1]), nw = Math.hypot(w[0], w[1])
+    if (nu === 0 || nw === 0) continue
+    // El ángulo interior, con el signo de la cruz para distinguir una esquina
+    // entrante de una saliente: en una entrante el offset AGREGA área.
+    const cruz = u[0] * w[1] - u[1] * w[0]
+    let ang = Math.acos(Math.max(-1, Math.min(1, (u[0] * w[0] + u[1] * w[1]) / (nu * nw))))
+    const saliente = horario ? cruz > 0 : cruz < 0
+    if (!saliente) ang = 2 * Math.PI - ang
+    const t = Math.tan(ang / 2)
+    if (Math.abs(t) > 1e-9) sumaCot += 1 / t
+  }
+
+  return { area_m2, perim_m: perim, sumaCot }
+}
+
+/**
+ * Computa un recinto de préstamo como **tronco de pirámide**.
+ *
+ * ── El polígono dibujado es la BOCA ───────────────────────────────────────────
+ *
+ * Ésa es la definición, y hay que fijarla porque el volumen depende de ella. Se
+ * dibuja sobre la imagen lo que se ve o se va a abrir en la superficie del
+ * terreno; el talud cierra hacia adentro a medida que se baja, así que el fondo
+ * es **menor** que lo dibujado. Tomar el polígono como fondo daría un pozo más
+ * grande que el dibujo, que es lo contrario de lo que uno espera al marcarlo.
+ *
+ * ── Por qué tronco y no prisma ────────────────────────────────────────────────
+ *
+ * La primera versión computaba superficie × profundidad, un prisma recto, y eso
+ * **sobreestima**: ignora que las paredes se cierran. En un préstamo extenso y
+ * poco profundo la diferencia es chica, pero en uno hondo es grande — y son
+ * justamente los hondos los que mueven plata.
+ *
+ * El volumen sale de la fórmula del prismatoide, que para un tronco es exacta:
+ *
+ *   V = H/3 · (A_boca + A_fondo + √(A_boca · A_fondo))
+ *
+ * ── Y el área del fondo se calcula, no se estima ──────────────────────────────
+ *
+ * El fondo es la boca desplazada hacia adentro una distancia `d = H · m`. Para
+ * un polígono simple eso es exactamente:
+ *
+ *   A_fondo = A − P·d + d² · Σ cot(θᵢ/2)
+ *
+ * mientras el desplazamiento no cierre el contorno. El término de las esquinas
+ * no es un refinamiento: en un rectángulo vale 4·d², y omitirlo subestimaría el
+ * fondo.
+ *
+ * **Si el talud cierra el fondo antes de llegar a la profundidad cargada**, el
+ * pozo no puede ser más hondo con ese talud sin ensanchar la boca. En ese caso
+ * el fondo es cero, el cuerpo es una pirámide y `fondoCerrado` lo dice: es un
+ * dato del proyecto, no un error del cálculo, y la pantalla tiene que mostrarlo
+ * en vez de devolver un volumen como si nada pasara.
+ */
+export function computarRecinto(
+  mat: MaterialExcavacion, r: RecintoExcavacion, talud = 0,
+): ComputoRecinto {
+  const g = r.coords && r.coords.length >= 3
+    ? geometriaAnillo(r.coords)
+    : { area_m2: r.area_ha * 10_000, perim_m: 0, sumaCot: 0 }
+
+  const A = g.area_m2
+  const d = Math.max(0, r.H * talud)
+
+  /*
+   * A qué profundidad se cierra el fondo: la menor raíz positiva de
+   * `A − P·d + C·d² = 0`. Sin talud no se cierra nunca; sin perímetro (un
+   * recinto sin traza) no se puede saber.
+   */
+  let dCierre: number | null = null
+  if (g.perim_m > 0) {
+    const C = g.sumaCot
+    if (Math.abs(C) < 1e-9) {
+      dCierre = A / g.perim_m
+    } else {
+      const disc = g.perim_m * g.perim_m - 4 * C * A
+      if (disc >= 0) {
+        const r1 = (g.perim_m - Math.sqrt(disc)) / (2 * C)
+        const r2 = (g.perim_m + Math.sqrt(disc)) / (2 * C)
+        const positivas = [r1, r2].filter(x => x > 0)
+        if (positivas.length) dCierre = Math.min(...positivas)
+      }
+    }
+  }
+  const profundidadCierre = dCierre !== null && talud > 0 ? dCierre / talud : null
+
+  const areaFondoBruta = A - g.perim_m * d + g.sumaCot * d * d
+  const cerrado = dCierre !== null && d >= dCierre
+  const areaFondo_m2 = cerrado ? 0 : Math.max(0, areaFondoBruta)
+
+  // Prismatoide: con fondo cero queda V = H·A/3, que es la pirámide
+  const Vcorte = (r.H / 3) * (A + areaFondo_m2 + Math.sqrt(A * areaFondo_m2))
+
+  return {
+    ...cerrar(Vcorte, mat),
+    id: r.id,
+    area_m2: A,
+    areaFondo_m2,
+    perim_m: g.perim_m,
+    profundidadCierre,
+    fondoCerrado: cerrado,
+  }
 }
 
 // ── La obra entera ───────────────────────────────────────────────────────────
@@ -249,30 +384,39 @@ export function computarObraLineal(
 /**
  * Suma la obra en modo área.
  *
- * Acá el volumen es lineal en la profundidad, así que promediar **sí** daría lo
- * mismo. Igual se suma recinto por recinto, por dos razones: cada recinto
- * guarda su propio número y se muestra en la lista, y que los dos modos se
- * comporten igual evita que alguien "optimice" el lineal por analogía con éste.
+ * Se suma recinto por recinto, y acá tampoco daría lo mismo promediar: con
+ * taludes el volumen **no** es lineal en la profundidad, porque el fondo se
+ * achica a medida que se baja. Dos pozos de 1 y 3 m no dan lo mismo que dos de
+ * 2 m, por la misma razón que en el modo lineal aunque la geometría sea otra.
  */
 export function computarObraArea(
-  mat: MaterialExcavacion, recintos: RecintoExcavacion[],
-): ComputoObraExc & { porRecinto: ComputoRecinto[] } {
-  const porRecinto = recintos.map(r => computarRecinto(mat, r))
+  mat: MaterialExcavacion, recintos: RecintoExcavacion[], talud = 0,
+): ComputoObraExc & { porRecinto: ComputoRecinto[]; algunoCerrado: boolean } {
+  const porRecinto = recintos.map(r => computarRecinto(mat, r, talud))
 
+  /*
+   * La superficie sale del **cómputo**, no del `area_ha` guardado en el
+   * recinto: el área se recalcula desde el polígono, así que si las dos fuentes
+   * se separaran —un recinto viejo, un redondeo distinto— la lista y el total
+   * dirían números distintos para lo mismo. Y "sin dibujar" es no tener
+   * superficie computada, que es lo que de verdad lo deja fuera del cálculo.
+   */
   let ha_total = 0, Vcorte = 0, Vesp = 0, W = 0, sumaHA = 0, sinDibujar = 0
   for (let i = 0; i < recintos.length; i++) {
     const r = recintos[i], c = porRecinto[i]
-    if (r.area_ha <= 0) sinDibujar++
-    ha_total += r.area_ha
+    const ha = c.area_m2 / 10_000
+    if (c.area_m2 <= 0) sinDibujar++
+    ha_total += ha
     Vcorte += c.Vcorte
     Vesp += c.Vesp
     W += c.W
-    sumaHA += r.H * r.area_ha
+    sumaHA += r.H * ha
   }
 
   return {
     ...VACIO, porRecinto, ha_total, Vcorte, Vesp, W, sinDibujar,
     H_media: ha_total > 0 ? sumaHA / ha_total : 0,
+    algunoCerrado: porRecinto.some(c => c.fondoCerrado),
   }
 }
 

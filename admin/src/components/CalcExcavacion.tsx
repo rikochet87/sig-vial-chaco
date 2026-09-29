@@ -39,7 +39,7 @@ import {
   panel, panelCol, secLabel, Inp, Res, SectionTitle, Pipeline, SeccionCorte,
 } from '@/components/calc/piezas'
 import {
-  perfilDe, computarTramo, computarObraLineal, computarObraArea, viajes,
+  perfilDe, computarTramo, computarRecinto, computarObraLineal, computarObraArea, viajes,
   CAPACIDADES_T, SECCION_POR_DEFECTO, PROFUNDIDAD_POR_DEFECTO,
   type SeccionExcavacion, type TramoExcavacion, type RecintoExcavacion,
   type ModoExcavacion,
@@ -130,7 +130,7 @@ export default function CalcExcavacion({ onGuardarObra, initialData, precio = 0 
 
   // ── Cómputo ────────────────────────────────────────────────────────────────
   const obraL = useMemo(() => computarObraLineal(seccion, tramos), [seccion, tramos])
-  const obraA = useMemo(() => computarObraArea(seccion, recintos), [seccion, recintos])
+  const obraA = useMemo(() => computarObraArea(seccion, recintos, seccion.m), [seccion, recintos, seccion.m])
   const obra = modo === 'lineal' ? obraL : obraA
 
   const sel = tramos.find(t => t.id === selectedId) ?? null
@@ -549,11 +549,17 @@ export default function CalcExcavacion({ onGuardarObra, initialData, precio = 0 
                 letterSpacing: 0.8, marginBottom: 6 }}>Material extraído</div>
               <Inp label="Densidad natural" unit="t/m³" value={seccion.rho} onChange={v => setSec('rho', v)} step={0.05} min={0} />
               <Inp label="Esponjamiento" unit="%" value={seccion.Fe} onChange={v => setSec('Fe', v)} step={1} />
+              <div style={secLabel}>Taludes del pozo</div>
+              <Inp label="Talud H:V" value={seccion.m} onChange={v => setSec('m', v)} step={0.5} min={0} />
               {/*
-                Ni ancho de fondo ni talud: en este modo el polígono dibujado ya
-                es lo que se excava. Dejarlos a la vista sugeriría que influyen
-                en el número, y no lo hacen.
+                No hay ancho de fondo: acá el fondo no se elige, **resulta** de
+                cerrar la boca dibujada con el talud. Ofrecerlo dejaría dos
+                fuentes para el mismo número.
               */}
+              <div style={{ fontSize: 11, color: '#4a4a4a', marginTop: 8, lineHeight: 1.5 }}>
+                El polígono que dibujás es la <b style={{ color: '#7a7a7a' }}>boca</b>.
+                El talud la cierra hacia abajo, así que el fondo es menor.
+              </div>
             </div>
 
             <div style={panelCol}>
@@ -587,10 +593,25 @@ export default function CalcExcavacion({ onGuardarObra, initialData, precio = 0 
                         color: '#e0e0e0', ...mono, fontSize: 11, padding: '2px 5px', outline: 'none' }} />
                     <span style={{ color: '#4a4a4a', width: 14 }}>m</span>
                   </label>
+                  {(() => {
+                    const c = computarRecinto(seccion, r, seccion.m)
+                    return (
+                      <>
+                        <div style={{ fontSize: 11, color: '#5a5a5a', margin: '3px 0' }}>
+                          fondo {fmt(c.areaFondo_m2)} m² · {fmt(c.Vcorte)} m³ · {fmt(c.W)} t
+                        </div>
+                        {c.fondoCerrado && (
+                          <div style={{ fontSize: 11, color: '#E8833A', lineHeight: 1.45, marginBottom: 3 }}>
+                            Con talud {seccion.m}:1 el fondo se cierra a{' '}
+                            {(c.profundidadCierre ?? 0).toFixed(1)} m. Más hondo que eso hay
+                            que ensanchar la boca; se computa como pirámide.
+                          </div>
+                        )}
+                      </>
+                    )
+                  })()}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
-                    <span style={{ fontSize: 11, color: '#5a5a5a', flex: 1 }}>
-                      {fmt(r.area_ha * 10_000 * r.H)} m³ · {fmt(r.area_ha * 10_000 * r.H * seccion.rho)} t
-                    </span>
+                    <span style={{ flex: 1 }} />
                     <button onClick={() => eliminarRecinto(r.id)} style={btn('#7a3a3a', false)}>quitar</button>
                   </div>
                 </div>
@@ -614,9 +635,14 @@ export default function CalcExcavacion({ onGuardarObra, initialData, precio = 0 
               </div>
 
               <div style={{ fontSize: 11, color: '#4a4a4a', marginTop: 6, lineHeight: 1.5 }}>
-                El recinto se computa como prisma recto: superficie por profundidad,
-                sin talud. Sobreestima frente a un pozo con taludes reales.
+                Cada recinto se computa como tronco de pirámide: el fondo es la boca
+                cerrada por el talud, y el volumen sale del prismatoide.
               </div>
+              {obraA.sinDibujar > 0 && (
+                <div style={{ fontSize: 11, color: '#E8833A', marginTop: 6, lineHeight: 1.5 }}>
+                  {obraA.sinDibujar} recinto(s) sin dibujar: no aportan al cómputo.
+                </div>
+              )}
 
               <Guardar obra={obraA.W} precio={precio} onGuardar={onGuardarObra && guardar} />
             </div>
@@ -632,16 +658,27 @@ export default function CalcExcavacion({ onGuardarObra, initialData, precio = 0 
             <div style={{ width: 2, height: 46, background: '#2a2a2a', borderRadius: 2 }} />
           </div>
 
-          <div style={{ ...panel, padding: 0, minHeight: 0, overflow: 'hidden' }}>
+          {/*
+            **El contenedor tiene que ser flex.** `InlineMapDraw` se dimensiona
+            con `flex: 1`, así que dentro de un contenedor que no es flex queda
+            con altura cero: el mapa existía pero no se veía nada. Fue
+            exactamente lo que pasó la primera vez.
+          */}
+          <div style={{ ...panel, padding: 0, minHeight: 0, overflow: 'hidden',
+            display: 'flex', flexDirection: 'column' }}>
             {/*
-              Se reusa el panel de polígonos de desbosque con `hideMonte`: dibuja,
-              mide la superficie y deja editar vértices, que es todo lo que hace
-              falta acá. Escribir un quinto mapa para repetir eso sería sumar a la
+              Se reusa el panel de polígonos de desbosque: dibuja, mide la
+              superficie y deja editar vértices, que es todo lo que hace falta.
+              Escribir un quinto mapa para repetir eso sería sumar a la
               duplicación que ya es el problema de esta parte del repo.
+
+              Sin selector de monte ni de lado: un préstamo no está a la
+              izquierda ni a la derecha de nada.
             */}
             <InlineMapDraw
               color={COLOR}
               hideMonte
+              hideLado
               onConfirm={alConfirmarRecinto}
               onUpdate={alActualizarRecinto}
               onDelete={eliminarRecinto}

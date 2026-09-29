@@ -15,7 +15,7 @@
  */
 import {
   perfilDe, computarTramo, computarRecinto, computarObraLineal, computarObraArea,
-  viajes, SECCION_POR_DEFECTO, CAPACIDADES_T,
+  geometriaAnillo, viajes, SECCION_POR_DEFECTO, CAPACIDADES_T,
   type SeccionExcavacion, type TramoExcavacion, type RecintoExcavacion,
 } from '../src/lib/excavacionCalculo'
 
@@ -122,37 +122,111 @@ ok('una obra sin tramos da todo en cero',
   computarObraLineal(sec, []).L_total === 0 && computarObraLineal(sec, []).W === 0)
 
 // ── Modo área ───────────────────────────────────────────────────────────────
-titulo('El modo área es superficie por profundidad, sin talud')
-
-// Una hectárea de 2 m de profundidad son 20.000 m³, a mano
-const r = computarRecinto(sec, recinto('p', 2, 1))
-ok('una hectárea por dos metros da 20.000 m³', cerca(r.Vcorte, 20_000))
-ok('la superficie se pasa a m²', r.area_m2, 10_000)
+titulo('La geometría del recinto sale del polígono, no de un número suelto')
 
 /*
- * La confusión que este test existe para atrapar: si alguien aplicara la
- * sección trapecial también acá, el volumen cambiaría con el talud. No debe.
- * El polígono dibujado ya es lo que se excava.
+ * Un rectángulo de 200 × 100 m, cerca de Resistencia. Está elegido para que
+ * TODO se pueda verificar a mano: área 20.000 m², perímetro 600 m, y como los
+ * cuatro ángulos son rectos, Σ cot(θ/2) = 4 · cot(45°) = 4.
+ *
+ * Ese 4 es lo que hace exacta la reducción del área al aplicar el talud:
+ * (200−2d)(100−2d) = 20.000 − 600·d + 4·d². Sin el término de esquinas el
+ * fondo saldría más chico de lo que es.
  */
-ok('el talud no toca el volumen de un recinto',
-  cerca(computarRecinto({ ...sec, m: 4 } as SeccionExcavacion, recinto('p', 2, 1)).Vcorte,
-        r.Vcorte, 1e-9))
+const LAT0 = -27.45, LNG0 = -58.98
+const mPorLat = 6_371_008.8 * Math.PI / 180
+const mPorLng = mPorLat * Math.cos(LAT0 * Math.PI / 180)
+const rect = (anchoM: number, altoM: number): [number, number][] => [
+  [LAT0, LNG0],
+  [LAT0, LNG0 + anchoM / mPorLng],
+  [LAT0 + altoM / mPorLat, LNG0 + anchoM / mPorLng],
+  [LAT0 + altoM / mPorLat, LNG0],
+]
 
-ok('el volumen es lineal en la profundidad',
-  cerca(computarRecinto(sec, recinto('p', 4, 1)).Vcorte, r.Vcorte * 2, 1e-9))
-info('en el modo lineal no lo es: ahí el talud ensancha con la profundidad')
+const geo = geometriaAnillo(rect(200, 100))
+ok('el área del rectángulo', Math.round(geo.area_m2), 20_000)
+ok('el perímetro del rectángulo', Math.round(geo.perim_m), 600)
+ok('Σ cot(θ/2) de cuatro ángulos rectos da 4', cerca(geo.sumaCot, 4, 1e-6))
+info('ese término no es un refinamiento: es el 4·d² de (200−2d)(100−2d)')
 
-ok('el peso también sale del volumen natural', cerca(r.W, r.Vcorte * sec.rho, 1e-9))
+ok('un anillo de menos de tres puntos no rompe', geometriaAnillo([[0, 0], [1, 1]]).area_m2, 0)
 
-const obraA = computarObraArea(sec, [recinto('a', 2, 1), recinto('b', 3, 2)])
-ok('la superficie total es la suma', obraA.ha_total, 3)
+titulo('El recinto es un tronco de pirámide, y el polígono es la BOCA')
+
+const conTraza = (H: number, coords: [number, number][]): RecintoExcavacion =>
+  ({ id: 'p', nombre: 'p', H, area_ha: 0, coords, orden: 0, color: null })
+
+const sinTalud = computarRecinto(sec, conTraza(2, rect(200, 100)), 0)
+ok('sin talud vuelve a ser un prisma: A · H', cerca(sinTalud.Vcorte, 40_000, 1))
+ok('y el fondo mide lo mismo que la boca', cerca(sinTalud.areaFondo_m2, sinTalud.area_m2, 1))
+
+const conTalud = computarRecinto(sec, conTraza(2, rect(200, 100)), 1.5)
+/*
+ * d = H·m = 3 m. Fondo = (200−6)(100−6) = 194 · 94 = 18.236 m².
+ * V = H/3 · (A + Af + √(A·Af)) = 2/3 · (20.000 + 18.236 + √(20.000·18.236))
+ */
+const Af = 194 * 94
+const Vesperado = (2 / 3) * (20_000 + Af + Math.sqrt(20_000 * Af))
+ok('el fondo es la boca reducida por el talud', Math.round(conTalud.areaFondo_m2), Af)
+ok('el volumen es el del prismatoide', cerca(conTalud.Vcorte, Vesperado, 2))
+ok('y es MENOR que el del prisma recto', conTalud.Vcorte < sinTalud.Vcorte)
+info(`${conTalud.Vcorte.toFixed(0)} m³ contra ${sinTalud.Vcorte.toFixed(0)} tratándolo como prisma`
+  + ` — ${((1 - conTalud.Vcorte / sinTalud.Vcorte) * 100).toFixed(1)} % menos`)
+
+ok('más talud, menos volumen',
+  computarRecinto(sec, conTraza(2, rect(200, 100)), 3).Vcorte < conTalud.Vcorte)
+
+titulo('Cuando el talud cierra el fondo')
+
+/*
+ * El lado corto mide 100 m, así que con talud 1,5 el fondo se cierra cuando
+ * 2·d = 100, o sea d = 50 m, o sea H = 50/1,5 = 33,33 m. Un pozo más hondo que
+ * eso no se puede hacer con ese talud sin ensanchar la boca: es un dato del
+ * proyecto, no un error del cálculo.
+ */
+const cierre = computarRecinto(sec, conTraza(2, rect(200, 100)), 1.5)
+ok('avisa a qué profundidad se cerraría', cerca(cierre.profundidadCierre ?? 0, 50 / 1.5, 0.01))
+ok('a 2 m todavía no está cerrado', cierre.fondoCerrado, false)
+
+const pozoHondo = computarRecinto(sec, conTraza(40, rect(200, 100)), 1.5)
+ok('a 40 m sí está cerrado', pozoHondo.fondoCerrado, true)
+ok('el fondo es cero', pozoHondo.areaFondo_m2, 0)
+ok('y entonces el cuerpo es una pirámide: V = A·H/3',
+  cerca(pozoHondo.Vcorte, pozoHondo.area_m2 * 40 / 3, 1e-6))
+ok('el volumen sigue siendo finito y positivo', pozoHondo.Vcorte > 0 && Number.isFinite(pozoHondo.Vcorte))
+
+titulo('Los recintos se suman')
+
+const obraA = computarObraArea(sec, [
+  conTraza(2, rect(200, 100)), conTraza(3, rect(100, 100)),
+], 1.5)
 ok('el volumen total es la suma',
-  cerca(obraA.Vcorte, 20_000 + 60_000, 1e-9))
-ok('la profundidad media se pesa por superficie',
-  cerca(obraA.H_media, (2 * 1 + 3 * 2) / 3, 1e-9))
+  cerca(obraA.Vcorte,
+    computarRecinto(sec, conTraza(2, rect(200, 100)), 1.5).Vcorte
+    + computarRecinto(sec, conTraza(3, rect(100, 100)), 1.5).Vcorte, 1e-6))
+ok('el peso sale del volumen natural', cerca(obraA.W, obraA.Vcorte * sec.rho, 1e-6))
+ok('ninguno quedó cerrado en este caso', obraA.algunoCerrado, false)
 
-const sinTraza = computarObraArea(sec, [recinto('a', 2, 1), recinto('b', 2, 0)])
+/*
+ * Con talud, el volumen NO es lineal en la profundidad: el fondo se achica a
+ * medida que se baja. Así que promediar profundidades tampoco da lo mismo acá,
+ * aunque la geometría sea otra que en el modo lineal.
+ */
+const dosPozos = computarObraArea(sec, [
+  conTraza(1, rect(200, 100)), conTraza(3, rect(200, 100)),
+], 1.5)
+const promediado = computarRecinto(sec, conTraza(2, rect(200, 100)), 1.5).Vcorte * 2
+ok('promediar la profundidad tampoco da lo mismo con talud',
+  !cerca(dosPozos.Vcorte, promediado, 1))
+info(`sumando ${dosPozos.Vcorte.toFixed(0)} m³ contra ${promediado.toFixed(0)} promediando`)
+
+const sinTraza = computarObraArea(sec, [
+  conTraza(2, rect(200, 100)),
+  { id: 'b', nombre: 'b', H: 2, area_ha: 0, coords: null, orden: 1, color: null },
+], 1.5)
 ok('un recinto sin dibujar se cuenta aparte', sinTraza.sinDibujar, 1)
+ok('y no aporta volumen',
+  cerca(sinTraza.Vcorte, computarRecinto(sec, conTraza(2, rect(200, 100)), 1.5).Vcorte, 1e-6))
 
 // ── Transporte ──────────────────────────────────────────────────────────────
 titulo('Viajes de camión')

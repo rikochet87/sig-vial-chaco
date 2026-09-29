@@ -126,6 +126,16 @@ interface ConfirmedPoly {
 interface Props {
   color: string
   hideMonte?: boolean   // oculta el selector de tipo de monte (p.ej. en Desmalezado)
+  /*
+   * Oculta el selector de lado (izquierda / derecha del camino).
+   *
+   * Tiene sentido en desbosque y desmalezado, donde el trabajo se hace a un
+   * costado de la traza y hay que decir a cuál. **No lo tiene en un préstamo de
+   * excavación**, que es un recinto en el terreno y no está a ningún lado de
+   * nada: ahí el control pide una decisión que no existe, y el usuario tiene
+   * que elegir igual.
+   */
+  hideLado?: boolean
   onConfirm: (id: string, side: 'izq' | 'der', monte: MonteKey, area_ha: number, pts: [number,number][]) => void
   onDelete:  (id: string) => void
   onUpdate?: (id: string, area_ha: number, pts: [number,number][]) => void
@@ -133,7 +143,7 @@ interface Props {
 }
 
 // ── Componente ────────────────────────────────────────────────────────────────
-export default function InlineMapDraw({ color, hideMonte = false, onConfirm, onDelete, onUpdate, onCancel }: Props) {
+export default function InlineMapDraw({ color, hideMonte = false, hideLado = false, onConfirm, onDelete, onUpdate, onCancel }: Props) {
   const [side,       setSide]       = useState<'izq' | 'der'>('izq')
   const [monte,      setMonte]      = useState<MonteKey>('semitupido')
   const [drawing,    setDrawing]    = useState(false)
@@ -814,12 +824,16 @@ export default function InlineMapDraw({ color, hideMonte = false, onConfirm, onD
           /* ── Toolbar normal ── */
           <>
             {/* Lado */}
-            <span style={{ fontSize: 12, color: '#444', ...mono, textTransform: 'uppercase', letterSpacing: 0.8 }}>Lado</span>
-            {(['izq', 'der'] as const).map(s => (
-              <button key={s} disabled={drawing} onClick={() => setSide(s)} style={toolBtn(side === s)}>
-                {s === 'izq' ? '← Izq.' : 'Der. →'}
-              </button>
-            ))}
+            {!hideLado && (
+              <>
+                <span style={{ fontSize: 12, color: '#444', ...mono, textTransform: 'uppercase', letterSpacing: 0.8 }}>Lado</span>
+                {(['izq', 'der'] as const).map(s => (
+                  <button key={s} disabled={drawing} onClick={() => setSide(s)} style={toolBtn(side === s)}>
+                    {s === 'izq' ? '← Izq.' : 'Der. →'}
+                  </button>
+                ))}
+              </>
+            )}
 
             {!hideMonte && (
               <>
@@ -968,8 +982,11 @@ export default function InlineMapDraw({ color, hideMonte = false, onConfirm, onD
             zIndex: 998, textAlign: 'center', pointerEvents: 'none',
           }}>
             <div style={{ background: '#0a0a0acc', border: `1px solid ${color}33`, borderRadius: 4, padding: '10px 18px', ...mono, fontSize: 12, color: '#444' }}>
-              Seleccioná lado y tipo de monte<br />
-              luego presioná <span style={{ color }}>◎ Dibujar polígono</span>
+              {/* El cartel nombra sólo los controles que están a la vista */}
+              {hideLado && hideMonte
+                ? <>Dibujá el recinto sobre el terreno<br /></>
+                : <>Seleccioná {[!hideLado && 'lado', !hideMonte && 'tipo de monte'].filter(Boolean).join(' y ')}<br /></>}
+              presioná <span style={{ color }}>◎ Dibujar polígono</span>
             </div>
           </div>
         )}
