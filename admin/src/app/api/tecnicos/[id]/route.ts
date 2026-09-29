@@ -47,10 +47,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
  * persona desaparecía del panel mientras seguía pudiendo iniciar sesión.
  * Invisible para el administrador y viva para quien tenía la contraseña.
  *
- * Al revés, una interrupción deja un perfil sin cuenta: la persona no puede
- * entrar —que es lo que se pidió— y el perfil sigue a la vista para reintentar.
- * Ninguno de los dos órdenes es atómico, porque son dos sistemas distintos; de
- * lo que se trata es de elegir con qué mitad es más seguro quedarse.
+ * **Y con este orden el borrado lo hace la base, no nosotros.** Verificado en el
+ * catálogo el 29/09/2026: `profiles_id_fkey` es `references auth.users(id) on
+ * delete cascade`, así que eliminar la cuenta borra el perfil en la misma
+ * transacción de Postgres. El `delete` de `profiles` de abajo pasa a ser
+ * limpieza del caso contrario —un perfil que quedó sin cuenta de un borrado
+ * viejo— y no encuentra nada en el caso normal.
+ *
+ * Con el orden anterior la cascada nunca llegaba a actuar: el perfil ya se
+ * había borrado a mano. O sea que el código estaba haciendo a mano, y mal, algo
+ * que el esquema ya garantizaba.
  */
 export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireAdminRole()

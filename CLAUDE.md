@@ -1226,6 +1226,14 @@ Los arregla `docs/sql/09-seguridad.sql`, ya aplicado.
   `alter table` posteriores. Consecuencia: **no se puede reconstruir la base ni
   levantar un entorno de prueba.**
 
+  Y no es sólo un problema de reconstrucción: **el código no puede saber qué
+  garantiza el esquema.** El borrado de usuarios hacía a mano, y mal, algo que
+  la base ya garantizaba — `profiles.id` es `references auth.users(id) on
+  delete cascade`, verificado en el catálogo el 29/09/2026, así que borrar la
+  cuenta borra el perfil en la misma transacción. El código borraba el perfil
+  primero, dejando a la cascada sin nada que hacer y abriendo la ventana a una
+  cuenta sin perfil.
+
   `docs/sql/11-extraer-ddl.sql` lo destraba: son siete consultas de sólo lectura
   que sacan el DDL real del catálogo de Postgres —columnas, restricciones,
   índices, RLS y políticas, funciones SECURITY DEFINER, triggers y grants—. Se
@@ -1300,6 +1308,14 @@ límites que sólo aplica cuando se le pasa un `buf` propio. No se toca.
 
 ## Documentación
 
+- `docs/metodologia-lluvia.md` — **documento técnico de la pantalla de Lluvias**:
+  de dónde sale cada número, cómo se procesa y por qué se eligió ese método
+  sobre las alternativas. Es el que se le pasa a un tercero que pregunta cómo
+  funciona, o el que se cita en un expediente. Está escrito para un lector
+  humano externo; este CLAUDE.md, para trabajar sobre el código. **Si cambia un
+  método o una constante, hay que tocar los dos.**
+- `docs/lluvia-pendientes.md` — lo que falta probar (IMERG, radar, kriging) con
+  el procedimiento para medirlo
 - `docs/propuesta-ripio-presupuesto.md` — análisis de las planillas de cálculo y
   el plan de implementación
 - `docs/sql/` — scripts SQL aplicados en Supabase
