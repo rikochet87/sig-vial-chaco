@@ -69,6 +69,14 @@ export interface EstacionConRio {
   ultima: { fecha: string; m: number; estado: EstadoRio } | null
   /** Cuántos metros le faltan al alerta. Negativo si ya lo pasó */
   margen: number | null
+  /**
+   * Lecturas que la fuente publicó y este sistema no usó por implausibles.
+   *
+   * Va a pantalla. Descartar en silencio dejaría al panel afirmando algo
+   * distinto de su fuente sin que nadie pueda notarlo — y si mañana el salto
+   * resulta ser real, este aviso es lo único que lo delataría.
+   */
+  descartadas: LecturaRio[]
 }
 
 export async function GET(req: NextRequest) {
@@ -113,7 +121,7 @@ export async function GET(req: NextRequest) {
 
     for (const e of ESTACIONES) {
       try {
-        const { observado, pronostico } = await estadoCompleto(e.id, d, h)
+        const { observado, descartadas, pronostico } = await estadoCompleto(e.id, d, h)
         const u = observado[observado.length - 1] ?? null
         estaciones.push({
           id: e.id,
@@ -126,6 +134,7 @@ export async function GET(req: NextRequest) {
           pronostico,
           ultima: u ? { fecha: u.fecha, m: u.m, estado: estadoDe(e, u.m) } : null,
           margen: u ? Math.round((e.alerta - u.m) * 100) / 100 : null,
+          descartadas,
         })
       } catch (err) {
         // El motivo se guarda: si fallan todas, la pantalla tiene que poder

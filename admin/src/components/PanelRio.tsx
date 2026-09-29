@@ -70,6 +70,8 @@ interface EstacionRio {
   pronostico: { emitido: string; puntos: PuntoPronostico[] } | null
   ultima: { fecha: string; m: number; estado: EstadoRio } | null
   margen: number | null
+  /** Lecturas que publicó el INA y este sistema no usó — ver `depurar()` */
+  descartadas: Lectura[]
 }
 
 interface Respuesta {
@@ -125,7 +127,11 @@ export default function PanelRio({ dias = 90, desde, hasta }: Props) {
          */
         return {
           ...j,
-          estaciones: Array.isArray(j?.estaciones) ? j.estaciones : [],
+          estaciones: (Array.isArray(j?.estaciones) ? j.estaciones : [])
+            .map((e: EstacionRio) => ({
+              ...e,
+              descartadas: Array.isArray(e?.descartadas) ? e.descartadas : [],
+            })),
           sinRespuesta: Array.isArray(j?.sinRespuesta) ? j.sinRespuesta : [],
           motivos: Array.isArray(j?.motivos) ? j.motivos : [],
         } as Respuesta
@@ -392,6 +398,20 @@ function Franja({ est, desde, hasta, alDato, promovida }: {
             </span>
           : <span style={{ color: '#4a4a4a' }}>sin corrida publicada</span>}
       </div>
+
+      {/*
+        Lo que se omitió, dicho. Si el sistema muestra algo distinto de lo que
+        publica su fuente, eso tiene que estar a la vista: descartar en silencio
+        es afirmar sin que nadie pueda revisarlo.
+      */}
+      {est.descartadas.length > 0 && (
+        <div style={{ fontSize: 11, color: '#b98a64', marginBottom: 3, lineHeight: 1.5 }}>
+          {est.descartadas.length === 1 ? 'Se omitió 1 lectura' : `Se omitieron ${est.descartadas.length} lecturas`}
+          {' '}del INA por salto imposible ({est.descartadas.slice(0, 3)
+            .map(l => `${soloFecha(l.fecha)}: ${nMetros(l.m)} m`).join(' · ')}
+          {est.descartadas.length > 3 ? '…' : ''}).
+        </div>
+      )}
 
       <svg viewBox={`0 0 100 ${ALTO}`} preserveAspectRatio="none"
         style={{ width: '100%', height: 96, display: 'block', background: '#141414' }}>

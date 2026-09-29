@@ -919,6 +919,44 @@ sólo verifica sesión: son de sólo lectura y de datos públicos, así que el d
 es bajo, pero es el mismo molde que ya causó agujeros acá. **Habría que
 emparejarlas.**
 
+### La fuente publica lecturas imposibles, y hay que filtrarlas
+
+El 28/09/2026 a las 16:34 UTC el INA cargó en la serie de Empedrado un lote de
+observaciones de las 12:00 —**cinco ceros exactos seguidos y después 12,33 y
+12,44 m**— intercaladas con las mediciones normales de las 03:00, que venían en
+4,0 m. El panel tomaba la última lectura, así que **anunció que Empedrado había
+superado su nivel de evacuación**: una falsa alarma en la única pantalla que
+alguien mira para decidir. Y el gráfico zigzagueaba, porque dibujaba las dos
+familias alternadas.
+
+`depurar()` en `lib/ina.ts` descarta lo que no puede ser cierto, con **un solo
+criterio**: un salto de más de `SALTO_MAX_M` = **2 m** respecto de la última
+lectura aceptada. El Paraná en este tramo sube de 10 a 30 cm por día incluso en
+crecida, así que 2 m deja margen de sobra sobre cualquier evento conocido.
+
+Cuatro decisiones que no son obvias:
+
+- **El umbral es deliberadamente flojo.** Descartar una lectura real en un
+  evento extremo es mucho peor que dejar pasar una basura chica: la basura se
+  lee como ruido, la lectura descartada se lee como que no pasó nada.
+- **No hay una regla aparte para los ceros**, aunque el lote fueran ceros. Con el
+  río en 4 m un cero ya es un salto de cuatro metros, y una altura de cero en la
+  escala **es posible** en una bajante extrema. Una regla contra el cero
+  descartaría un dato real justo en el otro evento que importa. Eso deja un
+  hueco declarado: con el río bajo, un cero falso entra — y ahí es
+  indistinguible de una medición.
+- **La referencia inicial es la mediana, no la primera lectura.** Encadenar
+  desde la primera es frágil: si justo la primera es basura, se acepta ella y se
+  descarta la serie entera. El test lo afirma.
+- **Lo descartado se muestra**, con fecha y valor. Filtrar en silencio dejaría a
+  este sistema afirmando algo distinto de su fuente sin que nadie pueda notarlo,
+  y si mañana el salto es real el aviso es lo único que lo delata.
+
+`scripts/verificar-rio-depuracion.ts` usa **las observaciones reales de ese
+episodio**, no un caso inventado, y afirma las dos puntas: que el lote se
+descarta y que una crecida de 25 cm diarios que cruza los dos umbrales pasa
+entera.
+
 ### El hueco del datum
 
 **Barranqueras no tiene `cero_ign`.** Sin el cero de escala referido al datum del

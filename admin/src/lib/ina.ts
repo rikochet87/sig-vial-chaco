@@ -164,10 +164,104 @@ async function observadasDeSerie(
     `/obs/puntual/series/${serie.id}/observaciones`
     + `?timestart=${desde}&timeend=${hasta}&format=json`,
   ) as { timestart: string; valor: number | null }[]
-  if (!Array.isArray(j)) return []
-  return j
+  return (await observadasDeSerieCompleto(serie, desde, hasta)).validas
+}
+
+/** Lo mismo, pero además devuelve lo que se descartó y por qué se pudo decir */
+async function observadasDeSerieCompleto(
+  serie: FilaSerie | null, desde: string, hasta: string,
+): Promise<Depuracion> {
+  if (!serie) return { validas: [], descartadas: [] }
+  const j = await traer(
+    `/obs/puntual/series/${serie.id}/observaciones`
+    + `?timestart=${desde}&timeend=${hasta}&format=json`,
+  ) as { timestart: string; valor: number | null }[]
+  if (!Array.isArray(j)) return { validas: [], descartadas: [] }
+
+  const crudas = j
     .filter(o => typeof o?.valor === 'number')
     .map(o => ({ fecha: o.timestart, m: o.valor as number }))
+    .sort((a, b) => a.fecha.localeCompare(b.fecha))
+  return depurar(crudas)
+}
+
+// ── Lecturas implausibles ────────────────────────────────────────────────────
+
+/**
+ * El salto máximo admisible entre dos lecturas consecutivas, en metros.
+ *
+ * El Paraná en este tramo sube del orden de 10 a 30 cm por día, incluso en
+ * crecida: es un río de llanura con cuencas de miles de kilómetros, así que la
+ * onda llega amortiguada y lenta. Dos metros deja un margen muy amplio sobre
+ * cualquier crecida conocida y aun así atrapa lo que hay que atrapar.
+ *
+ * **El umbral es deliberadamente flojo.** Descartar una lectura real en un
+ * evento extremo sería mucho peor que dejar pasar una basura chica: la basura
+ * chica se ve como ruido, la lectura descartada se ve como que no pasó nada.
+ */
+export const SALTO_MAX_M = 2
+
+export interface Depuracion {
+  validas: LecturaRio[]
+  /** Las que no se usan, para poder decir cuántas fueron y de cuándo */
+  descartadas: LecturaRio[]
+}
+
+/**
+ * Saca de la serie las lecturas que no pueden ser ciertas.
+ *
+ * **Existe por un caso real, no por precaución.** El 28/09/2026 a las 16:34 UTC
+ * el INA cargó en la serie de Empedrado un lote de observaciones de las 12:00
+ * —cinco ceros exactos seguidos y después 12,33 y 12,44 m— intercaladas con las
+ * mediciones normales de las 03:00, que venían en 4,0 m. La pantalla tomó la
+ * última lectura, que era una de ésas, y anunció que Empedrado había superado su
+ * nivel de evacuación. Una falsa alarma en la única pantalla que alguien mira
+ * para decidir.
+ *
+ * **El criterio es uno solo: un río no sube ocho metros en nueve horas.** De ahí
+ * `SALTO_MAX_M`. Los ceros caen por el mismo camino, porque con el río en 4 m un
+ * cero es un salto de cuatro metros — no hace falta una regla aparte para ellos,
+ * y conviene que no la haya: una altura de cero en la escala es posible en una
+ * bajante extrema, así que tratarla siempre como basura sería descartar un dato
+ * real justo en el otro evento que importa.
+ *
+ * Eso deja un hueco declarado: con el río bajo, un cero falso no supera el
+ * umbral y entra. No se tapa con una regla más porque ese cero, ahí, es
+ * indistinguible de una medición — y este sistema prefiere no afirmar antes que
+ * adivinar.
+ *
+ * **La referencia inicial es la mediana, no la primera lectura.** Encadenar
+ * desde la primera es frágil: si justo la primera es basura, se acepta ella y se
+ * descarta la serie entera. La mediana no se mueve porque unas pocas lecturas
+ * sean disparatadas, que es exactamente la propiedad que hace falta.
+ *
+ * Lo descartado **se devuelve, no se tira**: la pantalla dice cuántas lecturas
+ * omitió y de qué fecha. Filtrar en silencio dejaría a este sistema afirmando
+ * algo distinto de su fuente sin que nadie pueda notarlo — y si mañana el salto
+ * es real, el aviso es lo único que lo delataría.
+ */
+export function depurar(lecturas: LecturaRio[]): Depuracion {
+  if (lecturas.length === 0) return { validas: [], descartadas: [] }
+
+  const orden = [...lecturas].map(l => l.m).sort((a, b) => a - b)
+  const mediana = orden[Math.floor(orden.length / 2)]
+
+  const validas: LecturaRio[] = []
+  const descartadas: LecturaRio[] = []
+  let referencia = mediana
+
+  for (const l of lecturas) {
+    if (Math.abs(l.m - referencia) > SALTO_MAX_M) {
+      descartadas.push(l)
+      continue
+    }
+    validas.push(l)
+    // La referencia avanza sólo con lo aceptado: si no, una lectura mala
+    // correría el umbral y dejaría entrar a la siguiente.
+    referencia = l.m
+  }
+
+  return { validas, descartadas }
 }
 
 /**
@@ -253,10 +347,12 @@ export const COLOR_ESTADO: Record<EstadoRio, string> = {
  */
 export async function estadoCompleto(
   estacionId: number, desde: string, hasta: string,
-): Promise<{ observado: LecturaRio[]; pronostico: Pronostico | null }> {
+): Promise<{ observado: LecturaRio[]; descartadas: LecturaRio[]; pronostico: Pronostico | null }> {
   const serie = await serieMedida(estacionId)
+  const obs = await observadasDeSerieCompleto(serie, desde, hasta)
   return {
-    observado: await observadasDeSerie(serie, desde, hasta),
+    observado: obs.validas,
+    descartadas: obs.descartadas,
     pronostico: await pronosticoDeSerie(serie),
   }
 }
