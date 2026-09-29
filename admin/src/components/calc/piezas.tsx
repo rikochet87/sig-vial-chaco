@@ -22,6 +22,21 @@ export const panel: CSSProperties = {
   overflowY: 'auto', minHeight: 0,
 }
 
+/**
+ * Un panel dentro de una columna que scrollea.
+ *
+ * `flexShrink: 0` no es decorativo: en un contenedor flex vertical los hijos se
+ * encogen por omisión, y como estos paneles tienen `overflow` visible, el
+ * contenido no se recorta sino que **desborda y el panel siguiente lo tapa con
+ * su fondo**. En un monitor bajo eso se veía como una tarjeta cortada al medio,
+ * sin sus botones — nada oculto, todo tapado. Con el alto natural intacto, el
+ * que scrollea es la columna.
+ */
+export const panelCol: CSSProperties = {
+  background: '#0e0e0e', border: '1px solid #1e1e1e', borderRadius: 6, padding: 11,
+  overflowY: 'visible', flexShrink: 0, minHeight: 0,
+}
+
 export const secLabel: CSSProperties = {
   fontSize: 13, color: '#444', textTransform: 'uppercase', letterSpacing: 1.2,
   fontFamily: 'monospace', marginBottom: 10, marginTop: 16,
@@ -247,6 +262,107 @@ export function SeccionTerraplen({ H, Bc, m, A, Bb, color, alto = 210 }: {
         <text
           x={areaAdentro ? cx : 4}
           y={areaAdentro ? GY - dH / 2 + FS * 0.38 : FS + 2}
+          textAnchor={areaAdentro ? 'middle' : 'start'}
+          fontSize={areaAdentro ? Math.min(16, Math.max(FS, Math.round(w / 26))) : FS + 1}
+          fill={color} fontFamily="monospace" fontWeight="bold">
+          A = {A.toFixed(2)} m²
+        </text>
+      </svg>
+    </div>
+  )
+}
+
+// ── El dibujo de la sección de corte ─────────────────────────────────────────
+
+/**
+ * La sección tipo de una excavación, a escala proporcional.
+ *
+ * **Es el trapecio al revés que el de terraplén, y eso no es un detalle de
+ * dibujo.** En un terraplén el ancho de corona está arriba y el talud ensancha
+ * hacia abajo; en una excavación el ancho de fondo está abajo y el talud
+ * ensancha hacia arriba, hacia la boca. La fórmula del área es la misma porque
+ * las dos son trapecios, pero quien mira la pantalla tiene que ver de inmediato
+ * si está cargando el ancho de arriba o el de abajo — cargarlo al revés da un
+ * volumen plausible y equivocado.
+ *
+ * Por eso son dos componentes y no uno con una bandera: el rayado del terreno,
+ * las cotas y de qué lado cae el relleno cambian todos a la vez.
+ *
+ * Dibuja en **píxeles reales** —mide su ancho y arma el `viewBox` con él— por el
+ * mismo motivo que `SeccionTerraplen`: con un `viewBox` fijo estirado al
+ * contenedor, el texto escala con el dibujo y en un panel chico cae muy por
+ * debajo del piso de 11 px de esta pantalla.
+ */
+export function SeccionCorte({ H, Bf, m, A, Bb, color, alto = 210 }: {
+  H: number; Bf: number; m: number; A: number; Bb: number
+  color: string; alto?: number
+}) {
+  const [w, setW] = useState(420)
+
+  const medir = useCallback((nodo: HTMLDivElement | null) => {
+    if (!nodo) return
+    const leer = () => setW(Math.max(180, Math.round(nodo.getBoundingClientRect().width)))
+    leer()
+    const obs = new ResizeObserver(leer)
+    obs.observe(nodo)
+    return () => obs.disconnect()
+  }, [])
+
+  const FS = 11
+  // La línea de terreno va arriba: lo excavado cuelga por debajo de ella
+  const GY = Math.round(alto * 0.26)
+  const PAD = Math.max(46, Math.round(w * 0.11))
+
+  const sc = Math.min(
+    (w - 2 * PAD) / Math.max(Bb, 1),
+    (alto - GY - FS * 3) / Math.max(H, 0.1),
+  )
+  const dH = H * sc, dBb = Bb * sc, dBf = Bf * sc
+  const cx = w / 2
+  const yFondo = GY + dH
+  const pts = `${cx - dBb / 2},${GY} ${cx + dBb / 2},${GY} ${cx + dBf / 2},${yFondo} ${cx - dBf / 2},${yFondo}`
+
+  const areaAdentro = dH > FS * 2.2
+  const taludesAdentro = dH > FS * 2.8 && dBb - dBf > FS * 6
+
+  /** El rayado del terreno, sólo a los costados: en el medio está el hueco */
+  const terreno = Array.from({ length: 5 }, (_, i) => {
+    const y = GY + 6 + i * 9
+    return (
+      <g key={i}>
+        <line x1={0} y1={y} x2={Math.max(0, cx - dBb / 2 - 3)} y2={y} stroke="#1a1a1a" strokeWidth={1} />
+        <line x1={Math.min(w, cx + dBb / 2 + 3)} y1={y} x2={w} y2={y} stroke="#1a1a1a" strokeWidth={1} />
+      </g>
+    )
+  })
+
+  return (
+    <div ref={medir} style={{ width: '100%' }}>
+      <svg viewBox={`0 0 ${w} ${alto}`} width={w} height={alto} style={{ display: 'block', maxWidth: '100%' }}>
+        {terreno}
+        <line x1={0} y1={GY} x2={w} y2={GY} stroke="#2a2a2a" strokeWidth={1} />
+        <polygon points={pts} fill={`${color}18`} stroke={color} strokeWidth={2} strokeLinejoin="round" />
+
+        <DimLine x1={cx - dBb / 2} y1={GY - FS} x2={cx + dBb / 2} y2={GY - FS}
+          label={`Boca = ${Bb.toFixed(2)} m`} textX={cx} textY={GY - FS - 4} fs={FS} />
+        <DimLine x1={cx - dBf / 2} y1={yFondo + FS} x2={cx + dBf / 2} y2={yFondo + FS}
+          label={`Bf = ${Bf.toFixed(1)} m — fondo`} textX={cx} textY={yFondo + FS * 2} fs={FS} />
+        <DimLine x1={cx + dBb / 2 + 14} y1={GY} x2={cx + dBb / 2 + 14} y2={yFondo}
+          label={`H = ${H.toFixed(2)} m`} textX={cx + dBb / 2 + 26} textY={GY + dH / 2}
+          rotate={`rotate(90,${cx + dBb / 2 + 26},${GY + dH / 2})`} fs={FS} />
+
+        {taludesAdentro && (
+          <>
+            <text x={cx - dBb / 2 + dBb * 0.10} y={GY + dH * 0.55} fontSize={FS}
+              fill="#5a5a5a" fontFamily="monospace">{m}:1</text>
+            <text x={cx + dBb / 2 - dBb * 0.10} y={GY + dH * 0.55} fontSize={FS}
+              fill="#5a5a5a" fontFamily="monospace" textAnchor="end">{m}:1</text>
+          </>
+        )}
+
+        <text
+          x={areaAdentro ? cx : 4}
+          y={areaAdentro ? GY + dH / 2 + FS * 0.38 : FS + 2}
           textAnchor={areaAdentro ? 'middle' : 'start'}
           fontSize={areaAdentro ? Math.min(16, Math.max(FS, Math.round(w / 26))) : FS + 1}
           fill={color} fontFamily="monospace" fontWeight="bold">

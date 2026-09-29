@@ -9,6 +9,7 @@ import DesmMapPanel, { type TramoForMap } from '@/components/DesmMapPanel'
 import MapComposicion, { type TramoComp } from '@/components/MapComposicion'
 import GuardarObraModal, { type GuardarObraData, type ObraTipo } from '@/components/GuardarObraModal'
 import CalcTerraplen from '@/components/CalcTerraplen'
+import CalcExcavacion from '@/components/CalcExcavacion'
 /*
  * Las piezas compartidas viven en `components/calc/piezas.tsx`.
  *
@@ -23,6 +24,9 @@ import {
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 type Tab    = 'terraplen' | 'excavacion' | 'ripio' | 'canal' | 'limpieza'
 type Params = Record<string, number | string>
+
+/** Las que traen su propio mapa y su propio botón de guardar */
+const SIN_BOTONERA: Tab[] = ['terraplen', 'excavacion']
 
 // ── Colores por tipo ──────────────────────────────────────────────────────────
 const CLR: Record<Tab, string> = {
@@ -84,95 +88,6 @@ function pesosEnLetras(n: number): string {
 }
 
 // ── EXCAVACIÓN ────────────────────────────────────────────────────────────────
-function CalcExcavacion({ paramsRef }: { paramsRef?: React.MutableRefObject<Params> }) {
-  const [L, setL]     = useState(500)
-  const [H, setH]     = useState(2.0)
-  const [Bf, setBf]   = useState(3.0)
-  const [m, setM]     = useState(1.0)
-  const [rho, setRho] = useState(1.80)
-  const [Fe, setFe]   = useState(25)
-
-  const Bb  = Bf + 2 * H * m
-  const A   = (Bf + Bb) / 2 * H
-  const Vc  = A * L
-  const Ves = Vc * (1 + Fe / 100)
-  const W   = Vc * rho
-
-  useEffect(() => {
-    if (paramsRef) paramsRef.current = { H, Bf, m, rho, Fe, W_t: W, L_m: L }
-  }, [paramsRef, L, H, Bf, m, rho, Fe, W])
-  const fmt = (n: number) => Math.round(n).toLocaleString('es-AR')
-
-  const W_SVG = 420, H_SVG = 200, GY = 50, PAD = 50
-  const sc = Math.min((W_SVG - 2 * PAD) / Math.max(Bb, 1), (H_SVG - GY - 40) / Math.max(H, 0.1))
-  const dH = H * sc, dBb = Bb * sc, dBf = Bf * sc
-  const cx = W_SVG / 2
-  const pts = `${cx - dBb/2},${GY} ${cx + dBb/2},${GY} ${cx + dBf/2},${GY + dH} ${cx - dBf/2},${GY + dH}`
-  const color = CLR.excavacion
-
-  return (
-    <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr 148px', gap: 10, height: '100%' }}>
-      <div style={panel}>
-        <SectionTitle>Geometría</SectionTitle>
-        <Inp label="Longitud"           unit="m"   value={L}   onChange={setL}   step={10} />
-        <Inp label="Profundidad"        unit="m"   value={H}   onChange={setH}   />
-        <Inp label="Ancho de fondo"     unit="m"   value={Bf}  onChange={setBf}  />
-        <Inp label="Talud H:V"                     value={m}   onChange={setM}   step={0.5} />
-        <div style={secLabel}>Material extraído</div>
-        <Inp label="Densidad natural"   unit="t/m³" value={rho} onChange={setRho} step={0.05} min={1} />
-        <Inp label="Esponjamiento"      unit="%"   value={Fe}  onChange={setFe}  step={1} />
-        <div style={{ marginTop: 12, padding: '8px', background: '#0a0a0a', borderRadius: 4, fontSize: 12, color: '#333', fontFamily: 'monospace', lineHeight: 1.6 }}>
-          Ancho boca = {Bb.toFixed(2)} m<br />
-          A sección  = {A.toFixed(3)} m²
-        </div>
-      </div>
-
-      <div style={{ ...panel, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
-        <SectionTitle>Sección tipo — Excavación / Corte (escala proporcional)</SectionTitle>
-        <svg viewBox={`0 0 ${W_SVG} ${H_SVG}`} style={{ width: '100%', height: 'auto' }}>
-          <line x1={0} y1={GY} x2={W_SVG} y2={GY} stroke="#2a2a2a" strokeWidth={1} />
-          {Array.from({ length: 5 }, (_, i) => (
-            <line key={i} x1={0} y1={GY + i * 9} x2={cx - dBb/2 - 2} y2={GY + i * 9} stroke="#1a1a1a" strokeWidth={1} />
-          ))}
-          {Array.from({ length: 5 }, (_, i) => (
-            <line key={i} x1={cx + dBb/2 + 2} y1={GY + i * 9} x2={W_SVG} y2={GY + i * 9} stroke="#1a1a1a" strokeWidth={1} />
-          ))}
-          <polygon points={pts} fill={`${color}18`} stroke={color} strokeWidth={2} strokeLinejoin="round" />
-          <DimLine x1={cx - dBb/2} y1={GY - 16} x2={cx + dBb/2} y2={GY - 16}
-            label={`Boca = ${Bb.toFixed(2)} m`} textX={cx} textY={GY - 20} />
-          <DimLine x1={cx - dBf/2} y1={GY + dH + 16} x2={cx + dBf/2} y2={GY + dH + 16}
-            label={`Bf = ${Bf.toFixed(1)} m`} textX={cx} textY={GY + dH + 26} />
-          <DimLine x1={cx + dBb/2 + 14} y1={GY} x2={cx + dBb/2 + 14} y2={GY + dH}
-            label={`H=${H.toFixed(1)}m`} textX={cx + dBb/2 + 28} textY={GY + dH/2}
-            rotate={`rotate(90,${cx + dBb/2 + 28},${GY + dH/2})`} />
-          <text x={cx - dBb/2 + dBb*0.13} y={GY + dH*0.45} fontSize={9} fill="#555" fontFamily="monospace">{m}:1</text>
-          <text x={cx} y={GY + dH/2 + 4} textAnchor="middle" fontSize={12}
-            fill={color} fontFamily="monospace" fontWeight="bold">A = {A.toFixed(2)} m²</text>
-        </svg>
-        <Pipeline color={color} steps={[
-          { label: 'Ancho boca',     formula: 'Bb = Bf + 2·H·m',      sub: `${Bf}+2·${H}·${m}`,                    result: `${Bb.toFixed(3)} m` },
-          { label: 'Sección',        formula: 'A = (Bf+Bb)/2 · H',    sub: `(${Bf}+${Bb.toFixed(2)})/2·${H}`,      result: `${A.toFixed(3)} m²` },
-          { label: 'Vol. corte',     formula: 'Vc = A · L',            sub: `${A.toFixed(3)}·${L}`,                 result: `${fmt(Vc)} m³` },
-          { label: 'Vol. esponjado', formula: 'Ve = Vc · (1+Fe/100)', sub: `${fmt(Vc)}·${(1+Fe/100).toFixed(2)}`,  result: `${fmt(Ves)} m³` },
-          { label: 'Peso haul',      formula: 'W = Vc · ρ',           sub: `${fmt(Vc)}·${rho}`,                    result: `${fmt(W)} t`, accent: true },
-        ]} />
-      </div>
-
-      <div style={panel}>
-        <SectionTitle>Cómputo</SectionTitle>
-        <Res label="Sección"            value={A.toFixed(3)}  unit="m²" />
-        <Res label="Volumen de corte"   value={fmt(Vc)}       unit="m³" />
-        <Res label="Vol. esponjado"     value={fmt(Ves)}      unit="m³" />
-        <Res label="Peso a transportar" value={fmt(W)}        unit="t" accent />
-        <div style={{ marginTop: 8, fontSize: 13, color: '#333', fontFamily: 'monospace', lineHeight: 1.8 }}>
-          Camiones 15t: ~{Math.ceil(W/15).toLocaleString('es-AR')}<br/>
-          Camiones 20t: ~{Math.ceil(W/20).toLocaleString('es-AR')}
-        </div>
-      </div>
-    </div>
-  )
-}
-
 // ── RIPIO — ahora es el componente externo CalcRipioComponent ────────────────
 // (ver admin/src/components/CalcRipio.tsx)
 
@@ -2703,8 +2618,11 @@ export default function CalculadorasPage() {
           </span>
         )}
         <div style={{ flex: 1 }} />
-        {/* Terraplén dibuja en su propio panel: no manda a la pantalla de Planta */}
-        {tab !== 'terraplen' && (
+        {/*
+          Terraplén y excavación dibujan en su propio panel y guardan desde ahí:
+          no mandan a la pantalla de Planta ni usan estos botones.
+        */}
+        {!SIN_BOTONERA.includes(tab) && (
         <button
           onClick={handleDraw}
           style={{
@@ -2718,7 +2636,7 @@ export default function CalculadorasPage() {
         </button>
         )}
 
-        {tab !== 'terraplen' && (
+        {!SIN_BOTONERA.includes(tab) && (
           <button
             onClick={handleGuardarObra}
             style={{
@@ -2752,7 +2670,19 @@ export default function CalculadorasPage() {
             Cargando obra…
           </div>
         )}
-        {tab === 'excavacion' && <CalcExcavacion paramsRef={paramsRef} />}
+        {tab === 'excavacion'  && !editLoading && (
+          <CalcExcavacion
+            key={editId ?? 'nuevo'}
+            precio={precio}
+            initialData={editDC?.calculadora === 'excavacion' ? editDC : undefined}
+            onGuardarObra={(d) => { setGuardarData(d); setGuardarOpen(true) }}
+          />
+        )}
+        {tab === 'excavacion' && editLoading && (
+          <div style={{ color: '#555', fontFamily: 'monospace', fontSize: 13, padding: 20 }}>
+            Cargando obra…
+          </div>
+        )}
         {tab === 'ripio'      && <CalcRipioComponent
           onGuardarObra={(d) => { setGuardarData(d); setGuardarOpen(true) }}
           focoObra={focoRipio}
