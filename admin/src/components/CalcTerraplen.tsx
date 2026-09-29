@@ -74,6 +74,24 @@ const COLOR = '#8D6E63'
 const ANCHO_MIN = 250, ANCHO_MAX = 620
 const acotar = (w: number) => Math.min(ANCHO_MAX, Math.max(ANCHO_MIN, Math.round(w)))
 
+/**
+ * Los paneles de la columna de tramos.
+ *
+ * **`flexShrink: 0` es el arreglo, y el síntoma no era obvio.** Son hijos de un
+ * contenedor flex vertical, así que por omisión se encogen cuando no hay altura
+ * para todos. En un monitor más bajo que el del autor, la lista de tramos se
+ * comprimía; como su `overflow` es visible, el contenido no se recortaba sino
+ * que **desbordaba hacia abajo, y el panel siguiente lo tapaba con su fondo**.
+ * Se veía como una tarjeta cortada al medio, sin los botones de dibujar y
+ * editar — o sea, la pantalla se veía rota sin que nada estuviera oculto.
+ *
+ * Con los paneles a su altura natural, el que scrollea es la columna, que para
+ * eso tiene `overflowY: auto`.
+ */
+const panelCol: React.CSSProperties = {
+  ...panel, padding: 11, overflowY: 'visible', flexShrink: 0,
+}
+
 const mono: React.CSSProperties = { fontFamily: 'monospace' }
 
 const fmt = (n: number) => Math.round(n).toLocaleString('es-AR')
@@ -127,6 +145,23 @@ export default function CalcTerraplen({ onGuardarObra, initialData, precio = 0 }
       const v = parseInt(localStorage.getItem(CLAVE_ANCHO) ?? '', 10)
       if (Number.isFinite(v)) setAnchoCol(acotar(v))
     } catch { /* localStorage puede fallar; el valor por defecto sirve igual */ }
+  }, [])
+
+  /*
+   * El alto de la ventana, para que los dibujos se adapten.
+   *
+   * Arranca en 900 —un valor de escritorio— y se corrige apenas monta. Se mide
+   * con un *callback ref* y no con un efecto, igual que el ancho de la columna:
+   * el nodo llega ya montado, así que no hace falta el `useEffect` + `setState`
+   * que la regla `react-hooks/set-state-in-effect` marca.
+   */
+  const [altoVentana, setAltoVentana] = useState(900)
+  const montarRaiz = useCallback((nodo: HTMLDivElement | null) => {
+    if (!nodo) return
+    const leer = () => setAltoVentana(window.innerHeight)
+    leer()
+    window.addEventListener('resize', leer)
+    return () => window.removeEventListener('resize', leer)
   }, [])
 
   const alBajarDivisor = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -264,8 +299,29 @@ export default function CalcTerraplen({ onGuardarObra, initialData, precio = 0 }
     })
   }
 
+  /*
+   * Los dos dibujos siguen al alto de la ventana.
+   *
+   * Tenían alto fijo —330 px el grande, y la miniatura proporcional al ancho de
+   * la columna— y eso es lo que rompía la pantalla en un monitor más bajo: el
+   * dibujo se quedaba con su tamaño de siempre y lo que sobraba se lo comía el
+   * resto. Un dibujo que no cabe no informa más que uno chico que sí.
+   */
+  const altoDibujo = Math.max(190, Math.min(360, Math.round(altoVentana * 0.42)))
+  const altoMiniatura = Math.max(104, Math.min(
+    Math.round((anchoCol - 24) * 0.60),
+    Math.round(altoVentana * 0.20),
+  ))
+
+  /*
+   * `minHeight` además de `height`: en una ventana baja el contenido deja de
+   * comprimirse y la página scrollea. Sin él, el alto disponible se reparte
+   * entre los paneles hasta que ninguno muestra lo suyo — que es exactamente
+   * cómo se veía rota esta pantalla.
+   */
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: 8, ...mono }}>
+    <div ref={montarRaiz} style={{ display: 'flex', flexDirection: 'column', height: '100%',
+      minHeight: 480, gap: 8, ...mono }}>
 
       {/* ── Pestañas, con el total de obra siempre a la vista ──────────────── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexShrink: 0,
@@ -288,8 +344,11 @@ export default function CalcTerraplen({ onGuardarObra, initialData, precio = 0 }
 
       {vista === 'seccion' ? (
         // ── Sección tipo ───────────────────────────────────────────────────
-        <div style={{ display: 'grid', gridTemplateColumns: '210px 1fr 158px', gap: 10,
-          flex: 1, minHeight: 0 }}>
+        // Columnas elásticas, no fijas: con 210 y 158 px duros, en una pantalla
+        // angosta el dibujo del medio se quedaba sin lugar y la cadena de
+        // fórmulas se desbordaba. Con `minmax` los laterales ceden primero.
+        <div style={{ display: 'grid', flex: 1, minHeight: 0, gap: 10,
+          gridTemplateColumns: 'minmax(178px, 210px) minmax(0, 1fr) minmax(136px, 158px)' }}>
           <div style={panel}>
             <SectionTitle>Geometría</SectionTitle>
             {/*
@@ -317,7 +376,7 @@ export default function CalcTerraplen({ onGuardarObra, initialData, precio = 0 }
                 : <span style={{ color: '#E8833A' }}>  ·  altura de referencia: todavía no hay tramos</span>}
             </SectionTitle>
             <SeccionTerraplen H={Hdibujo} Bc={seccion.Bc} m={seccion.m}
-              A={perfil.A} Bb={perfil.Bb} color={COLOR} alto={330} />
+              A={perfil.A} Bb={perfil.Bb} color={COLOR} alto={altoDibujo} />
             {/*
               La cadena se corta acá: estos dos pasos dependen sólo de la
               sección. Los volúmenes y el peso necesitan la longitud medida, y
@@ -357,13 +416,13 @@ export default function CalcTerraplen({ onGuardarObra, initialData, precio = 0 }
         </div>
       ) : (
         // ── Traza y tramos ─────────────────────────────────────────────────
-        <div style={{ display: 'grid', gridTemplateColumns: `${anchoCol}px 10px 1fr`, gap: 0,
-          flex: 1, minHeight: 0 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: `${anchoCol}px 10px minmax(0, 1fr)`,
+          gap: 0, flex: 1, minHeight: 360 }}>
 
           <div ref={montarColumna}
             style={{ display: 'flex', flexDirection: 'column', gap: 8, minHeight: 0,
               minWidth: 0, overflowY: 'auto', paddingRight: 2 }}>
-            <div style={{ ...panel, padding: 11, overflowY: 'visible' }}>
+            <div style={panelCol}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                 <span style={{ fontSize: 11, color: '#6a6a6a', textTransform: 'uppercase',
                   letterSpacing: 0.8, flex: 1 }}>Tramos</span>
@@ -446,13 +505,13 @@ export default function CalcTerraplen({ onGuardarObra, initialData, precio = 0 }
 
             {/* La miniatura: el perfil del tramo que se está tocando */}
             {sel && (
-              <div style={{ ...panel, padding: 11, overflowY: 'visible' }}>
+              <div style={panelCol}>
                 <div style={{ fontSize: 11, color: '#6a6a6a', textTransform: 'uppercase',
                   letterSpacing: 0.8, marginBottom: 4 }}>Sección del tramo</div>
                 {/* El alto sigue al ancho: ensanchar la columna agranda el perfil */}
                 <SeccionTerraplen H={sel.H} Bc={seccion.Bc} m={seccion.m}
                   A={computarTramo(seccion, sel).A} Bb={computarTramo(seccion, sel).Bb}
-                  color={COLOR} alto={Math.round((anchoCol - 24) * 0.60)} />
+                  color={COLOR} alto={altoMiniatura} />
                 <div style={{ fontSize: 11, color: '#4a4a4a', marginTop: 4, lineHeight: 1.45 }}>
                   Con la altura de <span style={{ color: '#8a8a8a' }}>{sel.nombre}</span>.
                   Al cambiarla se mueven el perfil y la huella del mapa.
@@ -460,7 +519,7 @@ export default function CalcTerraplen({ onGuardarObra, initialData, precio = 0 }
               </div>
             )}
 
-            <div style={{ ...panel, padding: 11, overflowY: 'visible' }}>
+            <div style={panelCol}>
               <div style={{ fontSize: 11, color: '#6a6a6a', textTransform: 'uppercase',
                 letterSpacing: 0.8, marginBottom: 6 }}>Cómputo de la obra</div>
               <Linea label="Longitud total"    value={fmtL(obra.L_total)} />
