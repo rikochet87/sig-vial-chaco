@@ -44,7 +44,7 @@
  * la fuente entrega como rango.
  */
 
-import { useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import { COLOR_ESTADO, ETIQUETA_ESTADO, type EstadoRio, type PuntoPronostico } from '@/lib/ina'
 
 const mono: React.CSSProperties = { fontFamily: 'monospace' }
@@ -90,6 +90,24 @@ interface Props {
 
 const nMetros = (m: number) => m.toFixed(2).replace('.', ',')
 const soloFecha = (f: string) => f.slice(0, 10).split('-').reverse().slice(0, 2).join('/')
+
+/**
+ * Qué lecturas se omitieron, en una línea — o `null` si no se omitió ninguna.
+ *
+ * Vive acá y no adentro de `Franja` porque **el aviso tiene que aparecer en las
+ * dos vistas**, y el caso que lo motivó demuestra por qué: la lectura falsa de
+ * Empedrado la promovía a franja grande al superar el alerta, así que una vez
+ * filtrada la estación vuelve a la lista compacta — justo la vista donde el
+ * aviso no estaba. El dato falso se llevaba consigo el cartel que lo explicaba.
+ */
+function omitidas(est: EstacionRio): string | null {
+  const n = est.descartadas.length
+  if (n === 0) return null
+  const muestra = est.descartadas.slice(0, 3)
+    .map(l => `${soloFecha(l.fecha)}: ${nMetros(l.m)} m`).join(' · ')
+  return `${n === 1 ? 'Se omitió 1 lectura' : `Se omitieron ${n} lecturas`}`
+    + ` del INA por salto imposible (${muestra}${n > 3 ? '…' : ''}).`
+}
 
 /** ¿Esta estación merece franja grande aunque no sea destacada? */
 function pideAtencion(e: EstacionRio): boolean {
@@ -267,7 +285,8 @@ export default function PanelRio({ dias = 90, desde, hasta }: Props) {
               <table style={{ width: '100%', fontSize: 11, borderCollapse: 'collapse' }}>
                 <tbody>
                   {chicas.map(e => (
-                    <tr key={e.id}>
+                    <Fragment key={e.id}>
+                    <tr>
                       <td style={{ color: '#9a9a9a', padding: '3px 0' }}>{e.nombre}</td>
                       <td style={{ width: 62, textAlign: 'right', color: '#c4c4c4' }}>
                         {e.ultima ? `${nMetros(e.ultima.m)} m` : '—'}
@@ -290,6 +309,14 @@ export default function PanelRio({ dias = 90, desde, hasta }: Props) {
                         {e.pronostico ? 'pronóstico' : 'sin corrida'}
                       </td>
                     </tr>
+                    {omitidas(e) && (
+                      <tr>
+                        <td colSpan={4} style={{ color: '#b98a64', paddingBottom: 4, lineHeight: 1.5 }}>
+                          {omitidas(e)}
+                        </td>
+                      </tr>
+                    )}
+                    </Fragment>
                   ))}
                   {datos.sinRespuesta.map(n => (
                     <tr key={n}>
@@ -404,12 +431,9 @@ function Franja({ est, desde, hasta, alDato, promovida }: {
         publica su fuente, eso tiene que estar a la vista: descartar en silencio
         es afirmar sin que nadie pueda revisarlo.
       */}
-      {est.descartadas.length > 0 && (
+      {omitidas(est) && (
         <div style={{ fontSize: 11, color: '#b98a64', marginBottom: 3, lineHeight: 1.5 }}>
-          {est.descartadas.length === 1 ? 'Se omitió 1 lectura' : `Se omitieron ${est.descartadas.length} lecturas`}
-          {' '}del INA por salto imposible ({est.descartadas.slice(0, 3)
-            .map(l => `${soloFecha(l.fecha)}: ${nMetros(l.m)} m`).join(' · ')}
-          {est.descartadas.length > 3 ? '…' : ''}).
+          {omitidas(est)}
         </div>
       )}
 
