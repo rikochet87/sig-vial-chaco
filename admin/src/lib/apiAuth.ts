@@ -133,6 +133,31 @@ export function dbError(
 }
 
 /**
+ * Errores de Supabase Auth, que **sí se muestran tal cual**.
+ *
+ * La diferencia con `dbError` no es de estilo. `dbError` censura porque un error
+ * de Postgres puede nombrar tablas y columnas; los de GoTrue no hablan del
+ * esquema sino del pedido —*"A user with this email address has already been
+ * registered"*, *"Password should be at least 6 characters"*— y están escritos
+ * para que los lea una persona.
+ *
+ * Censurarlos costó caro: al querer recrear a un usuario borrado, el panel
+ * mostraba «Error en la operación» cuando lo que Supabase había contestado era
+ * exactamente qué pasaba y cómo salir. Un mensaje genérico que oculta uno útil
+ * es peor que no tener mensaje: convence de que no hay nada que leer.
+ */
+export function authError(
+  error: { message: string; status?: number; code?: string },
+  donde?: string,
+): NextResponse {
+  console.error('[authError]', donde ?? '', error.code ?? '', error.message)
+  return NextResponse.json({
+    error:  donde ? `No se pudo ${donde}: ${error.message}` : error.message,
+    codigo: error.code ?? null,
+  }, { status: error.status && error.status >= 400 && error.status < 500 ? error.status : 400 })
+}
+
+/**
  * Valida que los campos requeridos estén presentes y no vacíos en el body.
  * Devuelve un NextResponse 400 si falta alguno, o null si todo está bien.
  */

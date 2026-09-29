@@ -68,11 +68,24 @@ export default function NuevoTecnicoPage() {
       <div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
           <Link href="/dashboard/tecnicos" style={{ color: '#F5C300', textDecoration: 'none', fontSize: 14 }}>← Volver</Link>
-          <h1 style={{ color: '#fff', fontSize: 22, fontWeight: 700 }}>Permisos actualizados</h1>
+          <h1 style={{ color: '#fff', fontSize: 22, fontWeight: 700 }}>
+            {esApp ? 'Cuenta reactivada' : 'Permisos actualizados'}
+          </h1>
         </div>
         <div style={{ background: '#191919', border: '1px solid #1e1e1e', padding: 28, maxWidth: 520 }}>
-          <div style={{ color: '#4CAF50', fontSize: 13, marginBottom: 20, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 18 }}>✓</span> El usuario ya tenía cuenta. Se actualizaron sus accesos.
+          {/*
+            Para un usuario de la app hay que decir que la contraseña cambió.
+            "Se actualizaron sus accesos" deja creer que sigue valiendo la
+            anterior, y quien la entrega es el administrador que está mirando
+            esta pantalla: si no se lo dice acá, no se entera en ningún lado.
+          */}
+          <div style={{ color: '#4CAF50', fontSize: 13, marginBottom: 20, display: 'flex', alignItems: 'flex-start', gap: 8, lineHeight: 1.6 }}>
+            <span style={{ fontSize: 18 }}>✓</span>
+            <span>
+              {esApp
+                ? 'El email ya tenía cuenta, así que se reutilizó: se le asignó la contraseña que acabás de escribir y se repusieron sus accesos. Con ese email y esa contraseña ya puede entrar.'
+                : 'El usuario ya tenía cuenta. Se actualizaron sus accesos. Si no recuerda su contraseña, usá «Reenviar invitación» en la lista de usuarios.'}
+            </span>
           </div>
           <Link href="/dashboard/tecnicos" style={{ display: 'inline-block', padding: '10px 20px', background: '#F5C300', color: '#111', fontWeight: 700, fontSize: 13, textDecoration: 'none', letterSpacing: 1 }}>
             VER USUARIOS
