@@ -445,6 +445,27 @@ suposición se cumple casi siempre, pero si en un día con lluvia no hubo parte 
 máxima informada queda por debajo de la real. No se aplica ningún coeficiente de
 decaimiento: son sumas de lluvia medida, no un índice de humedad del suelo.
 
+**Red vial y obras de arte por cuenca.** La misma tabla informa, para cada
+cuenca, los kilómetros de red de consorcios que contiene, qué parte es de
+tierra, y cuántos kilómetros recibieron 10, 25, 50 y 100 mm o más en el período.
+
+- Los kilómetros son de **traza** medida sobre la cartografía (28.756 km en
+  total), no los declarados por cada consorcio (ver 5.6).
+- La red se reparte por puntos de muestreo cada 2 km, de modo que un tramo que
+  cruza dos cuencas aporta a cada una su parte.
+- Los caminos que corren sobre el límite provincial quedan unos cientos de
+  metros por fuera del contorno de las cuencas; se asignan a la cuenca más
+  cercana cuando están a menos de 1 km. Son 483 km.
+- La lámina de cada tramo es la de la sección 5, por lo que la suma por cuencas
+  coincide con el total de la red.
+
+Se informan también las **obras de arte relevadas** —puentes, alcantarillas y
+tubos— que caen en cada cuenca, con la lámina estimada en el punto de cada una.
+Dos salvedades: son las obras relevadas en campo, **no un inventario**; y la
+lámina es la lluvia caída sobre la obra, **no el caudal que le llega**, que
+depende de una cuenca de aporte que no se puede delimitar sin un modelo de
+elevación adecuado.
+
 **Sobre la geometría de las cuencas.** Provienen de un shapefile en Gauss-Krüger
 faja 5 que no trae archivo de proyección. La proyección se deduce de las
 coordenadas; el datum se supuso POSGAR tras comparar contra el límite

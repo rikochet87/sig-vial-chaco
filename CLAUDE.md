@@ -1045,6 +1045,58 @@ camino.
 Si dos ventanas empatan se informa la más reciente. `laminaMaxima` devuelve
 `null` —no cero— cuando la serie no tiene ningún día con parte.
 
+#### La red vial y las obras de arte por cuenca
+
+`lib/redCuencas.ts` + `components/cuencas/VistaRed.tsx` — la tercera vista del
+panel. Por cuenca: km de red, qué parte es de tierra, km que recibieron 10, 25,
+50 y 100 mm o más (los cortes del mapa), km sin dato, y cuántos puentes,
+alcantarillas y tubos relevados hay adentro. Al abrir una fila se listan esas
+obras, de la que más lluvia recibió a la que menos.
+
+**Son dos universos y la pantalla no los deja confundir:**
+
+| | Qué es | Está completo |
+|---|---|---|
+| **La red** | la traza de los caminos de consorcio de `geo_cc.json` | sí, salvo los huecos del CC 96 y el CC 49 |
+| **Las obras de arte** | los relevamientos de tipo Puente, Alcantarilla y Tubos | **no**: son las relevadas con la app, no un inventario |
+
+Cosas que no son obvias:
+
+- **Se reparte por muestra, no por tramo.** Un tramo largo cruza de una cuenca a
+  otra, y asignarlo entero a una le regalaría kilómetros. Las muestras —una cada
+  2 km, con el largo que representan— son las mismas que usa el IDW de la red.
+- **Los caminos del límite provincial van a la cuenca de al lado.** Con la
+  contención a secas **483 km de red quedaban fuera de todas las cuencas**. Se
+  midió dónde estaban antes de decidir nada: 473 a menos de 1 km del límite
+  provincial, y ninguno en un hueco entre dos cuencas — son las picadas
+  limítrofes, y el contorno de las cuencas corre unos cientos de metros por
+  adentro. `TOLERANCIA_BORDE_KM` = 1 los asigna a la cuenca más cercana; queda
+  afuera menos de 1 km, y la fila «Fuera de las cuencas» sólo aparece si tiene
+  algo. Las obras de arte usan la misma tolerancia.
+- **La lluvia de cada muestra es la de su tramo**, no un IDW nuevo en la
+  muestra. Así la suma de las cuencas es exactamente `kmSobre` de la red entera,
+  y el test lo afirma para los cuatro umbrales: dos tablas de la misma pantalla
+  no pueden contradecirse.
+- **Los km son de traza** —28.756 en total—, no los declarados en la ficha de
+  cada consorcio. La pantalla lo dice, por lo de siempre: hay dos números de
+  kilómetros y hay que decir cuál es.
+- **La lámina de una obra es la que cayó en su punto, no el agua que le llega.**
+  Eso depende de la cuenca de aporte de cada alcantarilla, que no se conoce sin
+  un modelo de elevación. Sirve para ordenar por dónde llovió más, no para decir
+  cuál trabajó al límite.
+- **`/api/lluvia/obras-de-arte` existe en vez de leer `relevamientos` desde el
+  navegador**, como hacen las otras pantallas, porque quien tiene el permiso de
+  Lluvias puede no tener el de Relevamientos. Entrega sólo tipo, coordenada y
+  ruta — ni fotos, ni observaciones, ni quién lo cargó. Guard
+  `requirePermiso('lluvia')`. Los relevamientos sin coordenada se cuentan aparte
+  en vez de perderse.
+- Asignar las ~15.000 muestras cuesta ~300 ms y no depende de la fecha: se hace
+  una vez al abrir la vista. Probar primero la última cuenca en la que cayó una
+  muestra lo bajó a la mitad, porque la siguiente casi siempre repite.
+
+`components/cuencas/piezas.ts` son los formatos y estilos de tabla que comparten
+las tres vistas.
+
 | | Cuenca | ha |
 |---|---|---|
 | 1 | Bermejo - Bermejito | 1.121.550 |

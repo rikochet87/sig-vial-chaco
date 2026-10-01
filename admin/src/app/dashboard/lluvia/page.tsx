@@ -567,7 +567,8 @@ export default function LluviaPage() {
       <PanelRio dias={90} desde={desde} hasta={hasta} />
 
       {/* La misma lluvia, por cuenca hídrica en vez de por consorcio */}
-      <PanelCuencas estaciones={estaciones} desde={desde} hasta={hasta} hoy={hoy} />
+      <PanelCuencas estaciones={estaciones} desde={desde} hasta={hasta} hoy={hoy}
+        tramos={tramos} lluviaTramos={lluvia} />
 
       <PanelMediaAreal
         ambito={seleccionado === null

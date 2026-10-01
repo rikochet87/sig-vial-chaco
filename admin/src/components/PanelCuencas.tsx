@@ -10,10 +10,12 @@
  * de Thiessen por superficie, que es el método de manual: al abrir una fila se
  * ve su tabla de pesos, que es lo que se cita en un expediente.
  *
- * Tiene dos vistas. **Período** es la lámina y el volumen del rango elegido.
+ * Tiene tres vistas. **Período** es la lámina y el volumen del rango elegido.
  * **Máximas en varios días** busca, en los últimos tres meses, la mayor lámina
  * que juntó cada cuenca en 1, 3, 5 y 7 días corridos: en llanura lo que anega
- * no es el pico de una tarde sino lo que se acumula en una semana.
+ * no es el pico de una tarde sino lo que se acumula en una semana. **Red vial
+ * y obras de arte** baja eso al camino: los kilómetros de red de cada cuenca,
+ * cuántos recibieron cada lámina, y los puentes y alcantarillas relevados.
  *
  * Va plegado por omisión, como la comparación de métodos. Y recién al abrirlo
  * se bajan las cuencas y se calcula: son 310 KB y un cálculo por período que la
@@ -30,8 +32,9 @@ import {
   type DiaCuenca, type LaminaCuenca, type LaminaMaxima, type ParteDiario,
 } from '@/lib/lluviaCuencas'
 import type { MedicionConNombre } from '@/lib/thiessenAreal'
-
-const mono = { fontFamily: 'monospace' } as const
+import type { LluviaTramo, TramoRed } from '@/lib/redLluvia'
+import VistaRed from './cuencas/VistaRed'
+import { bajarCsv, boton, fCorta, mono, nKm2, nMm, nPct, td, tdD, th, thD } from './cuencas/piezas'
 
 interface Props {
   /** Lo que midió cada pluviómetro en el período */
@@ -40,10 +43,13 @@ interface Props {
   hasta: string
   /** La fecha de hoy, AAAA-MM-DD. Llega de afuera para no leer el reloj al renderizar */
   hoy: string
+  /** La red vial partida en tramos y su lluvia: las mismas que usa el mapa */
+  tramos: TramoRed[]
+  lluviaTramos: LluviaTramo[]
 }
 
 type Orden = 'mm' | 'cod'
-type Vista = 'periodo' | 'maximas'
+type Vista = 'periodo' | 'maximas' | 'red'
 
 /** Cuántos días hacia atrás mira la serie diaria: los mismos que la línea de tiempo y el río */
 const DIAS_SERIE = 90
@@ -63,36 +69,12 @@ interface FilaMaximas {
   maximas: (LaminaMaxima | null)[]
 }
 
-/** '2026-09-22' → '22/09' */
-const fCorta = (f: string) => `${f.slice(8, 10)}/${f.slice(5, 7)}`
 const fRango = (d: string, h: string) => (d === h ? fCorta(d) : `${fCorta(d)} – ${fCorta(h)}`)
-
-function bajarCsv(csv: string, nombre: string) {
-  // El BOM es lo que hace que Excel en español abra los acentos bien
-  const url = URL.createObjectURL(new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' }))
-  const a = document.createElement('a')
-  a.href = url
-  a.download = nombre
-  a.click()
-  URL.revokeObjectURL(url)
-}
-
-/**
- * Sin decimales, como el resto de la pantalla: contra el pluviómetro el error
- * típico es de varios milímetros, y "62,4" promete una precisión que no hay.
- */
-const nMm = (v: number | null | undefined) =>
-  v === null || v === undefined ? '—' : Math.round(v).toLocaleString('es-AR')
-
-const nKm2 = (v: number) => Math.round(v).toLocaleString('es-AR')
 
 const nHm3 = (v: number | null) =>
   v === null ? '—' : v.toLocaleString('es-AR', { maximumFractionDigits: v < 100 ? 1 : 0 })
 
-const nPct = (f: number) =>
-  f > 0.9995 ? '100' : (f * 100).toFixed(1).replace('.', ',')
-
-export default function PanelCuencas({ estaciones, desde, hasta, hoy }: Props) {
+export default function PanelCuencas({ estaciones, desde, hasta, hoy, tramos, lluviaTramos }: Props) {
   const [abierto, setAbierto] = useState(false)
   const [vista, setVista] = useState<Vista>('periodo')
   const [cuencas, setCuencas] = useState<Cuenca[] | null>(null)
@@ -219,7 +201,7 @@ export default function PanelCuencas({ estaciones, desde, hasta, hoy }: Props) {
 
           {!error && cuencas && (
             <div style={{ display: 'flex', border: '1px solid #252525', width: 'fit-content', marginBottom: 8 }}>
-              {([['periodo', 'Período elegido'], ['maximas', 'Máximas en varios días']] as const).map(([v, t]) => (
+              {([['periodo', 'Período elegido'], ['maximas', 'Máximas en varios días'], ['red', 'Red vial y obras de arte']] as const).map(([v, t]) => (
                 <button key={v} onClick={() => { setVista(v); setDetalle(null) }} style={{
                   ...mono, fontSize: 12, padding: '4px 12px', cursor: 'pointer', border: 'none',
                   background: vista === v ? '#1e1e1e' : 'transparent',
@@ -242,6 +224,11 @@ export default function PanelCuencas({ estaciones, desde, hasta, hoy }: Props) {
             respaldo del modelo: una tabla llena de ceros se leería como "no
             llovió", que no es lo que se sabe.
           */}
+          {!error && cuencas && vista === 'red' && (
+            <VistaRed cuencas={cuencas} tramos={tramos} lluviaTramos={lluviaTramos}
+              estaciones={estaciones} desde={desde} hasta={hasta} />
+          )}
+
           {!error && cuencas && vista === 'periodo' && estaciones.length === 0 && (
             <div style={{ color: '#9aa0a6' }}>
               No hay mediciones de la APA en este período, así que no hay con qué
@@ -317,16 +304,6 @@ export default function PanelCuencas({ estaciones, desde, hasta, hoy }: Props) {
     </div>
   )
 }
-
-const boton: React.CSSProperties = {
-  ...mono, fontSize: 11, padding: '3px 9px', borderRadius: 2, cursor: 'pointer',
-  background: 'transparent', border: '1px solid #2d2d2d', color: '#8a8a8a',
-  textTransform: 'uppercase', letterSpacing: 0.8, marginLeft: 6,
-}
-const th: React.CSSProperties = { textAlign: 'left', fontWeight: 400, padding: '4px 6px 4px 0' }
-const thD: React.CSSProperties = { ...th, textAlign: 'right', padding: '4px 0 4px 10px' }
-const td: React.CSSProperties = { padding: '4px 6px 4px 0' }
-const tdD: React.CSSProperties = { padding: '4px 0 4px 10px', textAlign: 'right', whiteSpace: 'nowrap' }
 
 function FilaCuenca({ f, abierta, onClick }: { f: LaminaCuenca; abierta: boolean; onClick: () => void }) {
   const parcial = f.mm !== null && f.cobertura < 0.9995
