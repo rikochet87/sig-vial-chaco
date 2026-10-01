@@ -24,6 +24,7 @@ import { calcularGrilla, curvasDeNivel, nivelesSugeridos } from '@/lib/isohietas
 import { poligonosThiessen } from '@/lib/thiessen'
 import { CORTES_MM, type TramoRed, type LluviaTramo } from '@/lib/redLluvia'
 import { CONTORNO_CHACO } from '@/data/contornoChaco'
+import { cargarCuencas, cuencaEn, type Cuenca } from '@/lib/cuencas'
 
 /**
  * Los límites de la provincia, para encuadrar el mapa.
@@ -136,6 +137,13 @@ export default function MapaLluvia({
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const capaSedesRef = useRef<any>(null)
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const capaCuencasRef = useRef<any>(null)
+  const [verCuencas, setVerCuencas] = useState(false)
+  const [cuencas, setCuencas] = useState<Cuenca[]>([])
+  const [errorCuencas, setErrorCuencas] = useState<string | null>(null)
+  const [intentoCuencas, setIntentoCuencas] = useState(0)
   /** Índice espacial de los tramos, para el hit-test del cursor */
   const indiceRef = useRef<IndiceTramos | null>(null)
   /** Qué tramo está bajo el cursor ahora mismo */
@@ -169,6 +177,13 @@ export default function MapaLluvia({
       // son polígonos con relleno y si compartieran panel taparían los caminos.
       mapa.createPane('zonasThiessen').style.zIndex = '390'
       capaZonasRef.current = L.layerGroup().addTo(mapa)
+      // Las cuencas van debajo de las zonas y **no reciben el cursor**: son
+      // polígonos que cubren la provincia entera, y si atendieran eventos se
+      // comerían el de todo lo demás.
+      const panelCuencas = mapa.createPane('cuencas')
+      panelCuencas.style.zIndex = '380'
+      panelCuencas.style.pointerEvents = 'none'
+      capaCuencasRef.current = L.layerGroup().addTo(mapa)
 
       /**
        * Reajustar el mapa cuando cambia el tamaño de su contenedor.
@@ -463,6 +478,67 @@ export default function MapaLluvia({
   }, [verZonas, estaciones])
 
   /**
+   * Cuencas hídricas: el contorno de las trece y su rótulo.
+   *
+   * Es una capa de referencia, como las zonas de pluviómetro: no pinta lluvia,
+   * dice sobre qué cuenca se está mirando. Va sin relleno casi, para que se
+   * pueda prender junto con los caminos o las isohietas sin taparlos.
+   *
+   * El archivo se pide recién al prender la capa —son 310 KB que la mayoría de
+   * las veces no hacen falta— y **si no llega, se dice**: un interruptor
+   * tildado sobre un mapa donde no aparece nada no distingue "no cargó" de
+   * "no hay cuencas acá".
+   */
+  useEffect(() => {
+    if (!capaCuencasRef.current) return
+    let cancelado = false
+
+    if (!verCuencas) {
+      capaCuencasRef.current.clearLayers()
+      return
+    }
+
+    ;(async () => {
+      try {
+        const [L, lista] = await Promise.all([
+          import('leaflet').then(m => m.default),
+          cargarCuencas(),
+        ])
+        if (cancelado || !capaCuencasRef.current) return
+
+        capaCuencasRef.current.clearLayers()
+        for (const c of lista) {
+          // Doble trazo, como la red de fondo de las calculadoras: uno claro
+          // ancho abajo y uno azul fino arriba. Un solo color se pierde contra
+          // el verde del monte o contra el celeste de los ríos del mapa base.
+          for (const estilo of [
+            { color: '#ffffff', weight: 4, opacity: 0.75 },
+            { color: '#0D5C9E', weight: 1.6, opacity: 1 },
+          ]) {
+            L.polygon(c.partes, {
+              ...estilo, pane: 'cuencas', interactive: false, fill: false,
+            }).addTo(capaCuencasRef.current)
+          }
+          L.marker(c.rotulo, {
+            pane: 'cuencas', interactive: false,
+            icon: L.divIcon({
+              className: '',
+              html: `<div class="sv-rotulo">${c.cod} · ${c.nombre}</div>`,
+              iconSize: [0, 0],
+            }),
+          }).addTo(capaCuencasRef.current)
+        }
+        setCuencas(lista)
+        setErrorCuencas(null)
+      } catch (e) {
+        if (!cancelado) setErrorCuencas(e instanceof Error ? e.message : 'no se pudo descargar')
+      }
+    })()
+
+    return () => { cancelado = true }
+  }, [verCuencas, intentoCuencas])
+
+  /**
    * Prender y apagar capas sin recrearlas.
    *
    * Los caminos son casi diez mil polilíneas y los círculos 103: sacarlos del
@@ -576,6 +652,15 @@ export default function MapaLluvia({
 
   const hayEstaciones = (estaciones?.length ?? 0) > 0
 
+  // En qué cuenca está el tramo bajo el cursor. Se pregunta por su punto medio:
+  // un tramo largo puede cruzar de una a otra, y el medio es donde está la
+  // mayor parte. Sólo con la capa prendida, que es cuando las cuencas están.
+  const puntosCursor = bajoCursor !== null ? tramos[bajoCursor]?.puntos : undefined
+  const medioCursor = puntosCursor?.[Math.floor(puntosCursor.length / 2)]
+  const cuencaCursor = verCuencas && medioCursor
+    ? cuencaEn(cuencas, medioCursor[0], medioCursor[1])
+    : null
+
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
       <div ref={divRef} style={{ width: '100%', height: '100%', background: '#111' }} />
@@ -680,6 +765,23 @@ export default function MapaLluvia({
         <div style={{ borderTop: '1px solid #1e1e1e', margin: '9px 0' }} />
 
         <Interruptor
+          titulo="Cuencas" activo={verCuencas} onChange={setVerCuencas}
+          nota="Las 13 cuencas hídricas de la provincia." />
+
+        {verCuencas && errorCuencas && (
+          <div style={{ margin: '6px 0 0 19px', fontSize: 11, color: '#E8A87C', lineHeight: 1.5 }}>
+            No se pudieron cargar las cuencas ({errorCuencas}).{' '}
+            <button onClick={() => setIntentoCuencas(v => v + 1)} style={{
+              fontFamily: 'monospace', fontSize: 11, padding: '2px 8px', borderRadius: 2,
+              cursor: 'pointer', background: 'transparent', border: '1px solid #7a4a22',
+              color: '#E8A87C', textTransform: 'uppercase', letterSpacing: 0.8,
+            }}>Reintentar</button>
+          </div>
+        )}
+
+        <div style={{ borderTop: '1px solid #1e1e1e', margin: '9px 0' }} />
+
+        <Interruptor
           titulo="Sedes de consorcio" activo={verSedes} onChange={setVerSedes}
           nota="Dónde está la sede de cada uno de los 103." />
         </div>
@@ -709,6 +811,12 @@ export default function MapaLluvia({
             {[tramos[bajoCursor].jurisdiccion, tramos[bajoCursor].material]
               .filter(Boolean).join('  ·  ') || 'sin datos de jurisdicción'}
           </div>
+          {cuencaCursor && (
+            <div style={{ color: '#8a8a8a', fontSize: 11 }}>
+              Cuenca {cuencaCursor.cod}{'  ·  '}
+              <span style={{ color: '#7FB8E6' }}>{cuencaCursor.nombre}</span>
+            </div>
+          )}
           {lluviaTramos[bajoCursor] && (
             <div style={{ marginTop: 2 }}>
               {lluviaTramos[bajoCursor].mm === null ? (

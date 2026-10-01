@@ -923,6 +923,85 @@ conjunto de estaciones el hueco de cobertura es otro. Lo que se afirma son las
 invariantes: cobertura en [0,1], y que tener cobertura y tener media sean la
 misma cosa.
 
+### Cuencas hídricas
+
+`lib/cuencas.ts` + `public/geo/geo_cuencas.json` — las **13 cuencas** de la
+provincia, como capa del mapa de Lluvias (interruptor «Cuencas»).
+
+**Son el primer recorte del sistema que es un polígono con sentido
+hidrológico**, y eso es lo que habilitan. Los consorcios son líneas y por eso su
+lámina areal se pesa por kilómetros; una cuenca es justamente el objeto para el
+que se inventó la precipitación media areal. `arealPorSuperficie` ya toma
+cualquier anillo, así que calcular la lámina por cuenca **no necesita motor
+nuevo**: falta la pantalla que lo muestre.
+
+Hoy la capa es de referencia: dibuja el contorno y el rótulo de cada una, y con
+la capa prendida la lectura del tramo bajo el cursor dice en qué cuenca está.
+**Todavía no se calcula nada por cuenca.**
+
+| | Cuenca | ha |
+|---|---|---|
+| 1 | Bermejo - Bermejito | 1.121.550 |
+| 2 | Oro | 363.961 |
+| 3 | Guaycurú - Iné | 904.342 |
+| 4 | Quiá | 93.099 |
+| 5 | Tragadero | 207.503 |
+| 6 | Negro - Salado | 1.024.132 |
+| 7 | Polvorín - Palometa | 518.194 |
+| 8 | Tapenagá | 1.268.056 |
+| 9 | La Rica - Sábalo | 425.476 |
+| 10 | Línea Paraná | 1.361.778 |
+| 11 | Bajos de Chorotis | 670.819 |
+| 12 | Valle de inundación del río Paraná | 116.862 |
+| 13 | Impenetrable | 1.882.213 |
+
+El archivo se **genera** —no editar a mano— desde el shapefile que está en
+`docs/geo/cuencas/`:
+
+```bash
+cd admin && node scripts/build_cuencas.mjs
+```
+
+**Va en Node y sin dependencias, no en Python como los otros `build_`**: en la
+máquina donde se trabaja este repo no hay Python instalado. Lee el `.shp` y el
+`.dbf` a mano y reproyecta con la serie de Krüger.
+
+**El shapefile no trae `.prj`, y el datum es una suposición.** La proyección no:
+X entre 5.156.000 y 5.661.000 es falso este de 5.500.000, Gauss-Krüger faja 5.
+Pero entre POSGAR y Campo Inchauspe hay unos 200 m y el archivo no dice cuál.
+Se compararon las dos contra el límite provincial del bundle y las tres medidas
+favorecen a **POSGAR** (extremo norte a 44 m contra 254; este a 33 contra 90;
+corrimiento sistemático 0 contra 30 m), **pero la evidencia es débil**: el borde
+de las cuencas se aparta 335 m de mediana del límite con cualquiera de los dos.
+Para promediar lluvia de pluviómetros que están a decenas de km, 200 m no mueven
+ningún número. Si aparece el `.prj`, se corrige `ELIPSOIDE` en el script y se
+regenera.
+
+Cosas que no son obvias:
+
+- **El borde de las cuencas no es el límite provincial.** Son dos trazados
+  distintos: las cuencas se pasan 4,5 km al oeste y se quedan 1,7 km cortas al
+  sur. Suman 99.580 km² contra los 99.633 de la provincia.
+- **La capa no recibe el cursor** (`pointerEvents: none` en su panel, y
+  `interactive: false`): son polígonos que cubren la provincia entera y se
+  comerían los eventos de todo lo demás. Por eso el nombre de la cuenca va en
+  rótulos fijos y en la lectura del tramo, no en un tooltip.
+- **El rótulo no va en el centroide.** Varias cuencas son alargadas y curvas, y
+  el centro de gravedad de una forma así cae afuera, sobre la cuenca de al lado.
+  `puntoInterior` toma el punto medio del tramo interior más ancho.
+- **La cuenca de un tramo se pregunta por su punto medio.** Un tramo largo puede
+  cruzar de una a otra.
+- **Los nombres del `.dbf` vienen sin tildes** y se corrigen en el script; el
+  original queda en `nombreOrigen`.
+- El valle del Paraná (12) son doce partes sueltas. No hay huecos en ninguna, y
+  el script falla si aparece uno en vez de armarlo mal.
+
+`scripts/verificar-cuencas.ts` afirma lo que sí se puede: que el área medida de
+cada polígono reproyectado coincide con las hectáreas que declara el origen (la
+que más se aparta, 0,54 %) y que las 103 sedes de consorcio caen cada una en
+una sola cuenca. Con la faja equivocada o los ejes cruzados, ninguna de las dos
+cierra. **No puede afirmar el datum.**
+
 ### La API de la APA
 
 `mapas.apachaco.gob.ar` publica las mediciones en JSON, sin clave ni registro:

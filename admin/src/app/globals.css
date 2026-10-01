@@ -120,6 +120,17 @@ html                             { scrollbar-width: thin; scrollbar-color: #2a2a
 .sv-tt b     { color: #e8e8e8; }
 .sv-tt .tt-k { font-size: 11px; color: #777; text-transform: uppercase; letter-spacing: 1px; }
 
+/* ─── Rótulo de un polígono sobre el mapa: class="sv-rotulo" ─ */
+/* Claro, porque va sobre el mapa base y no sobre un panel. Se centra
+   sobre su punto: el ícono de Leaflet que lo lleva mide cero. */
+.sv-rotulo {
+  display: inline-block; transform: translate(-50%, -50%); white-space: nowrap;
+  font-family: monospace; font-size: 11px; font-weight: 700;
+  letter-spacing: .6px; text-transform: uppercase;
+  color: #0D3F6E; background: rgba(255,255,255,.88);
+  border: 1px solid #0D5C9E; padding: 1px 5px;
+}
+
 /* ─── Hover glow utilities ──────────────────────────────── */
 /* Botones primarios (amarillo):  className="glow-y"         */
 .glow-y:hover:not(:disabled) { box-shadow: 0 0 18px var(--accent-glow) !important; }
