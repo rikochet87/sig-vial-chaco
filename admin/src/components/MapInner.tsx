@@ -28,37 +28,54 @@ const CC_WEIGHT: Record<string, number> = {
 
 // ── CSS de popups ────────────────────────────────────────────────────────────
 
+/*
+ * Mismo lenguaje que el resto del panel: fondo casi negro, borde de 1 px,
+ * esquinas rectas, rótulos en mayúsculas espaciadas y el color del elemento
+ * como filo a la izquierda en vez de como fondo. La fuente se declara acá
+ * porque el CSS de Leaflet le pone Helvetica a todo lo que cuelga del mapa.
+ *
+ * `--pc` es el color del elemento: lo pone cada popup en su encabezado.
+ */
 const POPUP_CSS = `
 .leaflet-popup-content-wrapper {
-  background: #1e2436;
-  border: 1px solid #2a3045;
-  border-radius: 8px;
+  background: #111;
+  border: 1px solid #2a2a2a;
+  border-radius: 2px;
   padding: 0;
-  box-shadow: 0 4px 12px rgba(0,0,0,.5);
-  color: #e0e6f0;
+  box-shadow: 0 4px 16px rgba(0,0,0,.7);
+  color: #e0e0e0;
+  font-family: monospace;
 }
-.leaflet-popup-tip { background: #1e2436; }
-.leaflet-popup-content { margin: 0; width: 260px !important; }
-.ph  { padding: 10px; display: flex; align-items: center; gap: 8px; }
-.pn  { width: 34px; height: 34px; border-radius: 50%; background: rgba(0,0,0,.25);
-       display: flex; align-items: center; justify-content: center;
-       font-size: 14px; font-weight: 800; color: #fff; flex-shrink: 0; }
-.pl  { color: #fff; font-size: 13px; font-weight: 700; line-height: 1.3; }
-.pz  { color: rgba(255,255,255,.8); font-size: 11px; margin-top: 2px; }
-.pb  { padding: 6px 10px 8px; }
-.pr  { display: flex; align-items: center; margin-bottom: 3px; }
-.ps  { font-size: 11px; color: #7a8aaa; text-transform: uppercase;
-       letter-spacing: .5px; margin-bottom: 4px; }
-.plb { font-size: 11px; color: #7a8aaa; width: 100px; }
-.pv  { font-size: 11px; color: #e0e6f0; font-weight: 600; flex: 1; }
+.leaflet-popup-tip { background: #111; border: 1px solid #2a2a2a; box-shadow: none; }
+.leaflet-popup-content { margin: 0; width: 260px !important; font-family: monospace;
+       font-size: 12px; line-height: 1.45; }
+.leaflet-container a.leaflet-popup-close-button { color: #555; font-family: monospace; }
+.leaflet-container a.leaflet-popup-close-button:hover { color: #F5C300; background: none; }
+.ph  { padding: 9px 26px 9px 10px; display: flex; align-items: center; gap: 9px;
+       background: #0c0c0c; border-bottom: 1px solid #222;
+       border-left: 3px solid var(--pc, #F5C300); }
+.pn  { min-width: 30px; height: 22px; padding: 0 5px; border: 1px solid var(--pc, #F5C300);
+       color: var(--pc, #F5C300); display: flex; align-items: center; justify-content: center;
+       font-size: 11px; font-weight: 700; letter-spacing: .5px; flex-shrink: 0; }
+.pl  { color: #e0e0e0; font-size: 13px; font-weight: 700; letter-spacing: .3px; line-height: 1.3; }
+.pz  { color: #666; font-size: 11px; letter-spacing: .8px; text-transform: uppercase; margin-top: 1px; }
+.pb  { padding: 7px 10px 10px; }
+.pr  { display: flex; align-items: baseline; padding: 3px 0; border-bottom: 1px solid #1a1a1a; }
+.ps  { font-size: 11px; color: #555; text-transform: uppercase;
+       letter-spacing: 1.2px; margin-bottom: 3px; }
+.plb { font-size: 11px; color: #555; text-transform: uppercase; letter-spacing: .8px;
+       width: 108px; flex-shrink: 0; }
+.pv  { font-size: 12px; color: #ccc; font-weight: 600; flex: 1; }
 .ks  { display: flex; gap: 4px; margin-top: 8px; }
-.kc  { flex: 1; background: #252d40; border-radius: 5px; padding: 5px; text-align: center; }
-.kv  { font-size: 12px; font-weight: 800; color: #e0e6f0; }
-.kl  { font-size: 11px; color: #7a8aaa; margin-top: 1px; }
-.poi-popup { background: #1e2436; border: 1px solid #2a3045; border-radius: 8px;
-             padding: 8px 10px; }
-.poi-name  { color: #e0e6f0; font-size: 13px; font-weight: 700; }
-.poi-type  { color: #7a8aaa; font-size: 11px; margin-top: 2px; }
+.kc  { flex: 1; background: #0a0a0a; border: 1px solid #1e1e1e; padding: 5px 3px; text-align: center; }
+.kv  { font-size: 12px; font-weight: 700; color: #e0e0e0; }
+.kl  { font-size: 11px; color: #555; margin-top: 1px; text-transform: uppercase; letter-spacing: .5px; }
+.pk  { margin-top: 8px; text-align: right; }
+.leaflet-container a.pa { color: #F5C300; font-size: 11px; font-weight: 700; letter-spacing: .8px;
+       text-transform: uppercase; text-decoration: none; }
+.poi-popup { padding: 8px 26px 8px 10px; border-left: 3px solid #F5C300; }
+.poi-name  { color: #e0e0e0; font-size: 13px; font-weight: 700; letter-spacing: .3px; }
+.poi-type  { color: #666; font-size: 11px; letter-spacing: .8px; text-transform: uppercase; margin-top: 1px; }
 `
 
 // ── Helpers HTML de popups ───────────────────────────────────────────────────
@@ -67,8 +84,8 @@ function sedePopupHtml(s: Sede): string {
   const c = s.color || '#F5C300'
   return `
 <div>
-  <div class="ph" style="background:${c}20;border-bottom:1px solid ${c}40">
-    <div class="pn" style="background:${c}">${s.numero}</div>
+  <div class="ph" style="--pc:${c}">
+    <div class="pn">${s.numero}</div>
     <div>
       <div class="pl">${s.nombre}</div>
       <div class="pz">${s.localidad} · ${s.zona}</div>
@@ -97,8 +114,8 @@ function rpPopupHtml(p: Record<string, unknown>): string {
   const mant = p.Mantenim || p.mantenimiento || '—'
   return `
 <div>
-  <div class="ph" style="background:#1a2030;border-bottom:1px solid #2a3045">
-    <div class="pn" style="background:#e67e22">RP</div>
+  <div class="ph" style="--pc:#e67e22">
+    <div class="pn">RP</div>
     <div>
       <div class="pl">Ruta Provincial${num ? ' N° ' + num : ''}</div>
       <div class="pz">${zona ? 'Zona ' + zona : ''}</div>
@@ -122,8 +139,8 @@ function ccPopupHtml(p: Record<string, unknown>, zona: string): string {
   const mant = p.Mn  || p.MANTENIMIENTO || p.mantenimiento || '—'
   return `
 <div>
-  <div class="ph" style="background:${c}20;border-bottom:1px solid ${c}40">
-    <div class="pn" style="background:${c}">CC</div>
+  <div class="ph" style="--pc:${c}">
+    <div class="pn">CC</div>
     <div>
       <div class="pl">Red bajo Convenio CC</div>
       <div class="pz">CC N° ${cc} · ${zona}</div>
@@ -145,11 +162,11 @@ function dvpPopupHtml(p: Record<string, unknown>, zona: string): string {
   const mant = p.Mn  || p.MANTENIMIENTO || p.mantenimiento || '—'
   return `
 <div>
-  <div class="ph" style="background:${c}20;border-bottom:1px solid ${c}40">
-    <div class="pn" style="background:${c}">DVP</div>
+  <div class="ph" style="--pc:${c}">
+    <div class="pn">TM</div>
     <div>
-      <div class="pl">Tramo mantenido DVP</div>
-      <div class="pz">${zona}</div>
+      <div class="pl">Tramo mantenido</div>
+      <div class="pz">Red primaria · ${zona}</div>
     </div>
   </div>
   <div class="pb">
@@ -165,8 +182,8 @@ function relevPopupHtml(r: Relevamiento): string {
   const fecha = r.fecha ? new Date(r.fecha).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—'
   return `
 <div>
-  <div class="ph" style="background:${color}20;border-bottom:1px solid ${color}40">
-    <div class="pn" style="background:${color}">${r.tipo[0]}</div>
+  <div class="ph" style="--pc:${color}">
+    <div class="pn">${TIPO_SHORT[r.tipo] ?? r.tipo.slice(0, 3).toUpperCase()}</div>
     <div>
       <div class="pl">${r.tipo}</div>
       <div class="pz">${fecha} · ${r.zona || '—'}</div>
@@ -176,9 +193,7 @@ function relevPopupHtml(r: Relevamiento): string {
     <div class="pr"><span class="plb">Estado calzada</span><span class="pv">${r.estado_calzada || '—'}</span></div>
     <div class="pr"><span class="plb">Tramo</span><span class="pv">${r.ruta_tramo || '—'}</span></div>
     <div class="pr"><span class="plb">CC asociado</span><span class="pv">${r.cc_asociado || '—'}</span></div>
-    <div style="margin-top:8px;text-align:right">
-      <a href="/dashboard/relevamientos/${r.id}" style="color:#F5C300;font-size:11px;font-weight:700;text-decoration:none">Ver detalle →</a>
-    </div>
+    <div class="pk"><a class="pa" href="/dashboard/relevamientos/${r.id}">Ver detalle →</a></div>
   </div>
 </div>`
 }
@@ -312,17 +327,17 @@ function ColorDot({ color, onChange, shape = 'circle' }: { color: string; onChan
       {open && (
         <div style={{
           position: 'absolute', top: 14, left: 0, zIndex: 9999,
-          background: '#111', border: '1px solid #333', borderRadius: 6,
-          padding: 6, display: 'grid', gridTemplateColumns: 'repeat(6, 16px)', gap: 4,
-          boxShadow: '0 4px 20px rgba(0,0,0,.9)',
+          background: '#0e0e0e', border: '1px solid #2a2a2a', borderRadius: 2,
+          padding: 6, display: 'grid', gridTemplateColumns: 'repeat(6, 16px)', gap: 3,
+          boxShadow: '0 4px 16px rgba(0,0,0,.7)',
         }}
           onClick={e => e.stopPropagation()}>
           {PALETTE.map(c => (
             <span key={c} title={c}
               onClick={() => { onChange(c); setOpen(false) }}
               style={{
-                width: 16, height: 16, borderRadius: '50%', background: c, cursor: 'pointer',
-                border: c === color ? '2px solid #F5C300' : '2px solid transparent',
+                width: 16, height: 16, background: c, cursor: 'pointer',
+                border: c === color ? '2px solid #F5C300' : '1px solid #2a2a2a',
                 boxSizing: 'border-box',
               }}
             />
@@ -330,7 +345,7 @@ function ColorDot({ color, onChange, shape = 'circle' }: { color: string; onChan
           <input type="color" value={color} onChange={e => onChange(e.target.value)}
             title="Color personalizado"
             style={{ gridColumn: '1 / -1', width: '100%', height: 18, cursor: 'pointer',
-              background: 'none', border: '1px solid #333', borderRadius: 3, marginTop: 2, padding: 0 }} />
+              background: 'none', border: '1px solid #2a2a2a', borderRadius: 0, marginTop: 2, padding: 0 }} />
         </div>
       )}
     </div>
@@ -348,6 +363,37 @@ function WidthBtn({ value, onChange }: { value: number; onChange: (v: number) =>
         style={{ background: 'none', border: '1px solid #333', color: '#666', cursor: 'pointer', fontSize: 12, padding: '0 4px', lineHeight: '14px', borderRadius: 2, fontFamily: 'monospace' }}>+</button>
     </div>
   )
+}
+
+// ── Estilo de los paneles flotantes ──────────────────────────────────────────
+// El de las pantallas de Obras y Lluvias: caja casi negra, borde de 1 px,
+// esquinas rectas y título en mayúsculas espaciadas con filo amarillo.
+
+const PANEL_CAJA: React.CSSProperties = {
+  background: '#111', border: '1px solid #222', borderRadius: 2,
+  boxShadow: '0 4px 16px rgba(0,0,0,.7)', fontFamily: 'monospace',
+  display: 'flex', flexDirection: 'column', userSelect: 'none',
+}
+const PANEL_CABECERA: React.CSSProperties = {
+  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+  padding: '0 9px', borderBottom: '1px solid #222', borderLeft: '3px solid #F5C300',
+  background: '#0a0a0a', flexShrink: 0, height: 30,
+}
+const PANEL_TITULO: React.CSSProperties = {
+  fontSize: 12, color: '#999', letterSpacing: 1.4, textTransform: 'uppercase', fontFamily: 'monospace',
+}
+const PANEL_PLEGAR: React.CSSProperties = {
+  background: 'none', border: 'none', color: '#555', cursor: 'pointer',
+  fontSize: 11, padding: 0, lineHeight: 1, fontFamily: 'monospace',
+}
+const PANEL_SECCION: React.CSSProperties = {
+  fontSize: 11, color: '#555', textTransform: 'uppercase', letterSpacing: 1.2,
+  margin: '11px 0 5px', paddingBottom: 3, borderBottom: '1px solid #1e1e1e',
+}
+const PANEL_ITEM: React.CSSProperties = {
+  display: 'flex', alignItems: 'center', gap: 6,
+  marginBottom: 3, cursor: 'pointer', whiteSpace: 'nowrap',
+  fontSize: 12, color: '#ccc', userSelect: 'none', fontFamily: 'monospace',
 }
 
 interface Props {
@@ -437,25 +483,16 @@ function RightPanel({
   }
 
   const PANEL: React.CSSProperties = {
+    ...PANEL_CAJA,
     position: 'absolute', top: 10, right: 10, zIndex: 1000,
-    background: '#1A1A1A', border: '1px solid #222',
-    borderRadius: 6,
     overflowX: 'clip' as React.CSSProperties['overflowX'],
-    boxShadow: '0 4px 16px rgba(0,0,0,.7)',
-    fontFamily: 'monospace',
     width: open ? rPanelWidth : 32,
     height: open && rPanelHeight ? rPanelHeight : undefined,
     maxHeight: open && rPanelHeight ? undefined : 'calc(100vh - 40px)',
-    display: 'flex', flexDirection: 'column',
-    userSelect: 'none',
   }
-  const ITEM: React.CSSProperties = {
-    display: 'flex', alignItems: 'center', gap: 6,
-    marginBottom: 3, cursor: 'pointer', whiteSpace: 'nowrap',
-    fontSize: 12, color: '#e0e0e0', userSelect: 'none', fontFamily: 'monospace',
-  }
-  const CB: React.CSSProperties = { accentColor: '#F5C300', cursor: 'pointer', flexShrink: 0 }
-  const SEC: React.CSSProperties = { fontSize: 12, color: '#555', textTransform: 'uppercase', letterSpacing: 0.8, margin: '8px 0 4px', fontWeight: 600 }
+  const ITEM = PANEL_ITEM
+  const CB: React.CSSProperties = { cursor: 'pointer', flexShrink: 0 }
+  const SEC = PANEL_SECCION
 
   // Stats: contar por zona y tipo
   // Normalizar zona: trim + uppercase para tolerar variantes de formato
@@ -486,23 +523,23 @@ function RightPanel({
   const allZonesActive = activeZones.size === 0
 
   return (
-    <div style={PANEL}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 10px', borderBottom: '1px solid #222', background: '#111', flexShrink: 0, height: 32 }}>
-        {open && <span style={{ fontWeight: 600, fontSize: 13, color: '#e0e0e0', letterSpacing: 0.3, fontFamily: 'monospace' }}>Relevamientos</span>}
-        <button onClick={() => setOpen(v => !v)} style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: 13, padding: 0, lineHeight: 1, marginLeft: open ? 0 : 'auto' }} title={open ? 'Colapsar' : 'Expandir'}>
-          {open ? '⮞' : '⮜'}
+    <div style={PANEL} className="sv-panel">
+      <div style={PANEL_CABECERA}>
+        {open && <span style={PANEL_TITULO}>Relevamientos</span>}
+        <button onClick={() => setOpen(v => !v)} style={{ ...PANEL_PLEGAR, marginLeft: open ? 0 : 'auto' }} title={open ? 'Colapsar' : 'Expandir'}>
+          {open ? '▶' : '◀'}
         </button>
       </div>
       {open && (
-        <div style={{ padding: '8px 10px 10px', overflowY: 'auto', flex: 1 }}>
+        <div style={{ padding: '0 10px 10px', overflowY: 'auto', flex: 1 }}>
 
           {/* Obras guardadas */}
           <div style={SEC}>Obras guardadas</div>
           <label style={ITEM}>
             <input type="checkbox" checked={showObras} onChange={onToggleObras} style={CB} />
-            <span style={{ width: 10, height: 10, background: '#90A4AE', borderRadius: 2, flexShrink: 0 }} />
+            <span style={{ width: 10, height: 10, background: '#90A4AE', flexShrink: 0 }} />
             Obras
-            <span style={{ marginLeft: 'auto', fontSize: 12, color: '#7a8aaa' }}>{obrasCount}</span>
+            <span style={{ marginLeft: 'auto', fontSize: 12, color: '#777' }}>{obrasCount}</span>
           </label>
 
           {/* Tipos */}
@@ -518,19 +555,19 @@ function RightPanel({
 
           {/* Zonas */}
           <div style={SEC}>Zona</div>
-          <label style={{ ...ITEM, color: allZonesActive ? '#F5C300' : '#e0e6f0' }}>
+          <label style={{ ...ITEM, color: allZonesActive ? '#F5C300' : '#ccc' }}>
             <input type="checkbox" checked={allZonesActive} onChange={() => onToggleZone('__all__')} style={CB} />
             Todas
-            <span style={{ marginLeft: 'auto', fontSize: 12, color: '#7a8aaa' }}>{grand}</span>
+            <span style={{ marginLeft: 'auto', fontSize: 12, color: '#777' }}>{grand}</span>
           </label>
           {ZONAS_LIST.map(z => {
             const isActive = allZonesActive || activeZones.has(z)
             const n = zTotal(z)
             return (
-              <label key={z} style={{ ...ITEM, color: isActive ? '#e0e6f0' : '#4a5a7a' }}>
+              <label key={z} style={{ ...ITEM, color: isActive ? '#ccc' : '#444' }}>
                 <input type="checkbox" checked={isActive} onChange={() => onToggleZone(z)} style={CB} />
                 {ZONA_LABEL[z]}
-                <span style={{ marginLeft: 'auto', fontSize: 12, color: isActive ? '#7a8aaa' : '#333' }}>{n}</span>
+                <span style={{ marginLeft: 'auto', fontSize: 12, color: isActive ? '#777' : '#333' }}>{n}</span>
               </label>
             )
           })}
@@ -541,11 +578,11 @@ function RightPanel({
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
               <thead>
                 <tr>
-                  <th style={{ color: '#7a8aaa', textAlign: 'left', padding: '2px 4px', fontWeight: 600 }}></th>
+                  <th style={{ color: '#555', textAlign: 'left', padding: '2px 4px', fontWeight: 400 }}></th>
                   {TIPOS_LIST.map(t => (
                     <th key={t} style={{ color: TIPO_COLOR[t], textAlign: 'center', padding: '2px 3px', fontWeight: 700, fontSize: 12 }}>{TIPO_SHORT[t]}</th>
                   ))}
-                  <th style={{ color: '#e0e6f0', textAlign: 'center', padding: '2px 3px', fontWeight: 700 }}>∑</th>
+                  <th style={{ color: '#ccc', textAlign: 'center', padding: '2px 3px', fontWeight: 700 }}>∑</th>
                 </tr>
               </thead>
               <tbody>
@@ -554,13 +591,13 @@ function RightPanel({
                   if (n === 0) return null
                   return (
                     <tr key={z} style={{ opacity: allZonesActive || activeZones.has(z) ? 1 : 0.35 }}>
-                      <td style={{ color: '#7a8aaa', padding: '2px 4px', fontWeight: 600 }}>{z}</td>
+                      <td style={{ color: '#777', padding: '2px 4px', fontWeight: 600 }}>{z}</td>
                       {TIPOS_LIST.map(t => (
                         <td key={t} style={{ color: stats[z][t] > 0 ? TIPO_COLOR[t] : '#333', textAlign: 'center', padding: '2px 3px', fontWeight: stats[z][t] > 0 ? 700 : 400 }}>
                           {stats[z][t] > 0 ? stats[z][t] : '·'}
                         </td>
                       ))}
-                      <td style={{ color: '#e0e6f0', textAlign: 'center', padding: '2px 3px', fontWeight: 700 }}>{n}</td>
+                      <td style={{ color: '#ccc', textAlign: 'center', padding: '2px 3px', fontWeight: 700 }}>{n}</td>
                     </tr>
                   )
                 })}
@@ -576,8 +613,8 @@ function RightPanel({
                     <td style={{ color: '#666', textAlign: 'center', padding: '2px 3px', fontWeight: 700 }}>{zTotal('?')}</td>
                   </tr>
                 )}
-                <tr style={{ borderTop: '1px solid #2a3450' }}>
-                  <td style={{ color: '#e0e6f0', padding: '3px 4px', fontWeight: 700 }}>∑</td>
+                <tr style={{ borderTop: '1px solid #2a2a2a' }}>
+                  <td style={{ color: '#ccc', padding: '3px 4px', fontWeight: 700 }}>∑</td>
                   {TIPOS_LIST.map(t => (
                     <td key={t} style={{ color: tTotal(t) > 0 ? TIPO_COLOR[t] : '#333', textAlign: 'center', padding: '3px 3px', fontWeight: 700 }}>
                       {tTotal(t) > 0 ? tTotal(t) : '·'}
@@ -599,7 +636,7 @@ function RightPanel({
           style={{ position:'absolute', bottom:0, left:0, right:0, height:4, cursor:'ns-resize', zIndex:10 }} />
         <div onMouseDown={e => startRResize('sw', e)}
           style={{ position:'absolute', bottom:0, left:0, width:10, height:10, cursor:'nesw-resize', zIndex:11,
-            background: 'linear-gradient(225deg, transparent 50%, #333 50%)', borderRadius:'0 0 0 6px' }} />
+            background: 'linear-gradient(225deg, transparent 50%, #333 50%)' }} />
       </>}
     </div>
   )
@@ -676,7 +713,7 @@ function ZoneRow({ zona, consorcios, isExpanded, isLayerOn, activeSet, onToggleE
     }
   }, [someChecked, allChecked])
 
-  const ITEM: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', whiteSpace: 'nowrap', fontSize: 13, color: '#e0e6f0', userSelect: 'none' }
+  const ITEM: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', whiteSpace: 'nowrap', fontSize: 12, color: '#ccc', userSelect: 'none' }
 
   return (
     <div>
@@ -687,7 +724,7 @@ function ZoneRow({ zona, consorcios, isExpanded, isLayerOn, activeSet, onToggleE
             type="checkbox"
             checked={allChecked}
             onChange={() => onToggleZone()}
-            style={{ accentColor: color, cursor: 'pointer', flexShrink: 0 }}
+            style={{ cursor: 'pointer', flexShrink: 0 }}
           />
           <ColorDot color={color} onChange={onColorChange} />
           {zona}
@@ -697,9 +734,9 @@ function ZoneRow({ zona, consorcios, isExpanded, isLayerOn, activeSet, onToggleE
           <button
             onClick={onToggleExpand}
             title={isExpanded ? 'Colapsar consorcios' : 'Ver consorcios'}
-            style={{ background: 'none', border: 'none', color: '#7a8aaa', cursor: 'pointer', fontSize: 13, padding: '0 2px', lineHeight: 1, flexShrink: 0 }}
+            style={{ background: 'none', border: 'none', color: '#666', cursor: 'pointer', fontSize: 11, padding: '0 2px', lineHeight: 1, flexShrink: 0 }}
           >
-            {isExpanded ? '▾' : '›'}
+            {isExpanded ? '▼' : '▶'}
           </button>
         )}
       </div>
@@ -707,12 +744,12 @@ function ZoneRow({ zona, consorcios, isExpanded, isLayerOn, activeSet, onToggleE
       {isExpanded && consorcios.length > 0 && (
         <div style={{ paddingLeft: 14, marginBottom: 4, borderLeft: `2px solid ${color}40` }}>
           {consorcios.map(s => (
-            <label key={s.numero} style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 2, cursor: 'pointer', whiteSpace: 'nowrap', fontSize: 13, color: '#b0b8cc', userSelect: 'none' }}>
+            <label key={s.numero} style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 2, cursor: 'pointer', whiteSpace: 'nowrap', fontSize: 12, color: '#999', userSelect: 'none' }}>
               <input
                 type="checkbox"
                 checked={activeSet.has(s.numero)}
                 onChange={() => onToggleConsorcio(s.numero)}
-                style={{ accentColor: color, cursor: 'pointer', flexShrink: 0 }}
+                style={{ cursor: 'pointer', flexShrink: 0 }}
               />
               <span style={{ color, fontWeight: 700, minWidth: 24 }}>{s.numero}</span>
               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 90 }} title={s.nombre}>{s.nombre}</span>
@@ -1070,7 +1107,7 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
       }
       const makeLblIcon = (d: number) => L.divIcon({
         className: '', iconAnchor: [0, 8],
-        html: `<div style="background:#1e2436;color:#F5C300;font-size:11px;font-weight:700;padding:2px 6px;border-radius:4px;border:1px solid rgba(245,195,0,.4);white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,.5)">${fmtDist(d)}</div>`,
+        html: `<div style="background:#111;color:#F5C300;font-family:monospace;font-size:11px;font-weight:700;letter-spacing:.3px;padding:2px 6px;border:1px solid rgba(245,195,0,.4);white-space:nowrap">${fmtDist(d)}</div>`,
       })
 
       // Crear segmentos y etiquetas primero (z-order debajo de los vértices)
@@ -1831,13 +1868,17 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
         const color = OBRA_COLORS[o.tipo] ?? '#90A4AE'
         const label = OBRA_TIPO_LABELS[o.tipo] ?? o.tipo
         const estadoLabel = o.estado === 'planificada' ? 'Planificada' : o.estado === 'en_curso' ? 'En curso' : o.estado === 'ejecutada' ? 'Ejecutada' : o.estado
-        const popHtml = `<div style="padding:8px 10px;font-family:monospace;min-width:180px">
-          <div style="font-size:12px;font-weight:700;color:${color};margin-bottom:4px">${label}</div>
-          ${o.descripcion ? `<div style="font-size:11px;color:#aaa;margin-bottom:3px">${o.descripcion}</div>` : ''}
-          ${o.ubicacion   ? `<div style="font-size:11px;color:#666;margin-bottom:3px">${o.ubicacion}</div>`   : ''}
-          <div style="font-size:11px;color:#555;text-transform:uppercase;letter-spacing:.5px">${estadoLabel}</div>
-          ${o.presupuesto_total ? `<div style="font-size:11px;color:#888;margin-top:3px">$ ${Math.round(o.presupuesto_total).toLocaleString('es-AR')}</div>` : ''}
-          <div style="margin-top:6px;text-align:right"><a href="/dashboard/obras" style="color:#F5C300;font-size:11px;font-weight:700;text-decoration:none">Ver obras →</a></div>
+        const popHtml = `<div>
+          <div class="ph" style="--pc:${color}">
+            <div class="pn">OBR</div>
+            <div><div class="pl">${label}</div><div class="pz">${estadoLabel}</div></div>
+          </div>
+          <div class="pb">
+            ${o.descripcion ? `<div class="pr"><span class="plb">Descripción</span><span class="pv">${o.descripcion}</span></div>` : ''}
+            ${o.ubicacion   ? `<div class="pr"><span class="plb">Ubicación</span><span class="pv">${o.ubicacion}</span></div>` : ''}
+            ${o.presupuesto_total ? `<div class="pr"><span class="plb">Presupuesto</span><span class="pv">$ ${Math.round(o.presupuesto_total).toLocaleString('es-AR')}</span></div>` : ''}
+            <div class="pk"><a class="pa" href="/dashboard/obras">Ver obras →</a></div>
+          </div>
         </div>`
 
         // Parseo defensivo de coords_linea (puede llegar como JSONB array o string)
@@ -1992,19 +2033,12 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
   // ── Panel de capas UI ─────────────────────────────────────────────────────
 
   // ── Estilos compartidos del panel ──
-  const ITEM_STYLE: React.CSSProperties = {
-    display: 'flex', alignItems: 'center', gap: 6,
-    marginBottom: 3, cursor: 'pointer', whiteSpace: 'nowrap',
-    fontSize: 12, color: '#e0e0e0', userSelect: 'none', fontFamily: 'monospace',
-  }
-  const SECTION_TITLE_STYLE: React.CSSProperties = {
-    fontSize: 12, color: '#555', textTransform: 'uppercase',
-    letterSpacing: 0.5, margin: '8px 0 4px', fontWeight: 600,
-  }
+  const ITEM_STYLE = PANEL_ITEM
+  const SECTION_TITLE_STYLE = PANEL_SECCION
   const DOT = (color: string) => (
     <span style={{ width: 8, height: 8, borderRadius: '50%', background: color, display: 'inline-block', flexShrink: 0 }} />
   )
-  const CHECKBOX_STYLE: React.CSSProperties = { accentColor: '#F5C300', cursor: 'pointer', flexShrink: 0 }
+  const CHECKBOX_STYLE: React.CSSProperties = { cursor: 'pointer', flexShrink: 0 }
 
   return (
     <div style={{ position: 'relative', height: '100%', width: '100%' }}>
@@ -2017,44 +2051,39 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
       )}
 
       {/* Panel de capas flotante */}
-      <div style={{
+      <div className="sv-panel" style={{
+        ...PANEL_CAJA,
         position: 'absolute', top: 10, left: 10, zIndex: 1000,
-        background: '#1A1A1A', border: '1px solid #222',
-        borderRadius: 6,
         overflowX: 'clip' as React.CSSProperties['overflowX'],
-        boxShadow: '0 4px 16px rgba(0,0,0,.7)',
-        fontFamily: 'monospace',
         width: panelOpen ? panelWidth : 32,
         height: panelOpen && panelHeight ? panelHeight : undefined,
         maxHeight: panelOpen && panelHeight ? undefined : 'calc(100% - 20px)',
-        display: 'flex', flexDirection: 'column',
-        userSelect: 'none',
       }}>
 
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 10px', borderBottom: '1px solid #222', background: '#111', flexShrink: 0, height: 32 }}>
-          {panelOpen && <span style={{ fontWeight: 600, fontSize: 13, color: '#e0e0e0', letterSpacing: 0.3, fontFamily: 'monospace' }}>Capas</span>}
+        <div style={PANEL_CABECERA}>
+          {panelOpen && <span style={PANEL_TITULO}>Capas</span>}
           <button
             onClick={() => setPanelOpen(v => !v)}
-            style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: 13, padding: 0, lineHeight: 1, marginLeft: panelOpen ? 0 : 'auto' }}
+            style={{ ...PANEL_PLEGAR, marginLeft: panelOpen ? 0 : 'auto' }}
             title={panelOpen ? 'Colapsar' : 'Expandir'}
           >
-            {panelOpen ? '⮜' : '⮞'}
+            {panelOpen ? '◀' : '▶'}
           </button>
         </div>
 
         {panelOpen && (
-          <div style={{ padding: '4px 10px 10px', overflowY: 'auto', flex: 1 }}>
+          <div style={{ padding: '0 10px 10px', overflowY: 'auto', flex: 1 }}>
 
             {/* BASE */}
             <div style={SECTION_TITLE_STYLE}>Base</div>
             <label style={ITEM_STYLE}>
               <input type="radio" name="basemap" checked={!satellite} onChange={() => setSatellite(false)} style={CHECKBOX_STYLE} />
-              🗺 OpenStreetMap
+              OpenStreetMap
             </label>
             <label style={ITEM_STYLE}>
               <input type="radio" name="basemap" checked={satellite} onChange={() => setSatellite(true)} style={CHECKBOX_STYLE} />
-              🛰 Satélite
+              Satélite
             </label>
             {(['limite', 'zonas', 'departamentos'] as const).map(k => (
               <label key={k} style={ITEM_STYLE}>
@@ -2145,10 +2174,10 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
                     <label style={{ display:'flex', alignItems:'center', gap:6, cursor:'pointer', userSelect:'none' }}>
                       <input type="checkbox" checked={sl.visible}
                         onChange={() => setSavedLayers(prev => prev.map(l => l.id===sl.id ? {...l,visible:!l.visible} : l))}
-                        style={{ accentColor: sl.color, cursor:'pointer', flexShrink:0 }} />
+                        style={{ cursor:'pointer', flexShrink:0 }} />
                       <ColorDot color={sl.color}
                         onChange={c => setSavedLayers(prev => prev.map(l => l.id===sl.id ? {...l,color:c} : l))} />
-                      <span style={{ flex:1, fontSize:13, color: sl.visible ? '#e0e6f0' : '#5a6a80', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }} title={sl.name}>{sl.name}</span>
+                      <span style={{ flex:1, fontSize:12, color: sl.visible ? '#ccc' : '#555', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }} title={sl.name}>{sl.name}</span>
                       <button onClick={e => { e.preventDefault(); exportKML(sl) }} title="Exportar KML"
                         style={{ background:'none', border:'none', cursor:'pointer', fontSize:12, color:'#27ae60', padding:'0 2px', lineHeight:1, flexShrink:0 }}>KML</button>
                       <button onClick={e => { e.preventDefault(); exportSHP(sl) }} title="Exportar SHP"
@@ -2156,7 +2185,7 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
                       <button onClick={e => { e.preventDefault(); setSavedLayers(prev => prev.filter(l => l.id !== sl.id)) }} title="Eliminar"
                         style={{ background:'none', border:'none', cursor:'pointer', fontSize:13, color:'#c0392b', padding:'0 2px', lineHeight:1, flexShrink:0 }}>✕</button>
                     </label>
-                    <div style={{ fontSize:12, color:'#4a5a70', paddingLeft:22, marginTop:1 }}>
+                    <div style={{ fontSize:11, color:'#555', paddingLeft:22, marginTop:1, textTransform:'uppercase', letterSpacing:0.5 }}>
                       {sl.type==='line' ? `Línea · ${fmtDist(sl.lengthM??0)}` : sl.type==='polygon' ? `Polígono · ${fmtArea(sl.areaM2??0)}` : `Círculo · r=${fmtRadius(sl.radiusM??0)}`}
                     </div>
                   </div>
@@ -2178,7 +2207,7 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
           {/* corner */}
           <div onMouseDown={e => startResize('se', e)}
             style={{ position:'absolute', bottom:0, right:0, width:10, height:10, cursor:'nwse-resize', zIndex:11,
-              background: 'linear-gradient(135deg, transparent 50%, #333 50%)', borderRadius:'0 0 6px 0' }} />
+              background: 'linear-gradient(135deg, transparent 50%, #333 50%)' }} />
         </>}
       </div>
 

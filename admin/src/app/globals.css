@@ -56,6 +56,56 @@ select option { background: #1a1a1a; }
 /* Firefox */
 html                             { scrollbar-width: thin; scrollbar-color: #2a2a2a transparent; }
 
+/* ─── Paneles flotantes sobre el mapa: className="sv-panel" ─ */
+/* Casillas y opciones cuadradas. Las nativas son redondeadas y
+   del sistema operativo: lo único del panel que no era nuestro. */
+.sv-panel input[type="checkbox"],
+.sv-panel input[type="radio"] {
+  appearance: none; -webkit-appearance: none;
+  width: 11px; height: 11px; margin: 0;
+  background: #0a0a0a; border: 1px solid #444; border-radius: 0;
+  display: inline-block; flex-shrink: 0;
+}
+.sv-panel input[type="checkbox"]:hover,
+.sv-panel input[type="radio"]:hover { border-color: #777; }
+.sv-panel input[type="checkbox"]:checked {
+  background: var(--accent); border-color: var(--accent);
+}
+/* Parcial: algunos consorcios de la zona elegidos, no todos */
+.sv-panel input[type="checkbox"]:indeterminate {
+  border-color: var(--accent);
+  background: linear-gradient(var(--accent), var(--accent)) center / 5px 1px no-repeat #0a0a0a;
+}
+.sv-panel input[type="radio"]:checked {
+  border-color: var(--accent); background: var(--accent);
+  box-shadow: inset 0 0 0 2px #0a0a0a;
+}
+.sv-panel input[type="checkbox"]:focus,
+.sv-panel input[type="radio"]:focus { box-shadow: none !important; }
+.sv-panel input[type="radio"]:checked:focus { box-shadow: inset 0 0 0 2px #0a0a0a !important; }
+
+/* ─── Deslizador técnico: className="sv-range" ───────────── */
+/* Riel de 1 px y cursor rectangular, como una regla. */
+.sv-range {
+  appearance: none; -webkit-appearance: none;
+  height: 16px; margin: 0; background: transparent; cursor: pointer;
+}
+.sv-range:focus { box-shadow: none !important; }
+.sv-range::-webkit-slider-runnable-track { height: 1px; background: #444; }
+.sv-range::-moz-range-track              { height: 1px; background: #444; }
+.sv-range::-webkit-slider-thumb {
+  appearance: none; -webkit-appearance: none;
+  width: 7px; height: 15px; margin-top: -7px;
+  background: var(--accent); border: none; border-radius: 0;
+}
+.sv-range::-moz-range-thumb {
+  width: 7px; height: 15px;
+  background: var(--accent); border: none; border-radius: 0;
+}
+.sv-range:disabled { cursor: default; }
+.sv-range:disabled::-webkit-slider-thumb { background: #444; }
+.sv-range:disabled::-moz-range-thumb     { background: #444; }
+
 /* ─── Hover glow utilities ──────────────────────────────── */
 /* Botones primarios (amarillo):  className="glow-y"         */
 .glow-y:hover:not(:disabled) { box-shadow: 0 0 18px var(--accent-glow) !important; }

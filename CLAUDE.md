@@ -514,6 +514,19 @@ desborda.
   Provincial en la UI ni en los impresos. El sistema es independiente.
 - Colores: negro `#2C2C2C` (primario), amarillo `#F5C300` (acento). Ver
   `constants/Colors.ts`.
+- **Estilo del panel web: técnico, de programa de CAD.** Caja casi negra
+  (`#0e0e0e` a `#191919`), borde de 1 px (`#1e1e1e` a `#2a2a2a`), **esquinas
+  rectas** (radio 0 a 2), fuente monoespaciada, rótulos en mayúsculas con
+  `letterSpacing` de 0,8 a 1,4, y el amarillo como filo de 3 px a la izquierda,
+  no como fondo. Grises neutros, nunca azulados. **Sin emojis**: los íconos son
+  SVG de trazo 1,2 px como los de `Sidebar.tsx`, o glifos geométricos (◀ ▶ ✕).
+  Vale también para lo que flota sobre los mapas:
+  - Los popups de Leaflet de `MapInner` comparten las clases de `POPUP_CSS`
+    (`ph`, `pn`, `pl`, `pr`, `plb`, `pv`…); el color del elemento entra por
+    `--pc` en el encabezado. **Hay que declararles la fuente**: el CSS de Leaflet
+    le pone Helvetica a todo lo que cuelga del mapa.
+  - Los paneles flotantes llevan `className="sv-panel"`, que en `globals.css`
+    vuelve cuadradas las casillas y opciones; los deslizadores, `sv-range`.
 - La densidad del ripio es **editable por tramo**, sin default impuesto. No
   hardcodear 2 ni 2,1 t/m³ en ningún punto nuevo de la cadena.
 - Ripio usa `coordsLinea: PuntoTrack[]`; el resto, coordenada única.

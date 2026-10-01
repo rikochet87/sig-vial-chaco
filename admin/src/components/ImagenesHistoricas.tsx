@@ -222,16 +222,37 @@ export function fechaLarga(f: string): string {
 }
 
 const mono = { fontFamily: 'monospace' as const }
+
+/*
+ * El mismo lenguaje que los paneles de medición del mapa y que las pantallas de
+ * Obras y Lluvias: caja casi negra, borde de 1 px, esquinas rectas, filo
+ * amarillo a la izquierda y rótulos en mayúsculas espaciadas. Sin emojis: el
+ * ícono es un trazo de 1,2 px como los de la barra lateral.
+ */
 const caja: React.CSSProperties = {
   ...mono, position: 'absolute', bottom: 26, left: '50%', transform: 'translateX(-50%)',
-  zIndex: 1000, background: 'rgba(26,26,26,.95)', border: '1px solid #333', borderRadius: 6,
-  boxShadow: '0 4px 16px rgba(0,0,0,.7)', color: '#e0e0e0',
+  zIndex: 1000, background: '#0e0e0e', border: '1px solid #222', borderLeft: '3px solid #F5C300',
+  borderRadius: 2, boxShadow: '0 4px 16px rgba(0,0,0,.7)', color: '#e0e0e0',
 }
+const rotulo: React.CSSProperties = {
+  fontSize: 12, color: '#777', letterSpacing: 1.4, textTransform: 'uppercase',
+}
+const chico: React.CSSProperties = {
+  fontSize: 11, color: '#666', letterSpacing: 0.8, textTransform: 'uppercase',
+}
+const aviso: React.CSSProperties = { fontSize: 12, color: '#888', marginTop: 6, lineHeight: 1.45 }
 const botonPaso = (activo: boolean): React.CSSProperties => ({
-  ...mono, background: '#111', border: '1px solid #333', borderRadius: 4,
-  color: activo ? '#F5C300' : '#444', cursor: activo ? 'pointer' : 'default',
-  fontSize: 14, width: 30, height: 28, padding: 0, flexShrink: 0,
+  ...mono, background: '#0a0a0a', border: '1px solid #222', borderRadius: 2,
+  color: activo ? '#F5C300' : '#333', cursor: activo ? 'pointer' : 'default',
+  fontSize: 11, width: 28, height: 24, padding: 0, flexShrink: 0,
 })
+
+const IconoReloj = () => (
+  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0 }}>
+    <circle cx="8" cy="8" r="6.4" stroke="currentColor" strokeWidth="1.2" />
+    <polyline points="8,4.2 8,8 10.8,9.6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="square" />
+  </svg>
+)
 
 /**
  * Cerrado es un botón chico al pie del mapa; abierto, el deslizador.
@@ -248,8 +269,11 @@ export function DeslizadorHistorico({ estado, abierto, onAbrir, onCerrar }: {
   if (!abierto) {
     return (
       <button onClick={onAbrir} title="Ver fotos satelitales de años anteriores de este lugar"
-        style={{ ...caja, cursor: 'pointer', fontSize: 12, padding: '6px 12px' }}>
-        🕓 Imágenes anteriores
+        style={{
+          ...caja, ...rotulo, color: '#999', cursor: 'pointer', padding: '7px 12px',
+          display: 'flex', alignItems: 'center', gap: 7,
+        }}>
+        <IconoReloj /> Imágenes anteriores
       </button>
     )
   }
@@ -263,27 +287,28 @@ export function DeslizadorHistorico({ estado, abierto, onAbrir, onCerrar }: {
   const ir = (i: number) => elegir(i >= lista.length ? null : lista[i].n)
 
   return (
-    <div style={{ ...caja, width: 'min(460px, calc(100% - 40px))', padding: '9px 12px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span style={{ fontSize: 11, color: '#8a8a8a', textTransform: 'uppercase', letterSpacing: 0.6 }}>
-          Imágenes anteriores
-        </span>
+    <div style={{ ...caja, width: 'min(460px, calc(100% - 40px))', padding: '9px 12px 10px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 7, color: '#777' }}>
+        <IconoReloj />
+        <span style={rotulo}>Imágenes anteriores</span>
         <button onClick={onCerrar} title="Cerrar y volver a la imagen actual" style={{
-          ...mono, background: 'none', border: 'none', color: '#8a8a8a', cursor: 'pointer',
-          fontSize: 14, padding: '0 2px', lineHeight: 1,
+          ...mono, background: 'none', border: 'none', color: '#555', cursor: 'pointer',
+          fontSize: 13, padding: '0 2px', lineHeight: 1, marginLeft: 'auto',
         }}>✕</button>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 3, flexWrap: 'wrap' }}>
-        <b style={{ fontSize: 17, color: '#F5C300' }}>{elegida ? fechaDe(elegida) : 'Actual'}</b>
-        <span style={{ fontSize: 12, color: '#b8b8b8' }}>
-          {!elegida ? 'la imagen de la capa de satélite'
-            : elegida.captura ? 'fecha de toma'
-              : buscando ? 'fecha de publicación — buscando la de toma…'
-                : 'fecha de publicación — la de toma no está informada'}
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 9, marginTop: 6, flexWrap: 'wrap' }}>
+        <b style={{ fontSize: 20, color: '#F5C300', lineHeight: 1.2 }}>
+          {elegida ? fechaDe(elegida) : 'Actual'}
+        </b>
+        <span style={chico}>
+          {!elegida ? 'Capa de satélite'
+            : elegida.captura ? 'Fecha de toma'
+              : buscando ? 'Fecha de publicación · buscando la de toma…'
+                : 'Fecha de publicación · la de toma no está informada'}
         </span>
       </div>
-      <div style={{ fontSize: 11, color: '#8a8a8a', marginTop: 2, minHeight: 15 }}>
+      <div style={{ fontSize: 11, color: '#666', marginTop: 2, minHeight: 15 }}>
         {elegida && [
           elegida.fuente,
           elegida.resolucionM !== null ? `${String(elegida.resolucionM).replace('.', ',')} m por píxel` : null,
@@ -292,46 +317,47 @@ export function DeslizadorHistorico({ estado, abierto, onAbrir, onCerrar }: {
       </div>
 
       {fase === 'lejos' && (
-        <div style={{ fontSize: 12, color: '#b8b8b8', marginTop: 4, lineHeight: 1.45 }}>
+        <div style={aviso}>
           Acercá el mapa para ver qué fotos hay de ese lugar: cada punto de la
           provincia tiene sus propias fechas.
         </div>
       )}
       {fase === 'error' && (
-        <div style={{ fontSize: 12, color: '#ffb199', marginTop: 4, lineHeight: 1.45 }}>
+        <div style={{ ...aviso, color: '#E57373' }}>
           No se pudo consultar el archivo de imágenes.{' '}
           <button onClick={reintentar} style={{
-            ...mono, background: 'none', border: '1px solid #F5C300', borderRadius: 4,
-            color: '#F5C300', cursor: 'pointer', fontSize: 12, padding: '2px 8px',
+            ...mono, background: 'none', border: '1px solid #F5C300', borderRadius: 2,
+            color: '#F5C300', cursor: 'pointer', fontSize: 11, letterSpacing: 0.8,
+            textTransform: 'uppercase', padding: '3px 8px',
           }}>Reintentar</button>
         </div>
       )}
-      {fase === 'vacio' && (
-        <div style={{ fontSize: 12, color: '#b8b8b8', marginTop: 4 }}>
-          No hay imágenes archivadas de este lugar.
-        </div>
-      )}
-      {fase === 'buscando' && !hayLista && (
-        <div style={{ fontSize: 12, color: '#b8b8b8', marginTop: 4 }}>
-          Buscando las fotos de este lugar…
-        </div>
-      )}
+      {fase === 'vacio' && <div style={aviso}>No hay imágenes archivadas de este lugar.</div>}
+      {fase === 'buscando' && !hayLista && <div style={aviso}>Buscando las fotos de este lugar…</div>}
 
       {hayLista && (
         <>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
             <button title="Anterior" disabled={idx <= 0} style={botonPaso(idx > 0)}
               onClick={() => ir(idx - 1)}>◀</button>
-            <input type="range" min={0} max={lista.length} step={1} value={idx}
+            <input type="range" className="sv-range" min={0} max={lista.length} step={1} value={idx}
               onChange={e => ir(Number(e.target.value))}
-              aria-label="Fecha de la imagen"
-              style={{ flex: 1, accentColor: '#F5C300', cursor: 'pointer' }} />
+              aria-label="Fecha de la imagen" style={{ flex: 1, minWidth: 0 }} />
             <button title="Siguiente" disabled={idx >= lista.length}
               style={botonPaso(idx < lista.length)}
               onClick={() => ir(idx + 1)}>▶</button>
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#8a8a8a', marginTop: 3 }}>
+          {/* Una marca por fecha, como una regla. El margen es el de los
+              botones, y el relleno la mitad del cursor, para que cada marca
+              caiga donde el cursor se detiene. */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', margin: '1px 36px 0', padding: '0 3px' }}>
+            {Array.from({ length: lista.length + 1 }, (_, k) => (
+              <span key={k} style={{ width: 1, height: k === idx ? 6 : 4, background: k === idx ? '#F5C300' : '#444' }} />
+            ))}
+          </div>
+
+          <div style={{ ...chico, display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
             <span>{fechaDe(lista[0])}</span>
             <span>
               {lista.length} {lista.length === 1 ? 'anterior' : 'anteriores'}
