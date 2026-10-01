@@ -37,7 +37,7 @@ npx expo-doctor               # desde la raíz — detecta incompatibilidades de
 ```
 
 **Todo eso corre junto con `npm run verificar`** (desde `admin/`):
-`tsc --noEmit`, la barrera de lint, la sintaxis de los `.sql` y los nueve
+`tsc --noEmit`, la barrera de lint, la sintaxis de los `.sql` y los veinte
 `scripts/verificar-*.ts`. `next build` queda afuera a propósito: tarda minutos y
 usa el binario nativo de SWC, así que sólo corre donde se instalaron los
 paquetes. El orquestador es `scripts/verificar-todo.mjs`, en Node y no en un
@@ -53,7 +53,7 @@ Node van **sin** shell; los que llaman a `npx.cmd` lo **necesitan**, porque Node
 tienen espacios, para que mover el repo a una carpeta con espacio no lo rompa.
 
 **`tsx` es dependencia de desarrollo**, no algo que `npx` baje al vuelo: los
-nueve `verificar-*.ts` lo necesitan y sin declararlo `npm run verificar` se
+`verificar-*.ts` lo necesitan y sin declararlo `npm run verificar` se
 frenaba preguntando *"Ok to proceed?"* en medio de la corrida.
 
 Dos advertencias que costaron encontrar:
@@ -1392,6 +1392,76 @@ sistemas verticales distintos y no se pueden comparar**. Corrientes, sobre el
 mismo tramo, sí lo tiene: **42,39**. Cualquier simulación futura se ancla ahí
 hasta conseguir el de Barranqueras — es un pedido al INA o a Prefectura, no un
 desarrollo. El script de relevamiento avisa si algún día aparece.
+
+### Recurrencia y permanencia en Corrientes
+
+`lib/rioHistorico.ts` + `components/rio/HistoricoCorrientes.tsx` — debajo de las
+franjas del río. Contesta lo que las franjas no pueden: **qué tan raro es** que
+el río esté a cierta altura. Máximo de cada año, cada cuánto se supera cada
+umbral, altura por recurrencia y curva de permanencia.
+
+**Hay dos clases de número y van separadas en pantalla:**
+
+| | Qué es | Ejemplo, serie completa |
+|---|---|---|
+| **Contado** | en cuántos años se superó, qué parte de los días | alerta en 37 de 125 años; 2,58 % de los días |
+| **Ajustado** | Gumbel sobre los máximos anuales, con su error | 100 años: 9,35 ± 0,75 m |
+
+Si difieren, lo contado es lo que pasó. El ajuste da el alerta 1 cada 4,0 años
+y la cuenta 1 cada 3,4.
+
+Cosas que no son obvias:
+
+- **La serie es la 26261, media diaria, no la 19 de lecturas sueltas** que usa
+  el panel del día. La 19 trae una, dos o más lecturas por día según la época, y
+  un máximo anual sacado de ahí dependería de cuántas veces se leyó la escala.
+- **Está congelada en `public/rio/corrientes_diario.json`** (180 KB, centímetros
+  enteros, `null` donde no hay dato) y se regenera con
+  `node scripts/build_rio_historico.mjs`. Son 125 años que no cambian: pedirlos
+  en vivo serían 11 MB contra el INA en cada visita, y la recurrencia —que se
+  cita— dependería de que el INA conteste ese día. **El año en curso no entra
+  hasta regenerar**; conviene hacerlo una vez por año, pasado agosto.
+- **El año hidrológico va de septiembre a agosto.** Con el año calendario la
+  crecida de 1982/83 aporta dos máximos —7,80 m en diciembre y 9,02 en julio—
+  siendo un solo evento. Septiembre y agosto son los meses con menos picos: uno
+  cada uno en 125 años.
+- **El régimen cambió hacia 1971 y por eso hay dos períodos.** El mínimo anual
+  promedia 0,85 m antes y 2,02 después. En los máximos es menos claro: 5,75 m
+  antes, 6,57 entre 1971 y 2000, y 5,72 desde 2001. La pantalla calcula con la
+  serie completa o desde 1970/71 y dice cuál; los números del cambio salen del
+  archivo, no están escritos a mano. **Al citar una recurrencia hay que decir
+  con qué período.** Desde 1970/71 la de 100 años sube a 9,86 ± 1,21 m.
+- **La fecha es el día de `timestart` leído en UTC, sin convertir.** El INA marca
+  la medianoche local, y Argentina estuvo siempre al oeste de Greenwich (de
+  −4:16:48 en 1901 a −3 hoy), así que cae entre las 02:00 y las 04:17 UTC del
+  mismo día. Convertir con el huso de hoy correría un día las fechas viejas.
+- **Los ceros exactos de la serie son reales.** Hay 15, en 1903, 1916, 1917,
+  1925, 1944 y 1969, todos rodeados de alturas de pocos centímetros: son
+  bajantes. Es el caso que `depurar()` ya contemplaba.
+- **El río sí puede subir más de 30 cm en un día.** La serie tiene 28 días con
+  un cambio de más de 60 cm. Algunos parecen errores de carga, pero no todos:
+  en octubre de 1915 subió 76 y 72 cm en dos días seguidos, dentro de una
+  crecida sostenida. Lo de "10 a 30 cm por día" es lo típico, no el techo;
+  `SALTO_MAX_M` = 2 sigue holgado.
+- **Las alturas son de la escala de Corrientes.** La frecuencia vale para el
+  tramo; los metros no se trasladan a Barranqueras, que tiene otro cero.
+- **Los rótulos de los umbrales van en un margen a la derecha del gráfico.** La
+  primera versión los ponía encima, a la izquierda, y tapaban la crecida de 1905
+  y el tramo empinado de la curva de permanencia. Se vio en la pantalla.
+- **Las barras fuera del período se atenúan, no desaparecen**: el gráfico no se
+  reacomoda al cambiar y se ve qué se deja afuera.
+
+`scripts/verificar-rio-historico.ts` corre sobre el archivo real, sin red. **Acá
+sí hay contra qué comparar**: las crecidas del Paraná están documentadas, así
+que afirma que la mayor es 9,02 m en julio de 1983, seguida de 1992, 1905 y
+1998, y que el mínimo es el de 1944. Con las fechas corridas o las unidades
+cruzadas eso no cierra. Gumbel se afirma por propiedades —la altura de 2 años es
+la mediana, ida y vuelta devuelve lo mismo— porque nadie publicó la recurrencia
+con esta serie y este método.
+
+**La serie no se depuró.** Tiene algún salto de un día que parece error de carga
+(01/01/1941, 01/11/1920). No tocan ningún máximo anual, y filtrarlos sería
+afirmar algo distinto de la fuente.
 
 ### El relevamiento no entra en `npm run verificar`
 

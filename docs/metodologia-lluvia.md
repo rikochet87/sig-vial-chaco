@@ -562,6 +562,85 @@ Cualquier simulación futura que cruce altura de río contra cotas debe anclarse
 Corrientes hasta obtener el de Barranqueras. Es un pedido al INA o a Prefectura,
 no un desarrollo.
 
+### 8.5 Recurrencia y permanencia en Corrientes
+
+`lib/rioHistorico.ts`. Contesta qué tan frecuente es una altura dada, sobre el
+único registro largo del sistema.
+
+**Serie.** Altura hidrométrica **media diaria** de Corrientes (serie 26261 del
+Alerta Hidrológico), del 01/01/1901 al 30/09/2026: 45.929 días, 45.812 con dato
+(falta el 0,25 %). Se usa la media diaria y no las lecturas sueltas porque éstas
+son una, dos o más por día según la época. La serie está congelada en
+`public/rio/corrientes_diario.json` y se regenera con
+`scripts/build_rio_historico.mjs`; el año en curso no entra hasta regenerarla.
+Los días sin dato no se rellenan ni se interpolan.
+
+**Año hidrológico.** De septiembre a agosto, nombrado por el año en que termina.
+Con el año calendario, la crecida de 1982/83 aportaría dos máximos (7,80 m en
+diciembre de 1982 y 9,02 m en julio de 1983) siendo un solo evento. Un año
+entra en el ajuste con 330 días con dato o más: quedan 125 años, de 1901/02 a
+2025/26.
+
+**Lo contado.** No supone ninguna distribución:
+
+| Umbral de Corrientes | Años en que se superó | Del tiempo |
+|---|---|---|
+| Alerta, 6,50 m | 37 de 125 (1 cada 3,4) | 2,58 % de los días |
+| Evacuación, 7,00 m | 21 de 125 (1 cada 6,0) | 1,31 % de los días |
+
+Los mayores máximos: 9,02 m (18/07/1983), 8,64 m (08/06/1992), 8,57 m
+(05/06/1905), 8,39 m (04/05/1998). El mínimo, −0,82 m (07/10/1944).
+
+**Lo ajustado.** Distribución de Gumbel sobre los 125 máximos anuales, por el
+método de los momentos (media 5,94 m, desvío 1,09 m):
+
+| Recurrencia | Altura | ± 95 % |
+|---|---|---|
+| 2 años | 5,76 m | 0,17 |
+| 5 años | 6,72 m | 0,29 |
+| 10 años | 7,36 m | 0,40 |
+| 25 años | 8,16 m | 0,54 |
+| 50 años | 8,76 m | 0,64 |
+| 100 años | 9,35 m | 0,75 |
+
+El intervalo sale del error estándar del ajuste por momentos, con el factor de
+frecuencia de Chow. Kolmogorov-Smirnov: D = 0,079 contra un crítico de 0,122
+(5 %); el crítico es indicativo, porque los parámetros salen de la misma
+muestra. Por momentos L la altura de 100 años da 9,49 m, dentro del intervalo.
+El ajuste da el alerta 1 cada 4,0 años y la evacuación 1 cada 6,7, contra 3,4
+y 6,0 contados. **Donde lo contado y lo ajustado difieren, lo contado es lo que
+pasó.**
+
+**Curva de permanencia.** Fracción de los días medidos en que la altura igualó o
+superó cada valor. La mediana es 3,35 m; el 10 % de los días el río estuvo en
+5,42 m o más y el 90 % en 1,44 m o más.
+
+**El régimen cambió hacia 1971, y hay dos respuestas.** Medido sobre la serie:
+
+| | Hasta 1969/70 | Desde 1970/71 |
+|---|---|---|
+| Mínimo anual medio | 0,85 m | 2,02 m |
+| Máximo anual medio | 5,75 m | 6,17 m |
+
+El cambio en los mínimos es inequívoco. En los máximos es menos claro: 6,57 m
+entre 1971 y 2000, y 5,72 m desde 2001, igual que antes de 1970. La pantalla
+permite calcular con la serie completa o sólo desde 1970/71 (56 años), y dice
+cuál se está mirando. Con el período reciente: alerta en 21 de 56 años (1 cada
+2,7), evacuación en 14 de 56 (1 cada 4,0), altura de 100 años 9,86 ± 1,21 m,
+mediana 3,67 m. **Al citar una recurrencia hay que decir con qué período se
+calculó.**
+
+**Límites.** Las alturas son de la escala de Corrientes: la frecuencia vale para
+el tramo, los metros no se trasladan a Barranqueras. Gumbel supone años
+independientes y un régimen estable, y lo segundo no se cumple del todo. Más
+allá de 50 años el ajuste extrapola. La serie no se depuró: tiene algunos
+saltos de un día que parecen errores de carga (01/01/1941, 01/11/1920) y que no
+alcanzan a ningún máximo anual.
+
+Verificación: `scripts/verificar-rio-historico.ts` corre sobre la serie real y
+afirma las crecidas documentadas —fecha y altura—, que no dependen de este
+sistema.
+
 ---
 
 ## 9. Procedencia: cada número declara su origen

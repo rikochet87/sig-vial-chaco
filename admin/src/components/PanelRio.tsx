@@ -46,6 +46,7 @@
 
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import { COLOR_ESTADO, ETIQUETA_ESTADO, type EstadoRio, type PuntoPronostico } from '@/lib/ina'
+import HistoricoCorrientes from '@/components/rio/HistoricoCorrientes'
 
 const mono: React.CSSProperties = { fontFamily: 'monospace' }
 
@@ -226,6 +227,7 @@ export default function PanelRio({ dias = 90, desde, hasta, abiertoInicial = fal
   const margenMax = Math.max(1, ...datos.estaciones.map(e => e.margen ?? 0))
 
   return (
+    <>
     <div style={{ ...mono, border: '1px solid #1e1e1e', background: '#191919', marginTop: 8 }}>
       <button onClick={() => setAbierto(a => !a)} style={{
         display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left',
@@ -346,6 +348,15 @@ export default function PanelRio({ dias = 90, desde, hasta, abiertoInicial = fal
         </div>
       )}
     </div>
+
+    {/*
+      El registro largo va en su propio recuadro, debajo: habla de 125 años y no
+      de los 90 días de las franjas, y se carga recién al abrir el panel.
+    */}
+    {abierto && (
+      <HistoricoCorrientes actual={datos.estaciones.find(e => e.id === 19)?.ultima ?? null} />
+    )}
+    </>
   )
 }
 
