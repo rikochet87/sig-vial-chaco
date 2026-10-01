@@ -11,9 +11,10 @@
  * deslizador muestre sólo imágenes distintas hay dos pasos:
  *
  * 1. **La cadena de duenos.** `tilemap/{versión}/{z}/{y}/{x}` contesta, en
- *    `select`, de qué versión anterior viene realmente ese tile. Se arranca en
- *    la última y se salta al dueño, y a la anterior a él, hasta llegar a 2014.
- *    Son 12 a 22 pedidos en el Chaco en vez de 200.
+ *    `select`, de qué versión anterior viene realmente ese tile. Del dueño se
+ *    salta a la anterior a él, y así hasta 2014: en el Chaco son 12 a 22
+ *    dueños entre ~200 versiones. Se recorre por tandas en paralelo —ver
+ *    {@link cadenaPorTandas}— porque de a un pedido por vez eran 6 segundos.
  * 2. **La fecha de captura.** Que el tile haya cambiado no quiere decir que
  *    haya foto nueva: a veces Esri reprocesa la misma. El servicio de
  *    metadatos de cada versión dice la fecha real de toma y el proveedor, y se
@@ -35,14 +36,41 @@ export const Z_CADENA = 16
 
 /**
  * Capas del servicio de metadatos que se consultan, en orden. La 6 es la de
- * 1,2 m y la tienen todas las tomas de alta resolución de la provincia; las
- * más gruesas quedan de respaldo. Las finas (0 a 5) sólo existen en algunas
- * ciudades y consultarlas en todo el resto sería un pedido vacío por versión.
+ * 1,2 m —la del zoom 17, el máximo que se muestra— y la tienen todas las tomas
+ * de alta resolución de la provincia; las más gruesas quedan de respaldo para
+ * las de baja, que sólo figuran ahí (la de 2,5 m de Castelli aparece recién en
+ * la 10). Las finas (0 a 5) sólo existen en algunas ciudades.
+ *
+ * **No cambiarla por la 7 para ganar velocidad: se probó y no es eso.** La 7
+ * pareció contestar en 0,3 s contra los 0,4 a 14 s de la 6, pero era el orden
+ * de la prueba — ver {@link CONCURRENCIA_META}. Y no dicen lo mismo: en Sáenz
+ * Peña, para la misma versión, la 7 da una toma de 2007 y la 6 una de 2009.
  */
 const CAPAS_META = [6, 8, 10]
 
-/** Pedidos de metadatos en simultáneo. Con 20 juntos el servicio tardó 58 s. */
-const CONCURRENCIA_META = 4
+/**
+ * Pedidos de metadatos en simultáneo.
+ *
+ * **Las fechas de toma son lentas y no se arregla desde acá.** La primera
+ * consulta en una zona tarda entre 0,3 y 30 s por pedido, sin patrón por
+ * versión ni por capa; repetida, o hecha a 10 km, tarda 0,3 s. Es del lado de
+ * Esri. El total de un lugar frío se midió entre 9 y 98 s, y no baja de forma
+ * confiable con más pedidos en vuelo: con 4, con 8 y con 24 dio tiempos que se
+ * pisan entre sí. Queda en 8, que alcanza para pedir un lugar típico casi de
+ * una y no le tira 24 consultas juntas a un servicio público por cada
+ * movimiento del mapa.
+ *
+ * Por eso nada de la pantalla espera a estas fechas: la lista sale de la
+ * cadena, que tarda 1 a 3 s, y cada fecha se muestra cuando llega.
+ */
+const CONCURRENCIA_META = 8
+
+/**
+ * Cada cuántas versiones se toma una muestra en la primera tanda de la cadena.
+ * Con 8 son ~25 pedidos en paralelo y en Castelli encuentran 11 de los 12
+ * dueños de una; la segunda tanda trae el que falta.
+ */
+const PASO_MUESTRA = 8
 
 export interface Version {
   /** Número de versión: es el que va en la URL de los tiles. */
@@ -161,19 +189,61 @@ async function cadenaDeDuenos(
   versiones: Version[], t: { z: number; y: number; x: number }, signal?: AbortSignal,
 ): Promise<Version[]> {
   const indice = new Map(versiones.map((v, i) => [v.n, i]))
-  const out: Version[] = []
-  let i = 0
-  while (i < versiones.length) {
+  const pedir = async (i: number) => {
     const r = await fetch(`${BASE}/MapServer/tilemap/${versiones[i].n}/${t.z}/${t.y}/${t.x}`, { signal })
     if (!r.ok) throw new Error(`Wayback tilemap respondió ${r.status}`)
     const j = await r.json() as { data?: number[]; select?: number[] }
-    if (!j.data?.[0]) break // de acá para atrás no hay imagen en este tile
-    const k = indice.get(j.select?.[0] ?? versiones[i].n)
-    if (k === undefined) break
-    out.push(versiones[k])
-    i = k + 1
+    if (!j.data?.[0]) return null // esta versión no tiene imagen en este tile
+    return indice.get(j.select?.[0] ?? versiones[i].n) ?? null
   }
-  return out
+  // Por tandas son ~35 pedidos en vez de 12, y uno solo que falle tira la
+  // búsqueda entera: se reintenta una vez antes de darla por perdida.
+  const duenoDe = (i: number) => pedir(i).catch(e => {
+    if (signal?.aborted) throw e
+    return pedir(i)
+  })
+  return (await cadenaPorTandas(versiones.length, duenoDe)).map(i => versiones[i])
+}
+
+/**
+ * Los índices de todos los dueños, de menor a mayor, pidiendo en paralelo.
+ *
+ * La cadena en serie —preguntar por una versión, saltar a la anterior a su
+ * dueño, preguntar de nuevo— es mínima en pedidos pero cada uno espera al
+ * anterior: 12 pedidos de medio segundo son 6 segundos antes de mostrar nada.
+ *
+ * Acá la primera tanda pregunta por una versión de cada `paso`, todas juntas.
+ * Cualquier versión contesta con su dueño, así que esa muestra ya descubre casi
+ * todos. Lo que garantiza que no falte ninguno es la regla de las tandas
+ * siguientes: **por cada dueño nuevo se pregunta por la versión anterior a
+ * él**, que es exactamente el paso de la cadena en serie. Se termina cuando
+ * ningún dueño tiene su anterior sin preguntar. Mismo resultado, en dos o tres
+ * esperas en vez de doce.
+ *
+ * @param duenoDe  índice del dueño de la versión `i`, o null si no tiene imagen
+ */
+export async function cadenaPorTandas(
+  total: number,
+  duenoDe: (i: number) => Promise<number | null>,
+  paso = PASO_MUESTRA,
+): Promise<number[]> {
+  const preguntadas = new Set<number>()
+  const duenos = new Set<number>()
+  let tanda: number[] = []
+  for (let i = 0; i < total; i += paso) tanda.push(i)
+
+  while (tanda.length) {
+    for (const i of tanda) preguntadas.add(i)
+    const respuestas = await Promise.all(tanda.map(duenoDe))
+    const siguiente = new Set<number>()
+    for (const k of respuestas) {
+      if (k === null || duenos.has(k)) continue
+      duenos.add(k)
+      if (k + 1 < total && !preguntadas.has(k + 1)) siguiente.add(k + 1)
+    }
+    tanda = [...siguiente]
+  }
+  return [...duenos].sort((a, b) => a - b)
 }
 
 async function metadatos(

@@ -395,9 +395,17 @@ honesto que inventarlo. Corregirlo en el bundle es otra tarea.
 
 ### Imágenes satelitales históricas
 
-`lib/wayback.ts` + `components/ImagenesHistoricas.tsx` — tercera opción de mapa
-base en el mapa principal (`MapInner`): **Satélite histórico**, con un deslizador
-que recorre las fotos de años anteriores del lugar que se está mirando.
+`lib/wayback.ts` + `components/ImagenesHistoricas.tsx` — en el mapa principal
+(`MapInner`), con la capa **Satélite** elegida, un botón al pie abre un
+deslizador que recorre las fotos de años anteriores del lugar que se está
+mirando.
+
+**Lo que se ve por defecto es la imagen actual**, que es la capa de satélite de
+siempre. Las anteriores van encima, y la última posición del deslizador
+—«Actual»— es no poner ninguna. La primera versión era una tercera opción de
+mapa base aparte, sobre OSM; se integró porque al que mira le importa "el
+satélite, y cómo estaba antes", no dos capas distintas. El deslizador arranca
+cerrado: abierto, busca las fotos del lugar cada vez que se mueve el mapa.
 
 La fuente es **Esri World Imagery Wayback**: cada versión publicada del mosaico
 desde 2014 (~200) se sirve como una capa de tiles propia. Es lo más parecido al
@@ -412,7 +420,7 @@ Para mostrar sólo las distintas hay dos pasos:
 
 - **La cadena de dueños.** `tilemap/{versión}/{z}/{y}/{x}` contesta en `select`
   de qué versión anterior viene realmente ese tile. Se salta de dueño en dueño:
-  12 a 22 pedidos en vez de 200.
+  12 a 22 dueños entre ~200 versiones.
 - **La fecha de captura.** Que el tile haya cambiado no quiere decir que haya
   foto nueva: a veces Esri reprocesa la misma. Se consultan los metadatos de
   cada dueño y se colapsan los que muestran la misma toma. Medido el 01/10/2026:
@@ -437,25 +445,45 @@ Cosas que no son obvias:
   versiones recientes. Pasado el 17 Leaflet agranda el tile en vez de pedir uno
   que falta, y todas las fechas se ven con el mismo detalle y se pueden
   comparar.
-- **Debajo queda OSM, no el satélite de Google.** Con el satélite actual de
-  fondo, un tile histórico que falte dejaría ver la foto de hoy como si fuera la
-  de la fecha elegida.
+- **Debajo queda el satélite actual, y eso tiene un costo asumido.** Mientras
+  cargan los tiles de una fecha, o si alguno falla, lo que se ve en ese hueco es
+  la foto de hoy. Con el tope en zoom 17 no hay tiles que falten de forma
+  sistemática, así que es transitorio.
 - **Debajo de zoom 12 no se busca.** A escala provincial "el centro del mapa" no
   es un lugar —el tile que se consulta mide ~550 m— y cada búsqueda son la
   cadena más los metadatos.
-- **Los metadatos son lentos y no hay cómo apurarlos.** La cadena tarda ~6 s y
-  con eso el deslizador ya se puede mover, con fechas de publicación; las de
-  toma llegaron a los 26 s en Castelli y a los 62 s en Resistencia. Van de a 4
-  en simultáneo: con 20 juntos el servicio tardó 58 s. El resultado se cachea
-  por tile, así que volver a un lugar es instantáneo.
+- **La cadena se recorre por tandas en paralelo** (`cadenaPorTandas`). En serie
+  es mínima en pedidos pero cada uno espera al anterior: 12 pedidos, 6 s antes
+  de mostrar nada. Ahora la primera tanda pregunta por una versión de cada 8,
+  todas juntas —cualquier versión contesta con su dueño—, y las siguientes
+  preguntan por la anterior a cada dueño nuevo, que es el paso de la cadena en
+  serie y lo que garantiza que no falte ninguno. Son ~35 pedidos en dos o tres
+  esperas: **1 a 3 s**. El test la compara contra la cadena en serie.
+- **Se precargan la fecha anterior y la siguiente**, invisibles. Son las dos a
+  las que se llega con un paso del deslizador; con los tiles ya bajados el paso
+  es instantáneo en vez de ~0,7 s por tile. Estando en «Actual», la vecina es la
+  última del historial.
+- **Las fechas de toma son lentas y no se arregla desde acá.** La primera
+  consulta de metadatos en una zona tarda 0,3 a 30 s por pedido, del lado de
+  Esri; repetida, o a 10 km, 0,3 s. El total de un lugar frío se midió entre 9 y
+  98 s, y con 4, 8 o 24 pedidos en simultáneo los tiempos se pisan. Por eso
+  **nada de la pantalla espera a esas fechas**: la lista sale de la cadena y
+  cada fecha aparece cuando llega; mientras tanto se muestra la de publicación,
+  dicho. El resultado se cachea por tile.
+- **No cambiar la capa de metadatos 6 por la 7 para ganar velocidad.** Se probó:
+  la 7 pareció diez veces más rápida, pero era el orden de la prueba —se
+  consultó segunda, con la zona ya tibia—. Y no dicen lo mismo: en Sáenz Peña,
+  para la misma versión, la 7 da una toma de 2007 y la 6 una de 2009. **Al
+  comparar tiempos contra este servicio, cada variante va en un lugar que nadie
+  consultó**, o se mide el caché.
 - **Al mover el mapa se conserva el momento, no la posición del deslizador**: la
   misma versión si sigue en la lista, la misma toma si la hay, y si no la que
   esa versión muestra en el lugar nuevo (`entradaVigente`: la más nueva
   publicada hasta esa fecha).
 - **El colapso por captura se hace una sola vez, al final**, para que las marcas
   del deslizador no se reacomoden bajo el dedo de quien lo está usando.
-- La capa anterior se queda debajo hasta que la nueva cargó. Sin eso cada paso
-  parpadea al mapa base y no se pueden comparar dos fechas.
+- La fecha que se venía mirando se queda debajo hasta que la nueva cargó. Sin
+  eso, un paso a una fecha sin precargar parpadea a la imagen actual.
 
 `scripts/verificar-wayback.ts` cubre la parte pura y **no sale a la red**, por
 el mismo motivo que `relevar-ina.ts` queda afuera de `verificar`: que Esri

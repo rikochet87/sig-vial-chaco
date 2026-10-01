@@ -776,11 +776,10 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
   // ── Medición de distancias ──
   const [measurePts, setMeasurePts]   = useState<{lat:number;lng:number}[]>([])
   const [satellite, setSatellite]     = useState(false)
-  // Imágenes históricas: van encima del mapa base, que queda en OSM debajo. Con
-  // el satélite actual de fondo, un tile histórico que falte dejaría ver la foto
-  // de hoy como si fuera la de la fecha elegida.
+  // Imágenes de años anteriores: van encima de la capa de satélite, que sigue
+  // siendo lo que se ve por defecto. `historico` es si el deslizador está abierto.
   const [historico, setHistorico]     = useState(false)
-  const imagenes = useImagenesHistoricas(mapRef, mapReady, historico)
+  const imagenes = useImagenesHistoricas(mapRef, mapReady, satellite && historico)
   const [activeZones, setActiveZones]  = useState<Set<string>>(new Set())
   const tileRef = useRef<import('leaflet').TileLayer | null>(null)
   const mLayersRef  = useRef<import('leaflet').Layer[]>([])
@@ -2011,7 +2010,11 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
     <div style={{ position: 'relative', height: '100%', width: '100%' }}>
       <div ref={containerRef} style={{ height: '100%', width: '100%' }} />
 
-      {historico && <DeslizadorHistorico estado={imagenes} />}
+      {satellite && (
+        <DeslizadorHistorico estado={imagenes} abierto={historico}
+          onAbrir={() => setHistorico(true)}
+          onCerrar={() => { imagenes.elegir(null); setHistorico(false) }} />
+      )}
 
       {/* Panel de capas flotante */}
       <div style={{
@@ -2046,16 +2049,12 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
             {/* BASE */}
             <div style={SECTION_TITLE_STYLE}>Base</div>
             <label style={ITEM_STYLE}>
-              <input type="radio" name="basemap" checked={!satellite && !historico} onChange={() => { setSatellite(false); setHistorico(false) }} style={CHECKBOX_STYLE} />
+              <input type="radio" name="basemap" checked={!satellite} onChange={() => setSatellite(false)} style={CHECKBOX_STYLE} />
               🗺 OpenStreetMap
             </label>
             <label style={ITEM_STYLE}>
-              <input type="radio" name="basemap" checked={satellite} onChange={() => { setSatellite(true); setHistorico(false) }} style={CHECKBOX_STYLE} />
+              <input type="radio" name="basemap" checked={satellite} onChange={() => setSatellite(true)} style={CHECKBOX_STYLE} />
               🛰 Satélite
-            </label>
-            <label style={ITEM_STYLE} title="Fotos satelitales de años anteriores, con su fecha de toma">
-              <input type="radio" name="basemap" checked={historico} onChange={() => { setSatellite(false); setHistorico(true) }} style={CHECKBOX_STYLE} />
-              🕓 Satélite histórico
             </label>
             {(['limite', 'zonas', 'departamentos'] as const).map(k => (
               <label key={k} style={ITEM_STYLE}>

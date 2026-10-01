@@ -12,7 +12,7 @@
  *   npx tsx scripts/verificar-wayback.ts
  */
 import {
-  colapsarPorCaptura, entradaVigente, fechaSrc, parsearVersiones, tileDe, urlTiles,
+  cadenaPorTandas, colapsarPorCaptura, entradaVigente, fechaSrc, parsearVersiones, tileDe, urlTiles,
   Z_CADENA, type Imagen,
 } from '../src/lib/wayback'
 
@@ -178,5 +178,71 @@ ok('sin lista no hay entrada', entradaVigente([], '2023-01-15'), null)
 ok('se decide por publicación, no por posición en la lista',
   entradaVigente(cruzado, '2020-06-01')?.n, 1)
 
-console.log(fallos === 0 ? '\n✓ Todo bien.' : `\n✗ ${fallos} fallo(s).`)
-process.exit(fallos === 0 ? 0 : 1)
+// ── La cadena de dueños, en paralelo ────────────────────────────────────────
+titulo('La cadena por tandas da lo mismo que la cadena en serie')
+
+/*
+ * El control es la cadena en serie, que es la definición: preguntar por una
+ * versión, anotar su dueño, saltar a la anterior a él. La versión por tandas
+ * tiene que encontrar exactamente los mismos dueños, y la gracia es que lo
+ * haga esperando pocas veces — cada tanda es una sola espera de red.
+ *
+ * `finales` son los índices donde termina cada racha: todas las versiones de
+ * una racha tienen de dueño a la última. Pasado `hasta` no hay imagen.
+ */
+const servicio = (finales: number[], hasta: number) => (i: number) =>
+  i > hasta ? null : finales.find(f => f >= i) ?? null
+
+function enSerie(total: number, dueno: (i: number) => number | null) {
+  const out: number[] = []
+  let pedidos = 0
+  for (let i = 0; i < total;) {
+    pedidos++
+    const k = dueno(i)
+    if (k === null) break
+    out.push(k)
+    i = k + 1
+  }
+  return { out, pedidos }
+}
+
+async function porTandas(total: number, dueno: (i: number) => number | null) {
+  let pedidos = 0, tandas = 0, enCurso = false
+  const out = await cadenaPorTandas(total, i => {
+    pedidos++
+    // Los pedidos de una tanda salen todos antes de que vuelva el primero.
+    if (!enCurso) { enCurso = true; tandas++; queueMicrotask(() => { enCurso = false }) }
+    return Promise.resolve(dueno(i))
+  })
+  return { out, pedidos, tandas }
+}
+
+const CASOS: [string, number, number[], number][] = [
+  // La forma de Castelli: 196 versiones, 12 dueños repartidos.
+  ['rachas largas, como en Castelli', 196, [3, 20, 38, 61, 77, 90, 104, 131, 150, 170, 188, 195], 195],
+  // Rachas más cortas que el paso de la muestra: el caso en que la primera
+  // tanda se saltea dueños y los tiene que traer la regla del "anterior".
+  ['rachas más cortas que el paso', 60, [0, 1, 2, 3, 4, 5, 6, 30, 31, 32, 59], 59],
+  ['cada versión es su propio dueño', 20, Array.from({ length: 20 }, (_, i) => i), 19],
+  ['un solo dueño para todo', 196, [195], 195],
+  ['el archivo no llega hasta 2014', 196, [10, 50, 120], 120],
+  ['ninguna versión tiene imagen', 196, [], -1],
+]
+// En una función porque tsx compila estos scripts a CommonJS, sin await suelto.
+async function cadenas() {
+  for (const [nombre, total, finales, hasta] of CASOS) {
+    const s = servicio(finales, hasta)
+    const serie = enSerie(total, s)
+    const tandas = await porTandas(total, s)
+    ok(nombre, tandas.out.join(','), serie.out.join(','))
+    info(`${serie.out.length} dueños · en serie ${serie.pedidos} esperas · por tandas ${tandas.tandas} esperas, ${tandas.pedidos} pedidos`)
+  }
+
+  const castelli = await porTandas(196, servicio(CASOS[0][2], 195))
+  ok('en el caso de Castelli alcanza con tres esperas o menos', castelli.tandas <= 3)
+}
+
+cadenas().then(() => {
+  console.log(fallos === 0 ? '\n✓ Todo bien.' : `\n✗ ${fallos} fallo(s).`)
+  process.exit(fallos === 0 ? 0 : 1)
+})
