@@ -25,6 +25,7 @@ import { poligonosThiessen } from '@/lib/thiessen'
 import { CORTES_MM, type TramoRed, type LluviaTramo } from '@/lib/redLluvia'
 import { CONTORNO_CHACO } from '@/data/contornoChaco'
 import { cargarCuencas, cuencaEn, type Cuenca } from '@/lib/cuencas'
+import { cargarLimites, recintoEn, type Limites } from '@/lib/limites'
 import { DeslizadorHistorico, useImagenesHistoricas } from './ImagenesHistoricas'
 
 /**
@@ -157,6 +158,22 @@ export default function MapaLluvia({
   const [verSedes, setVerSedes] = useState(false)
 
   /*
+   * ── Límites administrativos ──
+   *
+   * Provincia, zonas viales y departamentos, como referencia. `verZonas` ya
+   * estaba tomado por las zonas de pluviómetro, de ahí el nombre largo.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const capaLimitesRef = useRef<any>(null)
+  const [verProvincia, setVerProvincia] = useState(false)
+  const [verZonasViales, setVerZonasViales] = useState(false)
+  const [verDeptos, setVerDeptos] = useState(false)
+  const [limites, setLimites] = useState<Limites | null>(null)
+  const [errorLimites, setErrorLimites] = useState<string | null>(null)
+  const [intentoLimites, setIntentoLimites] = useState(0)
+  const algunLimite = verProvincia || verZonasViales || verDeptos
+
+  /*
    * ── Mapa base e imágenes de años anteriores ──
    *
    * El satélite sirve acá para lo mismo que en el mapa principal —ver sobre qué
@@ -238,6 +255,12 @@ export default function MapaLluvia({
       // Las cuencas van debajo de las zonas y **no reciben el cursor**: son
       // polígonos que cubren la provincia entera, y si atendieran eventos se
       // comerían el de todo lo demás.
+      // Los límites administrativos van debajo de todo lo demás y tampoco
+      // reciben el cursor: son referencia, no dato.
+      const panelLimites = mapa.createPane('limites')
+      panelLimites.style.zIndex = '370'
+      panelLimites.style.pointerEvents = 'none'
+      capaLimitesRef.current = L.layerGroup().addTo(mapa)
       const panelCuencas = mapa.createPane('cuencas')
       panelCuencas.style.zIndex = '380'
       panelCuencas.style.pointerEvents = 'none'
@@ -640,6 +663,81 @@ export default function MapaLluvia({
   }, [cuencaSeleccionada, cuencas])
 
   /**
+   * Límites administrativos: provincia, zonas viales y departamentos.
+   *
+   * Los tres van en **negro o gris, y se distinguen por el trazo**, como en un
+   * plano: la provincia llena y gruesa, las zonas a rayas largas, los
+   * departamentos a rayas cortas y finas. No llevan color propio a propósito —
+   * el color en este mapa es de la lluvia, y las cuencas ya usan el violeta.
+   * Tampoco relleno: taparía los caminos, que es lo que se vino a ver.
+   *
+   * Todos con un trazo blanco debajo, para que se lean igual sobre el mapa
+   * claro y sobre el satélite.
+   *
+   * El archivo —1,3 MB— se pide recién al prender la primera de las tres.
+   */
+  useEffect(() => {
+    if (!capaLimitesRef.current) return
+    let cancelado = false
+
+    if (!algunLimite) {
+      capaLimitesRef.current.clearLayers()
+      return
+    }
+
+    ;(async () => {
+      try {
+        const [L, lim] = await Promise.all([
+          import('leaflet').then(m => m.default),
+          cargarLimites(),
+        ])
+        if (cancelado || !capaLimitesRef.current) return
+        const capa = capaLimitesRef.current
+        capa.clearLayers()
+
+        const trazar = (
+          partes: [number, number][][],
+          estilo: { weight: number; color: string; dashArray?: string },
+        ) => {
+          L.polygon(partes, {
+            pane: 'limites', interactive: false, fill: false,
+            color: '#ffffff', weight: estilo.weight + 2.5, opacity: 0.8,
+          }).addTo(capa)
+          L.polygon(partes, { pane: 'limites', interactive: false, fill: false, opacity: 1, ...estilo })
+            .addTo(capa)
+        }
+        const rotular = (punto: [number, number], texto: string, clase: string) =>
+          L.marker(punto, {
+            pane: 'limites', interactive: false,
+            icon: L.divIcon({ className: '', html: `<div class="sv-rotulo ${clase}">${texto}</div>`, iconSize: [0, 0] }),
+          }).addTo(capa)
+
+        // De lo más fino a lo más grueso, para que el borde que manda quede arriba
+        if (verDeptos) {
+          for (const d of lim.departamentos) {
+            trazar(d.partes, { weight: 1, color: '#3a3a3a', dashArray: '3 4' })
+            rotular(d.rotulo, d.nombre, 'sv-rotulo-depto')
+          }
+        }
+        if (verZonasViales) {
+          for (const z of lim.zonas) {
+            trazar(z.partes, { weight: 2, color: '#111111', dashArray: '10 6' })
+            rotular(z.rotulo, z.nombre, 'sv-rotulo-zona')
+          }
+        }
+        if (verProvincia) trazar(lim.provincia.partes, { weight: 2.6, color: '#111111' })
+
+        setLimites(lim)
+        setErrorLimites(null)
+      } catch (e) {
+        if (!cancelado) setErrorLimites(e instanceof Error ? e.message : 'no se pudo descargar')
+      }
+    })()
+
+    return () => { cancelado = true }
+  }, [algunLimite, verProvincia, verZonasViales, verDeptos, intentoLimites])
+
+  /**
    * Prender y apagar capas sin recrearlas.
    *
    * Los caminos son casi diez mil polilíneas y los círculos 103: sacarlos del
@@ -760,6 +858,11 @@ export default function MapaLluvia({
   const medioCursor = puntosCursor?.[Math.floor(puntosCursor.length / 2)]
   const cuencaCursor = mostrarCuencas && medioCursor
     ? cuencaEn(cuencas, medioCursor[0], medioCursor[1])
+    : null
+  // Lo mismo con el departamento, si esa capa está prendida. La zona vial no
+  // hace falta buscarla: el consorcio del tramo ya dice de cuál es.
+  const deptoCursor = verDeptos && limites && medioCursor
+    ? recintoEn(limites.departamentos, medioCursor[0], medioCursor[1])
     : null
 
   return (
@@ -914,6 +1017,41 @@ export default function MapaLluvia({
 
         <div style={{ borderTop: '1px solid #1e1e1e', margin: '9px 0' }} />
 
+        {/*
+          Los tres límites van juntos y sin nota: son tres casillas del mismo
+          tipo, y con el formato de las demás capas el panel no entraba en el
+          mapa. Cada una lleva al lado una muestra de su trazo.
+        */}
+        <div style={{ fontSize: 11, color: '#8f8f8f', textTransform: 'uppercase',
+          letterSpacing: 1, marginBottom: 6 }}>
+          Límites
+        </div>
+        {([
+          ['Provincia', verProvincia, setVerProvincia, 'solid', 2.6],
+          ['Zonas viales', verZonasViales, setVerZonasViales, 'dashed', 2],
+          ['Departamentos', verDeptos, setVerDeptos, 'dotted', 1.4],
+        ] as const).map(([titulo, activo, cambiar, trazo, grosor]) => (
+          <label key={titulo} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer',
+            color: '#e0e0e0', fontSize: 13, marginBottom: 4 }}>
+            <input type="checkbox" checked={activo} onChange={e => cambiar(e.target.checked)}
+              style={{ cursor: 'pointer' }} />
+            <span style={{ flex: 1 }}>{titulo}</span>
+            <span style={{ width: 26, height: 0, borderTop: `${grosor}px ${trazo} #d0d0d0`, flexShrink: 0 }} />
+          </label>
+        ))}
+        {algunLimite && errorLimites && (
+          <div style={{ margin: '4px 0 0 19px', fontSize: 11, color: '#E8A87C', lineHeight: 1.5 }}>
+            No se pudieron cargar los límites ({errorLimites}).{' '}
+            <button onClick={() => setIntentoLimites(v => v + 1)} style={{
+              fontFamily: 'monospace', fontSize: 11, padding: '2px 8px', borderRadius: 2,
+              cursor: 'pointer', background: 'transparent', border: '1px solid #7a4a22',
+              color: '#E8A87C', textTransform: 'uppercase', letterSpacing: 0.8,
+            }}>Reintentar</button>
+          </div>
+        )}
+
+        <div style={{ borderTop: '1px solid #1e1e1e', margin: '9px 0' }} />
+
         <Interruptor
           titulo="Sedes de consorcio" activo={verSedes} onChange={setVerSedes}
           nota="Dónde está la sede de cada uno de los 103." />
@@ -951,7 +1089,15 @@ export default function MapaLluvia({
           {cuencaCursor && (
             <div style={{ color: '#8a8a8a', fontSize: 11 }}>
               Cuenca {cuencaCursor.cod}{'  ·  '}
-              <span style={{ color: '#7FB8E6' }}>{cuencaCursor.nombre}</span>
+              <span style={{ color: '#C9A0DC' }}>{cuencaCursor.nombre}</span>
+            </div>
+          )}
+          {deptoCursor && (
+            <div style={{ color: '#8a8a8a', fontSize: 11 }}>
+              Departamento{'  ·  '}
+              <span style={{ color: '#c4c4c4', textTransform: 'capitalize' }}>
+                {deptoCursor.nombre.toLowerCase()}
+              </span>
             </div>
           )}
           {lluviaTramos[bajoCursor] && (

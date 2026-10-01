@@ -648,6 +648,23 @@ Cosas que no son obvias:
   día**, que es casi siempre. Eran 60 px fijos arriba del mapa para decir "no
   hace falta tocar nada"; queda un indicador chico que la abre. Si falta algo o
   se está descargando, aparece sin que nadie la pida.
+- **Los límites administrativos —provincia, cinco zonas viales, 25
+  departamentos— son capas del mapa** (`lib/limites.ts`). Salen de
+  `geo_bundle.json`, que se pide recién al prender la primera: pesa 1,3 MB.
+  **Van en negro o gris y se distinguen por el trazo**, como en un plano: lleno
+  y grueso, rayas largas, rayas cortas. Sin color propio, porque el color en
+  este mapa es de la lluvia y el violeta de las cuencas; y sin relleno, que
+  taparía los caminos. No reciben el cursor. Con Departamentos prendido, la
+  lectura del tramo dice en cuál está. Los 25 nombres aparecen recién desde
+  zoom 9, igual que los de las cuencas.
+- **El nombre del departamento viene en `Departamen`**, no en `nombre`: lo cortó
+  a diez caracteres el shapefile de origen. `MapInner` busca `nombre` y
+  `NOMBRE`, así que **el popup de departamento del mapa principal nunca
+  aparece**. Está sin arreglar.
+- `scripts/verificar-limites.ts` cruza las 103 sedes contra los polígonos: cada
+  una cae en una sola zona y un solo departamento, y **la zona del polígono es
+  la que dice la ficha del consorcio en las 103** — dos datos cargados por
+  separado.
 - **`zoomSnap: 0.5` en el mapa.** Con niveles enteros el encuadre de la
   provincia salta de "entra con medio continente alrededor" a "no entra".
 - **El texto gris se subió de contraste** en toda la sección. Había 102 usos por

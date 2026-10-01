@@ -137,6 +137,16 @@ html                             { scrollbar-width: thin; scrollbar-color: #2a2a
 .sv-lejos .sv-rotulo-activo .sv-rotulo-nombre { display: inline; }
 .sv-lejos .sv-rotulo { font-size: 12px; padding: 1px 6px; }
 
+/* Rótulos de los límites administrativos. Neutros: el color es de la lluvia
+   y el violeta de las cuencas. Los de departamento son 25 y de lejos no
+   entran, así que aparecen recién al acercarse. */
+.sv-rotulo.sv-rotulo-zona  { color: #111; border-color: #111; }
+.sv-rotulo.sv-rotulo-depto {
+  color: #333; border: none; background: rgba(255,255,255,.75);
+  font-size: 11px; font-weight: 400; padding: 0 4px;
+}
+.sv-lejos .sv-rotulo-depto { display: none; }
+
 /* El del polígono elegido: invertido, para que se lea cuál es entre trece */
 .sv-rotulo.sv-rotulo-activo {
   color: #111; background: var(--accent); border-color: #111;
