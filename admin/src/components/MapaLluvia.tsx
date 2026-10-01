@@ -63,23 +63,29 @@ const LIMITES: [[number, number], [number, number]] = (() => {
   return [[latMin, lngMin], [latMax, lngMax]]
 })()
 
+/** El gris de los caminos sin lluvia o sin dato cuando el fondo es el satélite */
+const COLOR_SECO_SATELITE = '#dcdcdc'
+
 /** Desde qué zoom entra el nombre de las cuencas además del número */
 const ZOOM_NOMBRES_CUENCA = 9
 
-/** Un interruptor de capa: título clickeable y una línea de qué hace */
+/**
+ * Un interruptor de capa.
+ *
+ * La explicación de qué muestra va **al pasar el cursor**, no escrita debajo.
+ * Estuvo escrita, y con cada capa nueva el panel creció hasta no entrar en el
+ * alto del mapa: había que desplazarse adentro para llegar a las últimas. Son
+ * dos renglones por capa que se leen una vez y después sólo ocupan lugar.
+ */
 function Interruptor({ titulo, nota, activo, onChange }: {
   titulo: string; nota: string; activo: boolean; onChange: (v: boolean) => void
 }) {
   return (
-    <label style={{ display: 'block', cursor: 'pointer' }}>
-      <span style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#e0e0e0', fontSize: 13 }}>
-        <input type="checkbox" checked={activo} onChange={e => onChange(e.target.checked)}
-          style={{ cursor: 'pointer' }} />
-        {titulo}
-      </span>
-      <span style={{ display: 'block', fontSize: 11, color: '#959595', marginLeft: 19, marginTop: 2 }}>
-        {nota}
-      </span>
+    <label title={nota} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer',
+      color: '#e0e0e0', fontSize: 13 }}>
+      <input type="checkbox" checked={activo} onChange={e => onChange(e.target.checked)}
+        style={{ cursor: 'pointer' }} />
+      {titulo}
     </label>
   )
 }
@@ -381,13 +387,23 @@ export default function MapaLluvia({
     const lineas = lineasRef.current
     if (lineas.length === 0 || lineas.length !== lluviaTramos.length) return
 
+    /*
+     * Los caminos sin lluvia y sin dato son grises oscuros, pensados para el
+     * mapa claro. Sobre el satélite —que es oscuro— desaparecían, y con ellos
+     * la mitad de la red. Ahí van en gris claro y un poco más opacos. Los que
+     * tienen lluvia no cambian: sus colores se leen sobre los dos fondos.
+     */
+    const seco = satelite ? COLOR_SECO_SATELITE : colorLluvia(0)
+    const sinDato = satelite ? COLOR_SECO_SATELITE : '#4a4a4a'
+    const tenue = satelite ? 0.6 : 0.35
+
     for (let i = 0; i < lineas.length; i++) {
       const mm = lluviaTramos[i].mm
       const suyo = seleccionado == null || tramos[i].cc === seleccionado
 
       if (mm === null) {
         lineas[i].setStyle({
-          color: '#4a4a4a', weight: 1, opacity: suyo ? 0.35 : 0.1, dashArray: '2,4',
+          color: sinDato, weight: 1, opacity: suyo ? tenue : 0.1, dashArray: '2,4',
         })
         continue
       }
@@ -396,13 +412,13 @@ export default function MapaLluvia({
       const pasa = mm >= umbral
       const grueso = seleccionado != null && suyo ? 3 : mm > 0 ? 1.8 : 1
       lineas[i].setStyle({
-        color: colorLluvia(mm),
+        color: mm > 0 ? colorLluvia(mm) : seco,
         weight: pasa ? grueso : 0.8,
-        opacity: !suyo ? 0.1 : !pasa ? 0.12 : mm > 0 ? 0.9 : 0.35,
+        opacity: !suyo ? 0.1 : !pasa ? 0.12 : mm > 0 ? 0.9 : tenue,
         dashArray: undefined,
       })
     }
-  }, [lluviaTramos, umbral, seleccionado, tramos])
+  }, [lluviaTramos, umbral, seleccionado, tramos, satelite])
 
 
   /**
@@ -914,7 +930,7 @@ export default function MapaLluvia({
           ))}
         </div>
 
-        <div style={{ borderTop: '1px solid #1e1e1e', margin: '9px 0' }} />
+        <div style={{ borderTop: '1px solid #1e1e1e', margin: '7px 0' }} />
 
         <Interruptor
           titulo="Caminos" activo={verCaminos} onChange={setVerCaminos}
@@ -925,9 +941,10 @@ export default function MapaLluvia({
             {CORTES_MM.filter(c => c > 0).map(c => (
               <Fila key={c} color={colorLluvia(c)} texto={`${c} mm o más`} />
             ))}
-            <Fila color="#54564f" texto="0 mm — no llovió" />
+            <Fila color={satelite ? COLOR_SECO_SATELITE : '#54564f'} texto="0 mm — no llovió" />
             <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 3 }}>
-              <span style={{ width: 16, height: 0, borderTop: '1px dashed #6a6a6a',
+              <span style={{ width: 16, height: 0,
+                borderTop: `1px dashed ${satelite ? COLOR_SECO_SATELITE : '#6a6a6a'}`,
                 flexShrink: 0 }} />
               <span style={{ fontSize: 11, color: '#8a8a8a' }}>sin pluviómetro cerca</span>
             </div>
@@ -949,7 +966,7 @@ export default function MapaLluvia({
           </div>
         )}
 
-        <div style={{ borderTop: '1px solid #1e1e1e', margin: '9px 0' }} />
+        <div style={{ borderTop: '1px solid #1e1e1e', margin: '7px 0' }} />
 
         {!hayEstaciones ? (
           <div style={{ fontSize: 12, color: '#8a8a8a', lineHeight: 1.5 }}>
@@ -974,7 +991,7 @@ export default function MapaLluvia({
               </div>
             )}
 
-            <div style={{ borderTop: '1px solid #1e1e1e', margin: '9px 0' }} />
+            <div style={{ borderTop: '1px solid #1e1e1e', margin: '7px 0' }} />
 
             <Interruptor
               titulo="Zonas de pluviómetro" activo={verZonas} onChange={setVerZonas}
@@ -998,7 +1015,7 @@ export default function MapaLluvia({
           </>
         )}
 
-        <div style={{ borderTop: '1px solid #1e1e1e', margin: '9px 0' }} />
+        <div style={{ borderTop: '1px solid #1e1e1e', margin: '7px 0' }} />
 
         <Interruptor
           titulo="Cuencas" activo={mostrarCuencas} onChange={setVerCuencas}
@@ -1015,7 +1032,7 @@ export default function MapaLluvia({
           </div>
         )}
 
-        <div style={{ borderTop: '1px solid #1e1e1e', margin: '9px 0' }} />
+        <div style={{ borderTop: '1px solid #1e1e1e', margin: '7px 0' }} />
 
         {/*
           Los tres límites van juntos y sin nota: son tres casillas del mismo
@@ -1050,7 +1067,7 @@ export default function MapaLluvia({
           </div>
         )}
 
-        <div style={{ borderTop: '1px solid #1e1e1e', margin: '9px 0' }} />
+        <div style={{ borderTop: '1px solid #1e1e1e', margin: '7px 0' }} />
 
         <Interruptor
           titulo="Sedes de consorcio" activo={verSedes} onChange={setVerSedes}
