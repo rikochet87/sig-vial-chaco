@@ -45,6 +45,9 @@ const LIMITES: [[number, number], [number, number]] = (() => {
   return [[latMin, lngMin], [latMax, lngMax]]
 })()
 
+/** Desde qué zoom entra el nombre de las cuencas además del número */
+const ZOOM_NOMBRES_CUENCA = 9
+
 /** Un interruptor de capa: título clickeable y una línea de qué hace */
 function Interruptor({ titulo, nota, activo, onChange }: {
   titulo: string; nota: string; activo: boolean; onChange: (v: boolean) => void
@@ -179,6 +182,17 @@ export default function MapaLluvia({
       }).addTo(mapa)
 
       mapaRef.current = mapa
+
+      /*
+       * Con la provincia entera en pantalla los trece rótulos de las cuencas no
+       * entran: se pisan entre sí. De lejos queda sólo el número, y el nombre
+       * aparece al acercarse. Se resuelve con una clase en el contenedor y CSS,
+       * sin redibujar la capa en cada cambio de zoom.
+       */
+      const marcarLejos = () =>
+        mapa.getContainer().classList.toggle('sv-lejos', mapa.getZoom() < ZOOM_NOMBRES_CUENCA)
+      mapa.on('zoomend', marcarLejos)
+      marcarLejos()
       // Orden de abajo hacia arriba: las isohietas son el fondo, después los
       // caminos, y los círculos arriba de todo para que se puedan clickear.
       capaIsoRef.current   = L.layerGroup().addTo(mapa)
@@ -546,7 +560,8 @@ export default function MapaLluvia({
             pane: 'cuencas', interactive: false,
             icon: L.divIcon({
               className: '',
-              html: `<div class="sv-rotulo${elegida ? ' sv-rotulo-activo' : ''}">${c.cod} · ${c.nombre}</div>`,
+              html: `<div class="sv-rotulo${elegida ? ' sv-rotulo-activo' : ''}">${c.cod}`
+                + `<span class="sv-rotulo-nombre"> · ${c.nombre}</span></div>`,
               iconSize: [0, 0],
             }),
           }).addTo(capaCuencasRef.current)
@@ -816,7 +831,7 @@ export default function MapaLluvia({
 
         <Interruptor
           titulo="Cuencas" activo={mostrarCuencas} onChange={setVerCuencas}
-          nota="Las 13 cuencas hídricas de la provincia." />
+          nota="Las 13 cuencas hídricas de la provincia. De lejos se ve el número; al acercarse, el nombre." />
 
         {mostrarCuencas && errorCuencas && (
           <div style={{ margin: '6px 0 0 19px', fontSize: 11, color: '#E8A87C', lineHeight: 1.5 }}>

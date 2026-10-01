@@ -131,6 +131,12 @@ html                             { scrollbar-width: thin; scrollbar-color: #2a2a
   border: 1px solid #7B1FA2; padding: 1px 5px;
 }
 
+/* De lejos, sólo el número: los trece nombres no entran y se pisan. El
+   elegido conserva el nombre siempre. La clase la pone el mapa según el zoom. */
+.sv-lejos .sv-rotulo-nombre { display: none; }
+.sv-lejos .sv-rotulo-activo .sv-rotulo-nombre { display: inline; }
+.sv-lejos .sv-rotulo { font-size: 12px; padding: 1px 6px; }
+
 /* El del polígono elegido: invertido, para que se lea cuál es entre trece */
 .sv-rotulo.sv-rotulo-activo {
   color: #111; background: var(--accent); border-color: #111;
