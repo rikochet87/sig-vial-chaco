@@ -124,6 +124,12 @@ export interface Relevamiento {
   observaciones: string;
   tecnico: string;
   fotos: string[];
+  /**
+   * Fotos que se adjuntaron y cuyo archivo ya no estaba en el teléfono cuando
+   * se pudo subir. No llegaron al servidor ni se pueden recuperar; se cuentan
+   * para poder decírselo al técnico en vez de que desaparezcan sin aviso.
+   */
+  fotosPerdidas?: number;
   // legacy
   ccAsociado?: string;
   tiposProblema?: string[];

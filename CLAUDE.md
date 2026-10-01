@@ -165,6 +165,36 @@ Android mata el proceso. Requiere `ACCESS_BACKGROUND_LOCATION` y un servicio en
 primer plano con notificación persistente; **el técnico tiene que conceder
 "Permitir siempre"**, que Android pide aparte.
 
+**`RECEIVE_BOOT_COMPLETED` tiene que estar en `app.json`, y sin él la app se
+cierra.** `expo-task-manager` entrega cada posición programando un trabajo con
+`setPersisted(true)`, y Android exige ese permiso para persistir un trabajo. La
+librería no lo declara en su manifiesto ni lo agrega su plugin, y sólo ataja
+`IllegalStateException`, así que la `IllegalArgumentException` que tira Android
+mata el proceso:
+
+```
+java.lang.IllegalArgumentException: Requested job cannot be persisted without
+holding android.permission.RECEIVE_BOOT_COMPLETED permission
+  at expo.modules.taskManager.TaskManagerUtils.scheduleJob
+  at expo.modules.location.taskConsumers.LocationTaskConsumer.reportLocationsImmediately
+```
+
+Lo que lo volvía difícil de leer desde afuera:
+
+- **El cierre no es al guardar: es cuando llega una posición con un track
+  registrado.** Arrancar el GPS Track lo dispara a los dos segundos.
+- **Después se cierra al abrir, siempre.** El track queda registrado en el
+  sistema aunque la app haya muerto, así que cada arranque recibe una posición y
+  vuelve a caer. Es el cuadro "primero fallaba al relevar y después ya al
+  abrirla". Reinstalar lo borra, hasta la próxima vez que se usa el GPS Track.
+- **No deja rastro en Supabase**: lo que se guardó, llegó bien. Y no es memoria,
+  que fue la primera hipótesis.
+
+Se encontró con el informe de errores de un teléfono (Ajustes → Opciones de
+desarrollador → Informe de errores): `dumpstate.txt` trae la traza completa bajo
+`AndroidRuntime: FATAL EXCEPTION`. **Sin ese archivo se persiguieron dos causas
+equivocadas**; ante un cierre en campo, pedirlo es el primer paso.
+
 ### Arranque local-first
 
 `context/AuthContext.tsx` — el arranque **solo toca AsyncStorage**. Si hay perfil
@@ -190,6 +220,47 @@ señal la app quedaba trabada en el splash para siempre.
   cada minuto mientras queden pendientes
 - El reintento incluye los `'error'`, no solo los `'pendiente'`
 - `components/ConexionBadge.tsx` muestra estado de red y cuántos faltan subir
+
+#### Las fotos
+
+`lib/fotos.ts` + `hooks/useSupabaseSync.ts`. Se sacan con la cámara o se eligen
+de la galería (hasta 10 por relevamiento), y en el formulario se ven en
+miniatura y se pueden quitar.
+
+- **Un relevamiento no está sincronizado mientras le falte una foto.** Antes, si
+  una foto fallaba al subir, la fila se guardaba con la ruta `file://` del
+  teléfono y el relevamiento quedaba como sincronizado: nadie lo reintentaba y
+  el panel recibía una ruta que no puede abrir. Pasó de verdad —dos
+  relevamientos del 18/09/2026—. Ahora la fila se manda **sólo con las fotos que
+  están en el servidor**, el relevamiento queda en 'error' y se reintenta.
+  `necesitaSubir()` además recupera los viejos que quedaron así.
+- **Las fotos se copian a `documentDirectory/fotos/` al entrar al formulario.**
+  La cámara y la galería las dejan en la caché, que Android puede vaciar, y un
+  relevamiento cargado sin señal puede esperar días. La copia se borra cuando la
+  foto ya subió.
+- **El nombre en Storage es el del archivo local, no la posición en la lista.**
+  Con `${id}/${posición}.jpg`, quitar una foto y agregar otra hacía que la nueva
+  pisara a una ya subida. Ahora que se pueden quitar fotos, eso era alcanzable.
+- **Si el archivo local no está, se pregunta al servidor antes de darlo por
+  perdido.** La copia se borra al subir, así que "no está" es también lo que ve
+  una sincronización que arranca con una lista vieja. Tomarlo como pérdida
+  mandaría la fila sin la foto y **la borraría del servidor**. Como el nombre es
+  determinístico, alcanza un `HEAD`: Storage contesta **400**, no 404, cuando el
+  objeto no existe. Sin red no se decide nada y se reintenta.
+- **Lo que de verdad se perdió se cuenta** en `fotosPerdidas` y se le dice al
+  técnico en la lista. No desaparece sin aviso.
+- **`sincronizarAhora` relee cada relevamiento justo antes de subirlo.** La
+  lista se lee al empezar y subir cada uno tarda.
+- Las fotos todavía pasan enteras por memoria en base64, de a una. Subirlas
+  directo desde el disco es el arreglo de fondo y está sin hacer.
+
+`lib/version.ts` muestra `v1.0.0 (3)` al pie de Inicio y del login. El APK se
+reparte a mano, así que **`android.versionCode` hay que subirlo en cada build
+que se reparte**: es lo único que distingue dos APK.
+
+`types/expo-file-system-legacy.d.ts` se eliminó: era un shim escrito a mano que
+tapaba los tipos reales de la librería —le faltaba `copyAsync`, entre otras—.
+Mismo caso que el de `jspdf` en el panel.
 
 ### GeoJSON estático
 

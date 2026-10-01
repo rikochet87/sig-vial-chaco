@@ -365,6 +365,16 @@ function RelevamientoCard({
           {item.fotos.length > 0 && (
             <FotoStrip fotos={item.fotos} />
           )}
+          {!!item.fotosPerdidas && (
+            <View style={[styles.detailRow, { alignItems: 'flex-start' }]}>
+              <Ionicons name="warning-outline" size={13} color="#e67e22" style={{ marginTop: 2 }} />
+              <Text style={[styles.detailText, { color: '#e67e22' }]}>
+                {item.fotosPerdidas === 1
+                  ? '1 foto ya no estaba en el teléfono cuando se pudo subir y no llegó al servidor.'
+                  : `${item.fotosPerdidas} fotos ya no estaban en el teléfono cuando se pudo subir y no llegaron al servidor.`}
+              </Text>
+            </View>
+          )}
 
           <View style={styles.actions}>
             <TouchableOpacity style={styles.actionBtn} onPress={() => onEdit(item)}>

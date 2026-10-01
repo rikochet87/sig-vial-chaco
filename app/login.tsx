@@ -6,6 +6,7 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
+import { VERSION_APP } from '@/lib/version';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -99,6 +100,7 @@ export default function LoginScreen() {
           <Text style={s.hint}>
             Las cuentas son asignadas por el administrador del sistema.
           </Text>
+          <Text style={[s.hint, { marginTop: 10, fontFamily: 'monospace' }]}>{VERSION_APP}</Text>
         </View>
       </View>
     </KeyboardAvoidingView>

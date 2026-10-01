@@ -15,7 +15,7 @@
 
 import * as FileSystem from 'expo-file-system/legacy';
 import { supabase } from '@/lib/supabase';
-import { syncOne } from '@/hooks/useSupabaseSync';
+import { syncOne, necesitaSubir, type ResultadoSync as ResultadoSubida } from '@/hooks/useSupabaseSync';
 import type { Relevamiento } from '@/types/relevamiento';
 
 const FILE_PATH = FileSystem.documentDirectory + 'relevamientos.json';
@@ -43,7 +43,7 @@ async function leerArchivo(): Promise<Relevamiento[]> {
 async function parchearUno(
   id: string,
   status: Relevamiento['syncStatus'],
-  fotosPublicas?: string[],
+  res?: ResultadoSubida,
 ): Promise<void> {
   try {
     const list = await leerArchivo();
@@ -52,7 +52,10 @@ async function parchearUno(
     list[i] = {
       ...list[i],
       syncStatus: status,
-      ...(fotosPublicas && fotosPublicas.length > 0 ? { fotos: fotosPublicas } : {}),
+      ...(res ? {
+        fotos: res.fotos,
+        ...(res.perdidas > 0 ? { fotosPerdidas: (list[i].fotosPerdidas ?? 0) + res.perdidas } : {}),
+      } : {}),
     };
     await FileSystem.writeAsStringAsync(FILE_PATH, JSON.stringify(list));
   } catch (_) {}
@@ -66,10 +69,10 @@ export type ResultadoSync = {
   omitido?: boolean;
 };
 
-/** Cuenta relevamientos sin subir (pendientes + los que fallaron antes). */
+/** Cuenta relevamientos sin subir: pendientes, fallidos y los que tienen fotos que faltan. */
 export async function contarSinSincronizar(): Promise<number> {
   const list = await leerArchivo();
-  return list.filter(r => r.syncStatus === 'pendiente' || r.syncStatus === 'error').length;
+  return list.filter(necesitaSubir).length;
 }
 
 /**
@@ -93,19 +96,22 @@ export async function sincronizarAhora(): Promise<ResultadoSync> {
     if (!userId) return { intentados: 0, subidos: 0, fallidos: 0 };
 
     const list = await leerArchivo();
-    const sinSubir = list.filter(
-      r => r.syncStatus === 'pendiente' || r.syncStatus === 'error'
-    );
+    const sinSubir = list.filter(necesitaSubir);
     if (sinSubir.length === 0) return { intentados: 0, subidos: 0, fallidos: 0 };
 
     let subidos = 0;
     let fallidos = 0;
 
-    for (const r of sinSubir) {
+    for (const viejo of sinSubir) {
+      // La lista se leyó al empezar y subir cada uno tarda: para cuando le toca
+      // a éste pueden haberlo subido desde la pantalla, editado o borrado. Se
+      // vuelve a leer para subir lo que hay ahora y no una copia vieja.
+      const r = (await leerArchivo()).find(x => x.id === viejo.id);
+      if (!r || !necesitaSubir(r)) continue;
       try {
-        const fotosPublicas = await syncOne(r, userId);
-        await parchearUno(r.id, 'sincronizado', fotosPublicas);
-        subidos++;
+        const res = await syncOne(r, userId);
+        await parchearUno(r.id, res.completo ? 'sincronizado' : 'error', res);
+        if (res.completo) subidos++; else fallidos++;
       } catch (_) {
         await parchearUno(r.id, 'error');
         fallidos++;

@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef, createContext, useContext } from 'react';
 import {
   Modal, View, Text, StyleSheet, ScrollView, TextInput,
-  TouchableOpacity, KeyboardAvoidingView, Platform, Alert,
+  TouchableOpacity, KeyboardAvoidingView, Platform, Alert, Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useColors } from '@/context/ThemeContext';
@@ -16,6 +16,10 @@ import {
 } from '@/types/relevamiento';
 import { formatFechaHora } from '@/utils/formatDate';
 import * as ImagePicker from 'expo-image-picker';
+import { guardarFotoLocal } from '@/lib/fotos';
+
+/** Tope de fotos por relevamiento: cada una pesa 1 a 3 MB y se sube por datos móviles */
+const MAX_FOTOS = 10;
 
 // expo-location: importación condicional para captura GPS en formulario lineal
 let Location: any = null;
@@ -1337,6 +1341,10 @@ export default function RelevamientoModal({ visible, coords, editando, onUpdate,
   };
 
   const takeFoto = async () => {
+    if (fotos.length >= MAX_FOTOS) {
+      Alert.alert('Límite de fotos', `Un relevamiento lleva hasta ${MAX_FOTOS} fotos.`);
+      return;
+    }
     const perm = await ImagePicker.requestCameraPermissionsAsync();
     if (!perm.granted) {
       Alert.alert('Permiso denegado', 'Habilitá el acceso a la cámara en Configuración → Aplicaciones → SIG Vial → Permisos.');
@@ -1350,12 +1358,46 @@ export default function RelevamientoModal({ visible, coords, editando, onUpdate,
         exif: false,
       });
       if (!result.canceled && result.assets?.[0]) {
-        setFotos(prev => [...prev, result.assets[0].uri]);
+        // A la carpeta propia de la app: la caché la puede vaciar Android
+        const uri = await guardarFotoLocal(result.assets[0].uri);
+        setFotos(prev => [...prev, uri]);
       }
     } catch (e) {
       Alert.alert('Error de cámara', 'No se pudo abrir la cámara. Intentá de nuevo.');
     }
   };
+
+  /**
+   * Fotos que ya están en el teléfono.
+   *
+   * Para lo que se sacó con la cámara del teléfono antes de abrir la app, o con
+   * otra aplicación. No pide permiso en Android 13 o posterior: abre el
+   * selector del sistema, que entrega sólo lo que el técnico elige.
+   */
+  const elegirDeGaleria = async () => {
+    const lugar = MAX_FOTOS - fotos.length;
+    if (lugar <= 0) {
+      Alert.alert('Límite de fotos', `Un relevamiento lleva hasta ${MAX_FOTOS} fotos.`);
+      return;
+    }
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: 'images',
+        allowsMultipleSelection: true,
+        selectionLimit: lugar,
+        quality: 0.6,
+        exif: false,
+      });
+      if (result.canceled || !result.assets?.length) return;
+      const nuevas: string[] = [];
+      for (const a of result.assets.slice(0, lugar)) nuevas.push(await guardarFotoLocal(a.uri));
+      setFotos(prev => [...prev, ...nuevas].slice(0, MAX_FOTOS));
+    } catch (e) {
+      Alert.alert('Error de galería', 'No se pudo abrir la galería. Intentá de nuevo.');
+    }
+  };
+
+  const quitarFoto = (uri: string) => setFotos(prev => prev.filter(u => u !== uri));
 
   const handleSave = () => {
     if (tipo === 'Lineal') {
@@ -1662,10 +1704,31 @@ export default function RelevamientoModal({ visible, coords, editando, onUpdate,
                 <Text style={s.fotosCount}>{fotos.length} adjunta{fotos.length !== 1 ? 's' : ''}</Text>
               )}
             </View>
-            <TouchableOpacity style={s.fotoBtn} onPress={takeFoto}>
-              <Ionicons name="camera-outline" size={18} color={Colors.accent} />
-              <Text style={s.fotoBtnTxt}>Tomar foto</Text>
-            </TouchableOpacity>
+            {fotos.length > 0 && (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}
+                style={{ marginBottom: 8 }} contentContainerStyle={{ gap: 8 }}>
+                {fotos.map(uri => (
+                  <View key={uri}>
+                    <Image source={{ uri }} style={s.fotoMini} resizeMode="cover" />
+                    <TouchableOpacity style={s.fotoQuitar} onPress={() => quitarFoto(uri)}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      accessibilityLabel="Quitar foto">
+                      <Ionicons name="close" size={14} color="#fff" />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </ScrollView>
+            )}
+            <View style={s.fotoBtns}>
+              <TouchableOpacity style={[s.fotoBtn, { flex: 1 }]} onPress={takeFoto}>
+                <Ionicons name="camera-outline" size={18} color={Colors.accent} />
+                <Text style={s.fotoBtnTxt}>Tomar foto</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[s.fotoBtn, { flex: 1 }]} onPress={elegirDeGaleria}>
+                <Ionicons name="images-outline" size={18} color={Colors.accent} />
+                <Text style={s.fotoBtnTxt}>Galería</Text>
+              </TouchableOpacity>
+            </View>
 
             {/* Guardar */}
             <TouchableOpacity
@@ -1811,7 +1874,13 @@ function makeStyles(Colors: ColorPalette) { return StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 8,
     backgroundColor: Colors.background, borderRadius: 0,
     paddingHorizontal: 14, paddingVertical: 10,
-    borderWidth: 1, borderColor: Colors.border, borderStyle: 'dashed', marginBottom: 18,
+    borderWidth: 1, borderColor: Colors.border, borderStyle: 'dashed',
+  },
+  fotoBtns: { flexDirection: 'row', gap: 8, marginBottom: 18 },
+  fotoMini: { width: 72, height: 72, backgroundColor: Colors.background, borderWidth: 1, borderColor: Colors.border },
+  fotoQuitar: {
+    position: 'absolute', top: 2, right: 2, width: 22, height: 22,
+    backgroundColor: 'rgba(0,0,0,0.75)', alignItems: 'center', justifyContent: 'center',
   },
   fotoBtnTxt: { fontSize: 13, color: Colors.accent, fontWeight: '600' },
 

@@ -7,6 +7,7 @@ import { useAuth } from '@/context/AuthContext';
 import type { ColorPalette } from '@/constants/Colors';
 import { ZONAS_CONFIG } from '@/constants/realData';
 import { useConsorcios } from '@/hooks/useConsorcios';
+import { VERSION_APP } from '@/lib/version';
 
 function StatCard({ label, value, unit, onPress, styles }: {
   label: string; value: string; unit?: string; onPress?: () => void;
@@ -88,6 +89,7 @@ export default function HomeScreen() {
         })}
       </View>
 
+      <Text style={styles.version}>SIG Vial {VERSION_APP}</Text>
       <View style={{ height: 24 }} />
     </ScrollView>
   );
@@ -106,6 +108,8 @@ function makeStyles(C: ColorPalette, width: number) {
     paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: C.border, marginBottom: 14,
   },
   userBarText: { fontSize: 11, color: C.textMuted, fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: 0.5 },
+
+  version: { fontSize: 11, color: C.textMuted, fontFamily: 'monospace', textAlign: 'center', marginTop: 4 },
 
   secLabel: { borderLeftWidth: 2, borderLeftColor: C.accent, paddingLeft: 8, marginBottom: 8, marginTop: 4 },
   secLabelText: { fontSize: 9, color: C.textMuted, fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: 1, fontWeight: '600' },

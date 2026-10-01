@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import * as FileSystem from 'expo-file-system/legacy';
 import type { Relevamiento } from '@/types/relevamiento';
 import { supabase } from '@/lib/supabase';
-import { syncOne, syncPendientes } from '@/hooks/useSupabaseSync';
+import { syncOne, syncPendientes, type ResultadoSync } from '@/hooks/useSupabaseSync';
 
 const FILE_PATH = FileSystem.documentDirectory + 'relevamientos.json';
 
@@ -42,11 +42,12 @@ export function useRelevamientos() {
 
   useEffect(() => { load(); }, [load]);
 
-  // Actualiza syncStatus y opcionalmente las fotos (URLs públicas post-sync) en el registro local
+  // Actualiza syncStatus y, si hubo subida, las fotos tal como quedaron: URL
+  // pública donde subió, ruta local donde todavía falta
   const _patchStatus = useCallback(async (
     id: string,
     status: Relevamiento['syncStatus'],
-    fotosPublicas?: string[],
+    res?: ResultadoSync,
   ) => {
     const prev = listRef.current;
     const idx = prev.findIndex(r => r.id === id);
@@ -55,8 +56,10 @@ export function useRelevamientos() {
     next[idx] = {
       ...next[idx],
       syncStatus: status,
-      // Reemplazar file:// locales con URLs públicas de Supabase Storage
-      ...(fotosPublicas && fotosPublicas.length > 0 ? { fotos: fotosPublicas } : {}),
+      ...(res ? {
+        fotos: res.fotos,
+        ...(res.perdidas > 0 ? { fotosPerdidas: (next[idx].fotosPerdidas ?? 0) + res.perdidas } : {}),
+      } : {}),
     };
     listRef.current = next;
     setRelevamientos(next);
@@ -79,8 +82,8 @@ export function useRelevamientos() {
     const userId = await getUserId();
     if (userId) {
       try {
-        const fotosPublicas = await syncOne(withPending, userId);
-        await _patchStatus(withPending.id, 'sincronizado', fotosPublicas);
+        const res = await syncOne(withPending, userId);
+        await _patchStatus(withPending.id, res.completo ? 'sincronizado' : 'error', res);
       } catch {
         await _patchStatus(withPending.id, 'error');
       }
@@ -118,8 +121,8 @@ export function useRelevamientos() {
     const userId = await getUserId();
     if (userId) {
       try {
-        const fotosPublicas = await syncOne(withPending, userId);
-        await _patchStatus(withPending.id, 'sincronizado', fotosPublicas);
+        const res = await syncOne(withPending, userId);
+        await _patchStatus(withPending.id, res.completo ? 'sincronizado' : 'error', res);
       } catch {
         await _patchStatus(withPending.id, 'error');
       }
@@ -129,8 +132,8 @@ export function useRelevamientos() {
   const syncTodos = useCallback(async () => {
     const userId = await getUserId();
     if (!userId) return;
-    await syncPendientes(listRef.current, userId, (id, status, fotosPublicas) => {
-      _patchStatus(id, status, fotosPublicas);
+    await syncPendientes(listRef.current, userId, (id, status, res) => {
+      _patchStatus(id, status, res);
     });
   }, [_patchStatus]);
 

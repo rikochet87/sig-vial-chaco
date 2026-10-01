@@ -51,6 +51,11 @@ export interface ObraHighlight {
 export const OBRA_HIGHLIGHT_KEY = 'sig_vial_obra_highlight';
 const CACHE_KEY = 'sig_vial_obras_cache';
 
+/** Las columnas de `Obra`, ni una más */
+const COLUMNAS = 'id,tipo,jurisdiccion,consorcio_numero,ubicacion,descripcion,estado,'
+  + 'fecha_inicio,fecha_fin_estimada,cantidad,unidad,presupuesto_total,aporte_dvp,aporte_ccc,'
+  + 'precio_unitario,visible_para,lat,lng,coords_linea,created_at';
+
 const TIPO_LABEL: Record<string, string> = {
   terraplen: 'Terraplén', excavacion: 'Excavación',
   ripio: 'Ripio', canal: 'Canal', limpieza: 'Limpieza Vial',
@@ -288,8 +293,12 @@ export default function ObrasScreen() {
 
       const myIds: string[] = destRows?.map((r: { obra_id: string }) => r.obra_id) ?? [];
 
-      // Las obras archivadas en el panel dejan de verse en campo
-      let query = supabase.from('obras').select('*').is('archivado_en', null);
+      // Las obras archivadas en el panel dejan de verse en campo.
+      // Sólo las columnas que se muestran: `select('*')` traía también
+      // `datos_calculadora`, que lleva los tramos dibujados de cada obra y no se
+      // usa acá. Todo eso iba a un solo registro de AsyncStorage, que en Android
+      // tiene un tope de unos 2 MB.
+      let query = supabase.from('obras').select(COLUMNAS).is('archivado_en', null);
       if (myIds.length > 0) {
         query = query.or(`visible_para.eq.todos,id.in.(${myIds.join(',')})`);
       } else {
@@ -299,9 +308,11 @@ export default function ObrasScreen() {
       const { data, error: qErr } = await query.order('created_at', { ascending: false });
       if (qErr) throw new Error(qErr.message);
 
-      const rows = (data ?? []) as Obra[];
+      const rows = (data ?? []) as unknown as Obra[];
       setObras(rows);
-      await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(rows));
+      // Si la caché no se puede escribir, las obras recién bajadas se muestran
+      // igual: antes el fallo caía al `catch` y las reemplazaba por la copia vieja.
+      try { await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(rows)); } catch (_) {}
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Error desconocido');
       const raw = await AsyncStorage.getItem(CACHE_KEY);
