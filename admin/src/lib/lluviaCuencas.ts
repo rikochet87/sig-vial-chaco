@@ -28,7 +28,7 @@
 
 import { distanciaKm, estimarPunto, PEGADO_KM, POTENCIA, RADIO_KM } from './fusion'
 import { arealPorPartes, type MediaAreal, type MedicionConNombre } from './thiessenAreal'
-import type { Cuenca } from './cuencas'
+import { cuencaEn, type Cuenca } from './cuencas'
 
 /**
  * Separación de la grilla de muestreo, en km.
@@ -367,4 +367,59 @@ export function csvMaximas(
     ].join(';')),
   ]
   return lineas.join('\r\n')
+}
+
+// ── La lectura de un punto ───────────────────────────────────────────────────
+
+/** Lo que se sabe de la lluvia en un punto cualquiera del mapa */
+export interface LecturaPunto {
+  /** Milímetros en el punto por IDW; `null` si no hay pluviómetro en el radio */
+  mm: number | null
+  /** Si el punto está encima de un pluviómetro y el valor es el medido */
+  medido: boolean
+  /** Cuántos pluviómetros entraron en el promedio */
+  estaciones: number
+  /** El pluviómetro más cercano, aunque esté fuera del radio */
+  cercano: { nombre: string; km: number; mm: number } | null
+  /** La cuenca que contiene al punto, o `null` si está fuera de todas */
+  cuenca: Cuenca | null
+  /** La lámina del período de esa cuenca, si ya se calculó */
+  lamina: LaminaCuenca | null
+}
+
+/**
+ * La lluvia en un punto, y en qué cuenca cae.
+ *
+ * **Es el mismo `estimarPunto` que promedia la lámina areal**, sin respaldo del
+ * modelo. La lámina de una cuenca es el promedio de esta lectura sobre su
+ * grilla, así que pasar el cursor por adentro es ver, uno por uno, los números
+ * que la tabla promedió. El test lo afirma: el promedio de las lecturas sobre
+ * la grilla de cada cuenca es su lámina.
+ *
+ * Fuera del radio de todo pluviómetro no hay dato y `mm` es `null`, no cero:
+ * mismo criterio que en la red vial y en las isohietas.
+ */
+export function leerPunto(
+  lat: number, lng: number,
+  mediciones: MedicionConNombre[],
+  cuencas: Cuenca[],
+  filas: LaminaCuenca[] | null,
+): LecturaPunto {
+  const e = estimarPunto({ lat, lng }, mediciones, null)
+
+  let cercano: LecturaPunto['cercano'] = null
+  for (const m of mediciones) {
+    const km = distanciaKm({ lat, lng }, m)
+    if (!cercano || km < cercano.km) cercano = { nombre: m.nombre, km, mm: m.mm }
+  }
+
+  const cuenca = cuencaEn(cuencas, lat, lng)
+  return {
+    mm: e.procedencia === 'estimado' ? null : e.mm,
+    medido: e.procedencia === 'medido',
+    estaciones: e.estaciones,
+    cercano,
+    cuenca,
+    lamina: cuenca ? filas?.find(f => f.cod === cuenca.cod) ?? null : null,
+  }
 }

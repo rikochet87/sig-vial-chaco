@@ -27,6 +27,8 @@ import { CONTORNO_CHACO } from '@/data/contornoChaco'
 import { cargarCuencas, cuencaEn, type Cuenca } from '@/lib/cuencas'
 import { cargarLimites, recintoEn, type Limites } from '@/lib/limites'
 import { DeslizadorHistorico, useImagenesHistoricas } from './ImagenesHistoricas'
+import LecturaPunto from './cuencas/LecturaPunto'
+import type { LaminaCuenca } from '@/lib/lluviaCuencas'
 
 /**
  * Los dos mapas base. Los mismos que el mapa principal del panel, para que el
@@ -133,11 +135,20 @@ interface Props {
   onUmbral: (mm: number) => void
   /** Código de la cuenca elegida en la lista: se resalta y se encuadra */
   cuencaSeleccionada?: number | null
+  /** La lámina del período por cuenca, para la lectura del punto bajo el cursor */
+  laminasCuencas?: LaminaCuenca[] | null
+  /**
+   * Avisa si la capa de cuencas está a la vista. La lámina por cuenca se
+   * calcula arriba y sólo cuando alguien la mira: sin este aviso, prender la
+   * capa desde el mapa no la pediría.
+   */
+  onCapaCuencas?: (visible: boolean) => void
 }
 
 export default function MapaLluvia({
   datos, seleccionado, estaciones,
   tramos = [], lluviaTramos = [], umbral, onUmbral, cuencaSeleccionada = null,
+  laminasCuencas = null, onCapaCuencas,
 }: Props) {
   const divRef  = useRef<HTMLDivElement>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -206,6 +217,7 @@ export default function MapaLluvia({
   // Elegir una cuenca en la lista prende la capa aunque el interruptor esté
   // apagado: no se puede resaltar algo que no se dibuja.
   const mostrarCuencas = verCuencas || cuencaSeleccionada !== null
+  useEffect(() => { onCapaCuencas?.(mostrarCuencas) }, [mostrarCuencas, onCapaCuencas])
   /** El panel de capas se puede plegar para devolverle el lugar al mapa */
   const [capasAbiertas, setCapasAbiertas] = useState(true)
   const [cuencas, setCuencas] = useState<Cuenca[]>([])
@@ -1075,6 +1087,14 @@ export default function MapaLluvia({
         </div>
         )}
       </div>
+
+      {/*
+        Con las cuencas a la vista y sin un camino debajo, la lluvia del punto.
+        Si hay un tramo bajo el cursor manda su lectura, que ya dice la cuenca.
+      */}
+      <LecturaPunto mapaRef={mapaRef} listo={mapaListo} activo={mostrarCuencas}
+        tapado={bajoCursor !== null} estaciones={estaciones ?? []} cuencas={cuencas}
+        laminas={laminasCuencas} arriba={satelite} color={colorLluvia} />
 
       {/*
         Lectura del tramo bajo el cursor.

@@ -1081,6 +1081,29 @@ En el mapa la capa es de referencia: dibuja el contorno y el rótulo de cada una
 y con la capa prendida la lectura del tramo bajo el cursor dice en qué cuenca
 está. El cálculo va en una tabla aparte.
 
+#### La lluvia punto por punto
+
+`leerPunto()` en `lib/lluviaCuencas.ts` + `components/cuencas/LecturaPunto.tsx`
+— con la capa de cuencas prendida, pasar el cursor por el mapa muestra los
+milímetros en ese punto, cuántos pluviómetros entran, cuál es el más cercano,
+en qué cuenca cae y cuánto se aparta de la lámina media de esa cuenca.
+
+- **Es el mismo `estimarPunto` que promedia la lámina areal**, sin respaldo del
+  modelo. Pasar el cursor es ver uno por uno los números que la tabla promedió.
+  El test lo afirma: el promedio de las lecturas sobre la grilla de cada cuenca
+  es su lámina, con 0,005 mm de diferencia.
+- **Si hay un camino bajo el cursor manda la lectura del tramo**, que ya dice la
+  cuenca. Para leer sólo por punto se apaga la capa Caminos.
+- **Es un componente aparte que escucha el mapa por su cuenta.** La posición
+  cambia en cada movimiento; guardada en el estado de `MapaLluvia` volvería a
+  renderizar el mapa entero por cada píxel. Y calcula una vez por cuadro de
+  pantalla, no por evento.
+- **Prender la capa desde el mapa pide la lámina** (`onCapaCuencas`):
+  `useCuencasLluvia` no calcula nada hasta que alguien mira cuencas, y el
+  interruptor de la capa es estado interno del mapa.
+- Fuera del radio de todo pluviómetro no hay dato, y se dice igual cuál es el
+  más cercano y a cuánto está.
+
 #### La lámina por cuenca
 
 `lib/lluviaCuencas.ts` + `components/PanelCuencas.tsx` — la pestaña Cuencas,

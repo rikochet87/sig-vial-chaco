@@ -16,7 +16,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { parsearCuencas } from '../src/lib/cuencas'
 import {
-  csvCuencas, csvMaximas, laminaMaxima, laminaPorCuenca, muestrasDe, pesosIdw, serieDiaria,
+  csvCuencas, csvMaximas, laminaMaxima, laminaPorCuenca, leerPunto, muestrasDe, pesosIdw, serieDiaria,
   totalCuencas, PASO_KM, VENTANAS_DIAS, type DiaCuenca,
 } from '../src/lib/lluviaCuencas'
 import { arealPorPartes, arealPorSuperficie, type MedicionConNombre } from '../src/lib/thiessenAreal'
@@ -298,6 +298,56 @@ const csvMax = csvMaximas(
   { desde: '2026-09-01', hasta: '2026-09-10' }).split('\r\n')
 ok('la descarga lleva las cuatro duraciones con sus fechas', csvMax[4].split(';').length, 2 + 4 * 3)
 ok('y coma decimal', csvMax[4].includes('60,0'))
+
+// ── La lectura de un punto ──────────────────────────────────────────────────
+titulo('La lectura de un punto es la lámina antes de promediar')
+
+/*
+ * Una tormenta con gradiente: llueve más hacia el este. Con todos los
+ * pluviómetros iguales cualquier promedio da lo mismo y no se probaría nada.
+ */
+const gradiente = est(e => Math.round(Math.max(0, 20 + 25 * (e.lng + 62))))
+const filasG = laminaPorCuenca(cuencas, muestras, gradiente)
+
+/*
+ * La que importa: pasar el cursor por adentro de una cuenca es ver, punto por
+ * punto, lo que la tabla promedió. Si la lectura usara otro cálculo que la
+ * lámina, el mapa y la tabla dirían cosas distintas de la misma cuenca.
+ */
+let peorPromedio = 0
+let fueraDeSuCuenca = 0
+for (let i = 0; i < cuencas.length; i++) {
+  const lecturas = muestras[i].map(p => leerPunto(p.lat, p.lng, gradiente, cuencas, filasG))
+  fueraDeSuCuenca += lecturas.filter(l => l.cuenca?.cod !== cuencas[i].cod).length
+  const conDato = lecturas.filter(l => l.mm !== null)
+  if (conDato.length === 0 || filasG[i].mm === null) continue
+  const promedio = conDato.reduce((s, l) => s + l.mm!, 0) / conDato.length
+  peorPromedio = Math.max(peorPromedio, Math.abs(promedio - filasG[i].mm!))
+}
+ok('el promedio de las lecturas sobre la grilla es la lámina', peorPromedio < 0.02)
+info(`mayor diferencia: ${peorPromedio.toFixed(4)} mm`)
+ok('cada punto de la grilla se lee en su propia cuenca', fueraDeSuCuenca, 0)
+
+const unaEstacion = gradiente.find(e => e.mm > 0)!
+const encima = leerPunto(unaEstacion.lat, unaEstacion.lng, gradiente, cuencas, filasG)
+ok('encima de un pluviómetro, es lo que midió', encima.medido && encima.mm === unaEstacion.mm)
+ok('y el más cercano es ése', encima.cercano?.nombre, unaEstacion.nombre)
+
+const p8 = muestras[7][Math.floor(muestras[7].length / 2)]
+const enLaOcho = leerPunto(p8.lat, p8.lng, gradiente, cuencas, filasG)
+ok('la lectura trae la lámina de su cuenca', enLaOcho.lamina?.cod, cuencas[7].cod)
+ok('sin la lámina calculada, la lectura sale igual',
+  leerPunto(p8.lat, p8.lng, gradiente, cuencas, null).mm, enLaOcho.mm)
+
+const sinNada = leerPunto(p8.lat, p8.lng, [], cuencas, null)
+ok('sin pluviómetros no hay dato, y no es cero', sinNada.mm, null)
+ok('ni pluviómetro más cercano', sinNada.cercano, null)
+
+// Buenos Aires: lejos de toda cuenca y de todo pluviómetro
+const puntoLejano = leerPunto(-34.6, -58.4, gradiente, cuencas, filasG)
+ok('fuera de las cuencas no hay cuenca', puntoLejano.cuenca, null)
+ok('fuera del radio no hay dato', puntoLejano.mm, null)
+ok('pero se dice cuál es el pluviómetro más cercano y a cuánto', (puntoLejano.cercano?.km ?? 0) > 60)
 
 console.log(fallos === 0 ? '\n✓ Todo bien.' : `\n✗ ${fallos} fallo(s).`)
 process.exit(fallos === 0 ? 0 : 1)

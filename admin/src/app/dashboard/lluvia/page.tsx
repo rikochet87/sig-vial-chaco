@@ -169,7 +169,10 @@ export default function LluviaPage() {
 
   // Las cuencas se piden recién cuando alguien las mira: en su pestaña o en la
   // lista de al lado del mapa.
-  const datosCuencas = useCuencasLluvia(estaciones, vista === 'cuencas' || lista === 'cuencas')
+  /** La capa de cuencas del mapa está prendida: la lectura del punto necesita la lámina */
+  const [capaCuencas, setCapaCuencas] = useState(false)
+  const datosCuencas = useCuencasLluvia(
+    estaciones, vista === 'cuencas' || lista === 'cuencas' || capaCuencas)
 
   /** Descargar la lista completa de tramos con su lluvia */
   const descargarCsv = () => {
@@ -532,7 +535,8 @@ export default function LluviaPage() {
           <MapaLluvia datos={datos} seleccionado={seleccionado}
             estaciones={estaciones} tramos={tramos} lluviaTramos={lluvia}
             umbral={umbral} onUmbral={setUmbral}
-            cuencaSeleccionada={lista === 'cuencas' ? cuencaSel : null} />
+            cuencaSeleccionada={lista === 'cuencas' ? cuencaSel : null}
+            laminasCuencas={datosCuencas.filas} onCapaCuencas={setCapaCuencas} />
 
         </div>
 
