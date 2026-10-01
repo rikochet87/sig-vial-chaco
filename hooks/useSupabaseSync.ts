@@ -59,12 +59,53 @@ function toSupabaseRow(r: Relevamiento, userId: string, fotosPublicas: string[])
   };
 }
 
+/**
+ * Subidas en curso, por id de relevamiento.
+ *
+ * Al guardar, `useRelevamientos` sube el relevamiento en el momento, y el
+ * auto-sync —que corre al volver a primer plano y cada minuto— lo encuentra
+ * todavía 'pendiente' en el archivo y lo sube también. En Storage se ve: la
+ * misma foto escrita dos veces con segundos de diferencia. Son dos copias de
+ * cada foto en memoria a la vez y el doble de datos móviles.
+ *
+ * La `huella` es el contenido sin el estado de sync: si el técnico editó el
+ * relevamiento mientras subía la versión anterior, la subida en curso no sirve
+ * para la nueva y hay que esperar a que termine y subir de nuevo.
+ */
+const enCurso = new Map<string, { huella: string; promesa: Promise<string[]> }>();
+
+function huellaDe(r: Relevamiento): string {
+  const { syncStatus: _, ...resto } = r;
+  return JSON.stringify(resto);
+}
+
 /** Sincroniza un relevamiento y devuelve las URLs públicas de las fotos (para actualizar el registro local). */
 export async function syncOne(r: Relevamiento, userId: string): Promise<string[]> {
-  // 1. Subir fotos locales a Storage y obtener URLs públicas
-  const fotosPublicas = await Promise.all(
-    (r.fotos ?? []).map((uri, i) => uploadFotoIfLocal(uri, r.id, i))
-  );
+  const huella = huellaDe(r);
+  const previa = enCurso.get(r.id);
+  if (previa) {
+    if (previa.huella === huella) return previa.promesa;
+    try { await previa.promesa; } catch (_) {}
+  }
+  const promesa = subirUno(r, userId);
+  enCurso.set(r.id, { huella, promesa });
+  try {
+    return await promesa;
+  } finally {
+    if (enCurso.get(r.id)?.promesa === promesa) enCurso.delete(r.id);
+  }
+}
+
+async function subirUno(r: Relevamiento, userId: string): Promise<string[]> {
+  // 1. Subir fotos locales a Storage y obtener URLs públicas.
+  // De a una y no con Promise.all: cada foto pasa entera por memoria tres veces
+  // (base64, binario y bytes), y todas juntas multiplican ese pico por la
+  // cantidad de fotos justo en el momento de guardar.
+  const fotosPublicas: string[] = [];
+  const fotos = r.fotos ?? [];
+  for (let i = 0; i < fotos.length; i++) {
+    fotosPublicas.push(await uploadFotoIfLocal(fotos[i], r.id, i));
+  }
   // 2. Guardar fila con URLs públicas
   const { error } = await supabase
     .from('relevamientos')
