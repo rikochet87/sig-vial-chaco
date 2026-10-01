@@ -9,8 +9,41 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { WebView } from 'react-native-webview';
 import { GEO_BUNDLE } from '@/constants/geoBundle';
-import { RP_BUNDLE } from '@/constants/geoBundleRP';
-import { GEO_BUNDLE_CC } from '@/constants/geoBundleCC';
+/*
+ * ── Los bundles pesados se cargan recién cuando se abre el mapa ──────────────
+ *
+ * `geoBundleCC.ts` pesa **7,7 MB** y `geoBundleRP.ts` 650 KB, y no son datos:
+ * son literales de JavaScript. Importarlos arriba del archivo los hacía
+ * evaluar **en el arranque de la app**, porque expo-router recorre todas las
+ * rutas de `app/` para armar su árbol — así que los 249.209 vértices de la red
+ * vial se convertían en objetos vivos aunque el técnico nunca tocara la pestaña
+ * del mapa.
+ *
+ * Eso se pagaba en memoria, y en un teléfono modesto alcanzaba para que el
+ * sistema matara el proceso. El síntoma era progresivo y desconcertante: primero
+ * fallaba lo más pesado —levantar un relevamiento— y después ya no abría la app.
+ *
+ * Con `require()` adentro de la función, el módulo se evalúa la primera vez que
+ * se arma el HTML del mapa, que es cuando el dato hace falta de verdad. Metro
+ * respeta eso: un `require` en el cuerpo de una función no se iza.
+ *
+ * El comentario que había en `buildMapHtml` decía "serialized lazily", y era
+ * cierto a medias: lo diferido era el `JSON.stringify`, no la carga del módulo.
+ * El dato ya estaba en memoria mucho antes.
+ */
+type BundleGeo = Record<string, unknown>;
+
+let _rpBundle: Record<string, unknown> | null = null;
+function rpBundle(): Record<string, unknown> {
+  if (!_rpBundle) _rpBundle = require('@/constants/geoBundleRP').RP_BUNDLE;
+  return _rpBundle!;
+}
+
+let _ccBundle: BundleGeo | null = null;
+function ccBundle(): BundleGeo {
+  if (!_ccBundle) _ccBundle = require('@/constants/geoBundleCC').GEO_BUNDLE_CC;
+  return _ccBundle!;
+}
 import { useRelevamientos } from '@/hooks/useRelevamientos';
 import { useConsorcios } from '@/hooks/useConsorcios';
 import RelevamientoModal from '@/components/RelevamientoModal';
@@ -176,10 +209,11 @@ function buildMapHtml(sedesZonas: SedesZonas, layers: Layers, sedesOverride?: Se
   const RUTAS_JSON         = JSON.stringify(GEO_BUNDLE.rutas);
   const CAMPAMENTOS_JSON   = JSON.stringify(GEO_BUNDLE.campamentos);
   const SALUD_JSON         = JSON.stringify(GEO_BUNDLE.salud);
-  const RP_PAV_JSON        = JSON.stringify(RP_BUNDLE.rpPavimentada);
-  const RP_MEJ_JSON        = JSON.stringify(RP_BUNDLE.rpMejorada);
-  const RP_OBR_JSON        = JSON.stringify(RP_BUNDLE.rpEnObra);
-  const RP_TIE_JSON        = JSON.stringify(RP_BUNDLE.rpTierra);
+  const RP = rpBundle();
+  const RP_PAV_JSON        = JSON.stringify(RP.rpPavimentada);
+  const RP_MEJ_JSON        = JSON.stringify(RP.rpMejorada);
+  const RP_OBR_JSON        = JSON.stringify(RP.rpEnObra);
+  const RP_TIE_JSON        = JSON.stringify(RP.rpTierra);
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -1491,7 +1525,7 @@ export default function MapaScreen() {
     if (webViewLoadCount === 0) return;
     if (dvpZIVOn) {
       if (!dvpZIVLoaded.current) {
-        const gj = JSON.stringify((GEO_BUNDLE_CC as any)['ZIV_DVP']);
+        const gj = JSON.stringify(ccBundle()['ZIV_DVP']);
         webviewRef.current?.injectJavaScript(`addDVPLayer('ZIV',${gj}); true;`);
         dvpZIVLoaded.current = true;
       } else {
@@ -1506,7 +1540,7 @@ export default function MapaScreen() {
     if (webViewLoadCount === 0) return;
     if (dvpZVOn) {
       if (!dvpZVLoaded.current) {
-        const gj = JSON.stringify((GEO_BUNDLE_CC as any)['ZV_DVP']);
+        const gj = JSON.stringify(ccBundle()['ZV_DVP']);
         webviewRef.current?.injectJavaScript(`addDVPLayer('ZV',${gj}); true;`);
         dvpZVLoaded.current = true;
       } else {
@@ -1835,7 +1869,7 @@ export default function MapaScreen() {
 
     const getCCGeoJSON = (zona: string, ccNum: number): any => {
       if (ccDataCache.current[ccNum]) return ccDataCache.current[ccNum];
-      const zoneData = (GEO_BUNDLE_CC as any)[zona];
+      const zoneData = ccBundle()[zona] as any;
       if (!zoneData?.features) return null;
       const features = zoneData.features.filter((f: any) =>
         parseInt(f.properties?.CC, 10) === ccNum
