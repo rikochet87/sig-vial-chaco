@@ -527,6 +527,9 @@ desborda.
     le pone Helvetica a todo lo que cuelga del mapa.
   - Los paneles flotantes llevan `className="sv-panel"`, que en `globals.css`
     vuelve cuadradas las casillas y opciones; los deslizadores, `sv-range`.
+  - Los tooltips de Leaflet se crean con `className: 'sv-tt'`. Sin clase sale el
+    globo blanco redondeado con flecha que trae Leaflet. Adentro, `tt-k` es el
+    rótulo chico en mayúsculas que dice qué es lo que se está señalando.
 - La densidad del ripio es **editable por tramo**, sin default impuesto. No
   hardcodear 2 ni 2,1 t/m³ en ningún punto nuevo de la cadena.
 - Ripio usa `coordsLinea: PuntoTrack[]`; el resto, coordenada única.

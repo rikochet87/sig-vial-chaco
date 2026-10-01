@@ -456,7 +456,8 @@ export default function LluviaPage() {
             <div style={{
               position: 'absolute', top: 10, left: 10, zIndex: 600,
               background: 'rgba(40,24,16,.96)', border: '1px solid #7a4a22',
-              borderRadius: 3, padding: '9px 12px', fontFamily: 'monospace',
+              borderLeft: '3px solid #E8833A', borderRadius: 2,
+              padding: '9px 12px', fontFamily: 'monospace',
               fontSize: 12, color: '#E8A87C', lineHeight: 1.6, maxWidth: 360,
             }}>
               <b>No se pudo cargar la red vial.</b><br />
@@ -464,7 +465,7 @@ export default function LluviaPage() {
               <br />
               <button onClick={reintentarRed} style={{
                 fontFamily: 'monospace', fontSize: 12, marginTop: 6,
-                padding: '4px 10px', borderRadius: 3, cursor: 'pointer',
+                padding: '4px 10px', borderRadius: 2, cursor: 'pointer',
                 background: 'transparent', border: '1px solid #7a4a22', color: '#E8A87C',
               }}>
                 Reintentar

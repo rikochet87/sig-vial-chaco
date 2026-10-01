@@ -106,6 +106,20 @@ html                             { scrollbar-width: thin; scrollbar-color: #2a2a
 .sv-range:disabled::-webkit-slider-thumb { background: #444; }
 .sv-range:disabled::-moz-range-thumb     { background: #444; }
 
+/* ─── Tooltip de Leaflet: className: 'sv-tt' ─────────────── */
+/* En vez del globo blanco redondeado con flecha que trae Leaflet.
+   La fuente va acá porque Leaflet le pone Helvetica al mapa entero. */
+.leaflet-tooltip.sv-tt {
+  background: #111; color: #ccc;
+  border: 1px solid #2a2a2a; border-left: 3px solid var(--accent); border-radius: 0;
+  box-shadow: 0 4px 16px rgba(0,0,0,.7);
+  font-family: monospace; font-size: 12px; line-height: 1.5;
+  padding: 5px 10px;
+}
+.leaflet-tooltip.sv-tt::before { display: none; }
+.sv-tt b     { color: #e8e8e8; }
+.sv-tt .tt-k { font-size: 11px; color: #777; text-transform: uppercase; letter-spacing: 1px; }
+
 /* ─── Hover glow utilities ──────────────────────────────── */
 /* Botones primarios (amarillo):  className="glow-y"         */
 .glow-y:hover:not(:disabled) { box-shadow: 0 0 18px var(--accent-glow) !important; }

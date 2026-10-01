@@ -52,10 +52,10 @@ function Interruptor({ titulo, nota, activo, onChange }: {
     <label style={{ display: 'block', cursor: 'pointer' }}>
       <span style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#e0e0e0', fontSize: 13 }}>
         <input type="checkbox" checked={activo} onChange={e => onChange(e.target.checked)}
-          style={{ width: 15, height: 15, accentColor: '#F5C300', cursor: 'pointer' }} />
+          style={{ cursor: 'pointer' }} />
         {titulo}
       </span>
-      <span style={{ display: 'block', fontSize: 11, color: '#7a7a7a', marginLeft: 23, marginTop: 2 }}>
+      <span style={{ display: 'block', fontSize: 11, color: '#7a7a7a', marginLeft: 19, marginTop: 2 }}>
         {nota}
       </span>
     </label>
@@ -436,10 +436,9 @@ export default function MapaLluvia({
         const e = estaciones[indice]
         const zona = L.polygon(anillo, { ...base, ...normal })
           .bindTooltip(
-            `<div style="font-family:monospace;font-size:12px;line-height:1.5">
-               zona de <b>${e.nombre}</b><br/>${e.mm.toLocaleString('es-AR')} mm en el período
-             </div>`,
-            { sticky: true, opacity: 0.96 },
+            `<div class="tt-k">Zona de pluviómetro</div>`
+            + `<b>${e.nombre}</b><br/>${e.mm.toLocaleString('es-AR')} mm en el período`,
+            { sticky: true, opacity: 1, className: 'sv-tt' },
           )
         zona.on('mouseover', () => { zona.setStyle(encima); zona.bringToFront() })
         zona.on('mouseout', () => zona.setStyle(normal))
@@ -452,10 +451,9 @@ export default function MapaLluvia({
           fillColor: e.mm > 0 ? '#C0392B' : '#4a4a4a', fillOpacity: 1,
         })
           .bindTooltip(
-            `<div style="font-family:monospace;font-size:12px;line-height:1.5">
-               <b>${e.nombre}</b><br/>${e.mm.toLocaleString('es-AR')} mm en el período
-             </div>`,
-            { direction: 'top', opacity: 0.96 },
+            `<div class="tt-k">Pluviómetro</div>`
+            + `<b>${e.nombre}</b><br/>${e.mm.toLocaleString('es-AR')} mm en el período`,
+            { direction: 'top', opacity: 1, className: 'sv-tt' },
           )
           .addTo(capaZonasRef.current)
       }
@@ -551,10 +549,9 @@ export default function MapaLluvia({
             }),
           })
             .bindTooltip(
-              `<div style="font-family:monospace;font-size:12px;line-height:1.5">`
-              + `<b style="color:#F5C300">Sede CC ${c.numero}</b><br/>`
-              + `${c.nombre.replace(/"/g, '')}</div>`,
-              { direction: 'top', offset: [0, -10], opacity: 0.96 },
+              `<div class="tt-k">Sede · CC ${c.numero}</div>`
+              + `<b>${c.nombre.replace(/"/g, '')}</b>`,
+              { direction: 'top', offset: [0, -10], opacity: 1, className: 'sv-tt' },
             )
             .addTo(capa)
         }
@@ -584,22 +581,26 @@ export default function MapaLluvia({
       <div ref={divRef} style={{ width: '100%', height: '100%', background: '#111' }} />
 
       {/* Capas: dos interruptores y nada más. Cada uno explica qué muestra. */}
-      <div style={{
+      <div className="sv-panel" style={{
         position: 'absolute', top: 10, right: 10, zIndex: 500,
-        background: 'rgba(24,24,24,.93)', border: '1px solid #333', borderRadius: 3,
-        padding: '9px 12px', fontFamily: 'monospace', maxWidth: 236,
+        background: '#111', border: '1px solid #222', borderRadius: 2,
+        boxShadow: '0 4px 16px rgba(0,0,0,.7)', fontFamily: 'monospace', maxWidth: 236,
       }}>
-        <div style={{ fontSize: 11, color: '#6a6a6a', textTransform: 'uppercase',
-          letterSpacing: 0.8, marginBottom: 7 }}>
+        <div style={{
+          fontSize: 12, color: '#999', textTransform: 'uppercase', letterSpacing: 1.4,
+          height: 30, display: 'flex', alignItems: 'center', padding: '0 9px',
+          background: '#0a0a0a', borderBottom: '1px solid #222', borderLeft: '3px solid #F5C300',
+        }}>
           Capas
         </div>
+        <div style={{ padding: '9px 12px' }}>
 
         <Interruptor
           titulo="Caminos" activo={verCaminos} onChange={setVerCaminos}
           nota="La lámina que recibió cada tramo. Pasá el cursor por encima para ver cuál es." />
 
         {verCaminos && lluviaTramos.length > 0 && (
-          <div style={{ margin: '7px 0 0 23px' }}>
+          <div style={{ margin: '7px 0 0 19px' }}>
             {CORTES_MM.filter(c => c > 0).map(c => (
               <Fila key={c} color={colorLluvia(c)} texto={`${c} mm o más`} />
             ))}
@@ -620,14 +621,14 @@ export default function MapaLluvia({
                 </b>
               </span>
               <input
-                type="range" min={0} max={100} step={5} value={umbral}
+                type="range" className="sv-range" min={0} max={100} step={5} value={umbral}
                 onChange={e => onUmbral(Number(e.target.value))}
-                style={{ width: '100%', accentColor: '#F5C300', marginTop: 2 }} />
+                style={{ width: '100%', marginTop: 2 }} />
             </label>
           </div>
         )}
 
-        <div style={{ borderTop: '1px solid #2d2d2d', margin: '8px 0' }} />
+        <div style={{ borderTop: '1px solid #1e1e1e', margin: '9px 0' }} />
 
         {!hayEstaciones ? (
           <div style={{ fontSize: 12, color: '#8a8a8a', lineHeight: 1.5 }}>
@@ -641,7 +642,7 @@ export default function MapaLluvia({
               nota="Isohietas: curvas de igual lámina." />
 
             {verIso && niveles.length > 0 && (
-              <div style={{ margin: '7px 0 9px 23px' }}>
+              <div style={{ margin: '7px 0 9px 19px' }}>
                 {niveles.map(n => (
                   <Fila key={n} color={colorLluvia(n)} texto={`${n.toLocaleString('es-AR')} mm`} />
                 ))}
@@ -652,14 +653,14 @@ export default function MapaLluvia({
               </div>
             )}
 
-            <div style={{ borderTop: '1px solid #2d2d2d', margin: '8px 0' }} />
+            <div style={{ borderTop: '1px solid #1e1e1e', margin: '9px 0' }} />
 
             <Interruptor
               titulo="Zonas de pluviómetro" activo={verZonas} onChange={setVerZonas}
               nota="De qué estación lee cada lugar." />
 
             {verZonas && (
-              <div style={{ margin: '7px 0 0 23px', fontSize: 11, color: '#7a7a7a',
+              <div style={{ margin: '7px 0 0 19px', fontSize: 11, color: '#7a7a7a',
                 lineHeight: 1.5 }}>
                 Cada polígono es la zona de una estación. Mirá si la red de un
                 consorcio cae dentro de uno solo o está partida entre varios.
@@ -676,11 +677,12 @@ export default function MapaLluvia({
           </>
         )}
 
-        <div style={{ borderTop: '1px solid #2d2d2d', margin: '8px 0' }} />
+        <div style={{ borderTop: '1px solid #1e1e1e', margin: '9px 0' }} />
 
         <Interruptor
           titulo="Sedes de consorcio" activo={verSedes} onChange={setVerSedes}
           nota="Dónde está la sede de cada uno de los 103." />
+        </div>
       </div>
 
       {/*
@@ -691,7 +693,8 @@ export default function MapaLluvia({
       {bajoCursor !== null && tramos[bajoCursor] && (
         <div style={{
           position: 'absolute', left: 10, bottom: 10, zIndex: 500,
-          background: 'rgba(24,24,24,.93)', border: '1px solid #333', borderRadius: 3,
+          background: '#111', border: '1px solid #222', borderLeft: '3px solid #F5C300',
+          borderRadius: 2, boxShadow: '0 4px 16px rgba(0,0,0,.7)',
           padding: '7px 11px', fontFamily: 'monospace', fontSize: 12,
           color: '#c4c4c4', lineHeight: 1.6, maxWidth: 420, pointerEvents: 'none',
         }}>

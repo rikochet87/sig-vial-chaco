@@ -91,9 +91,9 @@ function Preset({ activo, onClick, children }: {
 }) {
   return (
     <button onClick={onClick} style={{
-      ...mono, fontSize: 12, cursor: 'pointer', padding: '5px 11px', borderRadius: 3,
+      ...mono, fontSize: 12, cursor: 'pointer', padding: '5px 11px', borderRadius: 2,
       background: activo ? 'rgba(245,195,0,0.10)' : 'transparent',
-      border: `1px solid ${activo ? '#5a4400' : '#2a2e32'}`,
+      border: `1px solid ${activo ? '#5a4400' : '#2a2a2a'}`,
       color: activo ? '#F5C300' : '#7d848c',
     }}>{children}</button>
   )
@@ -171,9 +171,9 @@ export default function SelectorPeriodo({
 
         {onDescargarCsv && (
           <button onClick={onDescargarCsv} style={{
-            ...mono, fontSize: 12, cursor: 'pointer', padding: '5px 11px', borderRadius: 3,
+            ...mono, fontSize: 12, cursor: 'pointer', padding: '5px 11px', borderRadius: 2,
             marginLeft: 'auto', background: 'transparent',
-            border: '1px solid #2a2e32', color: '#7d848c',
+            border: '1px solid #2a2a2a', color: '#7d848c',
           }}>
             Descargar CSV por camino
           </button>
@@ -209,7 +209,7 @@ export default function SelectorPeriodo({
         103. Clickear una barra elige el evento al que pertenece ese día.
       */}
       {serie.length > 0 && (
-        <div style={{ background: '#1b1e21', borderRadius: 4, padding: '9px 12px', marginBottom: 10 }}>
+        <div style={{ background: '#191919', border: '1px solid #1e1e1e', padding: '9px 12px', marginBottom: 10 }}>
           {/*
             Dos extremos y nada en el medio. Con un texto centrado, en cuanto el
             de la izquierda crecía un poco se le montaba encima: "27 jun" quedaba
@@ -251,7 +251,7 @@ export default function SelectorPeriodo({
       {/* Los eventos detectados, como accesos directos */}
       {/* ── 2 · Datos de este período ─────────────────────────────────────── */}
       {esAdmin && cobertura && (
-        <div style={{ background: '#1b1e21', borderRadius: 4, padding: '10px 12px' }}>
+        <div style={{ background: '#191919', border: '1px solid #1e1e1e', padding: '10px 12px' }}>
           {/*
             La etiqueta va **dentro** de la fila y no en un renglón propio: da el
             ancla para entender qué es esto sin gastar una línea entera de alto.
@@ -287,7 +287,7 @@ export default function SelectorPeriodo({
             {(faltanDias > 0 || descargando) && (
               <button onClick={() => setConfirmando(true)} disabled={descargando}
                 style={{
-                  ...mono, fontSize: 12, padding: '6px 11px', borderRadius: 3,
+                  ...mono, fontSize: 12, padding: '6px 11px', borderRadius: 2,
                   cursor: descargando ? 'default' : 'pointer', background: 'transparent',
                   border: `1px solid ${descargando ? '#333' : '#2e5540'}`,
                   color: descargando ? '#555' : '#7BC47F',
@@ -306,7 +306,7 @@ export default function SelectorPeriodo({
             {(porInterpolar > 0 || interpolando) && (
               <button onClick={onInterpolar} disabled={interpolando}
                 style={{
-                  ...mono, fontSize: 12, padding: '6px 11px', borderRadius: 3,
+                  ...mono, fontSize: 12, padding: '6px 11px', borderRadius: 2,
                   cursor: interpolando ? 'default' : 'pointer', background: 'transparent',
                   border: `1px solid ${interpolando ? '#333' : '#2a3f55'}`,
                   color: interpolando ? '#555' : '#85B7EB',
@@ -353,7 +353,7 @@ export default function SelectorPeriodo({
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }} onClick={() => setConfirmando(false)}>
           <div onClick={ev => ev.stopPropagation()} style={{
-            background: '#1e2225', border: '1px solid #333a40', borderRadius: 4,
+            background: '#111', border: '1px solid #2a2a2a', borderLeft: '3px solid #F5C300', borderRadius: 2,
             padding: 16, maxWidth: 440, ...mono,
           }}>
             <div style={{ fontSize: 14, color: '#e4e8eb', marginBottom: 9 }}>
@@ -382,7 +382,7 @@ export default function SelectorPeriodo({
                 background: 'transparent', border: 'none', color: '#7d848c',
               }}>Cancelar</button>
               <button onClick={() => { setConfirmando(false); onDescargar() }} style={{
-                ...mono, fontSize: 12, padding: '6px 12px', borderRadius: 3, cursor: 'pointer',
+                ...mono, fontSize: 12, padding: '6px 12px', borderRadius: 2, cursor: 'pointer',
                 background: 'rgba(46,85,64,.25)', border: '1px solid #2e5540', color: '#7BC47F',
               }}>Descargar</button>
             </div>

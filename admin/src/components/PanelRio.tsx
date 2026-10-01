@@ -182,7 +182,7 @@ export default function PanelRio({ dias = 90, desde, hasta }: Props) {
   if (error) {
     return (
       <div style={{ ...mono, fontSize: 12, color: '#E8A87C', border: '1px solid #7a4a22',
-        background: 'rgba(40,24,16,.5)', borderRadius: 3, padding: '8px 12px', marginTop: 8 }}>
+        background: 'rgba(40,24,16,.5)', borderLeft: '3px solid #E8833A', borderRadius: 2, padding: '8px 12px', marginTop: 8 }}>
         <b>No se pudo consultar el río.</b> {error}
         <div style={{ color: '#b98a64', marginTop: 2 }}>
           El Alerta Hidrológico del INA puede estar fuera de servicio. La lluvia no se ve afectada.
@@ -207,7 +207,7 @@ export default function PanelRio({ dias = 90, desde, hasta }: Props) {
   if (datos.estaciones.length === 0) {
     return (
       <div style={{ ...mono, fontSize: 12, color: '#E8A87C', border: '1px solid #7a4a22',
-        background: 'rgba(40,24,16,.5)', borderRadius: 3, padding: '8px 12px', marginTop: 8 }}>
+        background: 'rgba(40,24,16,.5)', borderLeft: '3px solid #E8833A', borderRadius: 2, padding: '8px 12px', marginTop: 8 }}>
         <b>El Alerta Hidrológico del INA no respondió.</b> Ninguna de las
         {' '}{datos.sinRespuesta.length} estaciones devolvió datos.
         {datos.motivos[0] && (
@@ -263,7 +263,7 @@ export default function PanelRio({ dias = 90, desde, hasta }: Props) {
               retardo. Comparten el eje de tiempo para ver si coinciden, no para sumarlas.
             </span>
             <button onClick={() => setAlDato(v => !v)} style={{
-              ...mono, fontSize: 11, padding: '3px 9px', borderRadius: 3, cursor: 'pointer',
+              ...mono, fontSize: 11, padding: '3px 9px', borderRadius: 2, cursor: 'pointer',
               background: 'transparent', border: '1px solid #2d2d2d',
               color: alDato ? '#F5C300' : '#8a8a8a', flexShrink: 0,
             }}>
@@ -296,7 +296,7 @@ export default function PanelRio({ dias = 90, desde, hasta }: Props) {
                           <>
                             <span style={{
                               display: 'inline-block', verticalAlign: 'middle', height: 6,
-                              borderRadius: 3, background: COLOR_ESTADO[e.ultima!.estado],
+                              background: COLOR_ESTADO[e.ultima!.estado],
                               width: `${Math.max(4, (e.margen / margenMax) * 70)}px`,
                             }} />
                             <span style={{ color: '#666', marginLeft: 8 }}>
