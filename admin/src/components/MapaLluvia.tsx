@@ -25,6 +25,23 @@ import { poligonosThiessen } from '@/lib/thiessen'
 import { CORTES_MM, type TramoRed, type LluviaTramo } from '@/lib/redLluvia'
 import { CONTORNO_CHACO } from '@/data/contornoChaco'
 import { cargarCuencas, cuencaEn, type Cuenca } from '@/lib/cuencas'
+import { DeslizadorHistorico, useImagenesHistoricas } from './ImagenesHistoricas'
+
+/**
+ * Los dos mapas base. Los mismos que el mapa principal del panel, para que el
+ * satélite y sus imágenes de años anteriores se vean igual en los dos.
+ */
+const BASES = {
+  mapa: {
+    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    opciones: { maxZoom: 21, maxNativeZoom: 19 },
+  },
+  satelite: {
+    url: 'https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
+    opciones: { maxZoom: 21, maxNativeZoom: 20, subdomains: '0123' },
+  },
+} as const
+type Base = keyof typeof BASES
 
 /**
  * Los límites de la provincia, para encuadrar el mapa.
@@ -138,6 +155,23 @@ export default function MapaLluvia({
   const [verZonas, setVerZonas] = useState(false)
   const [verCaminos, setVerCaminos] = useState(true)
   const [verSedes, setVerSedes] = useState(false)
+
+  /*
+   * ── Mapa base e imágenes de años anteriores ──
+   *
+   * El satélite sirve acá para lo mismo que en el mapa principal —ver sobre qué
+   * terreno está el camino— y sus imágenes anteriores para algo propio de esta
+   * pantalla: mirar cómo estaba un bajo o un cruce de agua en otros años.
+   * `historico` es si el deslizador está abierto.
+   */
+  const [mapaListo, setMapaListo] = useState(false)
+  const [base, setBase] = useState<Base>('mapa')
+  const [historico, setHistorico] = useState(false)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const capaBaseRef = useRef<any>(null)
+  const baseDibujadaRef = useRef<Base>('mapa')
+  const satelite = base === 'satelite'
+  const imagenes = useImagenesHistoricas(mapaRef, mapaListo, satelite && historico)
   const [niveles, setNiveles] = useState<number[]>([])
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -177,9 +211,8 @@ export default function MapaLluvia({
         zoomSnap: 0.5,
       })
       mapa.fitBounds(LIMITES, { padding: [12, 12], animate: false })
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 18,
-      }).addTo(mapa)
+      capaBaseRef.current = L.tileLayer(BASES.mapa.url, BASES.mapa.opciones).addTo(mapa)
+      baseDibujadaRef.current = 'mapa'
 
       mapaRef.current = mapa
 
@@ -193,6 +226,7 @@ export default function MapaLluvia({
         mapa.getContainer().classList.toggle('sv-lejos', mapa.getZoom() < ZOOM_NOMBRES_CUENCA)
       mapa.on('zoomend', marcarLejos)
       marcarLejos()
+      setMapaListo(true)
       // Orden de abajo hacia arriba: las isohietas son el fondo, después los
       // caminos, y los círculos arriba de todo para que se puedan clickear.
       capaIsoRef.current   = L.layerGroup().addTo(mapa)
@@ -259,6 +293,21 @@ export default function MapaLluvia({
       if (mapaRef.current) { mapaRef.current.remove(); mapaRef.current = null }
     }
   }, [])
+
+  // ── Cambiar el mapa base ─────────────────────────────────────────────────
+  useEffect(() => {
+    const mapa = mapaListo ? mapaRef.current : null
+    if (!mapa || baseDibujadaRef.current === base) return
+    let vivo = true
+
+    import('leaflet').then(m => {
+      if (!vivo || !mapaRef.current) return
+      capaBaseRef.current?.remove()
+      capaBaseRef.current = m.default.tileLayer(BASES[base].url, BASES[base].opciones).addTo(mapa)
+      baseDibujadaRef.current = base
+    })
+    return () => { vivo = false }
+  }, [base, mapaListo])
 
   /**
    * Dibujar la red una sola vez.
@@ -717,6 +766,12 @@ export default function MapaLluvia({
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
       <div ref={divRef} style={{ width: '100%', height: '100%', background: '#111' }} />
 
+      {satelite && (
+        <DeslizadorHistorico estado={imagenes} abierto={historico}
+          onAbrir={() => setHistorico(true)}
+          onCerrar={() => { imagenes.elegir(null); setHistorico(false) }} />
+      )}
+
       {/* Capas: dos interruptores y nada más. Cada uno explica qué muestra. */}
       {/*
         Con tope de alto y barra propia: el panel creció con cada capa nueva y
@@ -744,6 +799,19 @@ export default function MapaLluvia({
         </button>
         {capasAbiertas && (
         <div style={{ padding: '9px 12px', overflowY: 'auto', minHeight: 0 }}>
+
+        {/* El mapa base: una opción o la otra, en un renglón */}
+        <div style={{ display: 'flex', gap: 14, alignItems: 'center', fontSize: 13, color: '#e0e0e0' }}>
+          {([['mapa', 'Mapa'], ['satelite', 'Satélite']] as const).map(([k, t]) => (
+            <label key={k} style={{ display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer' }}>
+              <input type="radio" name="base-lluvia" checked={base === k}
+                onChange={() => setBase(k)} style={{ cursor: 'pointer' }} />
+              {t}
+            </label>
+          ))}
+        </div>
+
+        <div style={{ borderTop: '1px solid #1e1e1e', margin: '9px 0' }} />
 
         <Interruptor
           titulo="Caminos" activo={verCaminos} onChange={setVerCaminos}
@@ -860,7 +928,10 @@ export default function MapaLluvia({
       */}
       {bajoCursor !== null && tramos[bajoCursor] && (
         <div style={{
-          position: 'absolute', left: 10, bottom: 10, zIndex: 500,
+          // Con el satélite, el pie del mapa es del deslizador de imágenes: la
+          // lectura sube al lado de los botones de zoom para no quedar debajo.
+          position: 'absolute', left: satelite ? 56 : 10,
+          ...(satelite ? { top: 10 } : { bottom: 10 }), zIndex: 500,
           background: '#111', border: '1px solid #222', borderLeft: '3px solid #F5C300',
           borderRadius: 2, boxShadow: '0 4px 16px rgba(0,0,0,.7)',
           padding: '7px 11px', fontFamily: 'monospace', fontSize: 12,

@@ -491,9 +491,20 @@ cambie la forma de una respuesta no es algo que deba romper un commit. La
 contracara es la del primer punto — el test no habría atrapado lo de
 `SRC_DATE`. Ahora lo afirma con el número tal como llega.
 
-Sólo está en el mapa principal. Los mapas de cálculo y la revisión de
-relevamientos siguen con el satélite de Google; el hook toma la ref de cualquier
-mapa de Leaflet, así que sumarlo ahí es montarlo.
+Está en dos mapas: el principal (`MapInner`) y el de Lluvias (`MapaLluvia`),
+con el mismo hook y el mismo deslizador. Los mapas de cálculo y la revisión de
+relevamientos siguen con el satélite de Google a secas; el hook toma la ref de
+cualquier mapa de Leaflet, así que sumarlo ahí es montarlo.
+
+En Lluvias el mapa base se elige arriba del panel de capas (Mapa / Satélite).
+Dos cosas propias de esa pantalla:
+
+- **Con el satélite, la lectura del tramo bajo el cursor sube al lado de los
+  botones de zoom.** Su lugar de siempre, abajo a la izquierda, queda debajo del
+  deslizador de imágenes.
+- **El mapa de lluvia se mira casi siempre a zoom 7 a 10 y las fotos se buscan
+  desde el 12**, así que al abrir el deslizador lo normal es que pida acercar.
+  Es correcto: a escala provincial "el centro del mapa" no es un lugar.
 
 ### Accesibilidad
 
