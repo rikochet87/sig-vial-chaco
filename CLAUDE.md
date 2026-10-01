@@ -931,13 +931,64 @@ provincia, como capa del mapa de Lluvias (interruptor «Cuencas»).
 **Son el primer recorte del sistema que es un polígono con sentido
 hidrológico**, y eso es lo que habilitan. Los consorcios son líneas y por eso su
 lámina areal se pesa por kilómetros; una cuenca es justamente el objeto para el
-que se inventó la precipitación media areal. `arealPorSuperficie` ya toma
-cualquier anillo, así que calcular la lámina por cuenca **no necesita motor
-nuevo**: falta la pantalla que lo muestre.
+que se inventó la precipitación media areal.
 
-Hoy la capa es de referencia: dibuja el contorno y el rótulo de cada una, y con
-la capa prendida la lectura del tramo bajo el cursor dice en qué cuenca está.
-**Todavía no se calcula nada por cuenca.**
+En el mapa la capa es de referencia: dibuja el contorno y el rótulo de cada una,
+y con la capa prendida la lectura del tramo bajo el cursor dice en qué cuenca
+está. El cálculo va en una tabla aparte.
+
+#### La lámina por cuenca
+
+`lib/lluviaCuencas.ts` + `components/PanelCuencas.tsx` — la tabla plegada
+«Lámina por cuenca», al pie de la pantalla. Por cuenca: superficie, lámina
+areal, Thiessen, lámina máxima, cobertura y **volumen precipitado** en hm³.
+
+**Se calcula por dos caminos y manda el de IDW**, igual que en toda la pantalla:
+
+| | Cómo | Para qué |
+|---|---|---|
+| **Lámina areal** | el IDW de siempre, evaluado en una grilla de 2,5 km adentro de la cuenca y promediado | es el número que se muestra |
+| **Thiessen** | cada pluviómetro pesa los km² de su polígono dentro de la cuenca | el método de manual, con su tabla de pesos al abrir la fila |
+
+**Que sean dos no es redundancia: es la verificación.** Uno muestrea puntos y el
+otro recorta polígonos; no comparten ni una línea de geometría. Con las 71
+estaciones activas los dos dan la misma cobertura en las trece cuencas —la
+mayor diferencia son 0,13 puntos— y eso no sale por construcción.
+
+Cosas que no son obvias:
+
+- **No hay respaldo del modelo.** Donde no hay pluviómetro a menos de 60 km no
+  hay dato: esa parte queda afuera del promedio y va en `cobertura`. Sin
+  mediciones de la APA en el período no hay tabla, y se dice por qué — una tabla
+  llena de ceros se leería como "no llovió".
+- **El Impenetrable (13) tiene 80 % de cobertura** con todas las estaciones
+  activas, y es la única que no llega al 100. Su lámina y su volumen describen
+  cuatro quintos de la cuenca.
+- **El volumen es lámina × superficie *cubierta***, no la total. Un milímetro
+  sobre un km² son mil m³. Es aritmética, no un índice: no dice nada de
+  escurrimiento ni de cuánta de esa agua llega a un cauce.
+- **Sin decimales en pantalla**, como el resto: contra el pluviómetro el error
+  es de varios milímetros. El CSV sí lleva uno.
+- **La grilla se ancla a múltiplos del paso, no al borde de cada cuenca**, para
+  que dos cuencas vecinas compartan grilla y ningún punto caiga en las dos. Y el
+  paso en longitud se calcula por fila, así cada punto representa la misma
+  superficie y el promedio simple es un promedio por área. El test lo afirma
+  contando puntos: se recupera el área de cada cuenca a menos del 1,2 %.
+- **El valle del Paraná son doce partes y se promedian juntas**
+  (`arealPorPartes` en `thiessenAreal.ts`): se suman los km² de todas antes de
+  dividir. Promediar los promedios pesaría igual una isla chica que una grande.
+- **El nombre de una cuenca no dice dónde queda.** La «Línea Paraná» no está
+  sobre el río sino tierra adentro; el test de la tormenta en el este la
+  esperaba mojada por el nombre y falló.
+- La carga de las cuencas va **en el clic que abre el panel, no en un efecto**:
+  son 310 KB y un cálculo de ~150 ms por período que la mayoría de las visitas
+  no necesita.
+
+`scripts/verificar-lluvia-cuencas.ts` no tiene un valor oficial contra el cual
+comparar —nadie publicó la lámina por cuenca de un evento—, así que afirma casos
+donde la respuesta se sabe sin calcular: con todos los pluviómetros en 30 mm
+toda cuenca da 30, sin pluviómetros la lámina es `null` y no cero, y los dos
+caminos coinciden en la cobertura.
 
 | | Cuenca | ha |
 |---|---|---|

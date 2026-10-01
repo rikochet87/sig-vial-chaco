@@ -27,6 +27,7 @@ import type { EstacionLluvia } from '@/components/MapaLluvia'
 import { useRedLluvia } from '@/hooks/useRedLluvia'
 import PanelMediaAreal from '@/components/PanelMediaAreal'
 import PanelRio from '@/components/PanelRio'
+import PanelCuencas from '@/components/PanelCuencas'
 import { csvTramos } from '@/lib/redLluvia'
 import SelectorPeriodo, { type PuntoSerie, type Cobertura } from '@/components/SelectorPeriodo'
 
@@ -564,6 +565,9 @@ export default function LluviaPage() {
         de arriba y resalta el mismo período elegido.
       */}
       <PanelRio dias={90} desde={desde} hasta={hasta} />
+
+      {/* La misma lluvia, por cuenca hídrica en vez de por consorcio */}
+      <PanelCuencas estaciones={estaciones} desde={desde} hasta={hasta} />
 
       <PanelMediaAreal
         ambito={seleccionado === null

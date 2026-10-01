@@ -191,22 +191,49 @@ export function arealPorSuperficie(
   mediciones: MedicionConNombre[],
   region: [number, number][],
 ): MediaAreal {
-  if (mediciones.length === 0 || region.length < 3) return vacia('km²')
+  return arealPorPartes(mediciones, [region])
+}
 
-  // La misma latitud de referencia que usa poligonosThiessen para armar el
-  // plano donde recorta. Todas las áreas de acá abajo van con ésta.
-  const latRef = region.reduce((s, p) => s + p[1], 0) / region.length
+/**
+ * La misma media areal, sobre una región hecha de varias partes sueltas.
+ *
+ * Existe por las cuencas: el valle de inundación del Paraná son doce polígonos
+ * separados. Promediar cada parte y después promediar los promedios pesaría
+ * igual una isla de 5 km² que una de 300; acá se juntan los km² de todas las
+ * partes **antes** de dividir, que es lo que dice la fórmula.
+ *
+ * Cada parte se recorta y se mide en su propio plano —con su latitud media—,
+ * porque así lo hace `poligonosThiessen`. Entre partes de una misma región esa
+ * latitud cambia unas décimas de grado y el área, menos de un 0,2 %.
+ *
+ * Las partes van en `[lng, lat]`, igual que `region` arriba.
+ */
+export function arealPorPartes(
+  mediciones: MedicionConNombre[],
+  partes: [number, number][][],
+): MediaAreal {
+  const validas = partes.filter(p => p.length >= 3)
+  if (mediciones.length === 0 || validas.length === 0) return vacia('km²')
 
-  const zonas = poligonosThiessen(mediciones, region)
   const pesos = new Map<number, number>()
-  for (const z of zonas) {
-    const a = areaKm2(z.anillo, latRef)
-    if (a > 0) pesos.set(z.indice, (pesos.get(z.indice) ?? 0) + a)
+  let areaRegion = 0
+
+  for (const region of validas) {
+    // La misma latitud de referencia que usa poligonosThiessen para armar el
+    // plano donde recorta. Todas las áreas de esta parte van con ésta.
+    const latRef = region.reduce((s, p) => s + p[1], 0) / region.length
+
+    for (const z of poligonosThiessen(mediciones, region)) {
+      const a = areaKm2(z.anillo, latRef)
+      if (a > 0) pesos.set(z.indice, (pesos.get(z.indice) ?? 0) + a)
+    }
+
+    // El área de la región, para saber cuánto quedó fuera de cobertura
+    const comoLatLng = region.map(([lng, lat]) => [lat, lng] as [number, number])
+    areaRegion += areaKm2(comoLatLng, latRef)
   }
 
-  // El área de la región, para saber cuánto quedó fuera de cobertura
-  const comoLatLng = region.map(([lng, lat]) => [lat, lng] as [number, number])
-  return armar(pesos, mediciones, areaKm2(comoLatLng, latRef), 'km²')
+  return armar(pesos, mediciones, areaRegion, 'km²')
 }
 
 /**

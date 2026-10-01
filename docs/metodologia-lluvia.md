@@ -391,6 +391,49 @@ exactamente donde la fusión cae al modelo.
 Igual que en los tramos. Repartir el hueco entre las estaciones existentes sería
 inventar un dato; promediarlo como 0 mm sería inventar sequía.
 
+### 6.6 Precipitación media areal por cuenca hídrica
+
+La provincia se divide en 13 cuencas, que cubren 99.580 km². A diferencia de los
+consorcios, una cuenca **sí es un polígono**, y es el objeto para el que se
+definió la precipitación media areal: toda su superficie recibe la lluvia y toda
+cuenta por igual.
+
+Para cada cuenca se informan, sobre el período elegido:
+
+| Dato | Cómo se obtiene |
+|---|---|
+| **Lámina areal** (mm) | promedio del IDW de la sección 3 —potencia 2, radio 60 km— evaluado en una grilla de 2,5 km adentro de la cuenca |
+| **Thiessen** (mm) | la fórmula de 6.1 con peso por superficie: cada pluviómetro pesa los km² de su polígono dentro de la cuenca |
+| **Lámina máxima** (mm) | el punto de la grilla que más recibió |
+| **Cobertura** (%) | parte de la cuenca con un pluviómetro a menos de 60 km |
+| **Volumen precipitado** (hm³) | lámina areal × superficie cubierta; 1 mm sobre 1 km² = 1.000 m³ |
+
+El número que se muestra como principal es el de IDW, por el mismo motivo que en
+el resto de la pantalla (sección 4.2). El de Thiessen acompaña como método de
+manual y lleva su tabla de pesos.
+
+**Los dos caminos se controlan entre sí.** Uno muestrea puntos y el otro recorta
+polígonos, sin geometría en común. Con las 71 estaciones activas coinciden en la
+cobertura de las trece cuencas a menos de 0,13 puntos porcentuales.
+
+Tres límites que hay que tener presentes al citar estos números:
+
+- **Sólo usa pluviómetros.** No hay respaldo del modelo: sin mediciones de la
+  APA en el período no hay lámina por cuenca.
+- **Donde la cobertura es menor al 100 %, la lámina y el volumen describen sólo
+  la parte cubierta.** Con todas las estaciones activas es el caso de una sola
+  cuenca, el Impenetrable, con el 80 %.
+- **El volumen es agua caída, no escurrida.** No descuenta infiltración ni
+  evaporación y no dice cuánta llega a un cauce.
+
+**Sobre la geometría de las cuencas.** Provienen de un shapefile en Gauss-Krüger
+faja 5 que no trae archivo de proyección. La proyección se deduce de las
+coordenadas; el datum se supuso POSGAR tras comparar contra el límite
+provincial, con evidencia débil. La alternativa —Campo Inchauspe— desplazaría
+los bordes unos 200 m, lo que no altera las láminas: los pluviómetros están a
+decenas de kilómetros. El área de cada polígono reproyectado coincide con la que
+declara el origen a menos del 0,6 %.
+
 ---
 
 ## 7. Isohietas
