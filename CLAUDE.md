@@ -393,6 +393,80 @@ o una letra suelta en el campo de jurisdicción; `M` tiene 'Mejora', '' y una
 jurisdicción entera metida adentro. Lo que no se entiende se omite, que es más
 honesto que inventarlo. Corregirlo en el bundle es otra tarea.
 
+### Imágenes satelitales históricas
+
+`lib/wayback.ts` + `components/ImagenesHistoricas.tsx` — tercera opción de mapa
+base en el mapa principal (`MapInner`): **Satélite histórico**, con un deslizador
+que recorre las fotos de años anteriores del lugar que se está mirando.
+
+La fuente es **Esri World Imagery Wayback**: cada versión publicada del mosaico
+desde 2014 (~200) se sirve como una capa de tiles propia. Es lo más parecido al
+deslizador de Google Earth que se puede usar desde afuera; el archivo histórico
+de Google no está en ninguna API. Los tres servicios —config, tilemap y
+metadatos— responden sin clave y con CORS abierto, así que todo corre en el
+navegador.
+
+**La lista es del lugar, no del mapa.** Una versión nueva sólo cambia donde Esri
+cargó imagen nueva, así que en un punto dado casi todas repiten la misma foto.
+Para mostrar sólo las distintas hay dos pasos:
+
+- **La cadena de dueños.** `tilemap/{versión}/{z}/{y}/{x}` contesta en `select`
+  de qué versión anterior viene realmente ese tile. Se salta de dueño en dueño:
+  12 a 22 pedidos en vez de 200.
+- **La fecha de captura.** Que el tile haya cambiado no quiere decir que haya
+  foto nueva: a veces Esri reprocesa la misma. Se consultan los metadatos de
+  cada dueño y se colapsan los que muestran la misma toma. Medido el 01/10/2026:
+  Castelli, 12 dueños y 7 fotos (2007 a 2023); Resistencia, 5 fotos (2007 a 2026).
+
+**La fecha que se muestra es la de toma, no la de publicación**: es la que dice
+cuándo el terreno estaba así, y pueden diferir en años — la foto de Castelli de
+2007 se publicó en 2016. Si una versión no la informa, se muestra la de
+publicación **y se dice que es esa**.
+
+Cosas que no son obvias:
+
+- **`SRC_DATE` llega como número, no como texto** (`20230216`, el campo es
+  `esriFieldTypeInteger`). La primera versión de `fechaSrc` esperaba texto y
+  reventaba; como el error se atajaba más arriba —"una versión sin metadatos
+  queda con su fecha de publicación"— **no fallaba nada: simplemente ninguna
+  foto tenía fecha de toma**. Se encontró corriendo la búsqueda contra el
+  servicio real, no con el test. Un `catch` que degrada con elegancia también
+  esconde el bug que lo dispara siempre.
+- **El detalle está topado en zoom 17** (`ZOOM_NATIVO_MAX`). El 18 y el 19 dan
+  404 en Castelli y en campo abierto, y en Resistencia sólo existen en las
+  versiones recientes. Pasado el 17 Leaflet agranda el tile en vez de pedir uno
+  que falta, y todas las fechas se ven con el mismo detalle y se pueden
+  comparar.
+- **Debajo queda OSM, no el satélite de Google.** Con el satélite actual de
+  fondo, un tile histórico que falte dejaría ver la foto de hoy como si fuera la
+  de la fecha elegida.
+- **Debajo de zoom 12 no se busca.** A escala provincial "el centro del mapa" no
+  es un lugar —el tile que se consulta mide ~550 m— y cada búsqueda son la
+  cadena más los metadatos.
+- **Los metadatos son lentos y no hay cómo apurarlos.** La cadena tarda ~6 s y
+  con eso el deslizador ya se puede mover, con fechas de publicación; las de
+  toma llegaron a los 26 s en Castelli y a los 62 s en Resistencia. Van de a 4
+  en simultáneo: con 20 juntos el servicio tardó 58 s. El resultado se cachea
+  por tile, así que volver a un lugar es instantáneo.
+- **Al mover el mapa se conserva el momento, no la posición del deslizador**: la
+  misma versión si sigue en la lista, la misma toma si la hay, y si no la que
+  esa versión muestra en el lugar nuevo (`entradaVigente`: la más nueva
+  publicada hasta esa fecha).
+- **El colapso por captura se hace una sola vez, al final**, para que las marcas
+  del deslizador no se reacomoden bajo el dedo de quien lo está usando.
+- La capa anterior se queda debajo hasta que la nueva cargó. Sin eso cada paso
+  parpadea al mapa base y no se pueden comparar dos fechas.
+
+`scripts/verificar-wayback.ts` cubre la parte pura y **no sale a la red**, por
+el mismo motivo que `relevar-ina.ts` queda afuera de `verificar`: que Esri
+cambie la forma de una respuesta no es algo que deba romper un commit. La
+contracara es la del primer punto — el test no habría atrapado lo de
+`SRC_DATE`. Ahora lo afirma con el número tal como llega.
+
+Sólo está en el mapa principal. Los mapas de cálculo y la revisión de
+relevamientos siguen con el satélite de Google; el hook toma la ref de cualquier
+mapa de Leaflet, así que sumarlo ahí es montarlo.
+
 ### Accesibilidad
 
 Hay usuarios con visión reducida. El piso de tamaño de texto es **11 px** —
