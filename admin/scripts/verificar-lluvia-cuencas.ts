@@ -15,7 +15,10 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { parsearCuencas } from '../src/lib/cuencas'
-import { csvCuencas, laminaPorCuenca, muestrasDe, totalCuencas, PASO_KM } from '../src/lib/lluviaCuencas'
+import {
+  csvCuencas, csvMaximas, laminaMaxima, laminaPorCuenca, muestrasDe, pesosIdw, serieDiaria,
+  totalCuencas, PASO_KM, VENTANAS_DIAS, type DiaCuenca,
+} from '../src/lib/lluviaCuencas'
 import { arealPorPartes, arealPorSuperficie, type MedicionConNombre } from '../src/lib/thiessenAreal'
 import { ESTACIONES_ACTIVAS } from '../src/data/estacionesApa'
 
@@ -187,6 +190,114 @@ ok('una fila por cuenca más el encabezado', csv.length, 4 + 13)
 ok('con coma decimal, para Excel en español', csv.slice(4).every(l => !/\d\.\d/.test(l)))
 ok('una cuenca sin dato va con la celda vacía, no con cero',
   csvCuencas(nada, { desde: 'a', hasta: 'b' }).split('\r\n')[4].split(';')[3], '')
+
+// ── La serie diaria ─────────────────────────────────────────────────────────
+titulo('Los pesos por cuenca dan lo mismo que el IDW punto por punto')
+
+/*
+ * La serie diaria no corre el IDW cada día: usa que es lineal y calcula una
+ * sola vez cuánto pesa cada pluviómetro en cada cuenca. Eso repite las reglas
+ * de `estimarPunto` en otro lugar, así que acá se comprueba que los dos caminos
+ * coinciden. Si alguien cambia el radio, la potencia o la regla de la estación
+ * pegada en uno solo de los dos, esto falla.
+ *
+ * El campo de prueba es deliberadamente irregular —cada estación con un valor
+ * distinto— para que un peso mal puesto no se compense con otro.
+ */
+t0 = Date.now()
+const pesos = pesosIdw(muestras, ESTACIONES_ACTIVAS)
+info(`pesos de 13 cuencas × ${ESTACIONES_ACTIVAS.length} pluviómetros en ${Date.now() - t0} ms`)
+
+const irregular = est(e => Math.round(Math.abs(Math.sin(e.lat * 37 + e.lng * 11)) * 1200) / 10)
+const porPuntos = laminaPorCuenca(cuencas, muestras, irregular)
+let peorPeso = 0
+for (let i = 0; i < cuencas.length; i++) {
+  const lineal = pesos[i].pesos.reduce((s, w, j) => s + w * irregular[j].mm, 0)
+  peorPeso = Math.max(peorPeso, Math.abs(lineal - porPuntos[i].mm!))
+}
+// `estimarPunto` redondea cada punto a dos decimales; de ahí la tolerancia
+ok('la lámina coincide en las trece (±0,02 mm)', peorPeso < 0.02)
+info(`la mayor diferencia: ${peorPeso.toFixed(4)} mm`)
+ok('y la cobertura es la misma',
+  cuencas.every((_, i) => Math.abs(pesos[i].cobertura - porPuntos[i].cobertura) < 0.0001))
+ok('los pesos de cada cuenca suman 1',
+  pesos.every(p => Math.abs(p.pesos.reduce((s, w) => s + w, 0) - 1) < 1e-9))
+
+titulo('La serie de una cuenca, día por día')
+
+/*
+ * Tres días con parte dentro de una semana. Los otros cuatro no tienen parte:
+ * no son ceros medidos, y la serie los tiene que dejar distinguir.
+ */
+const N = ESTACIONES_ACTIVAS.length
+const tresPartes = [
+  { fecha: '2026-09-22', mm: new Array<number>(N).fill(20) },
+  { fecha: '2026-09-23', mm: new Array<number>(N).fill(50) },
+  { fecha: '2026-09-26', mm: new Array<number>(N).fill(0) },
+]
+const serie = serieDiaria(pesos[7], tresPartes, '2026-09-20', '2026-09-26')
+ok('trae los siete días del rango', serie.length, 7)
+ok('los días con parte llevan su lámina', serie.filter(d => d.mm !== null).map(d => d.mm).join(','), '20,50,0')
+ok('los días sin parte van en null, no en cero', serie.filter(d => d.mm === null).length, 4)
+ok('un cero medido sigue siendo cero', serie[6].mm, 0)
+
+/*
+ * La suma de la serie es la lámina del período: es lo que garantiza que esta
+ * tabla y la del acumulado, que se calculan por caminos distintos, no puedan
+ * decir números distintos para lo mismo.
+ */
+const dosDias = [
+  { fecha: '2026-09-22', mm: irregular.map(e => e.mm) },
+  { fecha: '2026-09-23', mm: irregular.map(e => Math.round(e.mm * 4) / 10) },
+]
+const acumulado = est(() => 0).map((e, j) => ({ ...e, mm: dosDias[0].mm[j] + dosDias[1].mm[j] }))
+const delPeriodo = laminaPorCuenca(cuencas, muestras, acumulado)
+let peorSuma = 0
+for (let i = 0; i < cuencas.length; i++) {
+  const suma = serieDiaria(pesos[i], dosDias, '2026-09-22', '2026-09-23').reduce((s, d) => s + (d.mm ?? 0), 0)
+  peorSuma = Math.max(peorSuma, Math.abs(suma - delPeriodo[i].mm!))
+}
+ok('la suma de los días es la lámina del período (±0,05 mm)', peorSuma < 0.05)
+
+const sinCobertura = serieDiaria({ pesos: new Array<number>(N).fill(0), cobertura: 0 }, tresPartes, '2026-09-20', '2026-09-26')
+ok('una cuenca sin cobertura no tiene serie', sinCobertura.every(d => d.mm === null))
+
+titulo('La lámina máxima en varios días corridos')
+
+const D = (fecha: string, mm: number | null): DiaCuenca => ({ fecha, mm })
+//                     01    02    03    04    05    06    07    08    09    10
+const hecha = [10, null, 0, 40, 30, null, 5, 0, 60, null].map((mm, i) =>
+  D(`2026-09-${String(i + 1).padStart(2, '0')}`, mm))
+
+ok('en 1 día: el pico', laminaMaxima(hecha, 1)?.mm, 60)
+ok('y dice qué día fue', laminaMaxima(hecha, 1)?.desde, '2026-09-09')
+/*
+ * Lo que justifica mirar varios días: el mayor acumulado de 3 días NO es el que
+ * contiene al pico. El día 9 cayeron 60 mm solos; del 3 al 5 cayeron 70.
+ */
+ok('en 3 días: gana la tormenta larga, no la que tiene el pico', laminaMaxima(hecha, 3)?.mm, 70)
+// Del 3 al 5 y del 4 al 6 empatan —los dos días de afuera son secos—, y con
+// cualquiera de las dos la ventana contiene los dos días que llovió.
+const m3 = laminaMaxima(hecha, 3)!
+ok('y la ventana contiene los dos días de esa tormenta', m3.desde <= '2026-09-04' && m3.hasta >= '2026-09-05')
+ok('en 7 días', laminaMaxima(hecha, 7)?.mm, 135)
+ok('los días sin parte suman cero y no cortan la ventana', laminaMaxima(hecha, 5)?.mm, 95)
+ok('la máxima crece con la duración',
+  VENTANAS_DIAS.map(d => laminaMaxima(hecha, d)!.mm).every((v, i, a) => i === 0 || v >= a[i - 1]))
+
+ok('una serie más corta que la ventana no tiene máxima', laminaMaxima(hecha.slice(0, 4), 5), null)
+ok('una serie sin ningún parte tampoco, y no es cero',
+  laminaMaxima(hecha.map(d => D(d.fecha, null)), 3), null)
+ok('si no llovió nunca, la máxima es cero', laminaMaxima(hecha.map(d => D(d.fecha, 0)), 3)?.mm, 0)
+
+const empate = [5, 5, 0, 5, 5].map((mm, i) => D(`2026-10-0${i + 1}`, mm))
+ok('si dos ventanas empatan, se informa la más reciente', laminaMaxima(empate, 2)?.desde, '2026-10-04')
+
+const csvMax = csvMaximas(
+  [{ cod: 8, nombre: 'Tapenagá', maximas: VENTANAS_DIAS.map(d => laminaMaxima(hecha, d)) }],
+  { desde: '2026-09-01', hasta: '2026-09-10' }).split('\r\n')
+ok('la descarga lleva las cuatro duraciones con sus fechas', csvMax[4].split(';').length, 2 + 4 * 3)
+ok('y coma decimal', csvMax[4].includes('60,0'))
 
 console.log(fallos === 0 ? '\n✓ Todo bien.' : `\n✗ ${fallos} fallo(s).`)
 process.exit(fallos === 0 ? 0 : 1)

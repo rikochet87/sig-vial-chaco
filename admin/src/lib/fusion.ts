@@ -94,7 +94,7 @@ export const RADIO_KM = 60
  * Por debajo de esta distancia el punto se considera **en** la estación y toma
  * su valor tal cual. Evita además la división por cero.
  */
-const PEGADO_KM = 1.5
+export const PEGADO_KM = 1.5
 
 /** Distancia en km, plano equirectangular — sobra para el tamaño del Chaco */
 export function distanciaKm(

@@ -990,6 +990,61 @@ donde la respuesta se sabe sin calcular: con todos los pluviómetros en 30 mm
 toda cuenca da 30, sin pluviómetros la lámina es `null` y no cero, y los dos
 caminos coinciden en la cobertura.
 
+#### La serie diaria y las láminas máximas en varios días
+
+La segunda vista del panel, «Máximas en varios días»: para cada cuenca, la mayor
+lámina areal acumulada en **1, 3, 5 y 7 días corridos** (`VENTANAS_DIAS`), con
+las fechas en que pasó. Al abrir una fila se ve el hietograma de la cuenca.
+
+**Varios días y no sólo uno porque el Chaco es llanura.** Con pendientes
+menores al 0,1 % el agua no se va por un cauce: se junta. Lo que anega es lo que
+se acumula en una semana, no el pico de una tarde, y 60 mm en un día y 60 mm
+repartidos en cinco son eventos distintos. El test tiene el caso: el mayor
+acumulado de 3 días **no** es el que contiene al día de mayor lámina.
+
+Cómo está hecho:
+
+- **`/api/lluvia/estaciones/diario`** devuelve lo que midió cada pluviómetro día
+  por día. La ruta del acumulado no alcanzaba. Guard `requirePermiso('lluvia')`,
+  y pagina **con `order`**. Trae **sólo los días con parte**; adentro de un día
+  con parte sí van los ceros de todas las activas, que es la misma deducción de
+  la ruta del acumulado.
+- **No se corre el IDW cada día: se usa que es lineal.** El peso de cada
+  estación en un punto depende sólo de las distancias, así que la lámina de una
+  cuenca es siempre la misma combinación de pluviómetros. `pesosIdw` calcula
+  esos pesos una vez —15 ms— y cada día son 71 multiplicaciones. Correr
+  `laminaPorCuenca` por cada día cuesta ~150 ms: con los cincuenta días con
+  parte de un trimestre serían unos 7 s.
+- **Eso repite las reglas de `estimarPunto` en otro lugar** (radio, potencia, y
+  la estación pegada que manda sola; `PEGADO_KM` se exportó para eso). El test
+  afirma que los dos caminos dan la misma lámina —la mayor diferencia, 0,005
+  mm— y **si alguien cambia una regla en uno solo, falla**.
+- **La suma de la serie es la lámina del período.** Es lo que garantiza que esta
+  vista y la del acumulado, que se calculan distinto, no puedan decir números
+  distintos para lo mismo. También está afirmado.
+- **Mira los últimos 90 días**, como la línea de tiempo y el río, y se estira
+  hacia atrás si el período elegido es anterior: una máxima de siete días no se
+  puede buscar adentro de un evento de dos. `hoy` llega por prop para no leer el
+  reloj al renderizar.
+
+**Los días sin parte suman cero, y es una suposición declarada.** La APA publica
+sólo cuando llueve, así que casi siempre es cierto — y es la misma deducción que
+hace el acumulado en toda la pantalla. Pero si un día llovió y no hubo parte,
+las máximas quedan cortas, y la pantalla lo dice.
+
+Por eso el hietograma tiene **tres estados que se distinguen**: barra = llovió,
+raya gris = hubo parte y la cuenca dio cero, vacío = la APA no publicó parte.
+Los dos últimos casi siempre significan lo mismo, pero uno es una medición y el
+otro una deducción.
+
+**Esto no es un índice de humedad antecedente**, que se descartó (ver «Lluvia —
+para qué es la pantalla»). Son sumas de lluvia medida en ventanas fijas: no
+llevan un coeficiente de decaimiento ni dicen nada del estado del suelo o de un
+camino.
+
+Si dos ventanas empatan se informa la más reciente. `laminaMaxima` devuelve
+`null` —no cero— cuando la serie no tiene ningún día con parte.
+
 | | Cuenca | ha |
 |---|---|---|
 | 1 | Bermejo - Bermejito | 1.121.550 |

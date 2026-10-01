@@ -26,7 +26,7 @@
  * Acá no hay React ni red: entra geometría y mediciones, sale una tabla.
  */
 
-import { estimarPunto, RADIO_KM } from './fusion'
+import { distanciaKm, estimarPunto, PEGADO_KM, POTENCIA, RADIO_KM } from './fusion'
 import { arealPorPartes, type MediaAreal, type MedicionConNombre } from './thiessenAreal'
 import type { Cuenca } from './cuencas'
 
@@ -197,6 +197,173 @@ export function csvCuencas(filas: LaminaCuenca[], rango: { desde: string; hasta:
     ...filas.map(f => [
       f.cod, f.nombre, n(f.km2, 0), n(f.mm), n(f.thiessen.mm), n(f.mmMax),
       n(f.cobertura * 100), n(f.hm3), f.thiessen.aportes.length,
+    ].join(';')),
+  ]
+  return lineas.join('\r\n')
+}
+
+// ── La serie diaria ──────────────────────────────────────────────────────────
+
+/**
+ * Cuánto pesa cada pluviómetro en la lámina de una cuenca.
+ *
+ * **El IDW es lineal en las mediciones**: el peso de cada estación en un punto
+ * depende sólo de las distancias, no de cuánto llovió. Entonces la lámina de
+ * una cuenca es siempre la misma combinación de pluviómetros, día tras día:
+ *
+ *     lámina(día) = Σ pesoⱼ · mmⱼ(día)
+ *
+ * Calcular esos pesos una vez —son 16.000 puntos contra 71 estaciones— deja
+ * cada día en 71 multiplicaciones por cuenca. Correr `laminaPorCuenca` por
+ * cada día cuesta ~150 ms: con los cincuenta días con parte de un trimestre
+ * serían unos 7 segundos.
+ *
+ * Vale mientras las estaciones sean las mismas todos los días, y lo son: la
+ * pantalla trabaja con las estaciones activas y deduce el cero de la que no
+ * informó.
+ *
+ * Repite las tres reglas de `estimarPunto` —radio, potencia y la estación
+ * pegada que manda sola— en vez de llamarlo, porque acá hacen falta los pesos y
+ * aquél devuelve el resultado. **El test afirma que los dos caminos dan lo
+ * mismo**; si alguien cambia una regla allá y no acá, falla.
+ */
+export interface PesosCuenca {
+  /** Un peso por estación, en el orden en que se pasaron. Suman 1, o 0 si no hay cobertura */
+  pesos: number[]
+  /** Fracción de la cuenca con pluviómetro en el radio */
+  cobertura: number
+}
+
+export function pesosIdw(
+  muestras: Muestra[][],
+  estaciones: { lat: number; lng: number }[],
+): PesosCuenca[] {
+  return muestras.map(pts => {
+    const acumulado = new Array<number>(estaciones.length).fill(0)
+    const delPunto = new Array<number>(estaciones.length)
+    let cubiertos = 0
+
+    for (const p of pts) {
+      let suma = 0, pegada = -1
+      for (let j = 0; j < estaciones.length; j++) {
+        const d = distanciaKm(p, estaciones[j])
+        if (d > RADIO_KM) { delPunto[j] = 0; continue }
+        // Encima de la estación: es su valor, no un promedio. La primera gana.
+        if (d <= PEGADO_KM) { pegada = j; break }
+        delPunto[j] = 1 / Math.pow(d, POTENCIA)
+        suma += delPunto[j]
+      }
+
+      if (pegada >= 0) { acumulado[pegada] += 1; cubiertos++; continue }
+      if (suma <= 0) continue
+      for (let j = 0; j < estaciones.length; j++) acumulado[j] += delPunto[j] / suma
+      cubiertos++
+    }
+
+    return {
+      pesos: cubiertos > 0 ? acumulado.map(w => w / cubiertos) : acumulado,
+      cobertura: pts.length > 0 ? cubiertos / pts.length : 0,
+    }
+  })
+}
+
+/** Lo que midió cada estación un día con parte, en el orden de las estaciones */
+export interface ParteDiario { fecha: string; mm: number[] }
+
+/** Un día de la serie de una cuenca */
+export interface DiaCuenca {
+  fecha: string
+  /** Lámina areal del día, en mm; `null` si ese día la APA no publicó parte */
+  mm: number | null
+}
+
+const DIA_MS = 86_400_000
+const isoDe = (t: number) => new Date(t).toISOString().slice(0, 10)
+
+/**
+ * La lámina de una cuenca día por día, entre dos fechas.
+ *
+ * Devuelve **todos** los días del rango, no sólo los que tienen parte. Los que
+ * no lo tienen van con `mm: null`: la APA publica sólo los días que llueve, así
+ * que casi siempre significan "no llovió", pero no es una medición y la
+ * pantalla los dibuja distinto de un cero medido.
+ *
+ * Una cuenca sin cobertura no tiene serie: todos sus días van en `null`.
+ */
+export function serieDiaria(
+  pesos: PesosCuenca, partes: ParteDiario[], desde: string, hasta: string,
+): DiaCuenca[] {
+  const porFecha = new Map(partes.map(p => [p.fecha, p.mm]))
+  const out: DiaCuenca[] = []
+  for (let t = Date.parse(desde); t <= Date.parse(hasta); t += DIA_MS) {
+    const fecha = isoDe(t)
+    const mm = porFecha.get(fecha)
+    if (!mm || pesos.cobertura <= 0) { out.push({ fecha, mm: null }); continue }
+    let s = 0
+    for (let j = 0; j < pesos.pesos.length; j++) s += pesos.pesos[j] * (mm[j] ?? 0)
+    out.push({ fecha, mm: redondear(s) })
+  }
+  return out
+}
+
+/**
+ * Las duraciones para las que se busca la lámina máxima, en días.
+ *
+ * Varios días y no sólo uno, porque en llanura el agua no se va: lo que anega
+ * es lo que se junta en una semana, no el pico de una tarde. Una lámina de 60
+ * mm en un día y otra de 60 mm repartida en cinco son eventos distintos, y hace
+ * falta ver los dos números para distinguirlos.
+ */
+export const VENTANAS_DIAS = [1, 3, 5, 7] as const
+
+export interface LaminaMaxima {
+  dias: number
+  mm: number
+  desde: string
+  hasta: string
+}
+
+/**
+ * La mayor lámina acumulada en `dias` días corridos dentro de la serie.
+ *
+ * **Los días sin parte suman cero.** Es la misma deducción que hace el
+ * acumulado del período en toda la pantalla, y hay que decirla porque es una
+ * suposición: si la APA dejó de publicar un día que sí llovió, este número
+ * queda corto.
+ *
+ * Devuelve `null` si la serie es más corta que la ventana o si no tiene ningún
+ * día con parte — sin mediciones no hay máximo, y no es cero.
+ */
+export function laminaMaxima(serie: DiaCuenca[], dias: number): LaminaMaxima | null {
+  if (dias < 1 || serie.length < dias || !serie.some(d => d.mm !== null)) return null
+
+  let suma = 0
+  for (let i = 0; i < dias; i++) suma += serie[i].mm ?? 0
+  let mejor = suma, fin = dias - 1
+
+  for (let i = dias; i < serie.length; i++) {
+    suma += (serie[i].mm ?? 0) - (serie[i - dias].mm ?? 0)
+    // Con `>` gana la primera; con `>=` la más reciente, que es la que importa
+    // cuando dos ventanas empatan.
+    if (suma >= mejor - 1e-9 && suma > 0) { mejor = Math.max(mejor, suma); fin = i }
+  }
+  return { dias, mm: redondear(mejor), desde: serie[fin - dias + 1].fecha, hasta: serie[fin].fecha }
+}
+
+/** Las máximas de todas las cuencas como CSV */
+export function csvMaximas(
+  filas: { cod: number; nombre: string; maximas: (LaminaMaxima | null)[] }[],
+  rango: { desde: string; hasta: string },
+): string {
+  const n = (v: number) => v.toFixed(1).replace('.', ',')
+  const lineas = [
+    `Lámina máxima por cuenca en ${VENTANAS_DIAS.join(', ')} días corridos;${rango.desde};${rango.hasta}`,
+    `Lámina areal por IDW (potencia ${POTENCIA}, radio ${RADIO_KM} km); los días sin parte de la APA suman cero`,
+    '',
+    ['Cod', 'Cuenca', ...VENTANAS_DIAS.flatMap(d => [`Max ${d} d mm`, `Max ${d} d desde`, `Max ${d} d hasta`])].join(';'),
+    ...filas.map(f => [
+      f.cod, f.nombre,
+      ...f.maximas.flatMap(m => (m ? [n(m.mm), m.desde, m.hasta] : ['', '', ''])),
     ].join(';')),
   ]
   return lineas.join('\r\n')

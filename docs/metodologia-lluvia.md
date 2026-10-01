@@ -426,6 +426,25 @@ Tres límites que hay que tener presentes al citar estos números:
 - **El volumen es agua caída, no escurrida.** No descuenta infiltración ni
   evaporación y no dice cuánta llega a un cauce.
 
+**Lámina máxima en varios días.** Además del acumulado del período, para cada
+cuenca se informa la mayor lámina areal acumulada en 1, 3, 5 y 7 días corridos
+dentro de los últimos 90 días, con las fechas en que ocurrió. Se informan varias
+duraciones porque en una llanura con pendientes menores al 0,1 % el agua se
+almacena en vez de escurrir: lo que produce anegamiento es el acumulado de
+varios días, no la intensidad de uno.
+
+La lámina de cada día se obtiene con el mismo IDW. Como el método es lineal en
+las mediciones, el peso de cada pluviómetro sobre cada cuenca se calcula una
+sola vez y se aplica a todos los días; el resultado coincide con evaluar el IDW
+punto por punto a menos de 0,01 mm, y la suma de los días coincide con la lámina
+del período.
+
+Una salvedad al citar estos números: **los días en que la APA no publicó parte
+se toman como cero**. La APA publica sólo los días con lluvia, de modo que la
+suposición se cumple casi siempre, pero si en un día con lluvia no hubo parte la
+máxima informada queda por debajo de la real. No se aplica ningún coeficiente de
+decaimiento: son sumas de lluvia medida, no un índice de humedad del suelo.
+
 **Sobre la geometría de las cuencas.** Provienen de un shapefile en Gauss-Krüger
 faja 5 que no trae archivo de proyección. La proyección se deduce de las
 coordenadas; el datum se supuso POSGAR tras comparar contra el límite
