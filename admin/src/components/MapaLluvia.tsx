@@ -831,7 +831,7 @@ export default function MapaLluvia({
 
         <Interruptor
           titulo="Cuencas" activo={mostrarCuencas} onChange={setVerCuencas}
-          nota="Las 13 cuencas hídricas de la provincia. De lejos se ve el número; al acercarse, el nombre." />
+          nota="Las 13 cuencas hídricas. De lejos, sólo el número." />
 
         {mostrarCuencas && errorCuencas && (
           <div style={{ margin: '6px 0 0 19px', fontSize: 11, color: '#E8A87C', lineHeight: 1.5 }}>
