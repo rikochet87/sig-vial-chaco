@@ -600,6 +600,51 @@ lectura: la misma vista debería poder alimentarse de lluvia observada, de un
 pronóstico o de un análogo histórico. Hoy falta profundidad histórica: hay un
 año de datos, y ERA5 permitiría décadas.
 
+## Lluvia — cómo está organizada la pantalla
+
+Cuatro pestañas, cada una con la pantalla entera:
+
+| Pestaña | Qué tiene | Selector de período |
+|---|---|---|
+| **Mapa** | el mapa y, al lado, la lista de consorcios **o** de cuencas | sí |
+| **Cuencas** | `PanelCuencas` con sus tres vistas | sí |
+| **Río Paraná** | `PanelRio`, abierto | sí |
+| **Precisión** | la comparación de métodos y `PanelMediciones` | no: habla de métodos, no de un período |
+
+**Antes todo iba apilado** —el mapa, y debajo, en renglones plegados, el río,
+las cuencas y la comparación de métodos— y eso tenía un costo medido: en un
+monitor de 1080 el mapa quedaba con **418 px de alto**, tan bajo que el encuadre
+de la provincia caía un nivel de zoom y el Chaco se veía chiquito en medio de
+medio continente. Las tres tablas de cuencas vivían al fondo, adentro de un
+renglón. Se encontró mirando la pantalla real, no el código.
+
+Cosas que no son obvias:
+
+- **La lista al lado del mapa alterna entre consorcios y cuencas**, y elegir una
+  cuenca la resalta y la encuadra, igual que con un consorcio. Antes la tabla de
+  cuencas no hacía nada sobre el mapa. Al cambiar de lista se suelta lo elegido
+  en la otra, para que el mapa no quede resaltando dos cosas.
+- **Elegir una cuenca prende la capa aunque el interruptor esté apagado**
+  (`mostrarCuencas` en `MapaLluvia`): no se puede resaltar algo que no se dibuja.
+- **`useCuencasLluvia` calcula las cuencas una sola vez** para la lista del mapa
+  y para la pestaña, por el mismo motivo que `useRedLluvia`: dos lugares que
+  muestran el mismo número tienen que sacarlo del mismo cálculo. No hace nada
+  hasta que alguien mira cuencas — son 310 KB y ~150 ms por período.
+- **El panel de capas del mapa tiene tope de alto, barra propia y se pliega.**
+  Creció con cada capa nueva hasta medir 572 px sobre un mapa de 418: se salía
+  por abajo y tapaba lo que había debajo.
+- **La franja «Datos» del selector se pliega sola cuando el período está al
+  día**, que es casi siempre. Eran 60 px fijos arriba del mapa para decir "no
+  hace falta tocar nada"; queda un indicador chico que la abre. Si falta algo o
+  se está descargando, aparece sin que nadie la pida.
+- **`zoomSnap: 0.5` en el mapa.** Con niveles enteros el encuadre de la
+  provincia salta de "entra con medio continente alrededor" a "no entra".
+- **El texto gris se subió de contraste** en toda la sección. Había 102 usos por
+  debajo de 4,5:1 contra el fondo de los paneles —la mitad eran `#555`, a
+  2,4:1— y hay usuarios con visión reducida. Quedan dos escalones: `#8f8f8f`
+  (5,4:1) para lo terciario y `#a0a0a0` para lo secundario. **Al agregar texto,
+  no bajar de `#8f8f8f`.**
+
 ## Lluvia — de dónde sale cada número
 
 Hay **dos fuentes** y no significan lo mismo:
@@ -939,8 +984,8 @@ está. El cálculo va en una tabla aparte.
 
 #### La lámina por cuenca
 
-`lib/lluviaCuencas.ts` + `components/PanelCuencas.tsx` — la tabla plegada
-«Lámina por cuenca», al pie de la pantalla. Por cuenca: superficie, lámina
+`lib/lluviaCuencas.ts` + `components/PanelCuencas.tsx` — la pestaña Cuencas,
+vista «Período elegido». Por cuenca: superficie, lámina
 areal, Thiessen, lámina máxima, cobertura y **volumen precipitado** en hm³.
 
 **Se calcula por dos caminos y manda el de IDW**, igual que en toda la pantalla:
@@ -980,9 +1025,8 @@ Cosas que no son obvias:
 - **El nombre de una cuenca no dice dónde queda.** La «Línea Paraná» no está
   sobre el río sino tierra adentro; el test de la tormenta en el este la
   esperaba mojada por el nombre y falló.
-- La carga de las cuencas va **en el clic que abre el panel, no en un efecto**:
-  son 310 KB y un cálculo de ~150 ms por período que la mayoría de las visitas
-  no necesita.
+- Las cuencas y la lámina del período llegan por `useCuencasLluvia`, que no
+  carga nada hasta que alguien abre la pestaña o la lista de cuencas del mapa.
 
 `scripts/verificar-lluvia-cuencas.ts` no tiene un valor oficial contra el cual
 comparar —nadie publicó la lámina por cuenca de un evento—, así que afirma casos

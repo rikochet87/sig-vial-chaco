@@ -56,7 +56,7 @@ function Interruptor({ titulo, nota, activo, onChange }: {
           style={{ cursor: 'pointer' }} />
         {titulo}
       </span>
-      <span style={{ display: 'block', fontSize: 11, color: '#7a7a7a', marginLeft: 19, marginTop: 2 }}>
+      <span style={{ display: 'block', fontSize: 11, color: '#959595', marginLeft: 19, marginTop: 2 }}>
         {nota}
       </span>
     </label>
@@ -104,11 +104,13 @@ interface Props {
   /** Sólo se muestran los caminos que llegaron a estos mm */
   umbral: number
   onUmbral: (mm: number) => void
+  /** Código de la cuenca elegida en la lista: se resalta y se encuadra */
+  cuencaSeleccionada?: number | null
 }
 
 export default function MapaLluvia({
   datos, seleccionado, estaciones,
-  tramos = [], lluviaTramos = [], umbral, onUmbral,
+  tramos = [], lluviaTramos = [], umbral, onUmbral, cuencaSeleccionada = null,
 }: Props) {
   const divRef  = useRef<HTMLDivElement>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -141,6 +143,11 @@ export default function MapaLluvia({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const capaCuencasRef = useRef<any>(null)
   const [verCuencas, setVerCuencas] = useState(false)
+  // Elegir una cuenca en la lista prende la capa aunque el interruptor esté
+  // apagado: no se puede resaltar algo que no se dibuja.
+  const mostrarCuencas = verCuencas || cuencaSeleccionada !== null
+  /** El panel de capas se puede plegar para devolverle el lugar al mapa */
+  const [capasAbiertas, setCapasAbiertas] = useState(true)
   const [cuencas, setCuencas] = useState<Cuenca[]>([])
   const [errorCuencas, setErrorCuencas] = useState<string | null>(null)
   const [intentoCuencas, setIntentoCuencas] = useState(0)
@@ -162,6 +169,9 @@ export default function MapaLluvia({
       const mapa = L.map(divRef.current, {
         center: [-26.4, -60.5], zoom: 7, attributionControl: false,
         zoomControl: true, preferCanvas: true,
+        // Medio nivel de zoom: con niveles enteros el encuadre de la provincia
+        // salta de "entra con medio continente alrededor" a "no entra".
+        zoomSnap: 0.5,
       })
       mapa.fitBounds(LIMITES, { padding: [12, 12], animate: false })
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -493,7 +503,7 @@ export default function MapaLluvia({
     if (!capaCuencasRef.current) return
     let cancelado = false
 
-    if (!verCuencas) {
+    if (!mostrarCuencas) {
       capaCuencasRef.current.clearLayers()
       return
     }
@@ -507,23 +517,31 @@ export default function MapaLluvia({
         if (cancelado || !capaCuencasRef.current) return
 
         capaCuencasRef.current.clearLayers()
-        for (const c of lista) {
+        // La elegida se dibuja al final, para que su borde quede arriba del
+        // de las vecinas con las que comparte límite.
+        const enOrden = [...lista].sort((a, b) =>
+          Number(a.cod === cuencaSeleccionada) - Number(b.cod === cuencaSeleccionada))
+
+        for (const c of enOrden) {
+          const elegida = c.cod === cuencaSeleccionada
           // Doble trazo, como la red de fondo de las calculadoras: uno claro
           // ancho abajo y uno azul fino arriba. Un solo color se pierde contra
           // el verde del monte o contra el celeste de los ríos del mapa base.
-          for (const estilo of [
-            { color: '#ffffff', weight: 4, opacity: 0.75 },
-            { color: '#0D5C9E', weight: 1.6, opacity: 1 },
-          ]) {
-            L.polygon(c.partes, {
-              ...estilo, pane: 'cuencas', interactive: false, fill: false,
-            }).addTo(capaCuencasRef.current)
+          // La elegida lleva el borde negro y grueso, y un relleno amarillo
+          // tenue: el amarillo solo no se ve contra el mapa claro.
+          for (const estilo of elegida
+            ? [{ color: '#ffffff', weight: 7, opacity: 0.9, fill: true, fillColor: '#F5C300', fillOpacity: 0.16 },
+               { color: '#111111', weight: 3, opacity: 1, fill: false }]
+            : [{ color: '#ffffff', weight: 4, opacity: 0.75, fill: false },
+               { color: '#0D5C9E', weight: 1.6, opacity: 1, fill: false }]) {
+            L.polygon(c.partes, { ...estilo, pane: 'cuencas', interactive: false })
+              .addTo(capaCuencasRef.current)
           }
           L.marker(c.rotulo, {
             pane: 'cuencas', interactive: false,
             icon: L.divIcon({
               className: '',
-              html: `<div class="sv-rotulo">${c.cod} · ${c.nombre}</div>`,
+              html: `<div class="sv-rotulo${elegida ? ' sv-rotulo-activo' : ''}">${c.cod} · ${c.nombre}</div>`,
               iconSize: [0, 0],
             }),
           }).addTo(capaCuencasRef.current)
@@ -536,7 +554,21 @@ export default function MapaLluvia({
     })()
 
     return () => { cancelado = true }
-  }, [verCuencas, intentoCuencas])
+  }, [mostrarCuencas, cuencaSeleccionada, intentoCuencas])
+
+  // ── Encuadrar la cuenca elegida en la lista ──────────────────────────────
+  useEffect(() => {
+    if (cuencaSeleccionada === null || !mapaRef.current) return
+    const c = cuencas.find(x => x.cod === cuencaSeleccionada)
+    if (!c) return
+    // El panel de capas tapa la derecha del mapa: se le deja ese margen para
+    // que la cuenca quede entera a la vista y no debajo de él.
+    mapaRef.current.fitBounds([[c.caja[0], c.caja[1]], [c.caja[2], c.caja[3]]], {
+      paddingTopLeft: [24, 24], paddingBottomRight: [capasAbiertas ? 270 : 60, 24],
+    })
+    // Sólo al cambiar de cuenca: plegar el panel no tiene que mover el mapa
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cuencaSeleccionada, cuencas])
 
   /**
    * Prender y apagar capas sin recrearlas.
@@ -657,7 +689,7 @@ export default function MapaLluvia({
   // mayor parte. Sólo con la capa prendida, que es cuando las cuencas están.
   const puntosCursor = bajoCursor !== null ? tramos[bajoCursor]?.puntos : undefined
   const medioCursor = puntosCursor?.[Math.floor(puntosCursor.length / 2)]
-  const cuencaCursor = verCuencas && medioCursor
+  const cuencaCursor = mostrarCuencas && medioCursor
     ? cuencaEn(cuencas, medioCursor[0], medioCursor[1])
     : null
 
@@ -666,19 +698,32 @@ export default function MapaLluvia({
       <div ref={divRef} style={{ width: '100%', height: '100%', background: '#111' }} />
 
       {/* Capas: dos interruptores y nada más. Cada uno explica qué muestra. */}
+      {/*
+        Con tope de alto y barra propia: el panel creció con cada capa nueva y
+        llegó a medir más que el mapa, así que se salía por abajo y tapaba lo
+        que había debajo. Y plegable, para devolverle el lugar al mapa.
+      */}
       <div className="sv-panel" style={{
         position: 'absolute', top: 10, right: 10, zIndex: 500,
         background: '#111', border: '1px solid #222', borderRadius: 2,
-        boxShadow: '0 4px 16px rgba(0,0,0,.7)', fontFamily: 'monospace', maxWidth: 236,
+        boxShadow: '0 4px 16px rgba(0,0,0,.7)', fontFamily: 'monospace',
+        width: capasAbiertas ? 236 : undefined, maxHeight: 'calc(100% - 20px)',
+        display: 'flex', flexDirection: 'column',
       }}>
-        <div style={{
-          fontSize: 12, color: '#999', textTransform: 'uppercase', letterSpacing: 1.4,
-          height: 30, display: 'flex', alignItems: 'center', padding: '0 9px',
-          background: '#0a0a0a', borderBottom: '1px solid #222', borderLeft: '3px solid #F5C300',
-        }}>
-          Capas
-        </div>
-        <div style={{ padding: '9px 12px' }}>
+        <button onClick={() => setCapasAbiertas(v => !v)}
+          title={capasAbiertas ? 'Plegar el panel de capas' : 'Abrir el panel de capas'}
+          style={{
+            fontFamily: 'monospace', fontSize: 12, color: '#a8a8a8', textTransform: 'uppercase',
+            letterSpacing: 1.4, height: 30, flexShrink: 0, display: 'flex', alignItems: 'center',
+            gap: 10, padding: '0 9px', cursor: 'pointer', textAlign: 'left',
+            background: '#0a0a0a', border: 'none', borderLeft: '3px solid #F5C300',
+            borderBottom: capasAbiertas ? '1px solid #222' : 'none',
+          }}>
+          <span style={{ flex: 1 }}>Capas</span>
+          <span style={{ fontSize: 11, color: '#8f8f8f' }}>{capasAbiertas ? '▲' : '▼'}</span>
+        </button>
+        {capasAbiertas && (
+        <div style={{ padding: '9px 12px', overflowY: 'auto', minHeight: 0 }}>
 
         <Interruptor
           titulo="Caminos" activo={verCaminos} onChange={setVerCaminos}
@@ -718,7 +763,7 @@ export default function MapaLluvia({
         {!hayEstaciones ? (
           <div style={{ fontSize: 12, color: '#8a8a8a', lineHeight: 1.5 }}>
             Sin mediciones de la APA en el período.<br />
-            <span style={{ color: '#6a6a6a' }}>Traelas desde la pestaña Precisión.</span>
+            <span style={{ color: '#8f8f8f' }}>Traelas desde la pestaña Precisión.</span>
           </div>
         ) : (
           <>
@@ -732,7 +777,7 @@ export default function MapaLluvia({
                   <Fila key={n} color={colorLluvia(n)} texto={`${n.toLocaleString('es-AR')} mm`} />
                 ))}
                 <Fila color="#54564f" texto="0 mm — no llovió" />
-                <div style={{ fontSize: 11, color: '#6a6a6a', marginTop: 5, lineHeight: 1.45 }}>
+                <div style={{ fontSize: 11, color: '#8f8f8f', marginTop: 5, lineHeight: 1.45 }}>
                   Sin pintar: no hay pluviómetro a menos de {RADIO_KM} km.
                 </div>
               </div>
@@ -745,7 +790,7 @@ export default function MapaLluvia({
               nota="De qué estación lee cada lugar." />
 
             {verZonas && (
-              <div style={{ margin: '7px 0 0 19px', fontSize: 11, color: '#7a7a7a',
+              <div style={{ margin: '7px 0 0 19px', fontSize: 11, color: '#959595',
                 lineHeight: 1.5 }}>
                 Cada polígono es la zona de una estación. Mirá si la red de un
                 consorcio cae dentro de uno solo o está partida entre varios.
@@ -765,10 +810,10 @@ export default function MapaLluvia({
         <div style={{ borderTop: '1px solid #1e1e1e', margin: '9px 0' }} />
 
         <Interruptor
-          titulo="Cuencas" activo={verCuencas} onChange={setVerCuencas}
+          titulo="Cuencas" activo={mostrarCuencas} onChange={setVerCuencas}
           nota="Las 13 cuencas hídricas de la provincia." />
 
-        {verCuencas && errorCuencas && (
+        {mostrarCuencas && errorCuencas && (
           <div style={{ margin: '6px 0 0 19px', fontSize: 11, color: '#E8A87C', lineHeight: 1.5 }}>
             No se pudieron cargar las cuencas ({errorCuencas}).{' '}
             <button onClick={() => setIntentoCuencas(v => v + 1)} style={{
@@ -785,6 +830,7 @@ export default function MapaLluvia({
           titulo="Sedes de consorcio" activo={verSedes} onChange={setVerSedes}
           nota="Dónde está la sede de cada uno de los 103." />
         </div>
+        )}
       </div>
 
       {/*

@@ -83,6 +83,8 @@ interface Respuesta {
 }
 
 interface Props {
+  /** Arrancar desplegado: para cuando el panel tiene una pestaña para él solo */
+  abiertoInicial?: boolean
   dias?: number
   desde?: string
   hasta?: string
@@ -116,10 +118,10 @@ function pideAtencion(e: EstacionRio): boolean {
   return pico !== undefined && Number.isFinite(pico) && pico >= e.alerta
 }
 
-export default function PanelRio({ dias = 90, desde, hasta }: Props) {
+export default function PanelRio({ dias = 90, desde, hasta, abiertoInicial = false }: Props) {
   const [datos, setDatos] = useState<Respuesta | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [abierto, setAbierto] = useState(false)
+  const [abierto, setAbierto] = useState(abiertoInicial)
   const [alDato, setAlDato] = useState(false)
 
   /*
@@ -193,7 +195,7 @@ export default function PanelRio({ dias = 90, desde, hasta }: Props) {
 
   if (!datos) {
     return (
-      <div style={{ ...mono, fontSize: 12, color: '#5e656d', marginTop: 8 }}>
+      <div style={{ ...mono, fontSize: 12, color: '#8f8f8f', marginTop: 8 }}>
         Consultando el Alerta Hidrológico…
       </div>
     )
@@ -230,7 +232,7 @@ export default function PanelRio({ dias = 90, desde, hasta }: Props) {
         padding: '7px 12px', cursor: 'pointer', background: 'transparent', border: 'none',
         ...mono, fontSize: 12, color: '#999',
       }}>
-        <span style={{ color: '#555' }}>{abierto ? '▾' : '▸'}</span>
+        <span style={{ color: '#8f8f8f' }}>{abierto ? '▾' : '▸'}</span>
         <span style={{ flex: 1 }}>
           Río Paraná
           {critica?.ultima && (
@@ -239,7 +241,7 @@ export default function PanelRio({ dias = 90, desde, hasta }: Props) {
               <b style={{ color: COLOR_ESTADO[critica.ultima.estado] }}>
                 {critica.nombre} {nMetros(critica.ultima.m)} m
               </b>
-              <span style={{ color: '#666' }}>
+              <span style={{ color: '#8f8f8f' }}>
                 {critica.margen !== null && critica.margen > 0
                   ? `, a ${nMetros(critica.margen)} m del alerta`
                   : ', sobre el nivel de alerta'}
@@ -257,8 +259,8 @@ export default function PanelRio({ dias = 90, desde, hasta }: Props) {
       {abierto && (
         <div style={{ padding: '2px 12px 12px' }}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 8 }}>
-            <span style={{ fontSize: 11, color: '#5e656d', flex: 1, lineHeight: 1.5 }}>
-              Altura sobre el cero de escala. <b style={{ color: '#7a8189' }}>La crecida no la
+            <span style={{ fontSize: 11, color: '#8f8f8f', flex: 1, lineHeight: 1.5 }}>
+              Altura sobre el cero de escala. <b style={{ color: '#a0a0a0' }}>La crecida no la
               genera la lluvia de acá</b>: viene de las cuencas altas con días o semanas de
               retardo. Comparten el eje de tiempo para ver si coinciden, no para sumarlas.
             </span>
@@ -278,7 +280,7 @@ export default function PanelRio({ dias = 90, desde, hasta }: Props) {
 
           {(chicas.length > 0 || datos.sinRespuesta.length > 0) && (
             <>
-              <div style={{ fontSize: 11, color: '#5e656d', borderTop: '1px solid #232323',
+              <div style={{ fontSize: 11, color: '#8f8f8f', borderTop: '1px solid #232323',
                 paddingTop: 9, margin: '12px 0 6px' }}>
                 Resto del tramo, de aguas arriba hacia abajo
               </div>
@@ -299,13 +301,13 @@ export default function PanelRio({ dias = 90, desde, hasta }: Props) {
                               background: COLOR_ESTADO[e.ultima!.estado],
                               width: `${Math.max(4, (e.margen / margenMax) * 70)}px`,
                             }} />
-                            <span style={{ color: '#666', marginLeft: 8 }}>
+                            <span style={{ color: '#8f8f8f', marginLeft: 8 }}>
                               {nMetros(e.margen)} al alerta
                             </span>
                           </>
                         )}
                       </td>
-                      <td style={{ textAlign: 'right', color: e.pronostico ? '#85B7EB' : '#4a4a4a' }}>
+                      <td style={{ textAlign: 'right', color: e.pronostico ? '#85B7EB' : '#8f8f8f' }}>
                         {e.pronostico ? 'pronóstico' : 'sin corrida'}
                       </td>
                     </tr>
@@ -320,8 +322,8 @@ export default function PanelRio({ dias = 90, desde, hasta }: Props) {
                   ))}
                   {datos.sinRespuesta.map(n => (
                     <tr key={n}>
-                      <td style={{ color: '#5e656d', padding: '3px 0' }}>{n}</td>
-                      <td style={{ textAlign: 'right', color: '#5e656d' }}>—</td>
+                      <td style={{ color: '#8f8f8f', padding: '3px 0' }}>{n}</td>
+                      <td style={{ textAlign: 'right', color: '#8f8f8f' }}>—</td>
                       <td style={{ paddingLeft: 12, color: '#E8833A' }}>sin responder</td>
                       <td />
                     </tr>
@@ -331,7 +333,7 @@ export default function PanelRio({ dias = 90, desde, hasta }: Props) {
             </>
           )}
 
-          <div style={{ fontSize: 11, color: '#4a4a4a', marginTop: 10, lineHeight: 1.5,
+          <div style={{ fontSize: 11, color: '#8f8f8f', marginTop: 10, lineHeight: 1.5,
             borderTop: '1px solid #232323', paddingTop: 9 }}>
             Umbrales de alerta y evacuación publicados por el INA para cada estación — no son
             criterios de este sistema. Si alguna del resto llega a su alerta, se despliega
@@ -355,7 +357,7 @@ function Franja({ est, desde, hasta, alDato, promovida }: {
 
   if (serie.length === 0) {
     return (
-      <div style={{ fontSize: 11, color: '#5e656d', margin: '6px 0' }}>
+      <div style={{ fontSize: 11, color: '#8f8f8f', margin: '6px 0' }}>
         {est.nombre}: sin observaciones en el período.
       </div>
     )
@@ -412,18 +414,18 @@ function Franja({ est, desde, hasta, alDato, promovida }: {
         {u && (
           <>
             <b style={{ color }}>{nMetros(u.m)} m</b>
-            <span style={{ color: '#666' }}>{ETIQUETA_ESTADO[u.estado]}</span>
-            <span style={{ color: '#4a4a4a' }}>
+            <span style={{ color: '#8f8f8f' }}>{ETIQUETA_ESTADO[u.estado]}</span>
+            <span style={{ color: '#8f8f8f' }}>
               alerta {nMetros(est.alerta)} · evac {nMetros(est.evacuacion)}
             </span>
           </>
         )}
         <span style={{ flex: 1 }} />
         {est.pronostico
-          ? <span style={{ color: '#4a4a4a' }}>
+          ? <span style={{ color: '#8f8f8f' }}>
               pronóstico al {soloFecha(est.pronostico.puntos[est.pronostico.puntos.length - 1].fecha)}
             </span>
-          : <span style={{ color: '#4a4a4a' }}>sin corrida publicada</span>}
+          : <span style={{ color: '#8f8f8f' }}>sin corrida publicada</span>}
       </div>
 
       {/*
@@ -465,7 +467,7 @@ function Franja({ est, desde, hasta, alDato, promovida }: {
       </svg>
 
       {alDato && (
-        <div style={{ fontSize: 11, color: '#4a4a4a', marginTop: 2 }}>
+        <div style={{ fontSize: 11, color: '#8f8f8f', marginTop: 2 }}>
           Eje ajustado a la serie: {nMetros(min)} a {nMetros(max)} m.
           {!dentro(est.alerta) && ' El alerta queda fuera del recuadro.'}
         </div>

@@ -131,6 +131,11 @@ html                             { scrollbar-width: thin; scrollbar-color: #2a2a
   border: 1px solid #0D5C9E; padding: 1px 5px;
 }
 
+/* El del polígono elegido: invertido, para que se lea cuál es entre trece */
+.sv-rotulo.sv-rotulo-activo {
+  color: #111; background: var(--accent); border-color: #111;
+}
+
 /* ─── Hover glow utilities ──────────────────────────────── */
 /* Botones primarios (amarillo):  className="glow-y"         */
 .glow-y:hover:not(:disabled) { box-shadow: 0 0 18px var(--accent-glow) !important; }

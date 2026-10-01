@@ -80,7 +80,7 @@ export default function VistaRed({ cuencas, tramos, lluviaTramos, estaciones, de
   const obrasDe = useMemo(() => new Map((obrasCuenca ?? []).map(o => [o.cod, o])), [obrasCuenca])
 
   if (!red) {
-    return <div style={{ color: '#555' }}>La red vial todavía no cargó. Si el mapa de arriba tampoco la muestra, reintentá desde ahí.</div>
+    return <div style={{ color: '#8f8f8f' }}>La red vial todavía no cargó. Si el mapa de arriba tampoco la muestra, reintentá desde ahí.</div>
   }
 
   const hayLluvia = estaciones.length > 0 && lluviaTramos.length === tramos.length
@@ -90,7 +90,7 @@ export default function VistaRed({ cuencas, tramos, lluviaTramos, estaciones, de
 
   return (<>
     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-      <span style={{ color: '#555', flex: 1 }}>
+      <span style={{ color: '#8f8f8f', flex: 1 }}>
         {hayLluvia
           ? <>Del {fCorta(desde)} al {fCorta(hasta)}. Tocá una cuenca para ver sus obras de arte relevadas.</>
           : <>Sin mediciones de la APA en el período: se muestra la red, sin lluvia.</>}
@@ -102,7 +102,7 @@ export default function VistaRed({ cuencas, tramos, lluviaTramos, estaciones, de
 
     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
       <thead>
-        <tr style={{ color: '#555', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8 }}>
+        <tr style={{ color: '#8f8f8f', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8 }}>
           <th style={th} colSpan={2} />
           <th style={thD} colSpan={2}>Red de consorcios</th>
           <th style={{ ...thD, borderBottom: '1px solid #2a2a2a' }} colSpan={UMBRALES_KM.length + 1}>
@@ -112,7 +112,7 @@ export default function VistaRed({ cuencas, tramos, lluviaTramos, estaciones, de
             Obras de arte relevadas
           </th>
         </tr>
-        <tr style={{ color: '#555', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8 }}>
+        <tr style={{ color: '#8f8f8f', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8 }}>
           <th style={{ ...th, width: 34 }}>Nº</th>
           <th style={th}>Cuenca</th>
           <th style={thD} title="Km de traza de la red de consorcios dentro de la cuenca">Km</th>
@@ -155,8 +155,8 @@ export default function VistaRed({ cuencas, tramos, lluviaTramos, estaciones, de
       </div>
     )}
 
-    <div style={{ color: '#555', marginTop: 9 }}>
-      Los kilómetros son de <b style={{ color: '#777', fontWeight: 400 }}>traza</b> de la red de consorcios,
+    <div style={{ color: '#8f8f8f', marginTop: 9 }}>
+      Los kilómetros son de <b style={{ color: '#a0a0a0', fontWeight: 400 }}>traza</b> de la red de consorcios,
       medidos sobre el mapa; no son los que declara la ficha de cada consorcio. Un tramo que cruza de una
       cuenca a otra se reparte entre las dos, y los caminos que corren sobre el límite provincial van a la
       cuenca de al lado. La lámina de cada tramo es la que pinta el mapa.
@@ -187,21 +187,21 @@ function FilaRed({ f, obras, hayLluvia, cargandoObras, abierta, onClick }: {
         borderTop: '1px solid #141414', cursor: 'pointer',
         background: abierta ? 'rgba(245,195,0,0.05)' : 'transparent',
       }}>
-        <td style={{ ...td, color: '#777' }}>{afuera ? '' : f.cod}</td>
-        <td style={{ ...td, color: afuera ? '#777' : '#ccc' }}>{f.nombre}</td>
+        <td style={{ ...td, color: '#a0a0a0' }}>{afuera ? '' : f.cod}</td>
+        <td style={{ ...td, color: afuera ? '#a0a0a0' : '#ccc' }}>{f.nombre}</td>
         <td style={{ ...tdD, color: '#ccc' }}>{nKm(f.km)}</td>
-        <td style={{ ...tdD, color: '#777' }}>{f.km > 0 ? `${Math.round(f.kmTierra / f.km * 100)} %` : '—'}</td>
+        <td style={{ ...tdD, color: '#a0a0a0' }}>{f.km > 0 ? `${Math.round(f.kmTierra / f.km * 100)} %` : '—'}</td>
         {f.kmDesde.map((km, i) => (
-          <td key={i} style={{ ...tdD, color: km >= 0.5 ? '#ccc' : '#444' }}>
+          <td key={i} style={{ ...tdD, color: km >= 0.5 ? '#ccc' : '#8f8f8f' }}>
             {!hayLluvia ? '—' : km >= 0.5 ? nKm(km) : '·'}
           </td>
         ))}
-        <td style={{ ...tdD, color: hayLluvia && f.kmSinDato >= 0.5 ? '#E8833A' : '#444' }}>
+        <td style={{ ...tdD, color: hayLluvia && f.kmSinDato >= 0.5 ? '#E8833A' : '#8f8f8f' }}>
           {!hayLluvia ? '—' : f.kmSinDato >= 0.5 ? nKm(f.kmSinDato) : '·'}
         </td>
         {TIPOS_OBRA.map((t, i) => {
           const n = obras?.cuenta[i] ?? 0
-          return <td key={t} style={{ ...tdD, color: n > 0 ? '#ccc' : '#444' }}>{cargandoObras ? '…' : n > 0 ? n : '·'}</td>
+          return <td key={t} style={{ ...tdD, color: n > 0 ? '#ccc' : '#8f8f8f' }}>{cargandoObras ? '…' : n > 0 ? n : '·'}</td>
         })}
       </tr>
 
@@ -216,13 +216,13 @@ function FilaRed({ f, obras, hayLluvia, cargandoObras, abierta, onClick }: {
                   : 'Ninguna obra de arte relevada en esta cuenca todavía.'}
               </div>
             ) : (<>
-              <div style={{ color: '#555', marginBottom: 3 }}>
+              <div style={{ color: '#8f8f8f', marginBottom: 3 }}>
                 {lista.length} obra{lista.length === 1 ? '' : 's'} de arte relevada{lista.length === 1 ? '' : 's'},
                 {' '}de la que más lluvia recibió a la que menos.
               </div>
               <table style={{ borderCollapse: 'collapse', fontSize: 12, minWidth: 520 }}>
                 <thead>
-                  <tr style={{ color: '#555' }}>
+                  <tr style={{ color: '#8f8f8f' }}>
                     <th style={th}>Tipo</th>
                     <th style={th}>Ruta o tramo</th>
                     <th style={thD} title="La lluvia que cayó en el punto de la obra, no el agua que le llega">Lámina en el punto</th>
@@ -233,8 +233,8 @@ function FilaRed({ f, obras, hayLluvia, cargandoObras, abierta, onClick }: {
                   {lista.slice(0, OBRAS_VISIBLES).map(o => (
                     <tr key={o.id} style={{ borderTop: '1px solid #141414' }}>
                       <td style={{ ...td, color: '#999' }}>{o.tipo}</td>
-                      <td style={{ ...td, color: '#777' }}>{o.rutaTramo ?? '—'}</td>
-                      <td style={{ ...tdD, color: o.mm === null ? '#555' : '#ccc' }}>
+                      <td style={{ ...td, color: '#a0a0a0' }}>{o.rutaTramo ?? '—'}</td>
+                      <td style={{ ...tdD, color: o.mm === null ? '#8f8f8f' : '#ccc' }}>
                         {!hayLluvia ? '—' : o.mm === null ? 'sin dato' : `${nMm(o.mm)} mm`}
                       </td>
                       <td style={tdD}>
@@ -249,11 +249,11 @@ function FilaRed({ f, obras, hayLluvia, cargandoObras, abierta, onClick }: {
                 </tbody>
               </table>
               {lista.length > OBRAS_VISIBLES && (
-                <div style={{ color: '#555', marginTop: 4 }}>
+                <div style={{ color: '#8f8f8f', marginTop: 4 }}>
                   … y {lista.length - OBRAS_VISIBLES} más. La descarga CSV trae la cuenta completa por cuenca.
                 </div>
               )}
-              <div style={{ color: '#555', marginTop: 5 }}>
+              <div style={{ color: '#8f8f8f', marginTop: 5 }}>
                 La lámina es la que cayó sobre la obra. Cuánta agua le llega depende de su cuenca de
                 aporte, que no se conoce sin un modelo de elevación.
               </div>

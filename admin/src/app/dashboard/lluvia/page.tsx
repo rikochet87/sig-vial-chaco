@@ -25,9 +25,11 @@ import {
 
 import type { EstacionLluvia } from '@/components/MapaLluvia'
 import { useRedLluvia } from '@/hooks/useRedLluvia'
+import { useCuencasLluvia } from '@/hooks/useCuencasLluvia'
 import PanelMediaAreal from '@/components/PanelMediaAreal'
 import PanelRio from '@/components/PanelRio'
 import PanelCuencas from '@/components/PanelCuencas'
+import ListaCuencas from '@/components/cuencas/ListaCuencas'
 import { csvTramos } from '@/lib/redLluvia'
 import SelectorPeriodo, { type PuntoSerie, type Cobertura } from '@/components/SelectorPeriodo'
 
@@ -35,12 +37,12 @@ const PanelMediciones = dynamic(() => import('@/components/PanelMediciones'), { 
 
 const MapaLluvia = dynamic(() => import('@/components/MapaLluvia'), {
   ssr: false,
-  loading: () => <div style={{ ...mono, color: '#444', fontSize: 13, padding: 20 }}>Cargando mapa…</div>,
+  loading: () => <div style={{ ...mono, color: '#8f8f8f', fontSize: 13, padding: 20 }}>Cargando mapa…</div>,
 })
 
 const mono: React.CSSProperties = { fontFamily: 'monospace' }
 const lbl: React.CSSProperties = {
-  display: 'block', fontSize: 12, color: '#555', textTransform: 'uppercase',
+  display: 'block', fontSize: 12, color: '#8f8f8f', textTransform: 'uppercase',
   letterSpacing: 0.8, ...mono, marginBottom: 4,
 }
 const inp: React.CSSProperties = {
@@ -51,6 +53,21 @@ const inp: React.CSSProperties = {
 const fmtFecha = (f: string) => f.split('-').reverse().join('/')
 
 type Orden = 'mm' | 'pico' | 'numero'
+
+/**
+ * Las pestañas de la pantalla.
+ *
+ * Antes todo iba apilado: el mapa, y debajo —en renglones plegados— el río, las
+ * cuencas y la comparación de métodos. El mapa quedaba con 418 px de alto en un
+ * monitor de 1080, tan bajo que el encuadre de la provincia caía un nivel de
+ * zoom y el Chaco se veía chiquito en medio de medio continente; y las tablas
+ * de cuencas, que son tres, vivían al fondo de la página adentro de un renglón.
+ * Cada cosa tiene ahora la pantalla entera.
+ */
+const VISTAS = [
+  ['mapa', 'Mapa'], ['cuencas', 'Cuencas'], ['rio', 'Río Paraná'], ['precision', 'Precisión'],
+] as const
+type Vista = typeof VISTAS[number][0]
 
 export default function LluviaPage() {
   const { profile } = useUser()
@@ -76,7 +93,10 @@ export default function LluviaPage() {
     { hecho: number; total: number; desde: string; hasta: string } | null
   >(null)
   const [autoEpisodio, setAutoEpisodio] = useState(true)
-  const [vista, setVista] = useState<'mapa' | 'precision'>('mapa')
+  const [vista, setVista] = useState<Vista>('mapa')
+  /** Qué se lista al lado del mapa, y la cuenca elegida ahí */
+  const [lista, setLista] = useState<'consorcios' | 'cuencas'>('consorcios')
+  const [cuencaSel, setCuencaSel] = useState<number | null>(null)
 
   const cargar = useCallback(async (d: string, h: string) => {
     setCargando(true); setError(null)
@@ -146,6 +166,10 @@ export default function LluviaPage() {
    */
   const { tramos, lluvia, arealProvincia, arealPorCC,
     error: errorRed, reintentar: reintentarRed } = useRedLluvia(estaciones)
+
+  // Las cuencas se piden recién cuando alguien las mira: en su pestaña o en la
+  // lista de al lado del mapa.
+  const datosCuencas = useCuencasLluvia(estaciones, vista === 'cuencas' || lista === 'cuencas')
 
   /** Descargar la lista completa de tramos con su lluvia */
   const descargarCsv = () => {
@@ -299,35 +323,49 @@ export default function LluviaPage() {
       height: 'calc(100vh - 60px)', overflow: 'auto' }}>
 
       {/* Encabezado */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 14, flexShrink: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 10, flexShrink: 0 }}>
         <h1 style={{ color: '#e0e0e0', fontSize: 20, fontWeight: 700, letterSpacing: 0.5, ...mono, margin: 0 }}>
           Lluvias
         </h1>
-        {!cargando && vista === 'mapa' && (
-          <span style={{ color: '#444', fontSize: 13, ...mono }}>
-            {conDato.length} de {datos.length} consorcios con registro
-          </span>
-        )}
-
         <div style={{ display: 'flex', border: '1px solid #252525' }}>
-          {([['mapa', 'Mapa'], ['precision', 'Precisión']] as const).map(([v, t]) => (
+          {VISTAS.map(([v, t]) => (
             <button key={v} onClick={() => setVista(v)} style={{
               ...mono, fontSize: 13, padding: '5px 14px', cursor: 'pointer',
               border: 'none', letterSpacing: 0.5,
               background: vista === v ? '#1e1e1e' : 'transparent',
-              color: vista === v ? '#F5C300' : '#555',
+              color: vista === v ? '#F5C300' : '#8f8f8f',
+              borderBottom: `2px solid ${vista === v ? '#F5C300' : 'transparent'}`,
             }}>{t}</button>
           ))}
         </div>
       </div>
 
+      {/*
+        Precisión habla de los métodos, no de un período: la comparación entre
+        IDW y Thiessen va acá, y sigue al consorcio elegido en el mapa.
+      */}
       {vista === 'precision' && (
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+          <PanelMediaAreal
+            abiertoInicial
+            ambito={seleccionado === null
+              ? 'toda la red de la provincia'
+              : `la red del consorcio Nº ${seleccionado}`}
+            mmIdw={seleccionado === null
+              ? (datos.length ? datos.reduce((s, c) => s + c.mm, 0) / datos.length : null)
+              : (datos.find(c => c.numero === seleccionado)?.mm ?? null)}
+            porLongitud={seleccionado === null
+              ? (arealProvincia?.porLongitud ?? null)
+              : (arealPorCC.get(seleccionado) ?? null)}
+            porSuperficie={seleccionado === null ? (arealProvincia?.porSuperficie ?? null) : null}
+          />
+          <div style={{ height: 12 }} />
           <PanelMediciones esAdmin={esAdmin} />
         </div>
       )}
 
-      {vista === 'mapa' && (<>
+      {/* El período es común a las tres pestañas que miran lluvia */}
+      {vista !== 'precision' && (<>
 
       <SelectorPeriodo
         desde={desde} hasta={hasta} hoy={hoy}
@@ -421,7 +459,7 @@ export default function LluviaPage() {
         Máximo, promedio y "consorcios sobre 40 mm" son los mismos datos, pero
         sueltos obligan a interpretarlos; en una oración se leen de corrido.
       */}
-      {!cargando && conDato.length > 0 && (
+      {vista === 'mapa' && !cargando && conDato.length > 0 && (
         <div style={{
           ...mono, fontSize: 13, lineHeight: 1.5, color: '#d8d8d8', flexShrink: 0,
           background: '#191919', borderLeft: '3px solid #F5C300',
@@ -443,8 +481,26 @@ export default function LluviaPage() {
       )}
 
 
+      {vista === 'cuencas' && (
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+          <PanelCuencas datos={datosCuencas} estaciones={estaciones} desde={desde} hasta={hasta}
+            hoy={hoy} tramos={tramos} lluviaTramos={lluvia} />
+        </div>
+      )}
+
+      {/*
+        El río va en su pestaña y abierto: es la otra amenaza, no una segunda
+        lectura de la lluvia. Comparte el período elegido para ver si coinciden.
+      */}
+      {vista === 'rio' && (
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+          <PanelRio abiertoInicial dias={90} desde={desde} hasta={hasta} />
+        </div>
+      )}
+
       {/* Mapa + tabla */}
-      <div style={{ flex: 1, minHeight: 420, display: 'flex', gap: 12 }}>
+      {vista === 'mapa' && (
+      <div style={{ flex: 1, minHeight: 360, display: 'flex', gap: 12 }}>
 
         <div style={{ flex: 1, minWidth: 0, position: 'relative',
           background: '#191919', border: '1px solid #1e1e1e' }}>
@@ -476,13 +532,38 @@ export default function LluviaPage() {
 
           <MapaLluvia datos={datos} seleccionado={seleccionado}
             estaciones={estaciones} tramos={tramos} lluviaTramos={lluvia}
-            umbral={umbral} onUmbral={setUmbral} />
+            umbral={umbral} onUmbral={setUmbral}
+            cuencaSeleccionada={lista === 'cuencas' ? cuencaSel : null} />
 
         </div>
 
         {/* Ranking */}
         <div style={{ width: 340, flexShrink: 0, display: 'flex', flexDirection: 'column',
           background: '#191919', border: '1px solid #1e1e1e', minHeight: 0 }}>
+          {/*
+            Qué se lista: consorcios o cuencas. Al cambiar se suelta lo elegido
+            en la otra, para que el mapa no quede resaltando dos cosas.
+          */}
+          <div style={{ display: 'flex', borderBottom: '1px solid #1e1e1e', flexShrink: 0 }}>
+            {([['consorcios', `Consorcios · ${datos.length}`], ['cuencas', 'Cuencas · 13']] as const).map(([k, t]) => (
+              <button key={k}
+                onClick={() => { setLista(k); setSeleccionado(null); setCuencaSel(null) }}
+                style={{
+                  ...mono, flex: 1, fontSize: 12, padding: '8px 6px', cursor: 'pointer', border: 'none',
+                  letterSpacing: 0.8, textTransform: 'uppercase',
+                  background: lista === k ? '#1e1e1e' : 'transparent',
+                  color: lista === k ? '#F5C300' : '#8f8f8f',
+                  borderBottom: `2px solid ${lista === k ? '#F5C300' : 'transparent'}`,
+                }}>{t}</button>
+            ))}
+          </div>
+
+          {lista === 'cuencas' && (
+            <ListaCuencas datos={datosCuencas} hayMediciones={estaciones.length > 0}
+              elegida={cuencaSel} onElegir={setCuencaSel} onVerTabla={() => setVista('cuencas')} />
+          )}
+
+          {lista === 'consorcios' && (<>
           <div style={{ padding: '9px 12px', borderBottom: '1px solid #1e1e1e',
             display: 'flex', gap: 5, alignItems: 'center', flexShrink: 0 }}>
             <span style={{ ...lbl, marginBottom: 0, flex: 1 }}>Ordenar por</span>
@@ -490,13 +571,13 @@ export default function LluviaPage() {
               <button key={k} onClick={() => setOrden(k)} style={{
                 ...mono, fontSize: 12, cursor: 'pointer', padding: '3px 8px', border: 'none',
                 background: orden === k ? '#252525' : 'transparent',
-                color: orden === k ? '#F5C300' : '#555',
+                color: orden === k ? '#F5C300' : '#8f8f8f',
               }}>{t}</button>
             ))}
           </div>
 
           <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
-            {cargando && <div style={{ padding: 16, ...mono, fontSize: 13, color: '#555' }}>Cargando…</div>}
+            {cargando && <div style={{ padding: 16, ...mono, fontSize: 13, color: '#8f8f8f' }}>Cargando…</div>}
 
             {!cargando && ordenados.map(c => {
               const nivel  = clasificar(c.mm)
@@ -520,7 +601,7 @@ export default function LluviaPage() {
                       {' · '}
                       {c.nombre.replace(/^Consorcio Caminero N°?\s*\d+\s*/i, '').replace(/"/g, '')}
                     </span>
-                    <span style={{ display: 'block', fontSize: 11, color: '#555', marginTop: 1 }}>
+                    <span style={{ display: 'block', fontSize: 11, color: '#8f8f8f', marginTop: 1 }}>
                       {c.zona}{c.dias > 0 ? ` · ${c.dias} día${c.dias === 1 ? '' : 's'} con agua` : ' · sin agua'}
                       {c.mmMaxDia > 0 ? ` · lámina máx. ${Math.round(c.mmMaxDia)}` : ''}
                       {/* Un solo punto = no hay traza de su red en el bundle */}
@@ -534,7 +615,7 @@ export default function LluviaPage() {
                     <span style={{ display: 'block', fontSize: 12, fontWeight: 700, color: nivel.color }}>
                       {nivel.label}
                     </span>
-                    <span style={{ display: 'block', fontSize: 12, color: '#777', marginTop: 1 }}>
+                    <span style={{ display: 'block', fontSize: 12, color: '#a0a0a0', marginTop: 1 }}>
                       {rangoLluvia(c.mm)}
                     </span>
                   </span>
@@ -543,56 +624,26 @@ export default function LluviaPage() {
             })}
 
             {!cargando && ordenados.length === 0 && (
-              <div style={{ padding: 16, ...mono, fontSize: 13, color: '#555', lineHeight: 1.6 }}>
+              <div style={{ padding: 16, ...mono, fontSize: 13, color: '#8f8f8f', lineHeight: 1.6 }}>
                 Sin registros en este rango.
               </div>
             )}
           </div>
+          </>)}
         </div>
       </div>
+      )}
+
+      {vista === 'mapa' && (
+        <div style={{ ...mono, fontSize: 12, color: '#8f8f8f', marginTop: 8, flexShrink: 0 }}>
+          {!cargando && <>{conDato.length} de {datos.length} consorcios con registro · </>}
+          Lámina interpolada por IDW desde los pluviómetros de la Administración Provincial
+          del Agua, sobre la traza de cada camino.
+        </div>
+      )}
 
       </>)}
 
-      {/*
-        La comparación de métodos va plegada y al pie: el número que manda es el
-        de IDW y esto es una segunda lectura. Sigue al consorcio elegido, así que
-        sin selección compara sobre toda la provincia — que además es el único
-        ámbito donde existe el peso por superficie.
-      */}
-      {/*
-        El río va antes que la comparación de métodos: es la otra amenaza, no
-        una segunda lectura de la misma. Comparte el eje de tiempo con la línea
-        de arriba y resalta el mismo período elegido.
-      */}
-      <PanelRio dias={90} desde={desde} hasta={hasta} />
-
-      {/* La misma lluvia, por cuenca hídrica en vez de por consorcio */}
-      <PanelCuencas estaciones={estaciones} desde={desde} hasta={hasta} hoy={hoy}
-        tramos={tramos} lluviaTramos={lluvia} />
-
-      <PanelMediaAreal
-        ambito={seleccionado === null
-          ? 'toda la red de la provincia'
-          : `la red del consorcio Nº ${seleccionado}`}
-        mmIdw={seleccionado === null
-          ? (datos.length ? datos.reduce((s, c) => s + c.mm, 0) / datos.length : null)
-          : (datos.find(c => c.numero === seleccionado)?.mm ?? null)}
-        porLongitud={seleccionado === null
-          ? (arealProvincia?.porLongitud ?? null)
-          : (arealPorCC.get(seleccionado) ?? null)}
-        porSuperficie={seleccionado === null ? (arealProvincia?.porSuperficie ?? null) : null}
-      />
-
-      {/*
-        El pie tenía siete renglones explicando el método. Eso pertenece al globo
-        de cada círculo, que lo dice para el caso concreto en vez de en abstracto.
-        Acá queda sólo de dónde sale el dato.
-      */}
-      <div style={{ ...mono, fontSize: 12, color: '#3a3a3a', marginTop: 8, flexShrink: 0 }}>
-        Lámina interpolada por IDW desde los pluviómetros de la Administración Provincial
-        del Agua, sobre la traza de cada camino. Elegí un consorcio en la lista para ver
-        sólo su red.
-      </div>
     </div>
   )
 }

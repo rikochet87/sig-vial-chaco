@@ -39,6 +39,8 @@ interface Props {
   porSuperficie?: MediaAreal | null
   /** Qué se está promediando, para el encabezado */
   ambito: string
+  /** Arrancar desplegado: para cuando el panel tiene una pestaña para él */
+  abiertoInicial?: boolean
 }
 
 const nMm = (v: number | null | undefined) =>
@@ -47,8 +49,8 @@ const nMm = (v: number | null | undefined) =>
 const nPeso = (v: number, unidad: string) =>
   `${v.toLocaleString('es-AR', { maximumFractionDigits: unidad === 'km²' ? 0 : 1 })} ${unidad}`
 
-export default function PanelMediaAreal({ mmIdw, porLongitud, porSuperficie, ambito }: Props) {
-  const [abierto, setAbierto] = useState(false)
+export default function PanelMediaAreal({ mmIdw, porLongitud, porSuperficie, ambito, abiertoInicial = false }: Props) {
+  const [abierto, setAbierto] = useState(abiertoInicial)
   if (!porLongitud) return null
 
   const thL = porLongitud.mm
@@ -62,7 +64,7 @@ export default function PanelMediaAreal({ mmIdw, porLongitud, porSuperficie, amb
         padding: '7px 12px', cursor: 'pointer', background: 'transparent', border: 'none',
         ...mono, fontSize: 12, color: '#999',
       }}>
-        <span style={{ color: '#555' }}>{abierto ? '▾' : '▸'}</span>
+        <span style={{ color: '#8f8f8f' }}>{abierto ? '▾' : '▸'}</span>
         <span style={{ flex: 1 }}>
           Comparar métodos — IDW <b style={{ color: '#ccc' }}>{nMm(mmIdw)}</b>
           {' · '}Thiessen por red <b style={{ color: '#ccc' }}>{nMm(thL)}</b>
@@ -70,15 +72,15 @@ export default function PanelMediaAreal({ mmIdw, porLongitud, porSuperficie, amb
           {' mm'}
         </span>
         {dif !== null && Math.abs(dif) >= 0.05 && (
-          <span style={{ color: Math.abs(dif) > 5 ? '#E8833A' : '#555' }}>
+          <span style={{ color: Math.abs(dif) > 5 ? '#E8833A' : '#8f8f8f' }}>
             {dif > 0 ? '+' : ''}{dif.toFixed(1).replace('.', ',')}
           </span>
         )}
       </button>
 
       {abierto && (
-        <div style={{ padding: '2px 12px 12px', fontSize: 12, color: '#777', lineHeight: 1.65 }}>
-          <div style={{ color: '#555', marginBottom: 8 }}>
+        <div style={{ padding: '2px 12px 12px', fontSize: 12, color: '#a0a0a0', lineHeight: 1.65 }}>
+          <div style={{ color: '#8f8f8f', marginBottom: 8 }}>
             Lámina areal sobre {ambito}, por tres caminos distintos.
           </div>
 
@@ -101,7 +103,7 @@ export default function PanelMediaAreal({ mmIdw, porLongitud, porSuperficie, amb
                 nota={`El método tradicional: cada pluviómetro pesa el área de su zona. ${
                   porSuperficie.aportes.length} estación(es) sobre ${nPeso(porSuperficie.pesoTotal, 'km²')}.`}
               />
-            : <div style={{ color: '#555', margin: '6px 0 2px', paddingLeft: 2 }}>
+            : <div style={{ color: '#8f8f8f', margin: '6px 0 2px', paddingLeft: 2 }}>
                 El peso por superficie no se calcula por consorcio: los consorcios no tienen
                 polígono de límites, sólo la traza de su red. Está disponible a nivel provincia.
               </div>}
@@ -114,12 +116,12 @@ export default function PanelMediaAreal({ mmIdw, porLongitud, porSuperficie, amb
             </div>
           )}
 
-          <div style={{ color: '#555', marginTop: 10, marginBottom: 4 }}>
+          <div style={{ color: '#8f8f8f', marginTop: 10, marginBottom: 4 }}>
             De dónde sale el número de Thiessen por red
           </div>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
             <thead>
-              <tr style={{ color: '#555' }}>
+              <tr style={{ color: '#8f8f8f' }}>
                 <th style={th}>Pluviómetro</th>
                 <th style={{ ...th, textAlign: 'right' }}>Lámina</th>
                 <th style={{ ...th, textAlign: 'right' }}>Red</th>
@@ -140,7 +142,7 @@ export default function PanelMediaAreal({ mmIdw, porLongitud, porSuperficie, amb
             </tbody>
           </table>
           {porLongitud.aportes.length > 12 && (
-            <div style={{ color: '#555', marginTop: 6 }}>
+            <div style={{ color: '#8f8f8f', marginTop: 6 }}>
               … y {porLongitud.aportes.length - 12} pluviómetro(s) más, con menos peso.
             </div>
           )}
@@ -161,7 +163,7 @@ function Fila({ nombre, valor, nota, principal }: {
       <span style={{ width: 210, flexShrink: 0, color: principal ? '#F5C300' : '#999' }}>{nombre}</span>
       <span style={{ width: 62, flexShrink: 0, textAlign: 'right',
         color: principal ? '#F5C300' : '#ccc', fontWeight: 700 }}>{valor} mm</span>
-      <span style={{ color: '#555', flex: 1, minWidth: 0 }}>{nota}</span>
+      <span style={{ color: '#8f8f8f', flex: 1, minWidth: 0 }}>{nota}</span>
     </div>
   )
 }

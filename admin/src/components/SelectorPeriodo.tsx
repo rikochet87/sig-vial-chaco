@@ -106,6 +106,7 @@ export default function SelectorPeriodo({
 }: Props) {
   const [verFechas, setVerFechas] = useState(false)
   const [confirmando, setConfirmando] = useState(false)
+  const [verDatos, setVerDatos] = useState(false)
 
   const dias = cobertura?.dias ?? 0
 
@@ -122,6 +123,14 @@ export default function SelectorPeriodo({
     (cobertura?.conSerie ?? 0) - (cobertura?.interpolados ?? 0) - (cobertura?.sinParte ?? 0))
   const alDia = cobertura !== null && faltanDias === 0 && porInterpolar === 0
   const enEpisodio = episodios.some(e => e.desde === desde && e.hasta === hasta)
+
+  /*
+   * La franja de datos se muestra sola cuando hay algo que hacer o se está
+   * haciendo. Con el período completo —que es casi siempre, porque la serie se
+   * baja sola— eran 60 px fijos arriba del mapa para decir "no hace falta tocar
+   * nada". Ahí queda un indicador chico en la fila de arriba, que la abre.
+   */
+  const datosAbiertos = !alDia || verDatos || descargando || interpolando
 
   /** ¿Este preset de N días es el rango actual? */
   const esPreset = (d: number) => {
@@ -145,11 +154,11 @@ export default function SelectorPeriodo({
   }
 
   return (
-    <div style={{ flexShrink: 0, marginBottom: 12 }}>
+    <div style={{ flexShrink: 0, marginBottom: 10 }}>
 
       {/* ── 1 · Qué período mirar ─────────────────────────────────────────── */}
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', marginBottom: 12 }}>
-        <span style={{ ...mono, fontSize: 11, color: '#6a7078', letterSpacing: 0.8,
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', marginBottom: 8 }}>
+        <span style={{ ...mono, fontSize: 11, color: '#a0a0a0', letterSpacing: 0.8,
           textTransform: 'uppercase', marginRight: 4 }}>
           Período
         </span>
@@ -169,10 +178,23 @@ export default function SelectorPeriodo({
         ))}
         <Preset activo={verFechas} onClick={() => setVerFechas(v => !v)}>Fechas…</Preset>
 
+        <span style={{ flex: 1 }} />
+
+        {esAdmin && cobertura && alDia && (
+          <button onClick={() => setVerDatos(v => !v)}
+            title="Serie modelada y pluviómetros interpolados del período. Clic para ver el detalle"
+            style={{
+              ...mono, fontSize: 12, cursor: 'pointer', padding: '5px 9px', borderRadius: 2,
+              background: 'transparent', border: '1px solid transparent', color: '#8f8f8f',
+            }}>
+            <b style={{ color: '#5DCAA5', fontWeight: 400 }}>●</b> Datos al día {verDatos ? '▴' : '▾'}
+          </button>
+        )}
+
         {onDescargarCsv && (
           <button onClick={onDescargarCsv} style={{
             ...mono, fontSize: 12, cursor: 'pointer', padding: '5px 11px', borderRadius: 2,
-            marginLeft: 'auto', background: 'transparent',
+            background: 'transparent',
             border: '1px solid #2a2a2a', color: '#7d848c',
           }}>
             Descargar CSV por camino
@@ -183,14 +205,14 @@ export default function SelectorPeriodo({
       {verFechas && (
         <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', marginBottom: 10,
           background: '#191919', border: '1px solid #1e1e1e', padding: '10px 13px' }}>
-          <label style={{ ...mono, fontSize: 11, color: '#6a7078' }}>
+          <label style={{ ...mono, fontSize: 11, color: '#a0a0a0' }}>
             <span style={{ display: 'block', marginBottom: 3 }}>Desde</span>
             <input type="date" value={desde} max={hasta}
               onChange={e => onRango(e.target.value, hasta)}
               style={{ background: '#0a0a0a', border: '1px solid #222', color: '#ddd',
                 padding: '6px 9px', fontSize: 13, ...mono, outline: 'none' }} />
           </label>
-          <label style={{ ...mono, fontSize: 11, color: '#6a7078' }}>
+          <label style={{ ...mono, fontSize: 11, color: '#a0a0a0' }}>
             <span style={{ display: 'block', marginBottom: 3 }}>Hasta</span>
             <input type="date" value={hasta} min={desde} max={hoy}
               onChange={e => onRango(desde, e.target.value)}
@@ -216,10 +238,10 @@ export default function SelectorPeriodo({
             tapado por la descripción.
           */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
-            gap: 16, ...mono, fontSize: 11, color: '#5e656d', marginBottom: 7 }}>
+            gap: 16, ...mono, fontSize: 11, color: '#8f8f8f', marginBottom: 7 }}>
             <span>
               {fmtCorta(serie[0].fecha)} → {fmtCorta(serie[serie.length - 1].fecha)}
-              <span style={{ color: '#4e555c' }}> · lámina máxima diaria · clic para elegir el evento</span>
+              <span style={{ color: '#8f8f8f' }}> · lámina máxima diaria · clic para elegir el evento</span>
             </span>
             <span style={{ fontSize: 12, color: '#8b9299', whiteSpace: 'nowrap' }}>
               <b style={{ color: '#F5C300', fontWeight: 400 }}>
@@ -250,7 +272,7 @@ export default function SelectorPeriodo({
 
       {/* Los eventos detectados, como accesos directos */}
       {/* ── 2 · Datos de este período ─────────────────────────────────────── */}
-      {esAdmin && cobertura && (
+      {esAdmin && cobertura && datosAbiertos && (
         <div style={{ background: '#191919', border: '1px solid #1e1e1e', padding: '10px 12px' }}>
           {/*
             La etiqueta va **dentro** de la fila y no en un renglón propio: da el
@@ -258,7 +280,7 @@ export default function SelectorPeriodo({
           */}
           <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', alignItems: 'center',
             ...mono, fontSize: 12, color: '#8b9299' }}>
-            <span style={{ fontSize: 11, color: '#6a7078', letterSpacing: 0.8,
+            <span style={{ fontSize: 11, color: '#a0a0a0', letterSpacing: 0.8,
               textTransform: 'uppercase' }}>
               Datos
             </span>
@@ -268,12 +290,12 @@ export default function SelectorPeriodo({
               Serie modelada · {cobertura.conSerie} de {cobertura.dias} días
             </span>
             <span>
-              <b style={{ color: cobertura.interpolados > 0 ? '#85B7EB' : '#6a7078',
+              <b style={{ color: cobertura.interpolados > 0 ? '#85B7EB' : '#a0a0a0',
                 fontWeight: 400 }}>●</b>{' '}
               Pluviómetros interpolados · {cobertura.interpolados} de {cobertura.dias} días
             </span>
             {cobertura.sinParte > 0 && (
-              <span style={{ color: '#6a7078' }}>
+              <span style={{ color: '#a0a0a0' }}>
                 ● {cobertura.sinParte} {cobertura.sinParte === 1 ? 'día' : 'días'} sin parte de la APA
               </span>
             )}
@@ -290,7 +312,7 @@ export default function SelectorPeriodo({
                   ...mono, fontSize: 12, padding: '6px 11px', borderRadius: 2,
                   cursor: descargando ? 'default' : 'pointer', background: 'transparent',
                   border: `1px solid ${descargando ? '#333' : '#2e5540'}`,
-                  color: descargando ? '#555' : '#7BC47F',
+                  color: descargando ? '#8f8f8f' : '#7BC47F',
                 }}>
                 {descargando
                   ? progreso ? `Descargando ${progreso.hecho + 1} de ${progreso.total}…` : 'Descargando…'
@@ -309,7 +331,7 @@ export default function SelectorPeriodo({
                   ...mono, fontSize: 12, padding: '6px 11px', borderRadius: 2,
                   cursor: interpolando ? 'default' : 'pointer', background: 'transparent',
                   border: `1px solid ${interpolando ? '#333' : '#2a3f55'}`,
-                  color: interpolando ? '#555' : '#85B7EB',
+                  color: interpolando ? '#8f8f8f' : '#85B7EB',
                 }}>
                 {interpolando
                   ? 'Interpolando…'
@@ -318,7 +340,7 @@ export default function SelectorPeriodo({
             )}
           </div>
 
-          <div style={{ ...mono, fontSize: 11, color: '#5e656d', marginTop: 8 }}>
+          <div style={{ ...mono, fontSize: 11, color: '#8f8f8f', marginTop: 8 }}>
             {alDia ? (
               <>
                 El período está completo. La serie se descarga sola todos los días;
@@ -327,7 +349,7 @@ export default function SelectorPeriodo({
                 <button onClick={() => setConfirmando(true)} disabled={descargando}
                   style={{
                     ...mono, fontSize: 11, padding: 0, border: 'none', background: 'none',
-                    color: '#5e656d', textDecoration: 'underline', cursor: 'pointer',
+                    color: '#8f8f8f', textDecoration: 'underline', cursor: 'pointer',
                   }}>
                   Volver a descargarla
                 </button>

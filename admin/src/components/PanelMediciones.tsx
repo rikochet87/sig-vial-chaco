@@ -42,7 +42,7 @@ import type { LecturaParte, Metricas, EvaluacionCorreccion } from '@/lib/calibra
 
 const mono: React.CSSProperties = { fontFamily: 'monospace' }
 const lbl: React.CSSProperties = {
-  display: 'block', fontSize: 12, color: '#555', textTransform: 'uppercase',
+  display: 'block', fontSize: 12, color: '#8f8f8f', textTransform: 'uppercase',
   letterSpacing: 0.8, ...mono, marginBottom: 4,
 }
 const inp: React.CSSProperties = {
@@ -207,7 +207,7 @@ export default function PanelMediciones({ esAdmin }: { esAdmin: boolean }) {
                 cursor: ocupado || !impDesde || !impHasta ? 'default' : 'pointer',
                 background: 'transparent',
                 border: `1px solid ${ocupado || !impDesde || !impHasta ? '#333' : '#F5C300'}`,
-                color: ocupado || !impDesde || !impHasta ? '#555' : '#F5C300',
+                color: ocupado || !impDesde || !impHasta ? '#8f8f8f' : '#F5C300',
               }}>
               {ocupado ? 'Trayendo…' : 'Importar'}
             </button>
@@ -250,7 +250,7 @@ export default function PanelMediciones({ esAdmin }: { esAdmin: boolean }) {
               </div>
             )}
 
-            <div style={{ ...mono, fontSize: 12, color: '#6a6a6a', marginTop: 10, lineHeight: 1.6 }}>
+            <div style={{ ...mono, fontSize: 12, color: '#a0a0a0', marginTop: 10, lineHeight: 1.6 }}>
               Esto mide <b style={{ color: '#8a8a8a' }}>el modelo de respaldo</b>, no lo que ves en el
               mapa. El número del mapa sale de interpolar estos mismos pluviómetros, y el modelo
               sólo aparece donde no hay ninguna estación a menos de 60 km.
@@ -276,7 +276,7 @@ export default function PanelMediciones({ esAdmin }: { esAdmin: boolean }) {
                     { l: 'En coordenada exacta', v: String(precision!.enCoordenadaExacta ?? 0) },
                   ].map(x => (
                     <div key={x.l} style={{ background: '#111', border: '1px solid #222', padding: '7px 12px' }}>
-                      <div style={{ ...mono, fontSize: 11, color: '#555', textTransform: 'uppercase',
+                      <div style={{ ...mono, fontSize: 11, color: '#8f8f8f', textTransform: 'uppercase',
                         letterSpacing: 0.8 }}>{x.l}</div>
                       <div style={{ ...mono, fontSize: 14, fontWeight: 700, color: '#bdbdbd', marginTop: 2 }}>
                         {x.v}
@@ -311,7 +311,7 @@ export default function PanelMediciones({ esAdmin }: { esAdmin: boolean }) {
         <button onClick={() => setVerManual(true)}
           style={{
             ...mono, fontSize: 12, padding: '7px 12px', cursor: 'pointer', marginBottom: 12,
-            background: 'transparent', border: '1px solid #262626', color: '#6a6a6a',
+            background: 'transparent', border: '1px solid #262626', color: '#a0a0a0',
           }}>
           ¿La APA no responde? Cargar un parte a mano
         </button>
@@ -323,11 +323,11 @@ export default function PanelMediciones({ esAdmin }: { esAdmin: boolean }) {
             <div style={{ ...lbl, marginBottom: 0 }}>Cargar un parte a mano</div>
             <button onClick={() => setVerManual(false)}
               style={{ ...mono, fontSize: 11, background: 'transparent', border: 'none',
-                color: '#6a6a6a', cursor: 'pointer', padding: 0 }}>
+                color: '#a0a0a0', cursor: 'pointer', padding: 0 }}>
               ocultar
             </button>
           </div>
-          <div style={{ ...mono, fontSize: 12, color: '#666', marginBottom: 10, lineHeight: 1.5 }}>
+          <div style={{ ...mono, fontSize: 12, color: '#8f8f8f', marginBottom: 10, lineHeight: 1.5 }}>
             Respaldo para cuando el mapa de la APA no responde y el dato sólo está en la prensa.
           </div>
 
@@ -343,7 +343,7 @@ export default function PanelMediciones({ esAdmin }: { esAdmin: boolean }) {
             </div>
           </div>
 
-          <div style={{ ...mono, fontSize: 12, color: '#555', marginBottom: 6, lineHeight: 1.5 }}>
+          <div style={{ ...mono, fontSize: 12, color: '#8f8f8f', marginBottom: 6, lineHeight: 1.5 }}>
             Pegá el texto del parte tal como viene. La fecha es la del día que llovió,
             no la de publicación: la APA acumula hasta las 7 y lo informa al otro día.
           </div>
@@ -359,12 +359,12 @@ export default function PanelMediciones({ esAdmin }: { esAdmin: boolean }) {
                 cursor: ocupado || !fecha || texto.trim().length < 40 ? 'default' : 'pointer',
                 background: 'transparent',
                 border: `1px solid ${!fecha || texto.trim().length < 40 ? '#333' : '#4A90C2'}`,
-                color: !fecha || texto.trim().length < 40 ? '#555' : '#4A90C2',
+                color: !fecha || texto.trim().length < 40 ? '#8f8f8f' : '#4A90C2',
               }}>
               {ocupado ? 'Leyendo…' : 'Leer el parte'}
             </button>
             {!fecha && (
-              <span style={{ ...mono, fontSize: 12, color: '#666', alignSelf: 'center' }}>
+              <span style={{ ...mono, fontSize: 12, color: '#8f8f8f', alignSelf: 'center' }}>
                 Poné la fecha primero
               </span>
             )}
@@ -378,7 +378,7 @@ export default function PanelMediciones({ esAdmin }: { esAdmin: boolean }) {
           <div style={{ ...lbl, marginBottom: 4 }}>
             Revisá antes de guardar — {leidas.length} localidades
           </div>
-          <div style={{ ...mono, fontSize: 12, color: '#666', marginBottom: 10, lineHeight: 1.5 }}>
+          <div style={{ ...mono, fontSize: 12, color: '#8f8f8f', marginBottom: 10, lineHeight: 1.5 }}>
             Cada valor sale del fragmento que está debajo. Si alguno quedó mal, corregilo acá.
           </div>
 
@@ -390,7 +390,7 @@ export default function PanelMediciones({ esAdmin }: { esAdmin: boolean }) {
               }}>
                 <span style={{ flex: 1, minWidth: 0 }}>
                   <span style={{ display: 'block', fontSize: 13, color: '#ccc' }}>{l.estacion}</span>
-                  <span style={{ display: 'block', fontSize: 11, color: '#4a4a4a',
+                  <span style={{ display: 'block', fontSize: 11, color: '#8f8f8f',
                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     …{l.contexto}…
                   </span>
@@ -401,11 +401,11 @@ export default function PanelMediciones({ esAdmin }: { esAdmin: boolean }) {
                     setLeidas(prev => prev!.map((x, j) => j === i ? { ...x, mm: isNaN(v) ? 0 : v } : x))
                   }}
                   style={{ ...inp, width: 74, textAlign: 'right' }} />
-                <span style={{ fontSize: 12, color: '#555', width: 20 }}>mm</span>
+                <span style={{ fontSize: 12, color: '#8f8f8f', width: 20 }}>mm</span>
                 <button onClick={() => setLeidas(prev => prev!.filter((_, j) => j !== i))}
                   title="Descartar esta lectura"
                   style={{ ...mono, fontSize: 13, cursor: 'pointer', padding: '2px 8px',
-                    background: 'transparent', border: '1px solid #252525', color: '#555' }}>✕</button>
+                    background: 'transparent', border: '1px solid #252525', color: '#8f8f8f' }}>✕</button>
               </div>
             ))}
           </div>
@@ -433,7 +433,7 @@ export default function PanelMediciones({ esAdmin }: { esAdmin: boolean }) {
             <button onClick={() => { setLeidas(null); setDesconocidas([]) }}
               style={{
                 ...mono, fontSize: 13, padding: '7px 16px', cursor: 'pointer',
-                background: 'transparent', border: '1px solid #252525', color: '#666',
+                background: 'transparent', border: '1px solid #252525', color: '#8f8f8f',
               }}>Descartar</button>
           </div>
         </div>

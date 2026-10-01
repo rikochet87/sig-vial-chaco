@@ -17,26 +17,27 @@
  * y obras de arte** baja eso al camino: los kilómetros de red de cada cuenca,
  * cuántos recibieron cada lámina, y los puentes y alcantarillas relevados.
  *
- * Va plegado por omisión, como la comparación de métodos. Y recién al abrirlo
- * se bajan las cuencas y se calcula: son 310 KB y un cálculo por período que la
- * mayoría de las visitas no necesita.
+ * Ocupa la pestaña Cuencas entera. Las cuencas y la lámina del período llegan
+ * de afuera, de `useCuencasLluvia`: las mismas las usa la lista de cuencas que
+ * va al lado del mapa, y tienen que salir del mismo cálculo.
  */
 
 import { useEffect, useMemo, useState } from 'react'
-import { cargarCuencas, type Cuenca } from '@/lib/cuencas'
 import { clasificar } from '@/lib/lluvia'
 import { RADIO_KM } from '@/lib/fusion'
 import {
-  csvCuencas, csvMaximas, laminaMaxima, laminaPorCuenca, muestrasDe, pesosIdw, serieDiaria,
-  totalCuencas, PASO_KM, VENTANAS_DIAS,
+  csvCuencas, csvMaximas, laminaMaxima, pesosIdw, serieDiaria, PASO_KM, VENTANAS_DIAS,
   type DiaCuenca, type LaminaCuenca, type LaminaMaxima, type ParteDiario,
 } from '@/lib/lluviaCuencas'
 import type { MedicionConNombre } from '@/lib/thiessenAreal'
 import type { LluviaTramo, TramoRed } from '@/lib/redLluvia'
+import type { CuencasConLluvia } from '@/hooks/useCuencasLluvia'
 import VistaRed from './cuencas/VistaRed'
 import { bajarCsv, boton, fCorta, mono, nKm2, nMm, nPct, td, tdD, th, thD } from './cuencas/piezas'
 
 interface Props {
+  /** Las cuencas y su lámina del período, ya calculadas */
+  datos: CuencasConLluvia
   /** Lo que midió cada pluviómetro en el período */
   estaciones: MedicionConNombre[]
   desde: string
@@ -74,39 +75,11 @@ const fRango = (d: string, h: string) => (d === h ? fCorta(d) : `${fCorta(d)} �
 const nHm3 = (v: number | null) =>
   v === null ? '—' : v.toLocaleString('es-AR', { maximumFractionDigits: v < 100 ? 1 : 0 })
 
-export default function PanelCuencas({ estaciones, desde, hasta, hoy, tramos, lluviaTramos }: Props) {
-  const [abierto, setAbierto] = useState(false)
+export default function PanelCuencas({ datos, estaciones, desde, hasta, hoy, tramos, lluviaTramos }: Props) {
+  const { cuencas, muestras, filas, total, error, reintentar } = datos
   const [vista, setVista] = useState<Vista>('periodo')
-  const [cuencas, setCuencas] = useState<Cuenca[] | null>(null)
-  const [error, setError] = useState<string | null>(null)
   const [orden, setOrden] = useState<Orden>('mm')
   const [detalle, setDetalle] = useState<number | null>(null)
-
-  // La carga va en el clic y no en un efecto: se pide cuando alguien abre el
-  // panel, que es un evento, no una consecuencia de renderizar.
-  async function cargar() {
-    setError(null)
-    try {
-      setCuencas(await cargarCuencas())
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'no se pudo descargar')
-    }
-  }
-  function alternar() {
-    setAbierto(a => !a)
-    if (!abierto && !cuencas) cargar()
-  }
-
-  // La grilla no depende de la fecha: una vez por carga de las cuencas.
-  const muestras = useMemo(() => cuencas?.map(c => muestrasDe(c)) ?? null, [cuencas])
-
-  const filas = useMemo(
-    () => (abierto && cuencas && muestras && estaciones.length > 0
-      ? laminaPorCuenca(cuencas, muestras, estaciones)
-      : null),
-    [abierto, cuencas, muestras, estaciones],
-  )
-  const total = useMemo(() => (filas ? totalCuencas(filas) : null), [filas])
 
   const ordenadas = useMemo(() => {
     if (!filas) return []
@@ -134,7 +107,7 @@ export default function PanelCuencas({ estaciones, desde, hasta, hoy, tramos, ll
   const claveDiario = `${serieDesde}|${hoy}`
 
   useEffect(() => {
-    if (!abierto || vista !== 'maximas') return
+    if (vista !== 'maximas') return
     let vivo = true
     fetch(`/api/lluvia/estaciones/diario?desde=${serieDesde}&hasta=${hoy}`)
       .then(async r => {
@@ -145,7 +118,7 @@ export default function PanelCuencas({ estaciones, desde, hasta, hoy, tramos, ll
       .then(j => { if (vivo) { setDiario({ ...j, clave: `${serieDesde}|${hoy}` }); setErrorDiario(null) } })
       .catch(e => { if (vivo) setErrorDiario(e instanceof Error ? e.message : 'no se pudo consultar') })
     return () => { vivo = false }
-  }, [abierto, vista, serieDesde, hoy, intentoDiario])
+  }, [vista, serieDesde, hoy, intentoDiario])
 
   // Lo que quedó de otro rango no se muestra como si fuera de éste
   const diarioVigente = diario?.clave === claveDiario ? diario : null
@@ -169,35 +142,31 @@ export default function PanelCuencas({ estaciones, desde, hasta, hoy, tramos, ll
   }
 
   return (
-    <div style={{ ...mono, border: '1px solid #1e1e1e', background: '#191919', marginTop: 8, flexShrink: 0 }}>
-      <button onClick={alternar} style={{
-        display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left',
-        padding: '7px 12px', cursor: 'pointer', background: 'transparent', border: 'none',
-        ...mono, fontSize: 12, color: '#999',
+    <div style={{ ...mono, border: '1px solid #1e1e1e', background: '#191919' }}>
+      <div style={{
+        display: 'flex', alignItems: 'baseline', gap: 10, padding: '9px 12px 7px',
+        fontSize: 13, color: '#ccc', borderLeft: '3px solid #F5C300',
       }}>
-        <span style={{ color: '#555' }}>{abierto ? '▾' : '▸'}</span>
-        <span style={{ flex: 1 }}>
-          Lámina por cuenca — precipitación media areal de las 13 cuencas hídricas
-        </span>
-        {abierto && total && total.mm !== null && (
-          <span style={{ color: '#777' }}>
+        <span style={{ flex: 1 }}>Precipitación media areal de las 13 cuencas hídricas</span>
+        {total && total.mm !== null && (
+          <span style={{ color: '#a0a0a0', fontSize: 12 }}>
             provincia <b style={{ color: '#ccc' }}>{nMm(total.mm)} mm</b>
             {' · '}<b style={{ color: '#ccc' }}>{nHm3(total.hm3)} hm³</b>
           </span>
         )}
-      </button>
+      </div>
 
-      {abierto && (
-        <div style={{ padding: '2px 12px 12px', fontSize: 12, color: '#777', lineHeight: 1.6 }}>
+      {(
+        <div style={{ padding: '2px 12px 12px', fontSize: 12, color: '#a0a0a0', lineHeight: 1.6 }}>
 
           {error && (
             <div style={{ color: '#E8A87C' }}>
               No se pudieron cargar las cuencas ({error}).{' '}
-              <button onClick={cargar} style={boton}>Reintentar</button>
+              <button onClick={reintentar} style={boton}>Reintentar</button>
             </div>
           )}
 
-          {!error && !cuencas && <div style={{ color: '#555' }}>Cargando las cuencas…</div>}
+          {!error && !cuencas && <div style={{ color: '#8f8f8f' }}>Cargando las cuencas…</div>}
 
           {!error && cuencas && (
             <div style={{ display: 'flex', border: '1px solid #252525', width: 'fit-content', marginBottom: 8 }}>
@@ -205,7 +174,7 @@ export default function PanelCuencas({ estaciones, desde, hasta, hoy, tramos, ll
                 <button key={v} onClick={() => { setVista(v); setDetalle(null) }} style={{
                   ...mono, fontSize: 12, padding: '4px 12px', cursor: 'pointer', border: 'none',
                   background: vista === v ? '#1e1e1e' : 'transparent',
-                  color: vista === v ? '#F5C300' : '#555',
+                  color: vista === v ? '#F5C300' : '#8f8f8f',
                 }}>{t}</button>
               ))}
             </div>
@@ -238,16 +207,16 @@ export default function PanelCuencas({ estaciones, desde, hasta, hoy, tramos, ll
 
           {vista === 'periodo' && filas && total && (<>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-              <span style={{ color: '#555', flex: 1 }}>
+              <span style={{ color: '#8f8f8f', flex: 1 }}>
                 Del {desde.split('-').reverse().join('/')} al {hasta.split('-').reverse().join('/')}
                 {' · '}{estaciones.length} pluviómetros. Tocá una cuenca para ver de dónde sale su número.
               </span>
-              <span style={{ color: '#555' }}>Ordenar por</span>
+              <span style={{ color: '#8f8f8f' }}>Ordenar por</span>
               {([['mm', 'Lámina'], ['cod', 'Nº']] as const).map(([k, t]) => (
                 <button key={k} onClick={() => setOrden(k)} style={{
                   ...mono, fontSize: 12, cursor: 'pointer', padding: '3px 8px', border: 'none',
                   background: orden === k ? '#252525' : 'transparent',
-                  color: orden === k ? '#F5C300' : '#555',
+                  color: orden === k ? '#F5C300' : '#8f8f8f',
                 }}>{t}</button>
               ))}
               <button onClick={descargar} style={boton}>Descargar CSV</button>
@@ -255,7 +224,7 @@ export default function PanelCuencas({ estaciones, desde, hasta, hoy, tramos, ll
 
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
               <thead>
-                <tr style={{ color: '#555', textTransform: 'uppercase', letterSpacing: 0.8, fontSize: 11 }}>
+                <tr style={{ color: '#8f8f8f', textTransform: 'uppercase', letterSpacing: 0.8, fontSize: 11 }}>
                   <th style={{ ...th, width: 34 }}>Nº</th>
                   <th style={th}>Cuenca</th>
                   <th style={thD}>Superficie</th>
@@ -286,7 +255,7 @@ export default function PanelCuencas({ estaciones, desde, hasta, hoy, tramos, ll
               </tbody>
             </table>
 
-            <div style={{ color: '#555', marginTop: 9 }}>
+            <div style={{ color: '#8f8f8f', marginTop: 9 }}>
               La lámina areal es el promedio del IDW que usa toda la pantalla —potencia 2,
               radio {RADIO_KM} km— evaluado cada {String(PASO_KM).replace('.', ',')} km adentro de la cuenca.
               El volumen es esa lámina por la superficie cubierta: un milímetro sobre un km² son mil m³.
@@ -317,19 +286,19 @@ function FilaCuenca({ f, abierta, onClick }: { f: LaminaCuenca; abierta: boolean
         borderTop: '1px solid #141414', cursor: 'pointer',
         background: abierta ? 'rgba(245,195,0,0.05)' : 'transparent',
       }}>
-        <td style={{ ...td, color: '#777' }}>{f.cod}</td>
+        <td style={{ ...td, color: '#a0a0a0' }}>{f.cod}</td>
         <td style={{ ...td, color: '#ccc' }}>
           <span style={{ display: 'inline-block', width: 9, height: 9, background: color,
             border: '1px solid #111', marginRight: 7, verticalAlign: 'middle' }} />
           {f.nombre}
         </td>
         <td style={tdD}>{nKm2(f.km2)} km²</td>
-        <td style={{ ...tdD, color: f.mm === null ? '#555' : '#F5C300', fontWeight: 700 }}>
+        <td style={{ ...tdD, color: f.mm === null ? '#8f8f8f' : '#F5C300', fontWeight: 700 }}>
           {f.mm === null ? 'sin dato' : `${nMm(f.mm)} mm`}
         </td>
         <td style={{ ...tdD, color: '#999' }}>{f.thiessen.mm === null ? '—' : `${nMm(f.thiessen.mm)} mm`}</td>
         <td style={{ ...tdD, color: '#999' }}>{f.mmMax === null ? '—' : `${nMm(f.mmMax)} mm`}</td>
-        <td style={{ ...tdD, color: parcial || f.mm === null ? '#E8833A' : '#777' }}>{nPct(f.cobertura)} %</td>
+        <td style={{ ...tdD, color: parcial || f.mm === null ? '#E8833A' : '#a0a0a0' }}>{nPct(f.cobertura)} %</td>
         <td style={{ ...tdD, color: '#ccc' }}>{f.hm3 === null ? '—' : `${nHm3(f.hm3)} hm³`}</td>
       </tr>
 
@@ -342,13 +311,13 @@ function FilaCuenca({ f, abierta, onClick }: { f: LaminaCuenca; abierta: boolean
                 Ningún pluviómetro informó a menos de {RADIO_KM} km de esta cuenca en el período.
               </div>
             ) : (<>
-              <div style={{ color: '#555', marginBottom: 3 }}>
+              <div style={{ color: '#8f8f8f', marginBottom: 3 }}>
                 Thiessen por superficie: {f.thiessen.aportes.length} pluviómetro(s) sobre{' '}
                 {nKm2(f.thiessen.pesoTotal)} km² cubiertos.
               </div>
               <table style={{ borderCollapse: 'collapse', fontSize: 12, minWidth: 460 }}>
                 <thead>
-                  <tr style={{ color: '#555' }}>
+                  <tr style={{ color: '#8f8f8f' }}>
                     <th style={th}>Pluviómetro</th>
                     <th style={thD}>Lámina</th>
                     <th style={thD}>Zona en la cuenca</th>
@@ -367,7 +336,7 @@ function FilaCuenca({ f, abierta, onClick }: { f: LaminaCuenca; abierta: boolean
                 </tbody>
               </table>
               {f.thiessen.aportes.length > visibles.length && (
-                <div style={{ color: '#555', marginTop: 4 }}>
+                <div style={{ color: '#8f8f8f', marginTop: 4 }}>
                   … y {f.thiessen.aportes.length - visibles.length} pluviómetro(s) más, con menos peso.
                 </div>
               )}
@@ -400,7 +369,7 @@ function VistaMaximas({ filas, error, onReintentar, serieDesde, hoy, desde, hast
       </div>
     )
   }
-  if (!filas) return <div style={{ color: '#555' }}>Cargando la serie diaria…</div>
+  if (!filas) return <div style={{ color: '#8f8f8f' }}>Cargando la serie diaria…</div>
 
   const conParte = filas[0]?.serie.filter(d => d.mm !== null).length ?? 0
   const totalDias = filas[0]?.serie.length ?? 0
@@ -422,7 +391,7 @@ function VistaMaximas({ filas, error, onReintentar, serieDesde, hoy, desde, hast
 
   return (<>
     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-      <span style={{ color: '#555', flex: 1 }}>
+      <span style={{ color: '#8f8f8f', flex: 1 }}>
         Del {fCorta(serieDesde)} al {fCorta(hoy)} · {totalDias} días, {diasConParte} con parte de la APA.
         Tocá una cuenca para ver su serie día por día.
       </span>
@@ -433,7 +402,7 @@ function VistaMaximas({ filas, error, onReintentar, serieDesde, hoy, desde, hast
 
     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
       <thead>
-        <tr style={{ color: '#555', textTransform: 'uppercase', letterSpacing: 0.8, fontSize: 11 }}>
+        <tr style={{ color: '#8f8f8f', textTransform: 'uppercase', letterSpacing: 0.8, fontSize: 11 }}>
           <th style={{ ...th, width: 34, cursor: 'pointer', color: orden < 0 ? '#F5C300' : undefined }}
             onClick={() => setOrden(-1)} title="Ordenar por número de cuenca">Nº</th>
           <th style={th}>Cuenca</th>
@@ -455,7 +424,7 @@ function VistaMaximas({ filas, error, onReintentar, serieDesde, hoy, desde, hast
       </tbody>
     </table>
 
-    <div style={{ color: '#555', marginTop: 9 }}>
+    <div style={{ color: '#8f8f8f', marginTop: 9 }}>
       Cada número es la mayor lámina areal que juntó la cuenca en esa cantidad de días corridos,
       con las fechas en que pasó. La lámina de cada día sale del mismo IDW que el resto de la pantalla.
     </div>
@@ -478,7 +447,7 @@ function FilaDeMaximas({ f, abierta, onClick, desde, hasta }: {
         borderTop: '1px solid #141414', cursor: 'pointer',
         background: abierta ? 'rgba(245,195,0,0.05)' : 'transparent',
       }}>
-        <td style={{ ...td, color: '#777' }}>{f.cod}</td>
+        <td style={{ ...td, color: '#a0a0a0' }}>{f.cod}</td>
         <td style={{ ...td, color: '#ccc' }}>
           {f.nombre}
           {parcial && (
@@ -490,11 +459,11 @@ function FilaDeMaximas({ f, abierta, onClick, desde, hasta }: {
         </td>
         {f.maximas.map((m, i) => (
           <td key={i} style={tdD}>
-            {m === null ? <span style={{ color: '#555' }}>{sinSerie ? 'sin dato' : '—'}</span> : (<>
+            {m === null ? <span style={{ color: '#8f8f8f' }}>{sinSerie ? 'sin dato' : '—'}</span> : (<>
               <span style={{ display: 'inline-block', width: 9, height: 9, marginRight: 6,
                 background: clasificar(m.mm).color, border: '1px solid #111', verticalAlign: 'middle' }} />
               <b style={{ color: '#ccc' }}>{nMm(m.mm)} mm</b>
-              <span style={{ display: 'block', fontSize: 11, color: '#666' }}>
+              <span style={{ display: 'block', fontSize: 11, color: '#8f8f8f' }}>
                 {m.mm > 0 ? fRango(m.desde, m.hasta) : 'sin lluvia'}
               </span>
             </>)}
@@ -536,7 +505,7 @@ function Hietograma({ serie, desde, hasta }: { serie: DiaCuenca[]; desde: string
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#666', marginBottom: 4 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#8f8f8f', marginBottom: 4 }}>
         <span>Lámina areal diaria, en mm</span>
         <span>
           {pico && (pico.mm ?? 0) > 0
@@ -561,7 +530,7 @@ function Hietograma({ serie, desde, hasta }: { serie: DiaCuenca[]; desde: string
           )
         })}
       </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#555', marginTop: 3 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#8f8f8f', marginTop: 3 }}>
         <span>{fCorta(serie[0].fecha)}</span>
         <span>
           barra: llovió · raya gris: parte con 0 mm · vacío: sin parte · en amarillo, el período elegido
