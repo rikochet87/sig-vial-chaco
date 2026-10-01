@@ -347,7 +347,6 @@ export default function LluviaPage() {
       {vista === 'precision' && (
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
           <PanelMediaAreal
-            abiertoInicial
             ambito={seleccionado === null
               ? 'toda la red de la provincia'
               : `la red del consorcio Nº ${seleccionado}`}
@@ -359,7 +358,7 @@ export default function LluviaPage() {
               : (arealPorCC.get(seleccionado) ?? null)}
             porSuperficie={seleccionado === null ? (arealProvincia?.porSuperficie ?? null) : null}
           />
-          <div style={{ height: 12 }} />
+          <div style={{ height: 4 }} />
           <PanelMediciones esAdmin={esAdmin} />
         </div>
       )}

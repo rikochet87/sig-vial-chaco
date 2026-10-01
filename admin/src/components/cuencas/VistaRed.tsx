@@ -84,7 +84,8 @@ export default function VistaRed({ cuencas, tramos, lluviaTramos, estaciones, de
   }
 
   const hayLluvia = estaciones.length > 0 && lluviaTramos.length === tramos.length
-  const visibles = red.filter(f => f.cod !== 0 || f.km >= 0.05 || (obrasDe.get(0)?.obras.length ?? 0) > 0)
+  // La fila de lo que cae afuera sólo aparece si tiene algo que mostrar
+  const visibles = red.filter(f => f.cod !== 0 || f.km >= 0.5 || (obrasDe.get(0)?.obras.length ?? 0) > 0)
   const suma = (f: (r: RedDeCuenca) => number) => red.reduce((s, r) => s + f(r), 0)
   const totalObras = TIPOS_OBRA.map((_, t) => (obrasCuenca ?? []).reduce((s, o) => s + o.cuenta[t], 0))
 

@@ -127,8 +127,8 @@ html                             { scrollbar-width: thin; scrollbar-color: #2a2a
   display: inline-block; transform: translate(-50%, -50%); white-space: nowrap;
   font-family: monospace; font-size: 11px; font-weight: 700;
   letter-spacing: .6px; text-transform: uppercase;
-  color: #0D3F6E; background: rgba(255,255,255,.88);
-  border: 1px solid #0D5C9E; padding: 1px 5px;
+  color: #4A148C; background: rgba(255,255,255,.9);
+  border: 1px solid #7B1FA2; padding: 1px 5px;
 }
 
 /* El del polígono elegido: invertido, para que se lea cuál es entre trece */

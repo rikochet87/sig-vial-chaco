@@ -525,15 +525,20 @@ export default function MapaLluvia({
         for (const c of enOrden) {
           const elegida = c.cod === cuencaSeleccionada
           // Doble trazo, como la red de fondo de las calculadoras: uno claro
-          // ancho abajo y uno azul fino arriba. Un solo color se pierde contra
-          // el verde del monte o contra el celeste de los ríos del mapa base.
+          // ancho abajo y uno violeta fino arriba. Un solo color se pierde
+          // contra el verde del monte o contra el celeste de los ríos del mapa.
+          //
+          // **Violeta y no azul.** La primera versión era azul y, con la red
+          // pintada, no se distinguía: los caminos con lluvia leve y moderada
+          // también son azules. El violeta no está en la escala de lluvia ni
+          // en el mapa base.
           // La elegida lleva el borde negro y grueso, y un relleno amarillo
           // tenue: el amarillo solo no se ve contra el mapa claro.
           for (const estilo of elegida
             ? [{ color: '#ffffff', weight: 7, opacity: 0.9, fill: true, fillColor: '#F5C300', fillOpacity: 0.16 },
                { color: '#111111', weight: 3, opacity: 1, fill: false }]
             : [{ color: '#ffffff', weight: 4, opacity: 0.75, fill: false },
-               { color: '#0D5C9E', weight: 1.6, opacity: 1, fill: false }]) {
+               { color: '#7B1FA2', weight: 1.8, opacity: 1, fill: false }]) {
             L.polygon(c.partes, { ...estilo, pane: 'cuencas', interactive: false })
               .addTo(capaCuencasRef.current)
           }

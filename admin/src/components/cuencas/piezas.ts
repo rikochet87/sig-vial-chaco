@@ -30,7 +30,7 @@ export const nKm2 = (v: number) => Math.round(v).toLocaleString('es-AR')
 export const nKm = (v: number) => Math.round(v).toLocaleString('es-AR')
 
 export const nPct = (f: number) =>
-  f > 0.9995 ? '100' : (f * 100).toFixed(1).replace('.', ',')
+  f >= 0.9995 ? '100' : (f * 100).toFixed(1).replace('.', ',')
 
 /** '2026-09-22' → '22/09' */
 export const fCorta = (f: string) => `${f.slice(8, 10)}/${f.slice(5, 7)}`
