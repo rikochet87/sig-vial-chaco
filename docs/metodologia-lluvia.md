@@ -641,6 +641,55 @@ Verificación: `scripts/verificar-rio-historico.ts` corre sobre la serie real y
 afirma las crecidas documentadas —fecha y altura—, que no dependen de este
 sistema.
 
+### 8.6 Tiempo de traslado de la crecida en el tramo
+
+`lib/rioTraslado.ts`. Cuántos días antes o después que en Corrientes se mueve el
+río en las otras cinco estaciones, de aguas arriba hacia abajo.
+
+**Serie.** Altura media diaria de las seis estaciones, del 01/01/1970 al
+30/09/2026 (`public/rio/tramo_diario.json`). Se usa el período común: Barranqueras
+y Bella Vista no tienen media diaria anterior. Empedrado no tiene datos entre
+1970 y 1989.
+
+**Dos métodos independientes.**
+
+1. *Pico anual.* Para cada año hidrológico completo en las dos estaciones, la
+   diferencia entre las fechas del máximo. Se informa la mediana y los cuartiles.
+   Se excluyen los años en que los picos difieren más de 15 días, porque
+   corresponden a crecidas distintas.
+2. *Variaciones diarias.* Correlación de Pearson entre el cambio diario de
+   altura en Corrientes y el de la otra estación desplazado de −6 a +10 días. El
+   desfase es el de máxima correlación, afinado con el vértice de la parábola
+   por los tres puntos de la cima. Se correlacionan cambios y no alturas porque
+   las alturas, por su persistencia, correlacionan por encima de 0,9 con
+   cualquier desfase y no definen un máximo.
+
+| Estación | Pico anual | Cuartiles | Años | Variaciones diarias | r |
+|---|---|---|---|---|---|
+| Itá Ibaté | 3 días antes | −4 a −2 | 46 de 52 | −1,8 d | 0,65 |
+| Barranqueras | el mismo día | −1 a 0 | 49 de 54 | 0,0 d | 0,82 |
+| Empedrado | 1 día después | 0 a +1 | 28 de 31 | +0,5 d | 0,58 |
+| Bella Vista | 2 días después | +1 a +3 | 47 de 53 | +1,3 d | 0,68 |
+| Goya | 4 días después | +2 a +5 | 49 de 56 | +1,9 d | 0,65 |
+
+**Lectura.** El máximo de una crecida pasa por Itá Ibaté unos tres días antes
+que por Corrientes y Barranqueras, y llega a Goya unos cuatro días después. El
+pico tarda más que una variación común —en Goya, el doble— porque la cresta es
+chata. Para una crecida vale el del pico.
+
+**Controles.** Barranqueras está enfrente de Corrientes y da cero por los dos
+métodos. Partida la serie en dos mitades, el desfase por variaciones de cada
+estación cambia menos de medio día. Los dos métodos coinciden en signo y en
+orden.
+
+**Límites.** La serie es diaria: el desfase se conoce al medio día. Entre Itá
+Ibaté y Corrientes entra el río Paraguay, así que Itá Ibaté no anuncia una
+crecida que venga por el Paraguay. Es el traslado típico: dice cuándo llega,
+no a qué altura. Con el río alto el método de variaciones no da un resultado
+consistente en Goya; no se investigó la causa.
+
+Verificación: `scripts/verificar-rio-traslado.ts`.
+
 ---
 
 ## 9. Procedencia: cada número declara su origen

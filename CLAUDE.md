@@ -37,7 +37,7 @@ npx expo-doctor               # desde la raíz — detecta incompatibilidades de
 ```
 
 **Todo eso corre junto con `npm run verificar`** (desde `admin/`):
-`tsc --noEmit`, la barrera de lint, la sintaxis de los `.sql` y los veinte
+`tsc --noEmit`, la barrera de lint, la sintaxis de los `.sql` y los veintiún
 `scripts/verificar-*.ts`. `next build` queda afuera a propósito: tarda minutos y
 usa el binario nativo de SWC, así que sólo corre donde se instalaron los
 paquetes. El orquestador es `scripts/verificar-todo.mjs`, en Node y no en un
@@ -1533,6 +1533,66 @@ con esta serie y este método.
 **La serie no se depuró.** Tiene algún salto de un día que parece error de carga
 (01/01/1941, 01/11/1920). No tocan ningún máximo anual, y filtrarlos sería
 afirmar algo distinto de la fuente.
+
+### Traslado de la crecida en el tramo
+
+`lib/rioTraslado.ts` + `components/rio/TrasladoCrecida.tsx` — cuántos días antes
+o después que en Corrientes se mueve el río en cada una de las otras cinco
+estaciones. Es anticipación que no depende de ningún pronóstico.
+
+**Se mide de dos maneras que no comparten cálculo, y contestan cosas
+distintas:**
+
+| | Itá Ibaté | Barranqueras | Empedrado | Bella Vista | Goya |
+|---|---|---|---|---|---|
+| **Pico anual** (mediana) | 3 días antes | el mismo día | 1 después | 2 después | 4 después |
+| mitad de los años entre | −4 y −2 | −1 y 0 | 0 y +1 | +1 y +3 | +2 y +5 |
+| **Variaciones diarias** | −1,8 d | 0,0 d | +0,5 d | +1,3 d | +1,9 d |
+| correlación | 0,65 | 0,82 | 0,58 | 0,68 | 0,65 |
+
+- **Pico anual**: diferencia entre las fechas del máximo de cada año
+  hidrológico. **Es el que vale para una crecida.**
+- **Variaciones diarias**: el desfase que mejor alinea lo que el río sube o baja
+  cada día en las dos estaciones. Describe un cambio cualquiera.
+
+**El pico tarda más que una variación común, y en Goya el doble.** La cresta de
+una crecida es chata y se demora. El test pedía al principio que los dos métodos
+difirieran menos de dos días y falló en Goya (1,9 contra 4): la suposición
+estaba mal, no el cálculo, y es el dato más útil que salió de acá.
+
+Cosas que no son obvias:
+
+- **Se correlacionan los cambios diarios, no las alturas.** La altura de hoy se
+  parece tanto a la de ayer que dos series de alturas correlacionan arriba de
+  0,9 con cualquier desfase de una semana, y el máximo queda en una meseta.
+- **El desfase tiene decimales y la serie es diaria**: sale de ajustar una
+  parábola por los tres puntos de la cima. Vale al medio día, no más.
+- **Barranqueras es la comprobación externa.** Está enfrente de Corrientes: su
+  desfase tiene que ser cero. Si no da cero, alguna serie tiene las fechas
+  corridas un día. El test lo afirma.
+- **Es estable.** Partida la serie en dos mitades, el desfase de cada estación
+  cambia menos de medio día. Si dependiera del período no sería una propiedad
+  del río.
+- **Entre Itá Ibaté y Corrientes entra el río Paraguay.** Corrientes recibe dos
+  ríos e Itá Ibaté mide uno: el desfase se mide bien, pero una crecida que venga
+  por el Paraguay no se anuncia ahí. Sumar una estación del Paraguay es lo que
+  falta para anticipar de verdad.
+- **Picos a más de 15 días no son el mismo evento** (`VENTANA_PICO_DIAS`): hay
+  años con dos crecidas parecidas y el máximo de cada estación cae en una
+  distinta. Se dejan afuera y se dice cuántos años entraron.
+- **Un máximo en el borde del rango probado no da número**: ahí no hay cima.
+- **Con el río alto, las variaciones diarias no sirven para Goya**: filtrando
+  los días con Corrientes sobre 5 m el desfase da cero con correlación 0,53. No
+  se investigó por qué. Para aguas altas, el pico.
+- **El archivo es `public/rio/tramo_diario.json`** (500 KB, las seis estaciones
+  desde 1970) y lo genera el mismo `build_rio_historico.mjs`. Arranca en 1970
+  porque Barranqueras y Bella Vista no tienen media diaria anterior. Empedrado
+  no tiene datos entre 1970 y 1989.
+
+`scripts/verificar-rio-traslado.ts` tiene dos partes: series armadas a mano
+donde el desfase se sabe sin calcular —una serie y la misma corrida tres días;
+mitad a dos días y mitad a tres tiene que dar 2,5—, y la serie real, donde afirma
+el orden aguas abajo y el cero de Barranqueras.
 
 ### El relevamiento no entra en `npm run verificar`
 
