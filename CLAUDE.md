@@ -710,6 +710,14 @@ cruzado del procesamiento.
 
 ## Lluvia — para qué es la pantalla
 
+**En pantalla la sección se llama «Hidrología»** desde el 02/10/2026: dejó de
+ser sólo lluvia cuando sumó cuencas, cursos de agua y el río Paraná. Cambió el
+rótulo del menú, el título de la página y la etiqueta del permiso; **la ruta
+(`/dashboard/lluvia`), la clave del permiso (`lluvia`) y los nombres de archivos
+y componentes siguen igual**, porque cambiarlos rompe enlaces guardados y obliga
+a tocar los permisos de cada usuario en la base. En este documento «Lluvias» y
+«Hidrología» nombran la misma pantalla.
+
 **Para ver cómo impacta la lluvia sobre la red vial de la provincia y decidir en
 base a eso.** El que mira es quien decide; la herramienta muestra el dato.
 

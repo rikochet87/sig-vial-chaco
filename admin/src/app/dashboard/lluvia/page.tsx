@@ -1,6 +1,12 @@
 'use client'
 /**
- * Lluvias — cuántos milímetros cayeron y dónde.
+ * Hidrología — cuántos milímetros cayeron y dónde, y por dónde corre el agua.
+ *
+ * La sección se llamó «Lluvias» hasta que dejó de ser sólo eso: hoy tiene las
+ * cuencas, los cursos de agua y el río Paraná. El nombre que ve el usuario es
+ * «Hidrología»; la ruta (`/dashboard/lluvia`) y la clave del permiso (`lluvia`)
+ * siguen igual, porque cambiarlas rompe enlaces guardados y obliga a tocar los
+ * permisos de cada usuario en la base.
  *
  * El caso de uso que manda es el de después de la tormenta: entrar y ver de un
  * vistazo sobre qué parte de la red vial cayó el agua. Por eso la pantalla abre
@@ -328,7 +334,7 @@ export default function LluviaPage() {
       {/* Encabezado */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 10, flexShrink: 0 }}>
         <h1 style={{ color: '#e0e0e0', fontSize: 20, fontWeight: 700, letterSpacing: 0.5, ...mono, margin: 0 }}>
-          Lluvias
+          Hidrología
         </h1>
         <div style={{ display: 'flex', border: '1px solid #252525' }}>
           {VISTAS.map(([v, t]) => (

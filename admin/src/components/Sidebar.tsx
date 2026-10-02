@@ -62,7 +62,7 @@ const NAV_ITEMS = [
   { href: '/dashboard',               label: 'Dashboard',      icon: ICONS.dashboard,     exact: true },
   { href: '/dashboard/tecnicos',      label: 'Usuarios',       icon: ICONS.tecnicos,      exact: false },
   { href: '/dashboard/consorcios',    label: 'Consorcios',     icon: ICONS.consorcios,    exact: false },
-  { href: '/dashboard/lluvia',        label: 'Lluvias',        icon: ICONS.lluvia,        exact: false },
+  { href: '/dashboard/lluvia',        label: 'Hidrología',     icon: ICONS.lluvia,        exact: false },
 ]
 
 // Sub-ítems de Relevamientos

@@ -1,10 +1,12 @@
-# Pantalla de Lluvias — metodología
+# Hidrología — metodología
 
-Documento técnico de la sección de precipitaciones del panel web.
+Documento técnico de la sección Hidrología del panel web, que hasta el
+02/10/2026 se llamó «Lluvias»: precipitación, cuencas, cursos de agua y río
+Paraná.
 Describe **de dónde sale cada número, cómo se procesa y por qué se eligió ese
 método** sobre las alternativas.
 
-Actualizado al 28/09/2026. La implementación vive en `admin/src/lib/`; los
+Actualizado al 02/10/2026. La implementación vive en `admin/src/lib/`; los
 scripts de verificación citados están en `admin/scripts/`.
 
 ---
