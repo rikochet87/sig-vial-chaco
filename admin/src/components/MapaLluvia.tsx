@@ -14,7 +14,7 @@
  * su red.
  */
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import 'leaflet/dist/leaflet.css'
 import { colorLluvia, type ResumenConsorcio } from '@/lib/lluvia'
 import { RADIO_KM } from '@/lib/fusion'
@@ -28,7 +28,9 @@ import { cargarCuencas, cuencaEn, type Cuenca } from '@/lib/cuencas'
 import { cargarLimites, recintoEn, type Limites } from '@/lib/limites'
 import { DeslizadorHistorico, useImagenesHistoricas } from './ImagenesHistoricas'
 import LecturaPunto from './cuencas/LecturaPunto'
+import LecturaCurso from './cuencas/LecturaCurso'
 import type { LaminaCuenca } from '@/lib/lluviaCuencas'
+import { cargarHidrografia, categoriaDe, crucesDe, type CursoAgua } from '@/lib/hidrografia'
 
 /**
  * Los dos mapas base. Los mismos que el mapa principal del panel, para que el
@@ -67,6 +69,15 @@ const LIMITES: [[number, number], [number, number]] = (() => {
 
 /** El gris de los caminos sin lluvia o sin dato cuando el fondo es el satélite */
 const COLOR_SECO_SATELITE = '#dcdcdc'
+
+/**
+ * El color del agua y el de los canales.
+ *
+ * Ninguno es azul: el azul es de la lluvia leve y moderada. Ver el efecto que
+ * los dibuja.
+ */
+const COLOR_CURSO = '#19B5A5'
+const COLOR_CANAL = '#9BD53B'
 
 /** Desde qué zoom entra el nombre de las cuencas además del número */
 const ZOOM_NOMBRES_CUENCA = 9
@@ -158,6 +169,8 @@ export default function MapaLluvia({
   /** Una polilínea por tramo, en el mismo orden que `tramos` */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const lineasRef = useRef<any[]>([])
+  /** Sube cada vez que se terminan de crear las polilíneas, para que se pinten */
+  const [lineasListas, setLineasListas] = useState(0)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const capaIsoRef = useRef<any>(null)
 
@@ -223,6 +236,28 @@ export default function MapaLluvia({
   const [cuencas, setCuencas] = useState<Cuenca[]>([])
   const [errorCuencas, setErrorCuencas] = useState<string | null>(null)
   const [intentoCuencas, setIntentoCuencas] = useState(0)
+  /*
+   * ── Cursos de agua, canales y cruces ──
+   *
+   * Tres casillas sobre un mismo archivo. `hidro` son los cursos ya parseados;
+   * `cursosVisibles`, los que están prendidos, que son los que contestan al
+   * pasar el cursor.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const capaHidroRef = useRef<any>(null)
+  const [verCursos, setVerCursos] = useState(false)
+  const [verCanales, setVerCanales] = useState(false)
+  const [verCruces, setVerCruces] = useState(false)
+  const [hidro, setHidro] = useState<CursoAgua[] | null>(null)
+  const [errorHidro, setErrorHidro] = useState<string | null>(null)
+  const [intentoHidro, setIntentoHidro] = useState(0)
+  const [nCruces, setNCruces] = useState<number | null>(null)
+  const algoDeAgua = verCursos || verCanales || verCruces
+  const cursosVisibles = useMemo(
+    () => (hidro ?? []).filter(c => (c.clase === 'curso' ? verCursos : verCanales)),
+    [hidro, verCursos, verCanales],
+  )
+
   /** Índice espacial de los tramos, para el hit-test del cursor */
   const indiceRef = useRef<IndiceTramos | null>(null)
   /** Qué tramo está bajo el cursor ahora mismo */
@@ -283,6 +318,17 @@ export default function MapaLluvia({
       panelCuencas.style.zIndex = '380'
       panelCuencas.style.pointerEvents = 'none'
       capaCuencasRef.current = L.layerGroup().addTo(mapa)
+      // El agua va arriba de las cuencas y debajo de los caminos, y tampoco
+      // recibe el cursor: el nombre de cada curso lo contesta `LecturaCurso`.
+      const panelHidro = mapa.createPane('hidro')
+      panelHidro.style.zIndex = '385'
+      panelHidro.style.pointerEvents = 'none'
+      // Los cruces, en cambio, van arriba de los caminos: son puntos sobre la
+      // traza, y debajo de ella no se veían.
+      const panelCruces = mapa.createPane('cruces')
+      panelCruces.style.zIndex = '410'
+      panelCruces.style.pointerEvents = 'none'
+      capaHidroRef.current = L.layerGroup().addTo(mapa)
 
       /**
        * Reajustar el mapa cuando cambia el tamaño de su contenedor.
@@ -356,9 +402,21 @@ export default function MapaLluvia({
    * Son casi diez mil polilíneas. Recrearlas cada vez que cambia el rango de
    * fechas trababa el mapa por un segundo largo, así que se crean al llegar el
    * archivo y después sólo se les cambia el color (efecto siguiente).
+   *
+   * **Depende también de `mapaListo`, y sin eso a veces no había caminos.** El
+   * mapa se crea de forma asíncrona, y si la red llegaba antes —con el archivo
+   * ya en la caché del navegador llega enseguida— este efecto encontraba la
+   * capa sin crear, salía, y no volvía a correr nunca: `tramos` no cambia más.
+   * El mapa quedaba sin caminos hasta recargar. Era el cuadro de «a veces entro
+   * y no aparece la capa de caminos», que se había atribuido sólo a la
+   * descarga.
+   *
+   * Y avisa cuando terminó (`lineasListas`), porque las polilíneas también se
+   * crean de forma asíncrona: el efecto del color corre en el mismo ciclo, las
+   * encuentra sin crear, y si nada más cambia no las pinta.
    */
   useEffect(() => {
-    if (!capaRedRef.current || tramos.length === 0) return
+    if (!mapaListo || !capaRedRef.current || tramos.length === 0) return
     let cancelado = false
 
     ;(async () => {
@@ -374,10 +432,11 @@ export default function MapaLluvia({
         linea.addTo(capaRedRef.current)
         return linea
       })
+      setLineasListas(n => n + 1)
     })()
 
     return () => { cancelado = true }
-  }, [tramos])
+  }, [tramos, mapaListo])
 
   /**
    * Recolorear la red cuando cambian los milímetros o el umbral.
@@ -430,7 +489,7 @@ export default function MapaLluvia({
         dashArray: undefined,
       })
     }
-  }, [lluviaTramos, umbral, seleccionado, tramos, satelite])
+  }, [lluviaTramos, umbral, seleccionado, tramos, satelite, lineasListas])
 
 
   /**
@@ -691,6 +750,79 @@ export default function MapaLluvia({
   }, [cuencaSeleccionada, cuencas])
 
   /**
+   * Cursos de agua, canales y los cruces con la red.
+   *
+   * **Verde azulado y verde, no azul.** El azul ya es de la lluvia leve y
+   * moderada, y el violeta de las cuencas; el agua va en el único tono frío que
+   * quedaba libre, y los canales en verde claro para que no se confundan con
+   * un arroyo. Lo que distingue un curso permanente de uno que no lo es es el
+   * trazo —lleno o a rayas—, como en la carta.
+   *
+   * Todo con un trazo blanco debajo, para que se lea sobre el mapa claro y
+   * sobre el satélite, y sin recibir el cursor.
+   *
+   * Los cruces se calculan acá con `crucesDe`, que guarda el resultado: la
+   * pestaña Cuencas pide los mismos y recibe el mismo arreglo.
+   */
+  useEffect(() => {
+    if (!capaHidroRef.current) return
+    let cancelado = false
+
+    if (!algoDeAgua) {
+      capaHidroRef.current.clearLayers()
+      return
+    }
+
+    ;(async () => {
+      try {
+        const [L, lista] = await Promise.all([
+          import('leaflet').then(m => m.default),
+          cargarHidrografia(),
+        ])
+        if (cancelado || !capaHidroRef.current) return
+        const capa = capaHidroRef.current
+        capa.clearLayers()
+
+        const trazar = (c: CursoAgua, estilo: { color: string; weight: number; dashArray?: string }) => {
+          L.polyline(c.lineas, { pane: 'hidro', interactive: false, color: '#ffffff',
+            weight: estilo.weight + 2, opacity: 0.7 }).addTo(capa)
+          L.polyline(c.lineas, { pane: 'hidro', interactive: false, opacity: 1, ...estilo }).addTo(capa)
+        }
+        for (const c of lista) {
+          if (c.clase === 'curso' && verCursos) {
+            trazar(c, c.permanente
+              ? { color: COLOR_CURSO, weight: c.tipo === 'Río' ? 2.4 : 1.6 }
+              : { color: COLOR_CURSO, weight: 1.2, dashArray: '5 4' })
+          }
+          if (c.clase === 'canal' && verCanales) {
+            trazar(c, { color: COLOR_CANAL, weight: c.tipo === 'Principal' ? 2.6 : c.tipo === 'Interparcelario' ? 1 : 1.6 })
+          }
+        }
+
+        if (verCruces && tramos.length > 0) {
+          const cruces = crucesDe(tramos, lista)
+          for (const x of cruces) {
+            const cat = categoriaDe(lista[x.curso])
+            L.circleMarker([x.lat, x.lng], {
+              pane: 'cruces', interactive: false, radius: 3, weight: 1, color: '#111111',
+              fillColor: cat === 'canal' ? COLOR_CANAL : cat === 'permanente' ? COLOR_CURSO : '#ffffff',
+              fillOpacity: 1,
+            }).addTo(capa)
+          }
+          setNCruces(cruces.length)
+        }
+
+        setHidro(lista)
+        setErrorHidro(null)
+      } catch (e) {
+        if (!cancelado) setErrorHidro(e instanceof Error ? e.message : 'no se pudo descargar')
+      }
+    })()
+
+    return () => { cancelado = true }
+  }, [algoDeAgua, verCursos, verCanales, verCruces, tramos, intentoHidro])
+
+  /**
    * Límites administrativos: provincia, zonas viales y departamentos.
    *
    * Los tres van en **negro o gris, y se distinguen por el trazo**, como en un
@@ -815,7 +947,9 @@ export default function MapaLluvia({
       mapa.off('mousemove', alMover)
       mapa.off('mouseout', alSalir)
     }
-  }, [tramos, verCaminos])
+    // `mapaListo` por lo mismo que al dibujar la red: si los tramos llegan
+    // antes que el mapa, este efecto no encontraba a quién escuchar.
+  }, [tramos, verCaminos, mapaListo])
 
   /**
    * Las sedes de los consorcios.
@@ -1046,6 +1180,52 @@ export default function MapaLluvia({
 
         <div style={{ borderTop: '1px solid #1e1e1e', margin: '7px 0' }} />
 
+        {/* El agua: tres casillas del mismo archivo, con la muestra de su trazo */}
+        <div style={{ fontSize: 11, color: '#8f8f8f', textTransform: 'uppercase',
+          letterSpacing: 1, marginBottom: 6 }}>
+          Hidrografía
+        </div>
+        {([
+          ['Cursos de agua', verCursos, setVerCursos, COLOR_CURSO, 'solid'],
+          ['Canales', verCanales, setVerCanales, COLOR_CANAL, 'solid'],
+          ['Cruces con la red', verCruces, setVerCruces, COLOR_CURSO, 'punto'],
+        ] as const).map(([titulo, activo, cambiar, color, muestra]) => (
+          <label key={titulo} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer',
+            color: '#e0e0e0', fontSize: 13, marginBottom: 4 }}>
+            <input type="checkbox" checked={activo} onChange={e => cambiar(e.target.checked)}
+              style={{ cursor: 'pointer' }} />
+            <span style={{ flex: 1 }}>{titulo}</span>
+            {muestra === 'punto'
+              ? <span style={{ width: 8, height: 8, borderRadius: '50%', background: color,
+                  border: '1px solid #fff', flexShrink: 0, marginRight: 9 }} />
+              : <span style={{ width: 26, height: 0, borderTop: `2px solid ${color}`, flexShrink: 0 }} />}
+          </label>
+        ))}
+        {algoDeAgua && !errorHidro && (
+          <div style={{ margin: '3px 0 0 19px', fontSize: 11, color: '#8f8f8f', lineHeight: 1.5 }}>
+            {verCursos && <>A rayas, los que no llevan agua todo el año. </>}
+            {verCruces && (
+              <>
+                {nCruces !== null && <>{nCruces.toLocaleString('es-AR')} cruces. </>}
+                Relleno: curso permanente o canal; blanco: no permanente.{' '}
+              </>
+            )}
+            Carta a 1:250.000: faltan los cursos menores.
+          </div>
+        )}
+        {algoDeAgua && errorHidro && (
+          <div style={{ margin: '4px 0 0 19px', fontSize: 11, color: '#E8A87C', lineHeight: 1.5 }}>
+            No se pudo cargar la hidrografía ({errorHidro}).{' '}
+            <button onClick={() => setIntentoHidro(v => v + 1)} style={{
+              fontFamily: 'monospace', fontSize: 11, padding: '2px 8px', borderRadius: 2,
+              cursor: 'pointer', background: 'transparent', border: '1px solid #7a4a22',
+              color: '#E8A87C', textTransform: 'uppercase', letterSpacing: 0.8,
+            }}>Reintentar</button>
+          </div>
+        )}
+
+        <div style={{ borderTop: '1px solid #1e1e1e', margin: '7px 0' }} />
+
         {/*
           Los tres límites van juntos y sin nota: son tres casillas del mismo
           tipo, y con el formato de las demás capas el panel no entraba en el
@@ -1095,6 +1275,10 @@ export default function MapaLluvia({
       <LecturaPunto mapaRef={mapaRef} listo={mapaListo} activo={mostrarCuencas}
         tapado={bajoCursor !== null} estaciones={estaciones ?? []} cuencas={cuencas}
         laminas={laminasCuencas} arriba={satelite} color={colorLluvia} />
+
+      {/* Cómo se llama el curso o el canal bajo el cursor, al lado del panel de capas */}
+      <LecturaCurso mapaRef={mapaRef} listo={mapaListo} cursos={cursosVisibles}
+        margenDerecho={capasAbiertas ? 256 : 110} colorCurso={COLOR_CURSO} colorCanal={COLOR_CANAL} />
 
       {/*
         Lectura del tramo bajo el cursor.

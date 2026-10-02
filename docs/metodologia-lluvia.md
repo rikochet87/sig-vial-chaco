@@ -472,7 +472,69 @@ coordenadas; el datum se supuso POSGAR tras comparar contra el límite
 provincial, con evidencia débil. La alternativa —Campo Inchauspe— desplazaría
 los bordes unos 200 m, lo que no altera las láminas: los pluviómetros están a
 decenas de kilómetros. El área de cada polígono reproyectado coincide con la que
-declara el origen a menos del 0,6 %.
+declara el origen a menos del 0,6 %. Un indicio posterior va en contra de la
+suposición: en otra carpeta de shapefiles de la provincia —la de canales, ver
+6.7— las capas sin archivo de proyección resultaron estar en Campo Inchauspe. No
+se sabe si comparten origen con las cuencas y no se modificó nada.
+
+### 6.7 Cursos de agua, canales y cruces con la red vial
+
+`lib/hidrografia.ts`. Agrega a las cuencas por dónde corre el agua, y con eso
+dónde la cruza la red de consorcios.
+
+**Fuentes.** Dos, complementarias:
+
+| | Fuente | Cobertura | Contenido |
+|---|---|---|---|
+| Cursos de agua | Instituto Geográfico Nacional, hidrografía a escala 1:250.000 | toda la provincia | 1.137 tramos, 12.383 km: ríos, arroyos, riachos, cañadas y zanjones, con nombre y régimen (permanente o no) |
+| Canales | shapefiles del sistema de canales de la Línea Paraná | sudoeste | 110 canales, 1.752 km, con sistema (Módulo I a III, Río Muerto, Bajos de Chorotis, troncal) y clasificación (principal, secundario, interparcelario) |
+
+De los cursos, 5.834 km son permanentes y 6.549 no permanentes. La carta casi no
+registra cursos en el sudoeste, donde el drenaje es por canales.
+
+**Tratamiento.** La traza se simplifica por Douglas-Peucker con tolerancia de
+10 m (pierde el 0,2 % del largo). Los nombres se pasan a minúsculas y se
+restituyen las tildes de los topónimos conocidos. Los canales se reproyectan de
+Gauss-Krüger faja 5; las capas que vienen en Campo Inchauspe se llevan a POSGAR
+con el corrimiento medido entre dos versiones de la misma capa (−59,9 m al este,
+−214,0 m al norte, constante a 20 cm en 3.652 vértices). De las siete capas de
+canales recibidas se usan las dos que no se superponen entre sí y un canal de
+una tercera; las restantes son versiones de las mismas trazas.
+
+**Por cuenca.** Kilómetros de cursos permanentes, no permanentes y canales, y
+densidad de drenaje (km de cursos y canales por km² de cuenca). La traza se
+reparte por tramos de hasta 1 km, cada uno asignado a la cuenca que contiene su
+punto medio. Quedan fuera de las cuencas los ríos limítrofes (976 km) y el tramo
+del canal troncal que sale de la provincia (231 km).
+
+**Cruces.** Un cruce es la intersección de la traza de un camino de consorcio
+con la de un curso o un canal. Dos reglas:
+
+- No se cuenta si el ángulo entre ambos es menor de 30°: un camino que corre al
+  costado de un canal no lo cruza, aunque las dos líneas, dibujadas por
+  separado, se superpongan.
+- Varias intersecciones del mismo camino con el mismo curso a menos de 300 m
+  cuentan como una.
+
+Resultan **1.208 cruces**: 195 sobre cursos permanentes, 610 sobre no
+permanentes y 403 sobre canales. Para cada uno se indica si hay una obra de arte
+relevada a menos de 500 m; al 02/10/2026 son 9, sobre 46 obras relevadas.
+
+**Límites.**
+
+- **No es un inventario de obras de arte.** Un cruce indica dónde un camino pasa
+  sobre un curso que figura en la carta, no qué hay construido.
+- A escala 1:250.000 faltan los cursos menores: la ausencia de cruces en un
+  tramo no implica ausencia de alcantarillas.
+- La posición vale al centenar de metros.
+- Los canales son sólo los del sistema de la Línea Paraná. No están los del área
+  metropolitana, las defensas, ni los esteros y lagunas.
+- La densidad de drenaje depende de la escala de la carta: sirve para comparar
+  cuencas entre sí, no contra valores de otra fuente.
+
+Verificación: `scripts/verificar-hidrografia.ts` compara el archivo contra su
+origen, la grilla de búsqueda contra fuerza bruta, y afirma que cada cruce está
+sobre su camino y sobre su curso a menos de 2 m.
 
 ---
 

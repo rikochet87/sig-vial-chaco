@@ -37,7 +37,7 @@ npx expo-doctor               # desde la raíz — detecta incompatibilidades de
 ```
 
 **Todo eso corre junto con `npm run verificar`** (desde `admin/`):
-`tsc --noEmit`, la barrera de lint, la sintaxis de los `.sql` y los veintiún
+`tsc --noEmit`, la barrera de lint, la sintaxis de los `.sql` y los veintidós
 `scripts/verificar-*.ts`. `next build` queda afuera a propósito: tarda minutos y
 usa el binario nativo de SWC, así que sólo corre donde se instalaron los
 paquetes. El orquestador es `scripts/verificar-todo.mjs`, en Node y no en un
@@ -689,7 +689,7 @@ Cuatro pestañas, cada una con la pantalla entera:
 | Pestaña | Qué tiene | Selector de período |
 |---|---|---|
 | **Mapa** | el mapa y, al lado, la lista de consorcios **o** de cuencas | sí |
-| **Cuencas** | `PanelCuencas` con sus tres vistas | sí |
+| **Cuencas** | `PanelCuencas` con sus cuatro vistas | sí, salvo la de cursos de agua |
 | **Río Paraná** | `PanelRio`, abierto | sí |
 | **Precisión** | la comparación de métodos y `PanelMediciones` | no: habla de métodos, no de un período |
 
@@ -961,6 +961,25 @@ y no aparece la capa de caminos"—:
   segundo.
 - **Decirlo.** Agotados los intentos, la pantalla muestra qué pasó y un botón
   para reintentar, en vez de un mapa vacío sin explicación.
+
+**Y había una cuarta causa, que no era de la descarga sino del mapa.** El efecto
+que dibuja la red dependía sólo de `tramos` y salía si la capa de Leaflet todavía
+no existía. El mapa se crea de forma asíncrona: si la red llegaba **antes** —con
+el archivo ya en la caché del navegador llega enseguida— el efecto salía y no
+volvía a correr nunca, porque `tramos` no cambia más. El mapa quedaba sin caminos
+hasta recargar, sin ningún error. Ahora depende también de `mapaListo`, igual que
+el que escucha el cursor.
+
+Y una quinta, del mismo molde: las polilíneas también se crean de forma
+asíncrona, y el efecto que las pinta corre en el mismo ciclo y las encuentra sin
+crear. Si después no cambiaba nada más, quedaban en el gris de recién creadas.
+`lineasListas` avisa cuando terminaron.
+
+**Se encontró corriendo el panel en local**, donde el archivo se sirve al
+instante y la carrera se pierde siempre: en producción la descarga de 8,6 MB
+suele tardar más que el mapa y por eso era "a veces". **Un efecto que sale
+temprano porque algo todavía no existe tiene que depender de ese algo**, o no
+vuelve.
 
 **El círculo por consorcio se sacó.** Iba en el centro de gravedad de cada red,
 con el radio según los milímetros, como resumen para la vista provincial. Una vez
@@ -1261,7 +1280,121 @@ Cosas que no son obvias:
   muestra lo bajó a la mitad, porque la siguiente casi siempre repite.
 
 `components/cuencas/piezas.ts` son los formatos y estilos de tabla que comparten
-las tres vistas.
+las cuatro vistas.
+
+#### Cursos de agua, canales y cruces con la red
+
+`lib/hidrografia.ts` + `public/geo/geo_hidro.json`, la cuarta vista del panel
+(`components/cuencas/VistaHidro.tsx`) y tres capas del mapa de Lluvias bajo
+«Hidrografía»: cursos de agua, canales y cruces con la red.
+
+**Hasta acá una cuenca era un contorno.** Se sabía cuánta lámina le cayó y
+cuántos km de camino tiene adentro, pero no por dónde corre el agua. Con los
+cursos se puede preguntar lo que le importa a un camino: **dónde lo cruza el
+agua**, que es donde tiene que haber una obra de arte.
+
+Dos orígenes, los dos en `docs/geo/hidrografia/`, que se complementan:
+
+| | Qué es | Dónde | En el archivo |
+|---|---|---|---|
+| `rios_ign.kml` | hidrografía del IGN a 1:250.000 | toda la provincia | 1.137 cursos, 12.383 km |
+| `canales/` | shapefiles del sistema de canales de la Línea Paraná | el sudoeste | 110 canales, 1.752 km |
+
+El IGN casi no tiene cursos en el sudoeste —91 km en los Bajos de Chorotis— porque
+ahí no hay drenaje natural organizado: el agua sale por canales, y los canales
+son la otra capa.
+
+El archivo se **genera** —no editar a mano—:
+
+```bash
+cd admin && node scripts/build_hidrografia.mjs
+```
+
+**Los cruces: 1.208** entre la red de consorcios y los cursos y canales — 195
+sobre cursos permanentes, 610 sobre no permanentes y 403 sobre canales.
+`crucesConRed()` los calcula en el navegador en ~100 ms, segmento contra
+segmento con una grilla; `crucesDe()` guarda el resultado, y el mapa y la tabla
+reciben **el mismo arreglo**.
+
+Cosas que no son obvias:
+
+- **No son un inventario de obras de arte, y la pantalla lo dice.** Un cruce
+  dice que ahí el camino pasa sobre un curso que figura en la carta, no qué hay
+  construido. A 1:250.000 faltan los cursos menores: que un tramo no tenga
+  cruces no quiere decir que no tenga alcantarillas. La posición vale al
+  centenar de metros.
+- **Un camino al costado de un canal no lo cruza** (`ANGULO_MINIMO` = 30°). En
+  el sudoeste muchos canales corren al lado de un camino —hay uno que se llama
+  «Ruta Nac. Nº 89»—, y dos líneas paralelas dibujadas por separado se pisan
+  una y otra vez. Lo que distingue un cruce de un roce es el ángulo.
+- **Varios cortes del mismo curso en menos de 300 m son un cruce**
+  (`SEPARACION_KM`): un arroyo con meandros corta tres veces la misma recta, y
+  en el terreno es un puente.
+- **Cada segmento de agua va en todas las celdas que toca su caja**, no sólo en
+  las de sus extremos como en `IndiceTramos`: la traza está simplificada y hay
+  segmentos de kilómetros. El test lo compara contra fuerza bruta.
+- **Contra las obras relevadas: 9 de 1.208** cruces tienen una a menos de 500 m
+  (`TOLERANCIA_OBRA_KM`), y de las 46 obras relevadas, 9 están cerca de un
+  cruce (02/10/2026). La diferencia es lo que falta relevar, no lo que falta
+  construir. Las otras 37 están sobre cursos que la carta no tiene o sobre
+  caminos que no son de consorcio.
+- **«Fuera de las cuencas» acá no es un resto**: son los ríos limítrofes
+  —Bermejo, Teuco, Paraná, Paraguay, 976 km— y los 231 km del canal troncal que
+  salen de la provincia por el sur.
+- **La densidad de drenaje depende de la escala de la carta.** Sirve para
+  comparar una cuenca con otra —0,46 km/km² en el valle del Paraná contra 0,01
+  en el Impenetrable—, no contra valores de otra fuente.
+- **El reparto por cuenca se guarda** (`kmPorCuenca`). La primera versión lo
+  rehacía cuando llegaban las obras de arte y tardaba dos segundos con la
+  pantalla trabada: preguntaba por cada segmento suelto, 75 mil consultas para
+  14 mil km. Ahora junta los segmentos cortos hasta completar un kilómetro y
+  prueba primero la cuenca del pedazo anterior: 240 ms, una vez.
+  **Se encontró abriendo la vista, no con el test**, que pasaba igual.
+- **El agua va en verde azulado y los canales en verde claro, no en azul.** El
+  azul es de la lluvia leve y moderada, y el violeta de las cuencas. Permanente
+  o no se distingue por el trazo, lleno o a rayas.
+- **Los cruces van en un panel arriba de los caminos** (`cruces`, z-index 410) y
+  las líneas debajo (`hidro`, 385). Los puntos debajo de la traza no se veían.
+- **Ninguna capa recibe el cursor.** El nombre del curso lo contesta
+  `LecturaCurso` con `IndiceCursos`, por afuera de Leaflet, y va arriba al lado
+  del panel de capas: el pie del mapa ya es de la lectura del tramo.
+
+Lo que se le hace a los datos, y lo que no:
+
+- **La Ñ se perdió al exportar el KML** (CA�ADA) y se repone.
+- **Los nombres del IGN vienen en mayúsculas y sin tildes.** Se les pone la
+  tilde a los topónimos conocidos (`TILDES` en el script). «GUAYEURU CHICO SUR»
+  es una errata del origen y se corrige.
+- **Los nombres de los canales están cortados a 16 caracteres** por el .dbf
+  («Dfsa Oeste La Cl»). Se completan sólo los que no admiten otra lectura; el
+  resto queda cortado.
+- **La traza se simplifica a 10 m**: de 188 mil vértices a 74 mil, perdiendo el
+  0,2 % del largo.
+- **De las siete capas del zip de canales se usan dos y un canal de una
+  tercera.** `posgar_canales` (106, con módulo y clasificación) y `linea parana`
+  (el troncal, 410 km). `canales` es la primera en otro datum; `Canales/canales`
+  es una versión anterior de la que se toma sólo el Paralelo 28º Este;
+  `Canales_2do` es una exportación de CAD a 70 m de la otra, con ~130 km de
+  colectores que quedan afuera porque no hay cómo saber qué traza vale.
+- **Los canales son los de la Línea Paraná.** No están los del área
+  metropolitana ni las defensas, ni hay esteros ni lagunas: sigue siendo un
+  pedido a la APA.
+
+**El datum de los shapefiles sin .prj, y lo que dice de las cuencas.**
+`canales.shp` y `posgar_canales.shp` son la misma capa en dos sistemas:
+comparadas vértice por vértice, el corrimiento es constante, −59,9 m al este y
+−214,0 m al norte. Es Campo Inchauspe contra POSGAR. `linea parana` comparte
+coordenadas con `canales.shp`, así que está en Campo Inchauspe y se le aplica el
+corrimiento; el test lo afirma por un lado independiente —las puntas de los
+secundarios llegan al troncal a 4 m de mediana, y sin el corrimiento quedarían
+a 220—. **En esa carpeta, lo que viene sin .prj está en Campo Inchauspe.** El
+shapefile de cuencas tampoco trae .prj y se supuso POSGAR con evidencia débil.
+No se sabe si son del mismo origen y no se cambió nada, pero es un indicio en
+contra de esa suposición.
+
+`scripts/verificar-hidrografia.ts` afirma el archivo contra su origen, la
+geometría de un cruce con casos donde la respuesta se sabe sin calcular, y sobre
+la red real que cada cruce está sobre su camino y sobre su curso.
 
 | | Cuenca | ha |
 |---|---|---|
