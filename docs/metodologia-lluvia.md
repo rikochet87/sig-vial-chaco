@@ -551,16 +551,52 @@ GET /a5/sim/calibrados/{cal_id}/corridas/last
 - **Corrientes tiene altura medida desde 1901** (47.954 registros) y caudal desde
   1910. Aquí el histórico profundo **ya existe**, a diferencia de la lluvia.
 
-### 8.4 El hueco del datum
+### 8.4 El cero de cada escala
 
-**Barranqueras no publica `cero_ign`.** Sin el cero de escala referido al datum
-del IGN, "6,5 m en la escala" y una cota de terreno **están en sistemas
-verticales distintos y no son comparables**. Corrientes, sobre el mismo tramo, sí
-lo tiene: **42,39**.
+Una altura hidrométrica es una distancia sobre el cero de la escala. Para
+compararla contra una cota de terreno hay que saber a qué cota está ese cero, **y
+en qué sistema vertical**. En este tramo conviven dos: el del Ministerio de Obras
+Públicas (MOP), en el que están los planos de defensas y la línea de ribera de la
+provincia, y el del IGN (antes IGM), en el que están los modelos de elevación.
+La cota MOP está unos 0,55 m por encima de la IGN.
 
-Cualquier simulación futura que cruce altura de río contra cotas debe anclarse en
-Corrientes hasta obtener el de Barranqueras. Es un pedido al INA o a Prefectura,
-no un desarrollo.
+| Estación | Cero MOP | Cero IGN |
+|---|---|---|
+| Itá Ibaté | 52,42 | 51,89 |
+| Corrientes | 42,39 | 41,84 |
+| Barranqueras | 41,80 | 41,25 |
+| Empedrado | 39,68 | 39,13 |
+| Bella Vista | 34,74 | 34,18 |
+| Goya | 29,67 | 29,12 |
+
+**El campo `cero_ign` del Alerta Hidrológico trae, en este tramo, la cota MOP.**
+Sus valores coinciden al centímetro con la columna MOP de la tabla de estaciones
+hidrométricas de un estudio del Consejo Federal de Inversiones de 1999
+(*Prefactibilidad de la interconexión vial Goya–Reconquista…*, tabla 3.1), que
+trae al lado la cota IGM. Aguas abajo de La Paz el mismo campo sí tiene los
+valores que el IGN midió en 2016.
+
+De dónde sale cada valor:
+
+- **Cero IGN de Corrientes, Barranqueras, Empedrado, Bella Vista y Goya**: la
+  tabla del CFI. Son cotas IGM de 1999, **no una vinculación al marco actual
+  (SRVN16)**: el IGN no midió Corrientes ni Barranqueras en sus campañas de 2016
+  y 2017. Valen al decímetro. Una nota periodística de 2021 cita 41,42 m para
+  Corrientes; no se pudo conciliar con las otras fuentes.
+- **Empedrado tiene control independiente.** El IGN vinculó en 2017 dos tramos
+  de esa escala (45,11 y 46,14 m); descontando los metros a los que arranca cada
+  tramo, el cero da 39,11 y 39,14 m.
+- **Itá Ibaté** no figura en la tabla del CFI. El valor es el de la escala del
+  muelle que el IGN vinculó en 2017, y coincide a 3 cm con el MOP menos 0,556.
+- **Barranqueras no tiene `cero_ign` en el Alerta Hidrológico.** Su cero MOP sale
+  de dos fuentes independientes: la tabla del CFI, y la Resolución 1111/98 de la
+  Administración Provincial del Agua, que da el pico del 04/05/1998 como
+  «8,17 m en el hidrómetro de Puerto Barranqueras, equivalente a cota MOP
+  49,97 m» (49,97 − 8,17 = 41,80).
+
+Para cruzar altura de río contra un modelo de elevación se usa el cero IGN. Una
+vinculación moderna de las escalas de Barranqueras y Corrientes sigue siendo un
+pedido al IGN o a Prefectura, no un desarrollo.
 
 ### 8.5 Recurrencia y permanencia en Corrientes
 
@@ -568,7 +604,7 @@ no un desarrollo.
 único registro largo del sistema.
 
 **Serie.** Altura hidrométrica **media diaria** de Corrientes (serie 26261 del
-Alerta Hidrológico), del 01/01/1901 al 30/09/2026: 45.929 días, 45.812 con dato
+Alerta Hidrológico), del 01/01/1901 al 01/10/2026: 45.930 días, 45.813 con dato
 (falta el 0,25 %). Se usa la media diaria y no las lecturas sueltas porque éstas
 son una, dos o más por día según la época. La serie está congelada en
 `public/rio/corrientes_diario.json` y se regenera con
@@ -647,7 +683,7 @@ sistema.
 río en las otras cinco estaciones, de aguas arriba hacia abajo.
 
 **Serie.** Altura media diaria de las seis estaciones, del 01/01/1970 al
-30/09/2026 (`public/rio/tramo_diario.json`). Se usa el período común: Barranqueras
+01/10/2026 (`public/rio/tramo_diario.json`). Se usa el período común: Barranqueras
 y Bella Vista no tienen media diaria anterior. Empedrado no tiene datos entre
 1970 y 1989.
 
@@ -668,7 +704,7 @@ y Bella Vista no tienen media diaria anterior. Empedrado no tiene datos entre
 |---|---|---|---|---|---|
 | Itá Ibaté | 3 días antes | −4 a −2 | 46 de 52 | −1,8 d | 0,65 |
 | Barranqueras | el mismo día | −1 a 0 | 49 de 54 | 0,0 d | 0,82 |
-| Empedrado | 1 día después | 0 a +1 | 28 de 31 | +0,5 d | 0,58 |
+| Empedrado | 1 día después | 0 a +1 | 28 de 31 | +0,5 d | 0,57 |
 | Bella Vista | 2 días después | +1 a +3 | 47 de 53 | +1,3 d | 0,68 |
 | Goya | 4 días después | +2 a +5 | 49 de 56 | +1,9 d | 0,65 |
 
@@ -684,11 +720,73 @@ orden.
 
 **Límites.** La serie es diaria: el desfase se conoce al medio día. Entre Itá
 Ibaté y Corrientes entra el río Paraguay, así que Itá Ibaté no anuncia una
-crecida que venga por el Paraguay. Es el traslado típico: dice cuándo llega,
-no a qué altura. Con el río alto el método de variaciones no da un resultado
-consistente en Goya; no se investigó la causa.
+crecida que venga por el Paraguay (ver 8.7). Es el traslado típico: dice cuándo
+llega, no a qué altura. Con el río alto el método de variaciones no da un
+resultado consistente en Goya; no se investigó la causa.
 
 Verificación: `scripts/verificar-rio-traslado.ts`.
+
+### 8.7 El aporte del río Paraguay
+
+El Paraguay entra al Paraná entre Itá Ibaté y Corrientes. Se sumaron dos de sus
+estaciones al registro —**Puerto Pilcomayo**, frente a Asunción, unos 390 km
+aguas arriba de la confluencia, y **Puerto Bermejo**, en Chaco, a unos 60 km—,
+las dos con altura media diaria desde 1970 (series 26297 y 26300 del Alerta
+Hidrológico). Puerto Formosa e Isla del Cerrito tienen media diaria recién desde
+2006 y quedaron afuera.
+
+**No se comportan como una estación más del tramo.** Con los dos métodos de 8.6:
+
+| Estación | Variaciones diarias | Mismo pico anual que Corrientes |
+|---|---|---|
+| Puerto Pilcomayo | r 0,16 | 21 de 52 años |
+| Puerto Bermejo | r 0,31 | 17 de 33 años |
+
+De un día para el otro el Paraguay casi no se mueve con Corrientes, y en la
+mitad de los años o más su máximo anual es otra crecida, a meses de la del
+Paraná: el Paraguay crece en invierno, con el agua del Pantanal. No hay un
+traslado que informar.
+
+**Lo que sí se mide es el aporte**: cuánto de lo que Corrientes hace, y que Itá
+Ibaté no explica, se parece a lo que hizo el Paraguay. Sobre cambios de altura
+en 15 días:
+
+1. Se ajusta por mínimos cuadrados el cambio de Corrientes contra el de Itá
+   Ibaté 1, 2, 3, 4, 6 y 8 días antes.
+2. Lo que el ajuste no explica es el resto.
+3. Se correlaciona el resto con el cambio de la estación del Paraguay, con
+   desfases de −25 a +10 días.
+
+| Estación | Máxima correlación | Desfase | Rango | R² sin → con |
+|---|---|---|---|---|
+| Puerto Pilcomayo | 0,54 | 4 días antes | de 10 antes al mismo día | 0,922 → 0,946 |
+| Puerto Bermejo | 0,48 | el mismo día | de 4 antes a 4 después | 0,925 → 0,964 |
+
+El rango es el de desfases cuya correlación queda a menos de un décimo de la
+máxima. El R² es el del ajuste de Corrientes con Itá Ibaté sola y sumando la
+estación en su mejor desfase, sobre los mismos días.
+
+**Lectura.** Puerto Pilcomayo explica alrededor de un tercio de lo que Itá Ibaté
+deja sin explicar, y lo hace con días de adelanto, pero **la cima es ancha: dice
+alrededor de cuándo, no qué día**. Puerto Bermejo explica más y no adelanta: se
+mueve a la vez que Corrientes.
+
+**Por qué quince días y seis desfases.** Con cambios de un día el Paraguay no se
+distingue del ruido; la correlación crece con la ventana (0,39 con siete días,
+0,54 con quince) sin que el desfase se corra. Y con Itá Ibaté en un solo
+desfase el resto correlaciona 0,42 con la propia Itá Ibaté de diez días antes
+—la onda se aplasta al viajar—, lo que le atribuía a Puerto Bermejo cuatro días
+de adelanto que no tiene. Con los seis desfases esa correlación baja a 0,07.
+
+**Controles.** Barranqueras, enfrente de Corrientes, medida con el mismo
+procedimiento da desfase cero; Goya, aguas abajo, da después. Partida la serie
+en dos mitades, el desfase de cada estación del Paraguay cambia un día.
+
+**Límites.** Es una descripción de cómo se movieron los dos ríos, no un modelo:
+no dice cuántos centímetros sube Corrientes por una crecida del Paraguay. Las
+ventanas de quince días se superponen, así que los días que entran no son
+observaciones independientes. No se usaron caudales, que es como se plantearía
+un balance en la confluencia.
 
 ---
 

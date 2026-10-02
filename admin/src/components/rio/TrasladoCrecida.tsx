@@ -17,10 +17,11 @@
  */
 
 import { useEffect, useMemo, useState } from 'react'
-import { ESTACIONES } from '@/lib/ina'
+import { ESTACIONES, ESTACIONES_PARAGUAY } from '@/lib/ina'
 import {
-  trasladoDelTramo, ESTACION_REFERENCIA, DESFASE_MIN, DESFASE_MAX, VENTANA_PICO_DIAS,
-  type TramoDiario, type TrasladoEstacion,
+  trasladoDelTramo, trasladoDelParaguay, ESTACION_REFERENCIA, DESFASE_MIN, DESFASE_MAX,
+  VENTANA_PICO_DIAS, VENTANA_APORTE_DIAS,
+  type TramoDiario, type TrasladoEstacion, type TrasladoParaguay,
 } from '@/lib/rioTraslado'
 import { mono, boton, th, thD, td, tdD } from '@/components/cuencas/piezas'
 
@@ -65,6 +66,7 @@ export default function TrasladoCrecida() {
   }, [intento])
 
   const traslado = useMemo(() => (tramo ? trasladoDelTramo(tramo) : []), [tramo])
+  const paraguay = useMemo(() => (tramo ? trasladoDelParaguay(tramo) : []), [tramo])
 
   if (error) {
     return (
@@ -175,8 +177,88 @@ export default function TrasladoCrecida() {
         Se dejan afuera los años en que los dos picos caen a más de {VENTANA_PICO_DIAS} días: son
         crecidas distintas. <b style={{ color: '#a0a0a0' }}>Entre {arriba.nombre} y Corrientes entra
         el río Paraguay</b>, así que una crecida que venga por el Paraguay no se anuncia en{' '}
-        {arriba.nombre}. La serie es diaria: el desfase se conoce al medio día, no más. Es cuándo
+        {arriba.nombre}: va medido aparte, más abajo. La serie es diaria: el desfase se conoce al medio día, no más. Es cuándo
         llega, no a cuánto. Fuente: {tramo.fuente}.
+      </div>
+
+      {paraguay.length > 0 && <Paraguay filas={paraguay} arriba={arriba.nombre} />}
+    </div>
+  )
+}
+
+/**
+ * Las dos estaciones del río Paraguay.
+ *
+ * Van en tabla aparte y con otras columnas porque **no son del tramo y no se
+ * les mide lo mismo**: no hay un traslado que informar. Las dos primeras
+ * columnas están para que se vea por qué —sus variaciones casi no se parecen a
+ * las de Corrientes y su pico anual suele ser otra crecida—, y las otras son lo
+ * que sí se puede decir: cuánto de lo que Itá Ibaté no explica viene por ahí.
+ */
+function Paraguay({ filas, arriba }: { filas: TrasladoParaguay[]; arriba: string }) {
+  const pct = (v: number) => `${n1(v * 100)} %`
+  const r2 = (v: number) => v.toFixed(2).replace('.', ',')
+
+  return (
+    <div style={{ marginTop: 14, borderTop: '1px solid #232323', paddingTop: 11 }}>
+      <div style={{ fontSize: 11, color: '#a0a0a0', textTransform: 'uppercase', letterSpacing: 1.2 }}>
+        Río Paraguay
+      </div>
+      <div style={{ fontSize: 11, color: '#8f8f8f', lineHeight: 1.5, marginTop: 4 }}>
+        Entra al Paraná entre {arriba} y Corrientes. No es una estación más del tramo: crece en
+        otra época, y lo que se le mide es cuánto de lo que {arriba} no explica viene por ahí.
+      </div>
+
+      <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse', color: '#c4c4c4', marginTop: 10 }}>
+        <thead>
+          <tr style={{ color: '#8f8f8f', fontSize: 11 }}>
+            <th style={th}>Estación</th>
+            <th style={thD}>Variaciones diarias</th>
+            <th style={thD}>Mismo pico anual</th>
+            <th style={thD}>Sobre lo que {arriba} no explica</th>
+            <th style={thD}>Entre</th>
+            <th style={thD}>Correlación</th>
+            <th style={thD}>Explicado</th>
+          </tr>
+        </thead>
+        <tbody>
+          {ESTACIONES_PARAGUAY.map(e => {
+            const t = filas.find(f => f.estacion === e.id)
+            if (!t) return null
+            const a = t.aporte
+            return (
+              <tr key={e.id} style={{ borderTop: '1px solid #232323' }}>
+                <td style={td}>{e.nombre}</td>
+                <td style={{ ...tdD, color: '#a0a0a0' }}>{t.cambios ? `r ${r2(t.cambios.r)}` : '—'}</td>
+                <td style={{ ...tdD, color: '#a0a0a0' }}>
+                  {t.picos ? `${t.picos.usados} de ${t.picos.anios} años` : '—'}
+                </td>
+                <td style={{ ...tdD, color: '#fff' }}>{a ? enPalabras(a.k) : '—'}</td>
+                <td style={{ ...tdD, color: '#a0a0a0' }}>{a ? `${entero(a.desde)} y ${entero(a.hasta)}` : ''}</td>
+                <td style={{ ...tdD, color: '#a0a0a0' }}>{a ? r2(a.r) : ''}</td>
+                <td style={{ ...tdD, color: '#a0a0a0' }}>
+                  {a ? `${pct(a.explicadoSin)} → ${pct(a.explicadoCon)}` : ''}
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+
+      <div style={{ fontSize: 11, color: '#8f8f8f', marginTop: 10, lineHeight: 1.5 }}>
+        <b style={{ color: '#a0a0a0' }}>Variaciones diarias</b> y{' '}
+        <b style={{ color: '#a0a0a0' }}>mismo pico anual</b> son los dos métodos de la tabla de
+        arriba, y acá no dan un traslado: de un día para el otro el Paraguay casi no se mueve con
+        Corrientes, y en buena parte de los años su máximo es otra crecida, a meses de la del
+        Paraná. Lo demás se mide sobre <b style={{ color: '#a0a0a0' }}>cambios
+        de {VENTANA_APORTE_DIAS} días</b>: se descuenta de Corrientes lo que explica {arriba} y se
+        busca con qué desfase el resto se parece a lo que hizo el Paraguay.{' '}
+        <b style={{ color: '#a0a0a0' }}>Entre</b> es el rango de días en que la correlación queda a
+        menos de un décimo de la máxima: la cima es ancha, así que dice alrededor de cuándo, no qué
+        día. <b style={{ color: '#a0a0a0' }}>Explicado</b> es qué parte del cambio de Corrientes se
+        explica con {arriba} sola y sumando esa estación. Puerto Bermejo está a unos 60 km de la
+        confluencia y se mueve a la vez que Corrientes: explica, pero no adelanta. Es cuánto se
+        parecen, no cuántos centímetros aporta.
       </div>
     </div>
   )

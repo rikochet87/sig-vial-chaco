@@ -60,8 +60,10 @@ export interface EstacionConRio {
   rio: string
   alerta: number
   evacuacion: number
-  /** Cero de escala referido al datum del IGN. `null` en Barranqueras */
-  ceroIgn: number | null
+  /** Cero de escala en cota MOP: lo que el INA publica como `cero_ign` */
+  ceroMop: number
+  /** Cero de escala en el sistema del IGN: el que se compara contra el terreno */
+  ceroIgn: number
   observado: LecturaRio[]
   /** `null` cuando esa estación no tiene corrida publicada — es normal */
   pronostico: { emitido: string; puntos: PuntoPronostico[] } | null
@@ -129,6 +131,7 @@ export async function GET(req: NextRequest) {
           rio: e.rio,
           alerta: e.alerta,
           evacuacion: e.evacuacion,
+          ceroMop: e.ceroMop,
           ceroIgn: e.ceroIgn,
           observado,
           pronostico,

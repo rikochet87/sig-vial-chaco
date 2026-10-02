@@ -16,7 +16,7 @@
  * dominios permitidos y el del INA no está. Va desde PowerShell o desde Vercel.
  */
 import {
-  ESTACIONES, REFERENCIA, alturasObservadas, pronosticoDe, estadoDe, ETIQUETA_ESTADO,
+  ESTACIONES, ESTACIONES_PARAGUAY, REFERENCIA, alturasObservadas, pronosticoDe, estadoDe, ETIQUETA_ESTADO,
 } from '../src/lib/ina'
 
 const BASE = 'https://alerta.ina.gob.ar/a5'
@@ -66,11 +66,22 @@ async function main() {
         ? `alerta ${nuestra.alerta} · evac ${nuestra.evacuacion}`
         : `¡CAMBIARON! API dice alerta ${enApi.nivel_alerta} · evac ${enApi.nivel_evacuacion}`)
 
-    // Barranqueras no tiene cero_ign y eso está asumido. Si algún día aparece,
-    // es una buena noticia que también hay que ver.
-    if (nuestra.ceroIgn === null && enApi.cero_ign !== null) {
-      info(`¡${nuestra.nombre} ahora SÍ tiene cero_ign: ${enApi.cero_ign}! Actualizar lib/ina.ts.`)
+    // Lo que el INA llama `cero_ign` acá es la cota MOP (ver `lib/ina.ts`). Si
+    // lo cambia, lo más probable es que haya cargado la del IGN de verdad: es
+    // una buena noticia que también hay que ver. Barranqueras no lo publica.
+    if (enApi.cero_ign !== null && enApi.cero_ign !== nuestra.ceroMop) {
+      info(`¡${nuestra.nombre}: el INA publica ahora cero_ign ${enApi.cero_ign} `
+        + `y acá el MOP es ${nuestra.ceroMop}! Revisar lib/ina.ts.`)
     }
+  }
+
+  for (const nuestra of ESTACIONES_PARAGUAY) {
+    const enApi = est.find(e => e.id === nuestra.id)
+    if (!enApi) { ok(`${nuestra.nombre} sigue existiendo`, false, 'no está en el catálogo'); continue }
+    ok(`${nuestra.nombre} es pública y tiene observaciones`, enApi.public && enApi.has_obs)
+    ok(`${nuestra.nombre}: umbrales sin cambios`,
+      enApi.nivel_alerta === nuestra.alerta && enApi.nivel_evacuacion === nuestra.evacuacion,
+      `alerta ${enApi.nivel_alerta} · evac ${enApi.nivel_evacuacion}`)
   }
 
   // ── 2 · Observaciones ─────────────────────────────────────────────────────
@@ -126,10 +137,9 @@ async function main() {
   titulo('Referencia para el área metropolitana')
   const ref = ESTACIONES.find(e => e.id === REFERENCIA)
   ok('la referencia está en la lista', !!ref, ref?.nombre ?? '')
-  if (ref && ref.ceroIgn === null) {
-    info('Barranqueras sigue sin cero_ign: no se puede ligar la escala al datum')
-    info('del IGN. Hace falta pedirlo al INA o a Prefectura antes de cualquier')
-    info('simulación que compare altura de río contra cotas del terreno.')
+  if (ref) {
+    info(`cero de escala: ${ref.ceroIgn} m IGN (${ref.ceroMop} MOP). Es una cota de 1999:`)
+    info('una vinculación moderna de esa escala sigue siendo un pedido al IGN.')
   }
 
   console.log(fallos === 0 ? '\n✓ Todo bien.' : `\n✗ ${fallos} fallo(s).`)

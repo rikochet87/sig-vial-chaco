@@ -8,6 +8,9 @@
  * afirma lo que tiene que cumplir cualquier río: que aguas arriba llega antes,
  * aguas abajo después, y en orden.
  *
+ * Al final van las dos estaciones del río Paraguay, que no son del tramo y a
+ * las que se les mide otra cosa: el aporte, no el traslado.
+ *
  * No hay un valor oficial del traslado contra el cual comparar. Lo que sí hay
  * es geografía: Barranqueras está enfrente de Corrientes, así que su desfase
  * tiene que ser cero. Si eso no da cero, las fechas de alguna serie están
@@ -19,9 +22,10 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   correlacionCambios, desfasePorCambios, desfasePorPicos, trasladoDelTramo,
+  trasladoDelParaguay, aporteNoExplicado, cambioEn,
   DESFASE_MIN, DESFASE_MAX, ESTACION_REFERENCIA, type TramoDiario,
 } from '../src/lib/rioTraslado'
-import { ESTACIONES } from '../src/lib/ina'
+import { ESTACIONES, ESTACIONES_PARAGUAY } from '../src/lib/ina'
 
 let fallos = 0
 const fmt = (v: unknown) =>
@@ -203,6 +207,82 @@ for (const id of [16, 20, 22, 23]) {
 
 ok('el rango probado cubre todos los resultados',
   tr.every(t => t.cambios!.k > DESFASE_MIN && t.cambios!.k < DESFASE_MAX))
+
+// ── El río Paraguay ─────────────────────────────────────────────────────────
+titulo('El aporte, sobre series armadas')
+
+/*
+ * Dos ríos de mentira que no se parecen entre sí. La referencia recibe uno a
+ * los dos días y el otro, más débil, a los cinco: el resto de ajustar contra el
+ * primero tiene que ser el segundo, cinco días antes.
+ */
+const otroRio: number[] = Array.from({ length: N }, (_, t) =>
+  Math.round(300 + 120 * Math.sin(t / 91 + 2) + 50 * Math.sin(t / 23.3) + 30 * Math.sin(t / 7.9 + 1)))
+const confluencia: (number | null)[] = base.map((_, t) =>
+  t >= 5 ? Math.round(0.8 * base[t - 2] + 0.3 * otroRio[t - 5]) : null)
+
+const ap = aporteNoExplicado(confluencia, base, otroRio)!
+ok('el aporte se encuentra cinco días antes', ap.k, -5)
+ok('con correlación casi 1', ap.r > 0.97)
+ok('sumarlo explica casi todo', ap.explicadoCon > 0.99 && ap.explicadoCon > ap.explicadoSin)
+ok('sin datos no hay respuesta', aporteNoExplicado(confluencia, base, base.map(() => null)), null)
+ok('el cambio en 15 días de una rampa es 15',
+  cambioEn([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16], 15).filter(v => v !== null).join(','), '15,15')
+ok('y con un hueco en una punta no hay cambio', cambioEn([null, 5], 1)[1], null)
+
+titulo('El río Paraguay, sobre la serie real')
+
+const pg = trasladoDelParaguay(tramo)
+const dePg = (id: number) => pg.find(t => t.estacion === id)!
+const nombrePg = (id: number) => ESTACIONES_PARAGUAY.find(e => e.id === id)!.nombre
+
+ok('están las dos del Paraguay, aparte de las del tramo',
+  ESTACIONES_PARAGUAY.every(e => !!tramo.paraguay?.[String(e.id)] && !ids.includes(e.id)) && pg.length === 2)
+ok('con el mismo largo que las demás',
+  pg.every(t => tramo.paraguay![String(t.estacion)].length === ref.length))
+
+for (const t of pg) {
+  const a = t.aporte
+  info(`${nombrePg(t.estacion).padEnd(17)} variaciones r ${t.cambios?.r.toFixed(2) ?? '—'} a ${t.cambios?.dias.toFixed(1) ?? '—'} d`
+    + ` · mismo pico en ${t.picos?.usados ?? '—'} de ${t.picos?.anios ?? '—'} años`
+    + ` · aporte r ${a?.r.toFixed(2) ?? '—'} a ${a?.k ?? '—'} d [${a?.desde} a ${a?.hasta}],`
+    + ` R² ${a?.explicadoSin.toFixed(3)} → ${a?.explicadoCon.toFixed(3)}`)
+}
+
+/*
+ * Lo que se esperaba y no pasó: que se comportaran como Itá Ibaté. No lo hacen,
+ * y eso es lo que se afirma — si algún día dan un traslado nítido, cambió algo.
+ */
+ok('sus variaciones diarias casi no se parecen a las de Corrientes',
+  pg.every(t => t.cambios!.r < 0.4 && t.cambios!.r < de(16).cambios!.r))
+ok('Pilcomayo: en más de la mitad de los años el pico es otra crecida',
+  dePg(55).picos!.usados < dePg(55).picos!.anios / 2)
+
+ok('y aun así las dos explican parte de lo que Itá Ibaté no',
+  pg.every(t => t.aporte!.r > 0.4 && t.aporte!.explicadoCon > t.aporte!.explicadoSin + 0.02))
+ok('Puerto Pilcomayo, antes que Corrientes', dePg(55).aporte!.k <= -2 && dePg(55).aporte!.k >= -8)
+ok('con una cima ancha, que no pasa del mismo día', dePg(55).aporte!.hasta <= 1 && dePg(55).aporte!.desde <= -7)
+ok('Puerto Bermejo no adelanta: a la vez que Corrientes', Math.abs(dePg(58).aporte!.k) <= 1)
+ok('con la cima a los dos lados del cero', dePg(58).aporte!.desde < 0 && dePg(58).aporte!.hasta > 0)
+
+/*
+ * El control que encontró el error de la primera versión. Con Itá Ibaté en un
+ * solo desfase, Barranqueras —que está enfrente de Corrientes— aparecía
+ * «aportando» seis días antes: el resto era la onda del Paraná mal ajustada.
+ * Enfrente tiene que dar cero, y aguas abajo tiene que dar después.
+ */
+const control = (id: number) => aporteNoExplicado(ref, tramo.estaciones['16'], tramo.estaciones[String(id)])!
+ok('control: Barranqueras, enfrente, da cero', control(20).k, 0)
+ok('control: Goya, aguas abajo, da después', control(23).k > 0)
+
+for (const id of [55, 58]) {
+  const s = tramo.paraguay![String(id)]
+  const arriba = tramo.estaciones['16']
+  const a = aporteNoExplicado(ref.slice(0, mitad), arriba.slice(0, mitad), s.slice(0, mitad))
+  const b = aporteNoExplicado(ref.slice(mitad), arriba.slice(mitad), s.slice(mitad))
+  info(`${nombrePg(id).padEnd(17)} primera mitad ${a?.k} d (r ${a?.r.toFixed(2)}) · segunda ${b?.k} d (r ${b?.r.toFixed(2)})`)
+  ok(`${nombrePg(id)}: las dos mitades difieren dos días o menos`, !!a && !!b && Math.abs(a.k - b.k) <= 2)
+}
 
 console.log(fallos === 0 ? '\n✓ Todo bien.' : `\n✗ ${fallos} fallo(s).`)
 process.exit(fallos === 0 ? 0 : 1)

@@ -16,9 +16,8 @@
  * Así que van **dos franjas grandes** y el resto en renglones compactos:
  *
  * - **Barranqueras** es la del área metropolitana: la que decide acá.
- * - **Corrientes** es la que tiene serie desde 1901 y `cero_ign`. Es la única
- *   que puede sostener un "es la mayor en N años" y la única que se va a poder
- *   comparar contra cotas del terreno.
+ * - **Corrientes** es la que tiene serie desde 1901. Es la única que puede
+ *   sostener un "es la mayor en N años".
  *
  * Y las demás **se promueven solas a franja grande** si su altura observada o
  * su pronóstico llega al alerta. El criterio no es un número inventado por
@@ -55,7 +54,7 @@ const mono: React.CSSProperties = { fontFamily: 'monospace' }
  * Las que siempre van en grande.
  *
  * Barranqueras primero por relevancia operativa, Corrientes después por ser la
- * que tiene el histórico y el datum.
+ * que tiene el histórico.
  */
 const DESTACADAS = [20, 19]
 
@@ -67,7 +66,8 @@ interface EstacionRio {
   rio: string
   alerta: number
   evacuacion: number
-  ceroIgn: number | null
+  ceroMop: number
+  ceroIgn: number
   observado: Lectura[]
   pronostico: { emitido: string; puntos: PuntoPronostico[] } | null
   ultima: { fecha: string; m: number; estado: EstadoRio } | null
@@ -341,9 +341,16 @@ export default function PanelRio({ dias = 90, desde, hasta, abiertoInicial = fal
             Umbrales de alerta y evacuación publicados por el INA para cada estación — no son
             criterios de este sistema. Si alguna del resto llega a su alerta, se despliega
             entera. Fuente: {datos.fuente}.
-            {datos.estaciones.some(e => e.id === 20 && e.ceroIgn === null) && (
-              <> Barranqueras no publica su cero de escala referido al datum del IGN, así que
-              su altura no se puede comparar contra cotas del terreno; Corrientes sí lo tiene.</>
+            {/*
+              Las dos destacadas, que son las que se van a cruzar contra cotas.
+              Va dicho de qué año es el dato: no es una vinculación moderna.
+            */}
+            {datos.estaciones.filter(e => DESTACADAS.includes(e.id)).length > 0 && (
+              <> Cero de escala en el sistema del IGN:{' '}
+              {datos.estaciones.filter(e => DESTACADAS.includes(e.id))
+                .map(e => `${e.nombre} ${e.ceroIgn.toFixed(2).replace('.', ',')} m`).join(' y ')}
+              {' '}— cotas de 1999, valen al decímetro. La cota MOP, que es la de los planos de
+              defensas, está 0,55 m más arriba.</>
             )}
           </div>
         </div>

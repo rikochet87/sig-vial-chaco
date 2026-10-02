@@ -44,6 +44,21 @@
  *
  * Y es el tiempo de traslado típico, no un pronóstico de altura: no dice a
  * cuánto va a llegar el río, dice cuándo.
+ *
+ * ── El río Paraguay no es una estación más del tramo ──────────────────────────
+ *
+ * Se sumaron Puerto Pilcomayo y Puerto Bermejo esperando que anunciaran a
+ * Corrientes como lo hace Itá Ibaté, y **no lo hacen**. Medido con los dos
+ * métodos de arriba, sus variaciones diarias casi no correlacionan con las de
+ * Corrientes y en más de la mitad de los años su máximo anual es otra crecida,
+ * a meses de distancia: el Paraguay crece en invierno, con el agua del
+ * Pantanal, y el Paraná en verano.
+ *
+ * Lo que sí se le puede medir es **el aporte**: qué parte de lo que Corrientes
+ * hace *y que Itá Ibaté no explica* se parece a lo que hizo el Paraguay unos
+ * días antes. Es `aporteNoExplicado()`, más abajo, y se mide sobre cambios de
+ * quince días porque el Paraguay es un río lento: de un día para el otro se
+ * mueve un par de centímetros y eso se pierde en el ruido.
  */
 
 import { anioHidrologico, DIAS_MINIMOS } from './rioHistorico'
@@ -58,10 +73,15 @@ export interface TramoDiario {
   series: Record<string, number>
   /** Estación → un día por posición desde `desde`, en cm; `null` = sin dato */
   estaciones: Record<string, (number | null)[]>
+  /** Lo mismo para las del río Paraguay, que no son del tramo */
+  paraguay?: Record<string, (number | null)[]>
 }
 
 /** La estación contra la que se mide todo */
 export const ESTACION_REFERENCIA = 19
+
+/** La del Paraná aguas arriba de la confluencia con el Paraguay */
+export const ESTACION_ARRIBA = 16
 
 /** Desfases que se prueban, en días. Negativo = antes que la referencia */
 export const DESFASE_MIN = -6
@@ -213,4 +233,202 @@ export function trasladoDelTramo(t: TramoDiario): TrasladoEstacion[] {
         dias: s.filter(v => v !== null).length,
       }
     })
+}
+
+// ── El río Paraguay ──────────────────────────────────────────────────────────
+
+/**
+ * Sobre cuántos días se mide el cambio para buscar el aporte del Paraguay.
+ *
+ * Con cambios de un día el Paraguay no se ve: se mueve muy poco por día. La
+ * correlación crece al alargar la ventana, sin que el desfase se corra. Quince
+ * días es además del orden de lo que dura la subida de una crecida suya.
+ */
+export const VENTANA_APORTE_DIAS = 15
+
+/** Desfases que se prueban para el aporte. Negativo = antes que la referencia */
+export const APORTE_MIN = -25
+export const APORTE_MAX = 10
+
+/** Cuánto cambió la serie en `w` días. `null` si falta alguna de las dos puntas */
+export function cambioEn(s: Serie, w: number): Serie {
+  return s.map((v, t) => {
+    const antes = t >= w ? s[t - w] : null
+    return v === null || antes === null ? null : v - antes
+  })
+}
+
+/** Correlación entre `x` y `y` corrida `k` días: `x[t]` contra `y[t + k]` */
+export function correlacionCorrida(x: Serie, y: Serie, k: number): { r: number; n: number } {
+  let n = 0, sx = 0, sy = 0, sxx = 0, syy = 0, sxy = 0
+  const hasta = Math.min(x.length, y.length)
+  for (let t = 0; t < hasta; t++) {
+    const u = t + k
+    if (u < 0 || u >= hasta) continue
+    const a = x[t], b = y[u]
+    if (a === null || b === null) continue
+    n++; sx += a; sy += b; sxx += a * a; syy += b * b; sxy += a * b
+  }
+  if (n < 2) return { r: NaN, n }
+  const den = Math.sqrt((sxx - sx * sx / n) * (syy - sy * sy / n))
+  return { r: den > 0 ? (sxy - sx * sy / n) / den : NaN, n }
+}
+
+/** La serie corrida: en `t`, lo que valía en `t + k` */
+const corrida = (s: Serie, k: number): Serie => s.map((_, t) => s[t + k] ?? null)
+
+/**
+ * Con qué desfases entra la estación de aguas arriba en el ajuste.
+ *
+ * **Con uno solo no alcanza, y se midió.** Ajustando Corrientes contra Itá
+ * Ibaté dos días antes —su desfase— el resto correlaciona 0,42 con la propia
+ * Itá Ibaté de diez días antes: la onda se aplasta al viajar, y lo que entró
+ * en dos días por una punta sale repartido en más por la otra. Ese resto se
+ * parecía a cualquier cosa que se moviera despacio, y le daba a Puerto Bermejo
+ * cuatro días de adelanto que no tiene. Con estos seis el resto queda sin
+ * relación con Itá Ibaté en todos ellos, y a los diez días correlaciona 0,07.
+ */
+export const DESFASES_ARRIBA = [-1, -2, -3, -4, -6, -8]
+
+/**
+ * Mínimos cuadrados de `y` contra las columnas `xs` más una constante, sobre
+ * los días en que están todas. Devuelve `null` si no se puede resolver.
+ */
+function ajustar(y: Serie, xs: Serie[]): { r2: number; resto: Serie; n: number } | null {
+  const p = xs.length + 1
+  const a = Array.from({ length: p }, () => new Array<number>(p + 1).fill(0))
+  const filas: number[] = []
+  for (let t = 0; t < y.length; t++) {
+    const yt = y[t]
+    if (yt === null || xs.some(x => x[t] === null)) continue
+    filas.push(t)
+    const v = [1, ...xs.map(x => x[t] as number)]
+    for (let i = 0; i < p; i++) {
+      for (let j = 0; j < p; j++) a[i][j] += v[i] * v[j]
+      a[i][p] += v[i] * yt
+    }
+  }
+  if (filas.length <= p) return null
+
+  // Gauss-Jordan con pivote parcial sobre las ecuaciones normales
+  for (let c = 0; c < p; c++) {
+    let m = c
+    for (let f = c + 1; f < p; f++) if (Math.abs(a[f][c]) > Math.abs(a[m][c])) m = f
+    if (Math.abs(a[m][c]) < 1e-9) return null
+    ;[a[c], a[m]] = [a[m], a[c]]
+    for (let f = 0; f < p; f++) {
+      if (f === c) continue
+      const q = a[f][c] / a[c][c]
+      for (let j = c; j <= p; j++) a[f][j] -= q * a[c][j]
+    }
+  }
+  const coef = a.map((fila, i) => fila[p] / fila[i])
+
+  const resto: Serie = new Array(y.length).fill(null)
+  let sy = 0, syy = 0, sse = 0
+  for (const t of filas) {
+    const yt = y[t] as number
+    const r = yt - coef[0] - xs.reduce((s, x, j) => s + coef[j + 1] * (x[t] as number), 0)
+    resto[t] = r
+    sse += r * r; sy += yt; syy += yt * yt
+  }
+  const total = syy - sy * sy / filas.length
+  if (!(total > 0)) return null
+  return { r2: 1 - sse / total, resto, n: filas.length }
+}
+
+export interface Aporte {
+  /** Qué parte del cambio de la referencia explica la de aguas arriba sola (R²) */
+  explicadoSin: number
+  /** Y sumando la otra estación en su mejor desfase, sobre los mismos días */
+  explicadoCon: number
+  /** La correlación del resto con la otra estación, por desfase */
+  curva: { k: number; r: number; n: number }[]
+  /** El desfase de mayor correlación, en días. Negativo = antes */
+  k: number
+  r: number
+  n: number
+  /** Entre qué desfases la correlación queda a menos del 10 % de la máxima */
+  desde: number
+  hasta: number
+}
+
+/**
+ * Cuánto de lo que la referencia hace, y que la estación de aguas arriba no
+ * explica, se parece a lo que hizo `otra`, y con qué desfase.
+ *
+ * Tres pasos, todos sobre cambios de `VENTANA_APORTE_DIAS`:
+ *
+ * 1. Se ajusta el cambio de la referencia contra el de `arriba` en los
+ *    desfases de `DESFASES_ARRIBA`.
+ * 2. Lo que ese ajuste no explica es el resto.
+ * 3. Se correlaciona el resto con el cambio de `otra`, desfase por desfase.
+ *
+ * **La cima es ancha y por eso se informa un rango.** Las ventanas de quince
+ * días se pisan entre sí, así que la correlación cambia despacio de un desfase
+ * al siguiente: el máximo dice alrededor de cuándo, no qué día. Por lo mismo,
+ * los `n` días que entran no son `n` observaciones independientes.
+ *
+ * Es una descripción de cómo se movieron los dos ríos, no un modelo: no dice
+ * cuántos centímetros va a subir Corrientes por una crecida del Paraguay.
+ */
+export function aporteNoExplicado(ref: Serie, arriba: Serie, otra: Serie): Aporte | null {
+  const dRef = cambioEn(ref, VENTANA_APORTE_DIAS)
+  const dArr = cambioEn(arriba, VENTANA_APORTE_DIAS)
+  const dOtra = cambioEn(otra, VENTANA_APORTE_DIAS)
+  const columnas = DESFASES_ARRIBA.map(k => corrida(dArr, k))
+
+  const base = ajustar(dRef, columnas)
+  if (!base) return null
+
+  const curva: Aporte['curva'] = []
+  for (let k = APORTE_MIN; k <= APORTE_MAX; k++) curva.push({ k, ...correlacionCorrida(base.resto, dOtra, k) })
+  if (curva.some(c => !Number.isFinite(c.r))) return null
+
+  let b = 0
+  curva.forEach((c, i) => { if (c.r > curva[b].r) b = i })
+  if (b === 0 || b === curva.length - 1) return null
+
+  // Hasta dónde se extiende la cima, a cada lado y sin saltar
+  const piso = curva[b].r * 0.9
+  let i0 = b, i1 = b
+  while (i0 > 0 && curva[i0 - 1].r >= piso) i0--
+  while (i1 < curva.length - 1 && curva[i1 + 1].r >= piso) i1++
+
+  // Los dos R² sobre los mismos días, o no se pueden comparar
+  const deOtra = corrida(dOtra, curva[b].k)
+  const con = ajustar(dRef, [...columnas, deOtra])
+  const sin = ajustar(dRef.map((y, t) => (deOtra[t] === null ? null : y)), columnas)
+  if (!con || !sin) return null
+
+  return {
+    explicadoSin: sin.r2, explicadoCon: con.r2, curva,
+    k: curva[b].k, r: curva[b].r, n: curva[b].n,
+    desde: curva[i0].k, hasta: curva[i1].k,
+  }
+}
+
+export interface TrasladoParaguay extends TrasladoEstacion {
+  aporte: Aporte | null
+}
+
+/**
+ * Las estaciones del Paraguay contra Corrientes: los dos métodos del tramo, que
+ * acá sirven para mostrar que **no** es un traslado, y el aporte.
+ */
+export function trasladoDelParaguay(t: TramoDiario): TrasladoParaguay[] {
+  const ref = t.estaciones[String(ESTACION_REFERENCIA)]
+  const arriba = t.estaciones[String(ESTACION_ARRIBA)]
+  const paraguay = t.paraguay
+  if (!ref || !arriba || !paraguay) return []
+  return Object.keys(paraguay).map(Number).map(e => {
+    const s = paraguay[String(e)]
+    return {
+      estacion: e,
+      cambios: desfasePorCambios(ref, s),
+      picos: desfasePorPicos(ref, s, t.desde),
+      aporte: aporteNoExplicado(ref, arriba, s),
+      dias: s.filter(v => v !== null).length,
+    }
+  })
 }

@@ -60,27 +60,72 @@ const ESPERA_MS = 20_000
  * El orden es de aguas arriba hacia aguas abajo, que es el orden en que pasa la
  * onda de crecida: lo que hoy se ve en Itá Ibaté llega después acá. Esa
  * progresión es, en sí misma, anticipación.
+ *
+ * ── El cero de cada escala, en dos sistemas ───────────────────────────────────
+ *
+ * **Lo que el INA publica como `cero_ign` en este tramo es la cota MOP**, no la
+ * del IGN: los cinco valores coinciden al centímetro con la columna MOP de la
+ * tabla de estaciones hidrométricas de un estudio del CFI de 1999, que al lado
+ * trae la cota IGM, unos 0,55 m más abajo. Aguas abajo de La Paz el INA sí
+ * tiene los valores que el IGN midió en 2016; acá arriba quedaron los viejos.
+ * Por eso van los dos, con nombre:
+ *
+ * - `ceroMop` es lo que publica el INA. Sirve para leer documentos de obra, que
+ *   en Chaco están en cota MOP (las defensas, la línea de ribera).
+ * - `ceroIgn` es el que hay que usar contra un modelo de elevación, que está en
+ *   el sistema del IGN.
+ *
+ * De dónde sale cada `ceroIgn`:
+ *
+ * - Corrientes, Barranqueras, Empedrado, Bella Vista y Goya: la tabla del CFI.
+ *   **Son cotas IGM de 1999, no una vinculación al SRVN16**: el IGN no midió
+ *   Corrientes ni Barranqueras en sus campañas. Valen al decímetro.
+ * - Empedrado tiene control: el IGN midió en 2017 dos tramos de esa escala, y
+ *   descontando los metros de cada tramo el cero da 39,11 y 39,14.
+ * - Itá Ibaté no está en la tabla; es la escala del muelle que el IGN vinculó
+ *   en 2017, y coincide a 3 cm con el MOP menos 0,556.
+ *
+ * **Barranqueras no figura en el INA.** Su cero MOP sale de dos fuentes que no
+ * se conocen entre sí: la tabla del CFI, y la Resolución 1111/98 de la APA, que
+ * da el pico del 04/05/1998 como «8,17 m en el hidrómetro, equivalente a cota
+ * MOP 49,97 m».
  */
 export const ESTACIONES = [
-  { id: 16, nombre: 'Itá Ibaté',    rio: 'Paraná',      alerta: 7,    evacuacion: 7.5, ceroIgn: 52.42 },
-  { id: 19, nombre: 'Corrientes',   rio: 'Paraná',      alerta: 6.5,  evacuacion: 7,   ceroIgn: 42.39 },
-  { id: 20, nombre: 'Barranqueras', rio: 'Barranqueras', alerta: 6,   evacuacion: 6.5, ceroIgn: null  },
-  { id: 21, nombre: 'Empedrado',    rio: 'Paraná',      alerta: 6.5,  evacuacion: 6.7, ceroIgn: 39.68 },
-  { id: 22, nombre: 'Bella Vista',  rio: 'Paraná',      alerta: 6,    evacuacion: 6.4, ceroIgn: 34.74 },
-  { id: 23, nombre: 'Goya',         rio: 'Paraná',      alerta: 5.2,  evacuacion: 5.7, ceroIgn: 29.67 },
+  { id: 16, nombre: 'Itá Ibaté',    rio: 'Paraná',      alerta: 7,    evacuacion: 7.5, ceroMop: 52.42, ceroIgn: 51.89 },
+  { id: 19, nombre: 'Corrientes',   rio: 'Paraná',      alerta: 6.5,  evacuacion: 7,   ceroMop: 42.39, ceroIgn: 41.84 },
+  { id: 20, nombre: 'Barranqueras', rio: 'Barranqueras', alerta: 6,   evacuacion: 6.5, ceroMop: 41.80, ceroIgn: 41.25 },
+  { id: 21, nombre: 'Empedrado',    rio: 'Paraná',      alerta: 6.5,  evacuacion: 6.7, ceroMop: 39.68, ceroIgn: 39.13 },
+  { id: 22, nombre: 'Bella Vista',  rio: 'Paraná',      alerta: 6,    evacuacion: 6.4, ceroMop: 34.74, ceroIgn: 34.18 },
+  { id: 23, nombre: 'Goya',         rio: 'Paraná',      alerta: 5.2,  evacuacion: 5.7, ceroMop: 29.67, ceroIgn: 29.12 },
 ] as const
 
 export type EstacionIna = (typeof ESTACIONES)[number]
 
 /**
+ * Las del río Paraguay, que entra al Paraná entre Itá Ibaté y Corrientes.
+ *
+ * **No están en `ESTACIONES` y no van al panel del día**: son otro río, y cada
+ * estación que se suma ahí son dos pedidos más al INA por pantalla. Están para
+ * el registro largo —`lib/rioTraslado.ts`—, que es donde hacía falta saber si
+ * el Paraguay anuncia algo de lo que llega a Corrientes.
+ *
+ * Son dos y no cuatro. Puerto Formosa e Isla del Cerrito tienen media diaria
+ * recién desde 2006, y el archivo del tramo arranca en 1970. Puerto Pilcomayo
+ * está frente a Asunción, unos 390 km aguas arriba de la confluencia; Puerto
+ * Bermejo, en Chaco, a unos 60 km y aguas abajo de la boca del río Bermejo.
+ */
+export const ESTACIONES_PARAGUAY = [
+  { id: 55, nombre: 'Puerto Pilcomayo', rio: 'Paraguay', alerta: 5.35, evacuacion: 6 },
+  { id: 58, nombre: 'Puerto Bermejo',   rio: 'Paraguay', alerta: 6.5,  evacuacion: 7 },
+] as const
+
+/**
  * La estación de referencia para el área metropolitana.
  *
- * **Barranqueras no tiene `cero_ign`** y eso importa para más adelante: sin el
- * cero de escala referido al datum del IGN, "6,5 m en la escala" y la cota de un
- * modelo de elevación están en dos sistemas verticales distintos y no se pueden
- * comparar. Corrientes, sobre el mismo tramo, sí lo tiene (42,39), así que
- * cualquier simulación futura se ancla ahí hasta que se consiga el de
- * Barranqueras — es un pedido al INA o a Prefectura, no un desarrollo.
+ * Para comparar su altura contra cotas del terreno hace falta el cero de escala
+ * en el sistema del IGN: es `ceroIgn`, 41,25 m. **Es una cota de 1999 y vale al
+ * decímetro** — ver arriba. Una vinculación moderna de esta escala sigue siendo
+ * un pedido al IGN o a Prefectura, no un desarrollo.
  */
 export const REFERENCIA = 20
 

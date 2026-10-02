@@ -3,7 +3,8 @@
  * Alerta Hidrológico del INA:
  *
  *   public/rio/corrientes_diario.json   Corrientes, altura media diaria desde 1901
- *   public/rio/tramo_diario.json        las seis estaciones del tramo, desde 1970
+ *   public/rio/tramo_diario.json        las seis estaciones del tramo, desde 1970,
+ *                                       y dos del río Paraguay
  *
  *   node scripts/build_rio_historico.mjs
  *
@@ -32,6 +33,14 @@
  * mide entre pares de estaciones: sirve el período que comparten. Coincide con
  * el régimen actual del río, que es el que interesa para anticipar.
  *
+ * ── Las del río Paraguay van aparte ───────────────────────────────────────────
+ *
+ * En la clave `paraguay` y no en `estaciones`: no son del tramo. El Paraguay
+ * entra al Paraná entre Itá Ibaté y Corrientes, y lo que se le mide no es un
+ * traslado sino cuánto de lo que llega a Corrientes viene por ahí. Son Puerto
+ * Pilcomayo y Puerto Bermejo, las dos con media diaria desde 1970; Formosa e
+ * Isla del Cerrito arrancan en 2006.
+ *
  * ── El formato ────────────────────────────────────────────────────────────────
  *
  * Un día por posición a partir de `desde`, en **centímetros enteros**, con
@@ -50,6 +59,9 @@ const DIA = 86_400_000
 
 /** Estación → serie de altura media diaria. De aguas arriba hacia abajo */
 const SERIES = { 16: 26258, 19: 26261, 20: 26262, 21: 26263, 22: 26264, 23: 26265 }
+
+/** Las del río Paraguay: Puerto Pilcomayo y Puerto Bermejo */
+const SERIES_PARAGUAY = { 55: 26297, 58: 26300 }
 
 const hoy = new Date().toISOString().slice(0, 10)
 const pausa = ms => new Promise(r => setTimeout(r, ms))
@@ -102,8 +114,8 @@ try {
   mkdirSync(DIR, { recursive: true })
   const bajadas = {}
 
-  // De a una y con pausa: son seis pedidos de 5 a 11 MB a un organismo público
-  for (const [estacion, serie] of Object.entries(SERIES)) {
+  // De a una y con pausa: son ocho pedidos de 5 a 11 MB a un organismo público
+  for (const [estacion, serie] of Object.entries({ ...SERIES, ...SERIES_PARAGUAY })) {
     console.log(`Pidiendo la serie ${serie} (estación ${estacion})…`)
     bajadas[estacion] = await bajar(serie)
     await pausa(1500)
@@ -134,14 +146,19 @@ try {
     for (const estacion of Object.keys(SERIES)) {
       estaciones[estacion] = aCentimetros(bajadas[estacion], desde, hasta)
     }
+    const paraguay = {}
+    for (const estacion of Object.keys(SERIES_PARAGUAY)) {
+      paraguay[estacion] = aCentimetros(bajadas[estacion], desde, hasta)
+    }
     const salida = join(DIR, 'tramo_diario.json')
     writeFileSync(salida, JSON.stringify({
       fuente: FUENTE,
       variable: 'Altura hidrométrica media diaria, en cm sobre el cero de cada escala',
-      generado: hoy, desde, hasta, series: SERIES, estaciones,
+      generado: hoy, desde, hasta,
+      series: { ...SERIES, ...SERIES_PARAGUAY }, estaciones, paraguay,
     }))
     console.log(`✓ ${salida}`)
-    for (const [e, cm] of Object.entries(estaciones)) {
+    for (const [e, cm] of Object.entries({ ...estaciones, ...paraguay })) {
       console.log(`  estación ${e}: ${cm.filter(v => v !== null).length} días con dato de ${cm.length}`)
     }
   }
