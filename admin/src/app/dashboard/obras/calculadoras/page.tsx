@@ -1,13 +1,12 @@
 'use client'
 import React, { useState, useEffect, useRef } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
-import { setObraTransfer, saveReturnTab, consumeReturnTab } from '@/lib/obraTransfer'
+import { useSearchParams } from 'next/navigation'
 import InlineMapDraw from '@/components/InlineMapDraw'
 import InlineLineDraw from '@/components/InlineLineDraw'
 import CalcRipioComponent from '@/components/CalcRipio'
 import DesmMapPanel, { type TramoForMap } from '@/components/DesmMapPanel'
 import MapComposicion, { type TramoComp } from '@/components/MapComposicion'
-import GuardarObraModal, { type GuardarObraData, type ObraTipo } from '@/components/GuardarObraModal'
+import GuardarObraModal, { type GuardarObraData } from '@/components/GuardarObraModal'
 import CalcTerraplen from '@/components/CalcTerraplen'
 import CalcExcavacion from '@/components/CalcExcavacion'
 /*
@@ -18,25 +17,22 @@ import CalcExcavacion from '@/components/CalcExcavacion'
  * duplicación que ya es el problema de esta parte del repo.
  */
 import {
-  panel, secLabel, lbl, inpStyle, Inp, Res, SectionTitle, Pipeline, HATCH, DimLine,
+  panel, secLabel, lbl, inpStyle, Inp, Res, SectionTitle, HATCH,
 } from '@/components/calc/piezas'
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
-type Tab    = 'terraplen' | 'excavacion' | 'ripio' | 'canal' | 'limpieza'
+type Tab    = 'terraplen' | 'excavacion' | 'ripio' | 'limpieza'
 type Params = Record<string, number | string>
-
-/** Las que traen su propio mapa y su propio botón de guardar */
-const SIN_BOTONERA: Tab[] = ['terraplen', 'excavacion']
 
 // ── Colores por tipo ──────────────────────────────────────────────────────────
 const CLR: Record<Tab, string> = {
-  terraplen: '#8D6E63', excavacion: '#FF7043', ripio: '#90A4AE', canal: '#29B6F6',
+  terraplen: '#8D6E63', excavacion: '#FF7043', ripio: '#90A4AE',
   limpieza: '#66BB6A',
 }
 
 // Unidades de precio por tipo (para mostrar en el input)
 const UNIDADES: Record<Tab, string> = {
-  terraplen: '$/t', excavacion: '$/t', ripio: '$/t', canal: '$/t',
+  terraplen: '$/t', excavacion: '$/t', ripio: '$/t',
   limpieza: '$/ha',
 }
 
@@ -91,122 +87,15 @@ function pesosEnLetras(n: number): string {
 // ── RIPIO — ahora es el componente externo CalcRipioComponent ────────────────
 // (ver admin/src/components/CalcRipio.tsx)
 
-// ── CANAL ─────────────────────────────────────────────────────────────────────
-function CalcCanal({ paramsRef }: { paramsRef?: React.MutableRefObject<Params> }) {
-  const [L, setL]     = useState(1000)
-  const [H, setH]     = useState(0.6)
-  const [tipo, setTipo] = useState<'triangular' | 'trapezoidal'>('triangular')
-  const [Bf, setBf]   = useState(0.3)
-  const [m, setM]     = useState(1.5)
-  const [n, setN]     = useState(0.025)
-  const [S, setS]     = useState(0.5)
-  const [rho, setRho] = useState(1.80)
-  const [Fe, setFe]   = useState(25)
-
-  const Bs = tipo === 'triangular' ? 2 * H * m : Bf + 2 * H * m
-  const A  = tipo === 'triangular' ? H * H * m : (Bf + Bs) / 2 * H
-  const P  = tipo === 'triangular'
-    ? 2 * Math.sqrt(H * H + (H * m) * (H * m))
-    : Bf + 2 * Math.sqrt(H * H + (H * m) * (H * m))
-  const R  = A / P
-  const Sl = S / 100
-  const Q  = (1 / n) * A * Math.pow(R, 2/3) * Math.pow(Sl, 1/2)
-  const V_vel = Q / A
-  const Vex = A * L
-  const Ves = Vex * 1.25
-  const W   = Vex * rho
-
-  // Transferir params geométricos + cantidad para Planta y Guardar Obra
-  useEffect(() => {
-    if (paramsRef) paramsRef.current = { H, Bf: tipo === 'triangular' ? 0 : Bf, m, rho, Fe, W_t: W, L_m: L }
-  }, [paramsRef, L, H, tipo, Bf, m, rho, Fe, W])
-  const fmt = (n: number) => Math.round(n).toLocaleString('es-AR')
-
-  const W_SVG = 420, H_SVG = 200, GY = 60, PAD = 60
-  const sc = Math.min((W_SVG - 2*PAD) / Math.max(Bs, 0.5), (H_SVG - GY - 40) / Math.max(H, 0.1))
-  const dH = H * sc, dBs = Bs * sc, dBf = Bf * sc
-  const cx = W_SVG / 2
-  const color = CLR.canal
-  const pts_svg = tipo === 'triangular'
-    ? `${cx - dBs/2},${GY} ${cx + dBs/2},${GY} ${cx},${GY + dH}`
-    : `${cx - dBs/2},${GY} ${cx + dBs/2},${GY} ${cx + dBf/2},${GY + dH} ${cx - dBf/2},${GY + dH}`
-
-  return (
-    <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr 148px', gap: 10, height: '100%' }}>
-      <div style={panel}>
-        <SectionTitle>Geometría</SectionTitle>
-        <div>
-          <span style={lbl}>Tipo de sección</span>
-          <div style={{ display: 'flex', gap: 6 }}>
-            {(['triangular', 'trapezoidal'] as const).map(t => (
-              <button key={t} onClick={() => setTipo(t)}
-                style={{ flex: 1, padding: '6px 4px', fontSize: 13, fontFamily: 'monospace', cursor: 'pointer', borderRadius: 3, border: `1px solid ${tipo === t ? color : '#222'}`, background: tipo === t ? `${color}22` : '#080808', color: tipo === t ? color : '#555' }}>
-                {t}
-              </button>
-            ))}
-          </div>
-        </div>
-        <Inp label="Longitud"    unit="m"   value={L}  onChange={setL}  step={100} />
-        <Inp label="Profundidad" unit="m"   value={H}  onChange={setH}  step={0.05} />
-        {tipo === 'trapezoidal' && <Inp label="Ancho fondo" unit="m" value={Bf} onChange={setBf} step={0.1} />}
-        <Inp label="Talud H:V"             value={m}  onChange={setM}  step={0.5} min={0.1} />
-        <div style={secLabel}>Material</div>
-        <Inp label="Densidad" unit="t/m³"  value={rho} onChange={setRho} step={0.05} min={1} />
-        <Inp label="Esponjamiento" unit="%" value={Fe} onChange={setFe}  step={1} />
-        <div style={secLabel}>Hidráulica (Manning)</div>
-        <Inp label="Coef. Manning n"       value={n}  onChange={setN}  step={0.001} min={0.01} />
-        <Inp label="Pendiente long." unit="%" value={S} onChange={setS} step={0.05} min={0.01} />
-      </div>
-
-      <div style={{ ...panel, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
-        <SectionTitle>Sección tipo — Canal {tipo} (escala proporcional)</SectionTitle>
-        <svg viewBox={`0 0 ${W_SVG} ${H_SVG}`} style={{ width: '100%', height: 'auto', flex: 1 }}>
-          <line x1={0} y1={GY} x2={W_SVG} y2={GY} stroke="#2a2a2a" strokeWidth={1} />
-          {Array.from({ length: 5 }, (_, i) => [
-            <line key={`l${i}`} x1={0} y1={GY + i*9} x2={cx - dBs/2 - 2} y2={GY + i*9} stroke="#1a1a1a" strokeWidth={1} />,
-            <line key={`r${i}`} x1={cx + dBs/2 + 2} y1={GY + i*9} x2={W_SVG} y2={GY + i*9} stroke="#1a1a1a" strokeWidth={1} />,
-          ])}
-          <polygon points={pts_svg} fill={`${color}22`} stroke={color} strokeWidth={2} />
-          <DimLine x1={cx - dBs/2} y1={GY - 14} x2={cx + dBs/2} y2={GY - 14}
-            label={`Boca = ${Bs.toFixed(2)} m`} textX={cx} textY={GY - 18} />
-          {tipo === 'trapezoidal' && (
-            <DimLine x1={cx - dBf/2} y1={GY + dH + 14} x2={cx + dBf/2} y2={GY + dH + 14}
-              label={`Bf = ${Bf.toFixed(2)} m`} textX={cx} textY={GY + dH + 24} />
-          )}
-          <DimLine x1={cx + dBs/2 + 14} y1={GY} x2={cx + dBs/2 + 14} y2={GY + dH}
-            label={`H=${H.toFixed(2)}m`} textX={cx + dBs/2 + 28} textY={GY + dH/2}
-            rotate={`rotate(90,${cx + dBs/2 + 28},${GY + dH/2})`} />
-          <text x={cx} y={GY + dH*0.55} textAnchor="middle" fontSize={11}
-            fill={color} fontFamily="monospace" fontWeight="bold">A = {A.toFixed(4)} m²</text>
-          <text x={cx} y={H_SVG - 10} textAnchor="middle" fontSize={10}
-            fill={color} fontFamily="monospace">Q = {Q.toFixed(3)} m³/s · V = {V_vel.toFixed(2)} m/s</text>
-        </svg>
-        <Pipeline color={color} steps={[
-          { label: 'Sección',     formula: tipo === 'triangular' ? 'A = H²·m' : 'A = (Bf+Bs)/2·H',
-            sub: tipo === 'triangular' ? `${H}²·${m}` : `(${Bf}+${Bs.toFixed(2)})/2·${H}`,
-            result: `${A.toFixed(4)} m²` },
-          { label: 'Caudal',      formula: 'Q = A·R^⅔·S^½/n',
-            sub: `n=${n} · S=${S}%`, result: `${Q.toFixed(4)} m³/s`, accent: true },
-          { label: 'Vol. exc.',   formula: 'Ve = A · L',
-            sub: `${A.toFixed(4)}·${L}`,  result: `${fmt(Vex)} m³` },
-          { label: 'Peso haul',   formula: 'W = Ve · ρ',
-            sub: `${fmt(Vex)}·${rho}`, result: `${fmt(W)} t` },
-        ]} />
-      </div>
-
-      <div style={panel}>
-        <SectionTitle>Cómputo</SectionTitle>
-        <Res label="Sección hidráulica" value={A.toFixed(4)}     unit="m²" />
-        <Res label="Caudal (Manning)"   value={Q.toFixed(4)}     unit="m³/s" accent />
-        <Res label="Velocidad media"    value={V_vel.toFixed(3)} unit="m/s" />
-        <div style={{ height: 1, background: '#1a1a1a', margin: '8px 0' }} />
-        <Res label="Vol. excavación"    value={fmt(Vex)}         unit="m³" />
-        <Res label="Vol. esponjado"     value={fmt(Ves)}         unit="m³" />
-        <Res label="Peso a mover"       value={fmt(W)}           unit="t" />
-      </div>
-    </div>
-  )
-}
+/*
+ * ── CANAL ──
+ *
+ * Ya no es una calculadora aparte: es un modo de Excavación (ver
+ * `components/CalcExcavacion.tsx`). Repetía acá la sección trapezoidal y el
+ * volumen que excavación ya calculaba, sin mapa, sin tramos y sin guardar más
+ * que un total. Lo único propio era el caudal por Manning, que ahora vive en
+ * `lib/excavacionCalculo.ts` y tiene su test.
+ */
 
 // ── DESMALEZADO DE BANQUINAS ──────────────────────────────────────────────────
 const CLR_DESM = '#66BB6A'
@@ -2456,7 +2345,6 @@ const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'terraplen',  label: 'Terraplén',     icon: '▲' },
   { id: 'excavacion', label: 'Excavación',    icon: '▼' },
   { id: 'ripio',      label: 'Ripio',         icon: '≡' },
-  { id: 'canal',      label: 'Canal',         icon: '⌣' },
   { id: 'limpieza',   label: 'Limpieza Vial', icon: '≈' },
 ]
 
@@ -2464,10 +2352,9 @@ export default function CalculadorasPage() {
   const searchParams  = useSearchParams()
   const editId        = searchParams.get('edit') ?? undefined
 
-  const [tab, setTab] = useState<Tab>(() => (consumeReturnTab() as Tab) || 'terraplen')
+  const [tab, setTab] = useState<Tab>('terraplen')
   const [precio, setPrecio] = useState(0)
   const paramsRef = useRef<Params>({})
-  const router    = useRouter()
   const color     = CLR[tab]
 
   // ── Edición desde lista de obras ──────────────────────────────────────────
@@ -2495,6 +2382,16 @@ export default function CalculadorasPage() {
           // El precio unitario se guarda con la obra: sin reponerlo, al abrir
           // una obra para editar el presupuesto volvía en cero y el usuario
           // tenía que acordarse del número.
+          const pu = Number(obra.precio_unitario)
+          if (Number.isFinite(pu) && pu > 0) setPrecio(pu)
+        } else if (dc.calculadora === 'excavacion') {
+          /*
+           * Faltaba esta rama, y sin ella editar una excavación abría la
+           * pestaña de Terraplén vacía: la obra se había cargado, pero en una
+           * pestaña que no la mostraba. Un canal es una excavación en modo
+           * canal, así que entra por acá también.
+           */
+          setTab('excavacion')
           const pu = Number(obra.precio_unitario)
           if (Number.isFinite(pu) && pu > 0) setPrecio(pu)
         } else if (dc.calculadora === 'ripio') {
@@ -2525,37 +2422,6 @@ export default function CalculadorasPage() {
   const [guardarOpen, setGuardarOpen] = useState(false)
   const [guardarData, setGuardarData] = useState<GuardarObraData | null>(null)
 
-  const handleGuardarObra = () => {
-    const W_t = Number(paramsRef.current.W_t ?? 0)
-    const L_m = Number(paramsRef.current.L_m ?? 0)
-    if (W_t <= 0 && tab !== 'limpieza') {
-      alert('Completá los datos de la calculadora primero.')
-      return
-    }
-    const total = W_t * precio
-    setGuardarData({
-      tipo:              tab as ObraTipo,
-      cantidad:          tab === 'ripio' ? L_m / 1000 : W_t,   // ripio en km, resto en t
-      unidad:            tab === 'ripio' ? 'km' : 't',
-      presupuesto_total: total,
-      aporte_dvp:        total * 0.5,   // el modal puede ajustarse en Fase 2
-      aporte_ccc:        total * 0.5,
-      precio_unitario:   precio,
-    })
-    setGuardarOpen(true)
-  }
-
-  const handleDraw = () => {
-    saveReturnTab(tab)
-    setObraTransfer({
-      type: tab,
-      params: { ...paramsRef.current },
-      precioUnitario: precio,
-      unidad: UNIDADES[tab],
-    })
-    router.push('/dashboard/obras/planta')
-  }
-
   return (
     <div style={{
       height: 'calc(100vh - 32px)', display: 'flex', flexDirection: 'column',
@@ -2585,12 +2451,13 @@ export default function CalculadorasPage() {
       </div>
 
       {/*
-        Barra de precio y dibujo.
+        Barra de precio.
 
-        **Terraplén ya no muestra acá el botón de guardar**: tiene el suyo junto
-        al cómputo, que manda `datos_calculadora` y permite reabrir la obra. El
-        de esta barra sigue sirviendo a Excavación y Canal, que todavía guardan
-        sólo el total — cuando se migren, se saca.
+        Acá estaban también «Dibujar en mapa» y «Guardar obra», para las
+        calculadoras que no tenían mapa propio. La última era Canal, que pasó a
+        ser un modo de Excavación: Terraplén y Excavación dibujan y guardan
+        desde su propio panel, con `datos_calculadora`, así que la botonera se
+        sacó. Queda el precio unitario, que las dos leen de acá.
       */}
       {tab !== 'limpieza' && tab !== 'ripio' && (
       <div style={{
@@ -2616,38 +2483,6 @@ export default function CalculadorasPage() {
           <span style={{ fontSize: 12, color: '#333', fontFamily: 'monospace' }}>
             ARS
           </span>
-        )}
-        <div style={{ flex: 1 }} />
-        {/*
-          Terraplén y excavación dibujan en su propio panel y guardan desde ahí:
-          no mandan a la pantalla de Planta ni usan estos botones.
-        */}
-        {!SIN_BOTONERA.includes(tab) && (
-        <button
-          onClick={handleDraw}
-          style={{
-            padding: '7px 18px', fontSize: 13, fontFamily: 'monospace',
-            fontWeight: 700, letterSpacing: 0.8, cursor: 'pointer',
-            border: `1px solid ${color}`, background: `${color}22`,
-            color: color, transition: 'background 0.15s',
-          }}
-        >
-          Dibujar en mapa →
-        </button>
-        )}
-
-        {!SIN_BOTONERA.includes(tab) && (
-          <button
-            onClick={handleGuardarObra}
-            style={{
-              padding: '7px 18px', fontSize: 13, fontFamily: 'monospace',
-              fontWeight: 700, letterSpacing: 0.8, cursor: 'pointer',
-              border: '1px solid #F5C300', background: '#F5C30022',
-              color: '#F5C300', transition: 'background 0.15s',
-            }}
-          >
-            💾 Guardar obra
-          </button>
         )}
       </div>
       )}
@@ -2688,7 +2523,6 @@ export default function CalculadorasPage() {
           focoObra={focoRipio}
           obraEnEdicionId={editId ?? undefined}
         />}
-        {tab === 'canal'      && <CalcCanal      paramsRef={paramsRef} />}
         {tab === 'limpieza'   && !editLoading && <CalcLimpiezaVial key={editId ?? 'new'} paramsRef={paramsRef} onGuardarObra={(d) => { setGuardarData(d); setGuardarOpen(true) }} initialData={editDC ?? undefined} />}
         {tab === 'limpieza'   && editLoading  && <div style={{ color: '#555', fontFamily: 'monospace', fontSize: 13, padding: 20 }}>Cargando obra...</div>}
       </div>

@@ -68,7 +68,7 @@ Dos advertencias que costaron encontrar:
 ### La barrera de lint es por línea de base, no por cero
 
 `scripts/verificar-lint.mjs` compara el conteo **por regla** contra
-`scripts/lint-linea-base.json` (75 errores al 25/09/2026) y falla si alguna sube
+`scripts/lint-linea-base.json` (73 errores al 02/10/2026) y falla si alguna sube
 o aparece una nueva. Que baje no falla; ahí conviene correr `--actualizar` y
 commitear el piso más bajo.
 
@@ -88,7 +88,7 @@ caso:
 | Regla | Cuántas | Qué son en este repo |
 |---|---|---|
 | `@typescript-eslint/no-explicit-any` | 39 | Casi todas el objeto mapa de Leaflet. Arreglarlas de verdad es tipar Leaflet, no poner `unknown` |
-| `react-hooks/set-state-in-effect` | 26 | **Mayormente falsos positivos acá.** Leer `localStorage` en un efecto es la forma *correcta* de evitar un desajuste de hidratación en SSR; la regla no sabe de hidratación. Reescribirlas con estado perezoso introduciría el bug que hoy no existe |
+| `react-hooks/set-state-in-effect` | 24 | **Mayormente falsos positivos acá.** Leer `localStorage` en un efecto es la forma *correcta* de evitar un desajuste de hidratación en SSR; la regla no sabe de hidratación. Reescribirlas con estado perezoso introduciría el bug que hoy no existe |
 | `react-hooks/refs` | 5 | Reales, pero adentro de componentes de mapa de mil líneas sin tests de interfaz |
 | `react-hooks/preserve-manual-memoization` | 4 | |
 | `react-hooks/immutability` | 1 | |
@@ -337,9 +337,56 @@ Un dato ausente tiene que significar no poder hacer nada.
 
 ### Calculadoras de obra
 
-`admin/src/app/dashboard/obras/calculadoras/page.tsx` — Terraplén, Excavación,
-Canal, Limpieza Vial y Desmalezado. Ripio vive aparte en
-`components/CalcRipio.tsx`.
+`admin/src/app/dashboard/obras/calculadoras/page.tsx` — cuatro pestañas:
+Terraplén, Excavación, Ripio y Limpieza Vial (desmalezado y desbosque).
+Terraplén, Excavación y Ripio viven en su propio componente
+(`CalcTerraplen`, `CalcExcavacion`, `CalcRipio`), cada uno con su motor en
+`lib/` y su test; Limpieza Vial sigue adentro de la página, sin motor aparte.
+
+#### El canal es un modo de Excavación, no una calculadora
+
+Excavación tiene **tres modos sobre dos cómputos** (`lib/excavacionCalculo.ts`):
+
+| Modo | Qué es | Cómputo |
+|---|---|---|
+| **Lineal** | cuneta, zanja, corte | sección trapezoidal por longitud dibujada |
+| **Canal** | lo mismo, con su caudal | el del lineal, más Manning |
+| **Área** | préstamo, pozo | tronco de pirámide sobre el recinto |
+
+**Canal fue una pestaña aparte y se sacó.** Repetía la sección trapezoidal y el
+volumen que Excavación ya calculaba —la misma zanja en dos archivos—, sin mapa,
+sin tramos y guardando sólo un total. Lo único propio era el caudal, que ahora
+es `caudalManning()` en el motor. El test afirma que da **lo mismo que la
+calculadora retirada**, cuyas fórmulas quedaron copiadas ahí como referencia.
+
+Cosas que no son obvias:
+
+- **Lineal y Canal comparten la sección y los tramos.** Pasar de uno a otro no
+  pierde la traza: una cuneta es un canal, y lo que cambia es si se quiere ver
+  cuánta agua lleva. Lo propio del canal son la rugosidad y la pendiente.
+- **Triangular es el trapecio con ancho de fondo cero.** Va como botón y no como
+  "poné 0", y al volver a trapecial se repone el ancho que había.
+- **El caudal es a sección llena**: el tirante se toma igual a la profundidad
+  excavada. Es lo máximo que entra, no el caudal de diseño —un canal se proyecta
+  con revancha—, y la pantalla lo dice.
+- **El caudal de la obra es el del tramo que menos lleva**: lo que entra por una
+  sección grande no pasa por la chica de más abajo.
+- **Un canal se guarda con `tipo: 'canal'`**, que es como se lo busca en la
+  lista de obras, pero `datos_calculadora.calculadora` es `'excavacion'` con
+  `inputs.modo: 'canal'`: la calculadora que lo reabre es la de excavación. Las
+  obras de canal viejas no tienen `datos_calculadora` y no se pueden reabrir,
+  igual que antes.
+- **Editar una excavación abría la pestaña de Terraplén vacía.** Al efecto que
+  elige la pestaña le faltaba la rama de `'excavacion'`: la obra se cargaba,
+  pero en una pestaña que no la mostraba. Se encontró al sumar el canal.
+- **La botonera «Dibujar en mapa» / «Guardar obra» de la página se sacó.** Canal
+  era la última calculadora que la usaba; las demás dibujan y guardan desde su
+  propio panel.
+- **La pantalla de Planta (`obras/planta`) se borró**, con `lib/obraTransfer.ts`,
+  que sólo existía para pasarle datos. Era el mapa al que mandaba «Dibujar en
+  mapa»: sin la botonera no quedaba ningún enlace que llevara a ella, y eran
+  1.675 líneas de un quinto mapa de dibujo. Si hace falta, está en el historial
+  de git antes del 02/10/2026.
 
 ### Ripio: cómputo → análisis de precios → presupuesto
 

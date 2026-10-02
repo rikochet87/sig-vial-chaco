@@ -15,7 +15,7 @@
  */
 import {
   perfilDe, computarTramo, computarRecinto, computarObraLineal, computarObraArea,
-  geometriaAnillo, geometriaRectangulo, viajes, SECCION_POR_DEFECTO, CAPACIDADES_T,
+  geometriaAnillo, geometriaRectangulo, viajes, caudalManning, SECCION_POR_DEFECTO, CAPACIDADES_T,
   type SeccionExcavacion, type TramoExcavacion, type RecintoExcavacion,
 } from '../src/lib/excavacionCalculo'
 
@@ -280,6 +280,63 @@ const hondo = computarTramo(sec, tramo('b', 3, 100))
 ok('es el ancho de boca, no el de fondo', cerca(bajo.anchoBanda, bajo.Bb) && bajo.anchoBanda > sec.Bf)
 ok('y crece con la profundidad del tramo', hondo.anchoBanda > bajo.anchoBanda)
 info(`H 1 m → ${bajo.anchoBanda.toFixed(2)} m de boca · H 3 m → ${hondo.anchoBanda.toFixed(2)} m`)
+
+// ── El canal ────────────────────────────────────────────────────────────────
+titulo('Un canal es una excavación lineal con su caudal')
+
+/*
+ * A mano, con una sección rectangular para que la cuenta se pueda seguir:
+ * Bf = 2, H = 1, sin talud → A = 2 m², P = 2 + 2·1 = 4 m, R = 0,5 m.
+ * Con n = 0,02 y S = 1 %: V = 0,5^⅔ · √0,01 / 0,02 = 0,62996 · 5 = 3,1498 m/s
+ * y Q = 2 · 3,1498 = 6,2996 m³/s.
+ */
+const cajon: SeccionExcavacion = { Bf: 2, m: 0, rho: 1.8, Fe: 25 }
+const qRect = caudalManning(cajon, 1, { n: 0.02, S: 1 })
+ok('rectangular: perímetro mojado 4 m, sin contar la boca', cerca(qRect.P, 4))
+ok('radio hidráulico 0,5 m', cerca(qRect.R, 0.5))
+ok('velocidad 3,1498 m/s', cerca(qRect.V, 3.1498, 1e-4))
+ok('caudal 6,2996 m³/s', cerca(qRect.Q, 6.2996, 1e-4))
+
+/*
+ * Contra las fórmulas de la calculadora de canal que se retiró, que estaban
+ * escritas aparte: el área del triángulo como H²·m y la del trapecio con la
+ * boca calculada a mano. Tiene que dar lo mismo, porque era la misma zanja.
+ */
+const viejo = (tipo: 'triangular' | 'trapezoidal', H: number, Bf: number, m: number, n: number, S: number) => {
+  const Bs = tipo === 'triangular' ? 2 * H * m : Bf + 2 * H * m
+  const A = tipo === 'triangular' ? H * H * m : (Bf + Bs) / 2 * H
+  const P = (tipo === 'triangular' ? 0 : Bf) + 2 * Math.sqrt(H * H + (H * m) * (H * m))
+  return { A, Q: (1 / n) * A * Math.pow(A / P, 2 / 3) * Math.pow(S / 100, 1 / 2) }
+}
+const trap: SeccionExcavacion = { Bf: 0.3, m: 1.5, rho: 1.8, Fe: 25 }
+const tri: SeccionExcavacion = { ...trap, Bf: 0 }
+const hid = { n: 0.025, S: 0.5 }
+const vTrap = viejo('trapezoidal', 0.6, 0.3, 1.5, 0.025, 0.5)
+const vTri = viejo('triangular', 0.6, 0, 1.5, 0.025, 0.5)
+ok('trapezoidal: el mismo caudal que la calculadora retirada', cerca(caudalManning(trap, 0.6, hid).Q, vTrap.Q))
+ok('y la misma sección', cerca(perfilDe(trap, 0.6).A, vTrap.A))
+ok('triangular es el trapecio con fondo cero: mismo caudal', cerca(caudalManning(tri, 0.6, hid).Q, vTri.Q))
+ok('y misma sección, H²·m', cerca(perfilDe(tri, 0.6).A, 0.6 * 0.6 * 1.5))
+info(`trapezoidal ${caudalManning(trap, 0.6, hid).Q.toFixed(4)} m³/s · triangular ${caudalManning(tri, 0.6, hid).Q.toFixed(4)} m³/s`)
+
+const q1 = caudalManning(trap, 0.6, hid)
+ok('con cuatro veces la pendiente, el doble de caudal',
+  cerca(caudalManning(trap, 0.6, { n: 0.025, S: 2 }).Q, 2 * q1.Q))
+ok('con el doble de rugosidad, la mitad', cerca(caudalManning(trap, 0.6, { n: 0.05, S: 0.5 }).Q, q1.Q / 2))
+ok('la velocidad es el caudal sobre la sección', cerca(q1.V, q1.Q / perfilDe(trap, 0.6).A))
+ok('más hondo lleva más', caudalManning(trap, 1.2, hid).Q > q1.Q)
+
+ok('sin pendiente no hay caudal, y no es NaN', caudalManning(trap, 0.6, { n: 0.025, S: 0 }).Q, 0)
+ok('sin profundidad tampoco', caudalManning(tri, 0, hid).Q, 0)
+ok('ni sin rugosidad cargada', caudalManning(trap, 0.6, { n: 0, S: 0.5 }).Q, 0)
+
+/*
+ * El volumen del canal es el de la excavación lineal: no hay otro cómputo. Mil
+ * metros de la sección trapezoidal de arriba son A · 1000.
+ */
+const canalObra = computarObraLineal(trap, [tramo('c', 0.6, 1000)])
+ok('el volumen del canal es sección por longitud', cerca(canalObra.Vcorte, vTrap.A * 1000))
+ok('y el peso sale del volumen natural, como en toda excavación', cerca(canalObra.W, canalObra.Vcorte * trap.rho))
 
 console.log(fallos === 0 ? '\n✓ Todo bien.' : `\n✗ ${fallos} fallo(s).`)
 process.exit(fallos === 0 ? 0 : 1)

@@ -28,7 +28,7 @@ export const PERMISOS_OPCIONES: { key: PermisoKey; label: string }[] = [
   { key: 'relevamientos',    label: 'Relevamientos' },
   { key: 'herramientas',     label: 'Herramientas' },
   { key: 'lluvia',           label: 'Lluvias' },
-  { key: 'obras',            label: 'Obras (lista y planta)' },
+  { key: 'obras',            label: 'Obras (lista)' },
   { key: 'calc_ripio',       label: 'Calculadora — Ripio' },
   { key: 'calc_desmalezado', label: 'Calculadora — Desmalezado' },
   { key: 'calc_desbosque',   label: 'Calculadora — Desbosque' },

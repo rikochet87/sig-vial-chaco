@@ -3,11 +3,15 @@
 /**
  * Excavación — sección tipo, traza por tramos, y recintos de préstamo.
  *
- * ── Dos modos, porque son dos trabajos ────────────────────────────────────────
+ * ── Tres modos sobre dos cómputos ─────────────────────────────────────────────
  *
  * - **Lineal** — cunetas, zanjas, cortes de camino. Se diseña la sección y se
  *   dibuja el eje sobre el mapa; la longitud sale del dibujo. Mismo circuito
  *   que ripio y terraplén.
+ * - **Canal** — el modo lineal con su caudal. Tenía una calculadora aparte que
+ *   repetía la sección y el volumen de ésta, sin mapa ni guardado; ahora
+ *   comparte sección, tramos y cómputo, y agrega rugosidad, pendiente y el
+ *   caudal a sección llena por Manning.
  * - **Área** — préstamos, pozos, destapes. Se dibuja el recinto y se carga su
  *   profundidad, porque el mapa da la planta y no la cota.
  *
@@ -40,9 +44,9 @@ import {
 } from '@/components/calc/piezas'
 import {
   perfilDe, computarTramo, computarRecinto, computarObraLineal, computarObraArea, viajes,
-  CAPACIDADES_T, SECCION_POR_DEFECTO, PROFUNDIDAD_POR_DEFECTO,
+  caudalManning, CAPACIDADES_T, SECCION_POR_DEFECTO, PROFUNDIDAD_POR_DEFECTO, HIDRAULICA_POR_DEFECTO,
   type SeccionExcavacion, type TramoExcavacion, type RecintoExcavacion,
-  type ModoExcavacion,
+  type ModoExcavacion, type Hidraulica,
 } from '@/lib/excavacionCalculo'
 
 const COLOR = '#FF7043'
@@ -75,6 +79,7 @@ export default function CalcExcavacion({ onGuardarObra, initialData, precio = 0 
     tramos?: TramoExcavacion[]
     recintos?: RecintoExcavacion[]
     Hobra?: number
+    hidraulica?: Partial<Hidraulica>
   }
 
   const [modo, setModo] = useState<ModoExcavacion>(ini.modo ?? 'lineal')
@@ -82,6 +87,20 @@ export default function CalcExcavacion({ onGuardarObra, initialData, precio = 0 
   const [seccion, setSeccion] = useState<SeccionExcavacion>({ ...SECCION_POR_DEFECTO, ...(ini.seccion ?? {}) })
   const [tramos, setTramos] = useState<TramoExcavacion[]>(ini.tramos ?? [])
   const [recintos, setRecintos] = useState<RecintoExcavacion[]>(ini.recintos ?? [])
+
+  /*
+   * ── El canal ──
+   *
+   * Es el modo lineal con la hidráulica a la vista: **comparte la sección y los
+   * tramos**, así que pasar de «lineal» a «canal» no pierde la traza — una
+   * cuneta es un canal, y lo único que cambia es si se quiere ver cuánta agua
+   * lleva. Lo propio del canal son la rugosidad y la pendiente.
+   */
+  const [hid, setHid] = useState<Hidraulica>({ ...HIDRAULICA_POR_DEFECTO, ...(ini.hidraulica ?? {}) })
+  const esCanal = modo === 'canal'
+  const esArea = modo === 'area'
+  /** El último ancho de fondo no nulo, para volver de triangular a trapezoidal */
+  const [BfTrapecio, setBfTrapecio] = useState(seccion.Bf > 0 ? seccion.Bf : 0.3)
 
   /*
    * La profundidad del pozo, a nivel de obra.
@@ -149,11 +168,18 @@ export default function CalcExcavacion({ onGuardarObra, initialData, precio = 0 
   // ── Cómputo ────────────────────────────────────────────────────────────────
   const obraL = useMemo(() => computarObraLineal(seccion, tramos), [seccion, tramos])
   const obraA = useMemo(() => computarObraArea(seccion, recintos, seccion.m), [seccion, recintos, seccion.m])
-  const obra = modo === 'lineal' ? obraL : obraA
+  const obra = esArea ? obraA : obraL
 
   const sel = tramos.find(t => t.id === selectedId) ?? null
   const Hdibujo = sel?.H ?? PROFUNDIDAD_POR_DEFECTO
   const perfil = perfilDe(seccion, Hdibujo)
+  const caudal = caudalManning(seccion, Hdibujo, hid)
+  /*
+   * Lo que lleva el canal entero es lo que lleva su tramo más chico: el agua
+   * que entra por una sección grande no pasa por la chica de más abajo.
+   */
+  const caudales = tramos.filter(t => t.l_m > 0).map(t => caudalManning(seccion, t.H, hid).Q)
+  const caudalMinimo = caudales.length ? Math.min(...caudales) : null
 
   const altoDibujo = Math.max(190, Math.min(360, Math.round(altoVentana * 0.42)))
   const altoMiniatura = Math.max(104, Math.min(
@@ -265,7 +291,9 @@ export default function CalcExcavacion({ onGuardarObra, initialData, precio = 0 
   const guardar = () => {
     if (!onGuardarObra) return
     onGuardarObra({
-      tipo: 'excavacion',
+      // Un canal se guarda como obra de canal, que es como se lo busca en la
+      // lista; la calculadora que lo reabre sigue siendo la de excavación.
+      tipo: esCanal ? 'canal' : 'excavacion',
       cantidad: obra.W,
       unidad: 't',
       presupuesto_total: obra.W * precio,
@@ -277,26 +305,29 @@ export default function CalcExcavacion({ onGuardarObra, initialData, precio = 0 
       aporte_dvp: 0,
       aporte_ccc: 0,
       precio_unitario: precio,
-      coordsLinea: modo === 'lineal'
+      coordsLinea: !esArea
         ? tramos.find(t => t.coords?.length)?.coords?.map(([lat, lng]) => ({ lat, lng }))
         : recintos.find(r => r.coords?.length)?.coords?.map(([lat, lng]) => ({ lat, lng })),
       datos_calculadora: {
         calculadora: 'excavacion',
         // El modo se guarda: sin él, una obra reabierta no sabría con qué
         // cómputo se hizo, y los dos dan números distintos para la misma traza.
-        inputs: { modo, seccion, tramos, recintos, Hobra },
+        inputs: { modo, seccion, tramos, recintos, Hobra, hidraulica: hid },
         computo: {
           modo,
           L_total: obraL.L_total, ha_total: obraA.ha_total,
           H_media: obra.H_media,
           Vcorte: obra.Vcorte, Vesp: obra.Vesp, W: obra.W,
+          // El caudal va sólo si la obra es un canal: en un corte de camino
+          // no significa nada y guardarlo lo haría parecer un dato.
+          ...(esCanal ? { caudalMinimo_m3s: caudalMinimo } : {}),
         },
         viajes: Object.fromEntries(CAPACIDADES_T.map(c => [c, viajes(obra.W, c)])),
       },
     })
   }
 
-  const tot = modo === 'lineal'
+  const tot = !esArea
     ? `${tramos.length} tramo${tramos.length === 1 ? '' : 's'} · ${fmtL(obraL.L_total)}`
     : `${recintos.length} recinto${recintos.length === 1 ? '' : 's'} · ${fmtHa(obraA.ha_total)}`
 
@@ -310,7 +341,8 @@ export default function CalcExcavacion({ onGuardarObra, initialData, precio = 0 
         <span style={{ fontSize: 11, color: '#5a5a5a', textTransform: 'uppercase', letterSpacing: 0.8 }}>
           Modo
         </span>
-        {([['lineal', 'Lineal — cuneta, zanja, corte'], ['area', 'Área — préstamo, pozo']] as const)
+        {([['lineal', 'Lineal — cuneta, zanja, corte'], ['canal', 'Canal — con su caudal'],
+          ['area', 'Área — préstamo, pozo']] as const)
           .map(([id, txt]) => (
             <button key={id} onClick={() => setModo(id)} style={{
               ...mono, fontSize: 12, padding: '3px 9px', cursor: 'pointer',
@@ -326,7 +358,7 @@ export default function CalcExcavacion({ onGuardarObra, initialData, precio = 0 
         </span>
       </div>
 
-      {modo === 'lineal' ? (
+      {!esArea ? (
         <>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexShrink: 0 }}>
             {([['seccion', 'Sección tipo'], ['traza', 'Traza y tramos']] as const).map(([id, txt]) => (
@@ -349,11 +381,37 @@ export default function CalcExcavacion({ onGuardarObra, initialData, precio = 0 
                   No hay campo de longitud: en este flujo sale del dibujo.
                   Tenerlo invitaría a tipear un número que después se pisa.
                 */}
-                <Inp label="Ancho de fondo" unit="m" value={seccion.Bf} onChange={v => setSec('Bf', v)} />
+                {/*
+                  Triangular es el trapecio con fondo cero. Va como elección y
+                  no como «poné 0» porque así se piensa un canal, y porque al
+                  volver a trapecial se repone el ancho que había.
+                */}
+                {esCanal && (
+                  <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+                    {([['triangular', seccion.Bf === 0], ['trapecial', seccion.Bf > 0]] as const).map(([t, activo]) => (
+                      <button key={t} onClick={() => {
+                        if (t === 'triangular') { if (seccion.Bf > 0) setBfTrapecio(seccion.Bf); setSec('Bf', 0) }
+                        else if (seccion.Bf === 0) setSec('Bf', BfTrapecio)
+                      }} style={{ ...btn(activo ? COLOR : '#3a3a3a', activo), flex: 1, padding: '5px 2px' }}>
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {!(esCanal && seccion.Bf === 0) && (
+                  <Inp label="Ancho de fondo" unit="m" value={seccion.Bf} onChange={v => setSec('Bf', v)} />
+                )}
                 <Inp label="Talud H:V" value={seccion.m} onChange={v => setSec('m', v)} step={0.5} min={0} />
                 <div style={secLabel}>Material extraído</div>
                 <Inp label="Densidad natural" unit="t/m³" value={seccion.rho} onChange={v => setSec('rho', v)} step={0.05} min={0} />
                 <Inp label="Esponjamiento" unit="%" value={seccion.Fe} onChange={v => setSec('Fe', v)} step={1} />
+                {esCanal && (
+                  <>
+                    <div style={secLabel}>Hidráulica (Manning)</div>
+                    <Inp label="Rugosidad n" value={hid.n} onChange={v => setHid(h => ({ ...h, n: v }))} step={0.001} min={0} />
+                    <Inp label="Pendiente long." unit="%" value={hid.S} onChange={v => setHid(h => ({ ...h, S: v }))} step={0.05} min={0} />
+                  </>
+                )}
                 <div style={{ marginTop: 12, padding: 8, background: '#0a0a0a', borderRadius: 4,
                   fontSize: 12, color: '#333', ...mono, lineHeight: 1.6 }}>
                   Ancho boca = {perfil.Bb.toFixed(2)} m<br />
@@ -363,7 +421,7 @@ export default function CalcExcavacion({ onGuardarObra, initialData, precio = 0 
 
               <div style={{ ...panel, display: 'flex', flexDirection: 'column' }}>
                 <SectionTitle>
-                  Sección tipo — Excavación
+                  Sección tipo — {esCanal ? 'Canal' : 'Excavación'}
                   {sel
                     ? <span style={{ color: '#5a5a5a' }}>{`  ·  profundidad de ${sel.nombre} (${sel.H.toFixed(2)} m)`}</span>
                     : <span style={{ color: '#E8833A' }}>  ·  profundidad de referencia: todavía no hay tramos</span>}
@@ -375,11 +433,23 @@ export default function CalcExcavacion({ onGuardarObra, initialData, precio = 0 
                     sub: `${seccion.Bf} + 2·${Hdibujo}·${seccion.m}`, result: `${perfil.Bb.toFixed(3)} m` },
                   { label: 'Sección', formula: 'A = (Bf+Bb)/2 · H',
                     sub: `(${seccion.Bf}+${perfil.Bb.toFixed(2)})/2 · ${Hdibujo}`,
-                    result: `${perfil.A.toFixed(3)} m²`, accent: true },
+                    result: `${perfil.A.toFixed(3)} m²`, accent: !esCanal },
+                  ...(esCanal ? [
+                    { label: 'Perím. mojado', formula: 'P = Bf + 2·H·√(1+m²)',
+                      sub: `${seccion.Bf} + 2·${Hdibujo}·√(1+${seccion.m}²)`, result: `${caudal.P.toFixed(3)} m` },
+                    { label: 'Caudal', formula: 'Q = A·R^⅔·S^½ / n',
+                      sub: `R=${caudal.R.toFixed(3)} · S=${hid.S}% · n=${hid.n}`,
+                      result: `${caudal.Q.toFixed(3)} m³/s`, accent: true },
+                  ] : []),
                 ]} />
                 <div style={{ fontSize: 12, color: '#3a3a3a', marginTop: 10, lineHeight: 1.6 }}>
                   Los volúmenes y el peso dependen de la longitud, que sale del dibujo.
                   Están en <b style={{ color: '#5a5a5a' }}>Traza y tramos</b>.
+                  {esCanal && (
+                    <> El caudal es <b style={{ color: '#5a5a5a' }}>a sección llena</b>: el agua hasta el
+                    borde. Es lo máximo que entra, no el caudal de diseño — un canal se proyecta con
+                    revancha.</>
+                  )}
                 </div>
               </div>
 
@@ -389,6 +459,13 @@ export default function CalcExcavacion({ onGuardarObra, initialData, precio = 0 
                 <Res label="Volumen de corte" value={fmt(obraL.Vcorte)}   unit="m³" />
                 <Res label="Vol. esponjado"   value={fmt(obraL.Vesp)}     unit="m³" />
                 <Res label="Peso a transportar" value={fmt(obraL.W)}      unit="t" accent />
+                {esCanal && (
+                  <>
+                    <div style={{ height: 1, background: '#1a1a1a', margin: '8px 0' }} />
+                    <Res label="Caudal a sección llena" value={caudal.Q.toFixed(3)} unit="m³/s" accent />
+                    <Res label="Velocidad media" value={caudal.V.toFixed(2)} unit="m/s" />
+                  </>
+                )}
                 <div style={{ fontSize: 13, color: '#333', ...mono, lineHeight: 1.8 }}>
                   {CAPACIDADES_T.map(c => (
                     <span key={c}>Camiones {c}t: ~{fmt(viajes(obraL.W, c))}<br /></span>
@@ -462,6 +539,7 @@ export default function CalcExcavacion({ onGuardarObra, initialData, precio = 0 
 
                         <div style={{ fontSize: 11, color: '#5a5a5a', margin: '3px 0 5px' }}>
                           boca {c.anchoBanda.toFixed(2)} m · {fmt(c.W)} t
+                          {esCanal && <> · {caudalManning(seccion, t.H, hid).Q.toFixed(2)} m³/s</>}
                         </div>
 
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 4 }}
@@ -509,6 +587,18 @@ export default function CalcExcavacion({ onGuardarObra, initialData, precio = 0 
                   <Linea label="Volumen de corte"    value={`${fmt(obraL.Vcorte)} m³`} />
                   <Linea label="Vol. esponjado"      value={`${fmt(obraL.Vesp)} m³`} />
                   <Linea label="Peso a transportar"  value={`${fmt(obraL.W)} t`} acento />
+                  {esCanal && (
+                    <>
+                      <div style={{ borderTop: '1px solid #1b1b1b', margin: '6px 0' }} />
+                      <Linea label="Caudal a sección llena"
+                        value={caudalMinimo === null ? '—' : `${caudalMinimo.toFixed(2)} m³/s`} acento />
+                      <div style={{ fontSize: 11, color: '#4a4a4a', marginTop: 3, lineHeight: 1.5 }}>
+                        {caudales.length > 1
+                          ? 'Es el del tramo que menos lleva: lo que entra por una sección grande no pasa por la chica.'
+                          : 'Con el agua hasta el borde. Es lo máximo que entra, no el caudal de diseño.'}
+                      </div>
+                    </>
+                  )}
 
                   <div style={{ fontSize: 12, color: '#4a4a4a', marginTop: 6, lineHeight: 1.7 }}>
                     {CAPACIDADES_T.map(c => (

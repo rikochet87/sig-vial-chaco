@@ -5,11 +5,12 @@
  * `terraplenCalculo.ts`: es lo que produce el número que termina en una obra
  * guardada, así que tiene que poder verificarse sin montar una pantalla.
  *
- * ── Dos modos, porque son dos trabajos distintos ──────────────────────────────
+ * ── Dos cómputos, porque son dos trabajos distintos ───────────────────────────
  *
  * - **Lineal** — cunetas, zanjas, cortes de camino. La sección es un trapecio
  *   que se repite a lo largo de un eje, y la longitud sale del dibujo sobre el
- *   mapa. Es el mismo circuito que ripio y terraplén.
+ *   mapa. Es el mismo circuito que ripio y terraplén. **Un canal es esto mismo**
+ *   con el caudal que lleva: ver `caudalManning`.
  * - **Área** — préstamos, pozos, destapes. Se dibuja el recinto y el volumen es
  *   la superficie por la profundidad.
  *
@@ -145,6 +146,68 @@ export interface ComputoTramoExc extends ComputoExcavacion, PerfilExcavacion {
 export function computarTramo(sec: SeccionExcavacion, t: TramoExcavacion): ComputoTramoExc {
   const p = perfilDe(sec, t.H)
   return { ...p, ...cerrar(p.A * t.l_m, sec), id: t.id, anchoBanda: p.Bb }
+}
+
+// ── Modo canal: la misma zanja, con el agua que lleva ────────────────────────
+
+/**
+ * Lo que hace falta para pasar de una sección a un caudal.
+ *
+ * Son de la obra y no del tramo: la rugosidad es del revestimiento y la
+ * pendiente longitudinal es la de proyecto. La profundidad sí cambia de un
+ * tramo a otro, y con ella el caudal.
+ */
+export interface Hidraulica {
+  /** Coeficiente de rugosidad de Manning */
+  n: number
+  /** Pendiente longitudinal, en por ciento */
+  S: number
+}
+
+/** Tierra sin revestir y medio por ciento: un canal de desagüe de llanura */
+export const HIDRAULICA_POR_DEFECTO: Hidraulica = { n: 0.025, S: 0.5 }
+
+export interface CaudalSeccion {
+  /** Perímetro mojado, en metros: el fondo y los dos taludes, sin la boca */
+  P: number
+  /** Radio hidráulico, en metros */
+  R: number
+  /** Caudal a sección llena, en m³/s */
+  Q: number
+  /** Velocidad media, en m/s */
+  V: number
+}
+
+/**
+ * El caudal que lleva la sección **llena**, por Manning.
+ *
+ *   Q = A · R^⅔ · S^½ / n        con   R = A / P
+ *
+ * ── Un canal es una excavación lineal ─────────────────────────────────────────
+ *
+ * El canal tenía su propia calculadora, con su propia fórmula de sección y su
+ * propio cómputo de volumen: la misma zanja trapezoidal calculada dos veces en
+ * dos archivos. Acá no hay geometría nueva — el área es la de `perfilDe` y el
+ * volumen el de `computarTramo`. Lo único que el canal agrega es esta función.
+ * Un canal triangular es el trapecio con ancho de fondo cero.
+ *
+ * ── A sección llena, y hay que decirlo ────────────────────────────────────────
+ *
+ * El tirante se toma igual a la profundidad excavada: el agua hasta el borde.
+ * Es la **capacidad máxima** de la sección, no el caudal de diseño — un canal
+ * se proyecta con revancha, y entonces lleva menos. Sirve para saber si la
+ * sección alcanza, no para afirmar cuánto va a llevar.
+ *
+ * Sin profundidad, sin pendiente o sin rugosidad no hay caudal: devuelve ceros
+ * y no `NaN`, que en pantalla se leería como un número roto.
+ */
+export function caudalManning(sec: SeccionExcavacion, H: number, hid: Hidraulica): CaudalSeccion {
+  const { A } = perfilDe(sec, H)
+  const P = sec.Bf + 2 * H * Math.sqrt(1 + sec.m * sec.m)
+  if (!(A > 0) || !(P > 0) || !(hid.n > 0) || !(hid.S > 0)) return { P: Math.max(0, P), R: 0, Q: 0, V: 0 }
+  const R = A / P
+  const V = Math.pow(R, 2 / 3) * Math.sqrt(hid.S / 100) / hid.n
+  return { P, R, Q: A * V, V }
 }
 
 // ── Modo área ────────────────────────────────────────────────────────────────
@@ -361,7 +424,11 @@ export function computarRecinto(
 
 // ── La obra entera ───────────────────────────────────────────────────────────
 
-export type ModoExcavacion = 'lineal' | 'area'
+/**
+ * `canal` es el modo lineal con la hidráulica a la vista: comparte la sección,
+ * los tramos y el cómputo de volumen, y agrega el caudal.
+ */
+export type ModoExcavacion = 'lineal' | 'area' | 'canal'
 
 export interface ComputoObraExc extends ComputoExcavacion {
   /** Longitud total dibujada, en metros — sólo en modo lineal */

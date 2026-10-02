@@ -1,8 +1,8 @@
 {
-  "total": 75,
+  "total": 73,
   "reglas": {
     "@typescript-eslint/no-explicit-any": 39,
-    "react-hooks/set-state-in-effect": 26,
+    "react-hooks/set-state-in-effect": 24,
     "react-hooks/refs": 5,
     "react-hooks/preserve-manual-memoization": 4,
     "react-hooks/immutability": 1
