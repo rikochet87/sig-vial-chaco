@@ -379,6 +379,16 @@ Cosas que no son obvias:
 - **Editar una excavación abría la pestaña de Terraplén vacía.** Al efecto que
   elige la pestaña le faltaba la rama de `'excavacion'`: la obra se cargaba,
   pero en una pestaña que no la mostraba. Se encontró al sumar el canal.
+- **En planta se dibuja la sección, no una franja.** Lineal y Canal le pasan a
+  `RipioMapPanel` el ancho de fondo (`anFondo`) además del de boca, y el mapa
+  dibuja la boca, el fondo más oscuro y los taludes con el rayado de plano
+  —rayas largas hasta el pie del talud y cortas hasta la mitad—, que es lo que
+  el corte muestra de perfil. Con sección triangular las rayas llegan al eje.
+  Sin `anFondo` (ripio, terraplén) la banda sigue siendo una sola superficie.
+  El rayado tiene tope de 1.500 rayas por lado y por tramo: en un canal de
+  kilómetros se espacian en vez de sumar miles de trazos.
+- **El mapa de tramos decía «Eliminar ripio» en las tres calculadoras** que lo
+  usan, porque nació en Ripio. Ahora dice «Eliminar tramo».
 - **La botonera «Dibujar en mapa» / «Guardar obra» de la página se sacó.** Canal
   era la última calculadora que la usaba; las demás dibujan y guardan desde su
   propio panel.

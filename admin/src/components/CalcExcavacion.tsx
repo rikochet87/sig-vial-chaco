@@ -250,6 +250,9 @@ export default function CalcExcavacion({ onGuardarObra, initialData, precio = 0 
     () => tramos.map(t => ({
       id: t.id, nombre: t.nombre,
       an: computarTramo(seccion, t).anchoBanda,
+      // Con el fondo, el mapa dibuja la sección en planta: boca, taludes
+      // rayados y fondo, que es lo que el corte muestra de perfil.
+      anFondo: seccion.Bf,
       l_m: t.l_m, coords: t.coords, orden: t.orden, color: t.color,
     })),
     [tramos, seccion],

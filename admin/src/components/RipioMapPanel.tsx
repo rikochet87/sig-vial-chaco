@@ -32,6 +32,14 @@ export interface TramoDibujable {
   orden: number
   /** Color personalizado; `null` usa la paleta automática */
   color: string | null
+  /**
+   * Ancho del fondo, en metros, para una sección trapezoidal hundida
+   * (excavación, canal). Si viene, la banda se dibuja **como se ve en planta**:
+   * `an` es la boca, `anFondo` el fondo, y entre los dos van los taludes con
+   * su rayado. Cero es una sección triangular: los taludes llegan al eje.
+   * Sin él, la banda es una sola superficie, como el ripio.
+   */
+  anFondo?: number
 }
 
 export interface RipioTramo extends TramoDibujable {
@@ -71,6 +79,60 @@ interface Props {
 }
 
 // ── Geometría ──────────────────────────────────────────────────────────────────
+
+/** Tope de rayas de talud por tramo, para que un tramo de km no sean miles de capas de texto SVG */
+const MAX_RAYAS_TALUD = 1500
+
+/**
+ * El rayado de talud de un plano: rayas perpendiculares al eje que bajan desde
+ * el borde de la boca hacia el pie del talud, alternando largas —que llegan al
+ * fondo— y cortas —que llegan a la mitad—. Es la convención de dibujo que dice
+ * "acá el terreno baja", y es lo que distingue en planta una zanja de una
+ * franja pintada en el suelo.
+ *
+ * Devuelve segmentos sueltos para dibujarlos en **una** polilínea múltiple.
+ */
+function rayasTalud(latLngs: LatLng[], hwBoca: number, hwFondo: number): LatLng[][] {
+  const ancho = hwBoca - hwFondo
+  if (latLngs.length < 2 || ancho <= 0.05) return []
+  const DEG = Math.PI / 180, R = 6371000
+  const lat0 = latLngs[0][0], lng0 = latLngs[0][1]
+  const cosLat = Math.cos(lat0 * DEG)
+  const pts = latLngs.map(([lat, lng]) => ({ x: (lng - lng0) * cosLat * R * DEG, y: (lat - lat0) * R * DEG }))
+  const toLL = (x: number, y: number): LatLng => [lat0 + y / (R * DEG), lng0 + x / (cosLat * R * DEG)]
+
+  let largo = 0
+  for (let i = 1; i < pts.length; i++) largo += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y)
+  // Una raya cada medio ancho de talud, como en un plano; más espaciadas si el
+  // tramo es tan largo que pasarían del tope.
+  const paso = Math.max(ancho / 2, 0.5, largo / MAX_RAYAS_TALUD)
+
+  const out: LatLng[][] = []
+  let k = 0
+  let falta = paso / 2   // la primera raya, a medio paso del arranque
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1], b = pts[i]
+    const dx = b.x - a.x, dy = b.y - a.y
+    const len = Math.hypot(dx, dy)
+    if (len < 1e-9) continue
+    const nx = -dy / len, ny = dx / len
+    let d = falta
+    while (d <= len) {
+      const cx = a.x + dx * d / len, cy = a.y + dy * d / len
+      const hasta = k % 2 === 0 ? hwFondo : hwBoca - ancho / 2
+      for (const lado of [1, -1]) {
+        out.push([
+          toLL(cx + nx * hwBoca * lado, cy + ny * hwBoca * lado),
+          toLL(cx + nx * hasta * lado, cy + ny * hasta * lado),
+        ])
+      }
+      k++
+      d += paso
+    }
+    falta = d - len
+  }
+  return out
+}
 function segLen(a: LatLng, b: LatLng): number {
   const R = 6371000, DEG = Math.PI / 180
   const dLat = (b[0]-a[0])*DEG, dLng = (b[1]-a[1])*DEG
@@ -375,6 +437,11 @@ export default function RipioMapPanel({
 
       // Click en mapa: seleccionar ripio + popup con opción eliminar
       const fmtL = (m: number) => m >= 1000 ? `${(m/1000).toFixed(2)} km` : `${Math.round(m)} m`
+      const fmtA = (m: number) => `${Number(m.toFixed(2)).toLocaleString('es-AR')} m`
+      const hundida = r.anFondo !== undefined && r.anFondo < r.an
+      const anchoTxt = hundida
+        ? `boca ${fmtA(r.an)} · fondo ${fmtA(r.anFondo!)}`
+        : `${r.an}m ancho`
 
       const openRipioPopup = (latlng: any) => {
         if (drawingIdRef.current) return  // ignorar en modo dibujo
@@ -389,10 +456,10 @@ export default function RipioMapPanel({
 
         const info = document.createElement('div')
         info.style.cssText = 'color:#888;font-size:11px;margin-bottom:8px'
-        info.textContent = `${fmtL(r.l_m)} · ${r.an}m ancho`
+        info.textContent = `${fmtL(r.l_m)} · ${anchoTxt}`
 
         const btn = document.createElement('button')
-        btn.textContent = '✕ Eliminar ripio'
+        btn.textContent = '✕ Eliminar tramo'
         btn.style.cssText = 'font-family:monospace;font-size:11px;cursor:pointer;background:#1a0000;border:1px solid #550000;color:#ff6666;padding:4px 8px;width:100%'
         btn.addEventListener('click', () => { map.closePopup(); onDeleteRipioRef.current?.(r.id) })
 
@@ -414,6 +481,25 @@ export default function RipioMapPanel({
         layers.push(poly)
       }
 
+      // La sección en planta: el fondo más oscuro y los taludes rayados. No
+      // reciben el clic, que sigue yendo a la banda de la boca.
+      if (hundida && rings.length > 0) {
+        const hf = r.anFondo! / 2
+        if (hf > 0.05) {
+          const fondo = Lf.polygon(roadBuffer(r.coords, hf) as [number,number][][], {
+            color: clr, fillColor: clr, fillOpacity: r.id === selectedId ? 0.5 : 0.35,
+            weight: 1, opacity: 0.9, interactive: false,
+          }).addTo(map)
+          layers.push(fondo)
+        }
+        const rayas = rayasTalud(r.coords, hw, hf)
+        if (rayas.length) {
+          layers.push(Lf.polyline(rayas as [number,number][][], {
+            color: clr, weight: 1, opacity: 0.85, interactive: false,
+          }).addTo(map))
+        }
+      }
+
       // Línea central
       const line = Lf.polyline(r.coords as [number,number][], {
         color: clr, weight: r.id === selectedId ? 4 : 2.5,
@@ -423,7 +509,7 @@ export default function RipioMapPanel({
       line.bindTooltip(
         `<div style="font-family:monospace;font-size:11px">` +
         `<span style="color:${clr};font-weight:700">${r.nombre}</span>` +
-        `<br><span style="color:#aaa">${fmtL(r.l_m)} · ${r.an}m ancho</span>` +
+        `<br><span style="color:#aaa">${fmtL(r.l_m)} · ${anchoTxt}</span>` +
         `</div>`,
         { sticky: true, direction: 'top' }
       )
@@ -1048,7 +1134,7 @@ export default function RipioMapPanel({
               <button
                 onClick={() => editStateRef.current?.separar()}
                 disabled={verticeSel.idx === 0 || verticeSel.idx === verticeSel.total - 1}
-                title="Parte el tramo en dos; el segundo pasa a ser un ripio nuevo"
+                title="Parte el tramo en dos; el segundo pasa a ser un tramo nuevo"
                 style={{
                   fontFamily: 'monospace', fontSize: 12,
                   cursor: (verticeSel.idx > 0 && verticeSel.idx < verticeSel.total - 1) ? 'pointer' : 'default',

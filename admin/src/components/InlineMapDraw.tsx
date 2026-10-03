@@ -323,8 +323,10 @@ export default function InlineMapDraw({ color, hideMonte = false, hideLado = fal
     const map = mapRef.current; const Lf = LfRef.current
     if (!map || !Lf) return
     const monteOpt  = MONTE_OPTS.find(o => o.value === monte)!
-    const sideColor = side === 'izq' ? '#66bb6a' : '#42a5f5'
-    const sideLbl   = side === 'izq' ? '← Izq.' : 'Der. →'
+    // Sin lado (un préstamo, un pozo) el polígono va en el color de la
+    // calculadora y se rotula con su superficie: no está a ningún lado de nada.
+    const sideColor = hideLado ? color : side === 'izq' ? '#66bb6a' : '#42a5f5'
+    const sideLbl   = hideLado ? `${area_ha.toFixed(2)} ha` : side === 'izq' ? '← Izq.' : 'Der. →'
     const vol       = Math.round(area_ha * monteOpt.factor).toLocaleString('es-AR')
 
     const layer = Lf.polygon(pts as [number, number][], {
@@ -362,7 +364,7 @@ export default function InlineMapDraw({ color, hideMonte = false, hideLado = fal
 
     confirmedRef.current.push({ id, side, monte, area_ha, pts, layer })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hideMonte])
+  }, [hideMonte, hideLado, color])
 
   // ── Usar polígono dibujado → confirmar y resetear ─────────────────────────
   const handleUse = useCallback(() => {
@@ -808,7 +810,10 @@ export default function InlineMapDraw({ color, hideMonte = false, hideLado = fal
             </span>
             {editingConf && (
               <span style={{ fontSize: 12, color: '#888', ...mono }}>
-                — {editingConf.side === 'izq' ? '← Izq.' : 'Der. →'} · {MONTE_OPTS.find(o => o.value === editingConf.monte)?.label.split(' ')[0]}
+                — {[
+                  !hideLado && (editingConf.side === 'izq' ? '← Izq.' : 'Der. →'),
+                  !hideMonte && MONTE_OPTS.find(o => o.value === editingConf.monte)?.label.split(' ')[0],
+                ].filter(Boolean).join(' · ') || `${editingConf.area_ha.toFixed(2)} ha`}
               </span>
             )}
             <span style={{ fontSize: 12, color: '#444', ...mono }}>
@@ -882,7 +887,7 @@ export default function InlineMapDraw({ color, hideMonte = false, hideLado = fal
                 <button onClick={handleUse} style={{
                   ...toolBtn(true), padding: '5px 16px', fontSize: 13, fontWeight: 700,
                 }}>
-                  ✓ Usar → Lado {side.toUpperCase()}
+                  {hideLado ? '✓ Usar recinto' : `✓ Usar → Lado ${side.toUpperCase()}`}
                 </button>
               </>
             )}
