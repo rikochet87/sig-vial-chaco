@@ -1,66 +1,84 @@
 'use client'
 /**
- * El tiempo en el Dashboard: las alertas vigentes del SMN y la semana en la
- * provincia, en una franja.
+ * El tiempo en el Dashboard: una tarjeta más en la fila de arriba, del mismo
+ * alto que las otras.
  *
- * Es lo primero que se ve al entrar al panel, así que va compacto: el alto en
- * el Dashboard lo necesita el mapa. El detalle por consorcio está en
- * Hidrología → Tiempo.
+ * **La primera versión era una franja aparte** con una caja para alertas y otra
+ * para la semana: con un día de tormentas listaba ocho avisos casi iguales, le
+ * sacaba 70 px al mapa y se veía como otra pantalla metida adentro del tablero.
+ * Ahora es una línea: la peor alerta vigente del SMN —agrupada por fenómeno y
+ * nivel— y la semana en miniatura, con la máxima y la lluvia. El detalle está
+ * en Hidrología → Tiempo.
  */
 import Link from 'next/link'
 import { useMemo } from 'react'
-import { cieloDe, resumenProvincia } from '@/lib/tiempo'
-import AlertasSmn, { useAlertasSmn } from './AlertasSmn'
+import { agruparAlertas, cieloDe, resumenProvincia } from '@/lib/tiempo'
+import { useAlertasSmn } from './AlertasSmn'
 import { usePronosticoTiempo } from './PanelTiempo'
-import { IconoCielo, fDia, mono, n0 } from './piezas'
+import { COLOR_NIVEL, IconoCielo, fHora, mono, n0 } from './piezas'
+
+const INICIAL = ['D', 'L', 'M', 'X', 'J', 'V', 'S']
+const inicial = (f: string) => INICIAL[new Date(`${f}T12:00:00Z`).getUTCDay()]
+
+/** 'sáb 03/10 15:00' + 'sáb 03/10 21:00' → 'sáb 15:00–21:00'; si cambia el día, los dos */
+function ventana(inicio: string | null, fin: string | null): string {
+  const a = fHora(inicio), b = fHora(fin)
+  if (!inicio) return `hasta ${b}`
+  return a.slice(0, 9) === b.slice(0, 9) ? `${a.slice(0, 3)} ${a.slice(10)}–${b.slice(10)}` : `${a.slice(0, 3)} ${a.slice(10)} → ${b.slice(0, 3)} ${b.slice(10)}`
+}
 
 export default function ResumenTiempo() {
   const alertas = useAlertasSmn()
   const { datos, error } = usePronosticoTiempo()
-  const resumen = useMemo(() => resumenProvincia(datos?.consorcios ?? []), [datos])
-  const total = datos?.consorcios.length ?? 0
-  const hayAlertas = (alertas.datos?.alertas.length ?? 0) > 0
+  const semana = useMemo(() => resumenProvincia(datos?.consorcios ?? []), [datos])
+  const grupos = useMemo(() => agruparAlertas(alertas.datos?.alertas ?? []), [alertas.datos])
+  const peor = grupos[0]
 
   return (
-    <div style={{ ...mono, display: 'flex', gap: 12, alignItems: 'stretch', flexWrap: 'wrap', marginBottom: 8 }}>
-      <div style={{
-        background: '#191919', border: '1px solid #1e1e1e', borderLeft: '3px solid #F5C300',
-        padding: '6px 12px', flex: hayAlertas ? '1 1 420px' : '0 1 auto', minWidth: 260,
-      }}>
-        <div style={{ fontSize: 11, color: '#8f8f8f', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 3 }}>Alertas SMN</div>
-        <AlertasSmn estado={alertas} compacto />
-      </div>
+    <Link href="/dashboard/lluvia" title="Ver el tiempo por consorcio en Hidrología → Tiempo" style={{
+      ...mono, display: 'flex', alignItems: 'center', gap: 14, textDecoration: 'none',
+      background: '#191919', border: '1px solid #1e1e1e', borderLeft: '3px solid #F5C300',
+      padding: '5px 14px', flex: 3, minWidth: 420,
+    }}>
+      <span style={{ color: '#8f8f8f', fontSize: 12, letterSpacing: 1, textTransform: 'uppercase' }}>Tiempo</span>
 
-      <div style={{ background: '#191919', border: '1px solid #1e1e1e', padding: '6px 10px', flex: '1 1 520px', minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', marginBottom: 4 }}>
-          <span style={{ fontSize: 11, color: '#8f8f8f', letterSpacing: 1, textTransform: 'uppercase', flex: 1 }}>La semana</span>
-          <Link href="/dashboard/lluvia" style={{ fontSize: 11, color: '#8fd0ff', textDecoration: 'none' }}>
-            Por consorcio: Hidrología → Tiempo
-          </Link>
-        </div>
-        {error && <div style={{ fontSize: 12, color: '#E8A87C' }}>No se pudo consultar el pronóstico ({error}).</div>}
-        {!error && !datos && <div style={{ fontSize: 12, color: '#8f8f8f' }}>Consultando…</div>}
-        {datos && (
-          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${resumen.length}, minmax(0, 1fr))`, gap: 4 }}>
-            {resumen.map(d => {
+      {/* La alerta: lo oficial va primero */}
+      <span style={{ fontSize: 12, whiteSpace: 'nowrap', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        {alertas.error
+          ? <span style={{ color: '#E8A87C' }}>SMN sin respuesta</span>
+          : !alertas.datos
+            ? <span style={{ color: '#8f8f8f' }}>…</span>
+            : peor
+              ? <>
+                  <span style={{ display: 'inline-block', width: 7, height: 7, background: COLOR_NIVEL[peor.nivel], marginRight: 6 }} />
+                  <span style={{ color: COLOR_NIVEL[peor.nivel] }}>{peor.evento}</span>
+                  <span style={{ color: '#a0a0a0' }}> {ventana(peor.inicio, peor.fin)}</span>
+                  {peor.consorcios.length > 0 && <span style={{ color: '#8f8f8f' }}> · {peor.consorcios.length} CC</span>}
+                  {grupos.length > 1 && <span style={{ color: '#8f8f8f' }}> · +{grupos.length - 1}</span>}
+                </>
+              : <span style={{ color: '#8f8f8f' }}>sin alertas SMN</span>}
+      </span>
+
+      <span style={{ flex: 1 }} />
+
+      {/* La semana: inicial del día, cielo —celeste si llueve en algún consorcio— y máxima */}
+      {error
+        ? <span style={{ color: '#E8A87C', fontSize: 12 }}>sin pronóstico</span>
+        : <span style={{ display: 'flex', gap: 10 }}>
+            {semana.map(d => {
               const c = cieloDe(d.codigo)
               return (
-                <div key={d.fecha} title={`${c.texto} · lluvia en ${d.conLluvia} de ${total} consorcios, hasta ${n0(d.lluviaMax)} mm`}
-                  style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-                  <IconoCielo cielo={c.cielo} tam={18} />
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 11, color: '#a0a0a0', whiteSpace: 'nowrap' }}>{fDia(d.fecha)}</div>
-                    <div style={{ fontSize: 12, color: '#e0e0e0', whiteSpace: 'nowrap' }}>
-                      {n0(d.tMin)}°/{n0(d.tMax)}°
-                      {d.conLluvia > 0 && <span style={{ color: '#8fd0ff' }}> · {d.conLluvia}</span>}
-                    </div>
-                  </div>
-                </div>
+                <span key={d.fecha} title={`${c.texto} · ${n0(d.tMin)}°/${n0(d.tMax)}° · lluvia en ${d.conLluvia} consorcios, hasta ${n0(d.lluviaMax)} mm`}
+                  style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1.15 }}>
+                  <span style={{ fontSize: 11, color: '#8f8f8f' }}>{inicial(d.fecha)}</span>
+                  <IconoCielo cielo={c.cielo} tam={14} color={d.conLluvia ? '#8fd0ff' : '#a0a0a0'} />
+                  <span style={{ fontSize: 11, color: '#c8c8c8' }}>
+                    {n0(d.tMax)}°
+                  </span>
+                </span>
               )
             })}
-          </div>
-        )}
-      </div>
-    </div>
+          </span>}
+    </Link>
   )
 }

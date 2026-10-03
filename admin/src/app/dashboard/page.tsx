@@ -93,13 +93,12 @@ export default async function DashboardPage() {
         <StatCard label="Sin sincronizar" value={pendingRelev ?? 0} sub="pendiente / error" />
         <StatCard label="Técnicos" value={totalTecnicos ?? 0} />
         <StatCard label="Consorcios" value={totalConsorcios ?? 0} />
+        {/* El tiempo es una tarjeta más de la fila, no una franja aparte */}
+        <ResumenTiempo />
       </div>
 
-      {/* El tiempo: alertas del SMN y la semana, en una franja */}
-      <ResumenTiempo />
-
       {/* Map — gana el alto que dejó la cabecera */}
-      <div style={{ height: 'calc(100vh - 190px)', minHeight: 440, margin: '0 -1.5rem', borderRadius: 0, position: 'relative' }}>
+      <div style={{ height: 'calc(100vh - 118px)', minHeight: 480, margin: '0 -1.5rem', borderRadius: 0, position: 'relative' }}>
         <DashboardMap relevamientos={(relevamientos as Relevamiento[]) ?? []} />
       </div>
     </div>

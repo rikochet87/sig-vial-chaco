@@ -2289,8 +2289,11 @@ para la ingesta por consorcio y para la comparación por estación.
 ## El tiempo — pronóstico por consorcio y alertas del SMN
 
 `lib/tiempo.ts` (puro) + `lib/tiempoFuente.ts` (servidor) + `components/tiempo/`.
-Pestaña «Tiempo» de Hidrología (`PanelTiempo`) y una franja en el Dashboard
-(`ResumenTiempo`). Para cuatro usos: planificar obras, enterarse de un evento,
+Pestaña «Tiempo» de Hidrología (`PanelTiempo`) y una tarjeta en la fila de
+arriba del Dashboard (`ResumenTiempo`): la peor alerta vigente, agrupada por
+fenómeno y nivel (`agruparAlertas`), y la semana en miniatura. **Fue una
+franja aparte y no gustó**: un día de tormentas listaba ocho avisos casi
+iguales y le sacaba 70 px al mapa. Una línea, del alto de las otras tarjetas. Para cuatro usos: planificar obras, enterarse de un evento,
 mirar el tiempo y preparar una salida de campo.
 
 **Dos fuentes que no significan lo mismo, y van separadas en pantalla:**
