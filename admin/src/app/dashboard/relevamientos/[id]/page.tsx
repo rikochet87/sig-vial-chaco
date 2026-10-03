@@ -4,6 +4,7 @@ import type { Relevamiento } from '@/types'
 import RelevamientoDetailMap from '@/components/RelevamientoDetailMap'
 import RelevamientoActions from '@/components/RelevamientoActions'
 import RelevamientoEditForm from '@/components/RelevamientoEditForm'
+import { esGabinete } from '@/lib/relevamientoOrigen'
 
 export default async function RelevamientoDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -34,8 +35,14 @@ export default async function RelevamientoDetailPage({ params }: { params: Promi
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
         <Link href="/dashboard/relevamientos" style={{ color: '#F5C300', textDecoration: 'none', fontSize: 14 }}>← Volver</Link>
-        <h1 style={{ color: '#fff', fontSize: 20, fontWeight: 700 }}>Relevamiento: {rel.tipo}</h1>
-        <span style={{ background: '#F5C300', color: '#1A1A1A', fontSize: 13, fontWeight: 700, padding: '2px 10px', borderRadius: 20 }}>{rel.tipo}</span>
+        <h1 style={{ color: '#fff', fontSize: 20, fontWeight: 700 }}>{rel.tipo}</h1>
+        <span style={{ color: '#8f8f8f', fontSize: 12, fontFamily: 'monospace' }}>N° {rel.id}</span>
+        {esGabinete(rel) && (
+          <span title="Cargado desde el panel, sin ir al lugar" style={{
+            color: '#8fd0ff', border: '1px solid #8fd0ff66', borderRadius: 2, padding: '2px 7px',
+            fontSize: 11, fontFamily: 'monospace', letterSpacing: 0.8, textTransform: 'uppercase',
+          }}>Gabinete</span>
+        )}
       </div>
 
       {/* Acciones: export + delete */}
@@ -61,8 +68,8 @@ export default async function RelevamientoDetailPage({ params }: { params: Promi
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={foto} alt={`Foto ${i + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   ) : (
-                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#444', fontSize: 13 }}>
-                      Foto {i + 1}
+                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#8f8f8f', fontSize: 12, textAlign: 'center', padding: 6 }}>
+                      Foto {i + 1}: no llegó al servidor
                     </div>
                   )}
                 </div>
@@ -78,7 +85,7 @@ export default async function RelevamientoDetailPage({ params }: { params: Promi
                       background: '#1e1e1e', border: '1px solid #252525', letterSpacing: 0.5,
                     }}
                   >
-                    ⬇ Descargar
+                    ↓ Descargar
                   </a>
                 )}
               </div>

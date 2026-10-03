@@ -249,7 +249,7 @@ export default function RevisionCampoPage() {
         <div
           onClick={() => setLightbox(null)}
           style={{ position: 'fixed', inset: 0, zIndex: 9999, background: '#000c', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-out' }}>
-          <img src={lightbox} alt="foto" style={{ maxWidth: '92vw', maxHeight: '92vh', objectFit: 'contain', borderRadius: 4, boxShadow: '0 4px 32px #000' }} />
+          <img src={lightbox} alt="foto" style={{ maxWidth: '92vw', maxHeight: '92vh', objectFit: 'contain', borderRadius: 2, boxShadow: '0 4px 32px #000' }} />
         </div>
       )}
 
@@ -260,10 +260,10 @@ export default function RevisionCampoPage() {
 
           {/* Header */}
           <div style={{ padding: '12px 14px', borderBottom: '1px solid #1a1a1a', flexShrink: 0 }}>
-            <div style={{ fontSize: 12, color: '#444', letterSpacing: 1.5, textTransform: 'uppercase' }}>Relevamientos</div>
+            <div style={{ fontSize: 12, color: '#8f8f8f', letterSpacing: 1.5, textTransform: 'uppercase' }}>Relevamientos</div>
             <div style={{ fontSize: 15, fontWeight: 700, color: '#e0e0e0', marginTop: 2 }}>Revisión de campo</div>
             {!loading && (
-              <div style={{ fontSize: 12, color: '#444', marginTop: 3 }}>
+              <div style={{ fontSize: 12, color: '#8f8f8f', marginTop: 3 }}>
                 {filtered.length} de {all.length} relevamientos
               </div>
             )}
@@ -304,9 +304,9 @@ export default function RevisionCampoPage() {
           {/* Lista scrollable */}
           <div style={{ flex: 1, overflowY: 'auto' }}>
             {loading ? (
-              <div style={{ padding: 20, fontSize: 13, color: '#444' }}>Cargando…</div>
+              <div style={{ padding: 20, fontSize: 13, color: '#8f8f8f' }}>Cargando…</div>
             ) : filtered.length === 0 ? (
-              <div style={{ padding: 20, fontSize: 13, color: '#444' }}>Sin resultados.</div>
+              <div style={{ padding: 20, fontSize: 13, color: '#8f8f8f' }}>Sin resultados.</div>
             ) : filtered.map(r => {
               const isActive  = selected?.id === r.id
               const tipo      = efectiveTipo(r)
@@ -331,7 +331,7 @@ export default function RevisionCampoPage() {
                       {tipo === 'lineal' ? subtipoLineal(r) : TIPO_LABEL[tipo]}
                     </span>
                   </div>
-                  <div style={{ fontSize: 12, color: '#555' }}>
+                  <div style={{ fontSize: 12, color: '#8f8f8f' }}>
                     {r.fecha?.slice(0, 10)} · {r.zona ?? '—'} · CC {r.cc_asociado ?? '—'}
                   </div>
                   {isLineal && (
@@ -340,8 +340,8 @@ export default function RevisionCampoPage() {
                     </div>
                   )}
                   {nFotos > 0 && (
-                    <div style={{ fontSize: 12, color: '#555', marginTop: 1 }}>
-                      📷 {nFotos} foto{nFotos !== 1 ? 's' : ''}
+                    <div style={{ fontSize: 12, color: '#8f8f8f', marginTop: 1 }}>
+                      {nFotos} foto{nFotos !== 1 ? 's' : ''}
                     </div>
                   )}
                 </button>
@@ -360,7 +360,7 @@ export default function RevisionCampoPage() {
                 {selTipo === 'lineal' && selected ? subtipoLineal(selected) : TIPO_LABEL[selTipo]}
               </span>
               <div style={{ overflow: 'hidden' }}>
-                <div style={{ fontSize: 12, color: '#444', letterSpacing: 1, textTransform: 'uppercase' }}>
+                <div style={{ fontSize: 12, color: '#8f8f8f', letterSpacing: 1, textTransform: 'uppercase' }}>
                   {selected.zona ?? '—'} · CC {selected.cc_asociado ?? '—'}
                 </div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: '#e0e0e0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -371,17 +371,17 @@ export default function RevisionCampoPage() {
               {selTipo === 'lineal' && editPts.length >= 2 && (
                 <>
                   <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: 11, color: '#444', textTransform: 'uppercase', letterSpacing: 0.8 }}>Longitud</div>
+                    <div style={{ fontSize: 11, color: '#8f8f8f', textTransform: 'uppercase', letterSpacing: 0.8 }}>Longitud</div>
                     <div style={{ fontSize: 13, color: '#F5C300', fontWeight: 700 }}>{fmtDist(longTotal)}</div>
                   </div>
                   <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: 11, color: '#444', textTransform: 'uppercase', letterSpacing: 0.8 }}>Puntos</div>
+                    <div style={{ fontSize: 11, color: '#8f8f8f', textTransform: 'uppercase', letterSpacing: 0.8 }}>Puntos</div>
                     <div style={{ fontSize: 13, color: '#F5C300', fontWeight: 700 }}>{editPts.length}</div>
                   </div>
                 </>
               )}
               <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: 11, color: '#444', textTransform: 'uppercase', letterSpacing: 0.8 }}>Fecha</div>
+                <div style={{ fontSize: 11, color: '#8f8f8f', textTransform: 'uppercase', letterSpacing: 0.8 }}>Fecha</div>
                 <div style={{ fontSize: 13, color: '#F5C300', fontWeight: 700 }}>{selected.fecha?.slice(0, 10)}</div>
               </div>
               {dirty && (
@@ -411,13 +411,13 @@ export default function RevisionCampoPage() {
               />
               {!selected && (
                 <div style={{ position: 'absolute', bottom: 20, left: '50%', transform: 'translateX(-50%)', zIndex: 500, pointerEvents: 'none', textAlign: 'center' }}>
-                  <div style={{ fontSize: 13, color: '#ccc', background: '#0e0e0ecc', padding: '6px 14px', borderRadius: 4, backdropFilter: 'blur(4px)', border: '1px solid #1e1e1e', whiteSpace: 'nowrap' }}>
+                  <div style={{ fontSize: 13, color: '#ccc', background: '#0e0e0ecc', padding: '6px 14px', borderRadius: 2, backdropFilter: 'blur(4px)', border: '1px solid #1e1e1e', whiteSpace: 'nowrap' }}>
                     Seleccioná un relevamiento de la lista
                   </div>
                 </div>
               )}
               {selTipo === 'lineal' && editPts.length >= 2 && (
-                <div style={{ position: 'absolute', bottom: 10, left: 10, zIndex: 1000, background: '#0e0e0ecc', border: '1px solid #1e1e1e', borderRadius: 4, padding: '6px 10px', fontSize: 12, color: '#666', backdropFilter: 'blur(4px)' }}>
+                <div style={{ position: 'absolute', bottom: 10, left: 10, zIndex: 1000, background: '#0e0e0ecc', border: '1px solid #1e1e1e', borderRadius: 2, padding: '6px 10px', fontSize: 12, color: '#8f8f8f', backdropFilter: 'blur(4px)' }}>
                   Arrastrá un vértice para corregirlo · Clic derecho → eliminar
                 </div>
               )}
@@ -435,14 +435,14 @@ export default function RevisionCampoPage() {
                 /* ── Planilla topográfica (ripio) ── */
                 <>
                   <div style={{ padding: '8px 12px', borderBottom: '1px solid #1a1a1a', flexShrink: 0 }}>
-                    <div style={{ fontSize: 12, color: '#444', textTransform: 'uppercase', letterSpacing: 1 }}>Planilla topográfica</div>
+                    <div style={{ fontSize: 12, color: '#8f8f8f', textTransform: 'uppercase', letterSpacing: 1 }}>Planilla topográfica</div>
                     <div style={{ fontSize: 13, color: '#888', marginTop: 2 }}>{editPts.length} vértices · {fmtDist(longTotal)}</div>
                   </div>
 
                   {/* Header tabla */}
                   <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr 0.7fr 0.7fr 0.5fr', padding: '4px 8px', borderBottom: '1px solid #1a1a1a', background: '#0a0a0a', flexShrink: 0 }}>
                     {['PK', 'Latitud', 'Longitud', 'Alt', '±Acc', ''].map(h => (
-                      <span key={h} style={{ fontSize: 11, color: '#444', textTransform: 'uppercase', letterSpacing: 0.6 }}>{h}</span>
+                      <span key={h} style={{ fontSize: 11, color: '#8f8f8f', textTransform: 'uppercase', letterSpacing: 0.6 }}>{h}</span>
                     ))}
                   </div>
 
@@ -479,7 +479,7 @@ export default function RevisionCampoPage() {
 
                   {/* Footer */}
                   <div style={{ borderTop: '1px solid #1a1a1a', padding: '8px 12px', flexShrink: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: 12, color: '#444' }}>
+                    <span style={{ fontSize: 12, color: '#8f8f8f' }}>
                       {selected?.fecha?.slice(0, 10)} · {fmtTs(editPts[0]?.ts)} → {fmtTs(editPts[editPts.length - 1]?.ts)}
                     </span>
                     {dirty && (
@@ -490,13 +490,13 @@ export default function RevisionCampoPage() {
                   {/* Fotos (ripio) */}
                   {fotos.length > 0 && (
                     <div style={{ borderTop: '1px solid #1a1a1a', padding: '8px 12px', flexShrink: 0 }}>
-                      <div style={{ fontSize: 12, color: '#444', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>
+                      <div style={{ fontSize: 12, color: '#8f8f8f', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>
                         Fotos ({fotos.length})
                       </div>
                       <div style={{ display: 'flex', gap: 5, overflowX: 'auto', paddingBottom: 2 }}>
                         {fotos.map((url, i) => (
                           <div key={i} onClick={() => setLightbox(url)}
-                            style={{ width: 58, height: 58, flexShrink: 0, borderRadius: 3, overflow: 'hidden', border: '1px solid #222', cursor: 'zoom-in', background: '#111' }}>
+                            style={{ width: 58, height: 58, flexShrink: 0, borderRadius: 2, overflow: 'hidden', border: '1px solid #222', cursor: 'zoom-in', background: '#111' }}>
                             <img src={url} alt={`foto ${i + 1}`}
                               style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                               onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
@@ -514,7 +514,7 @@ export default function RevisionCampoPage() {
 
                   {/* Header */}
                   <div style={{ padding: '8px 12px', borderBottom: '1px solid #1a1a1a' }}>
-                    <div style={{ fontSize: 12, color: '#444', textTransform: 'uppercase', letterSpacing: 1 }}>Datos técnicos</div>
+                    <div style={{ fontSize: 12, color: '#8f8f8f', textTransform: 'uppercase', letterSpacing: 1 }}>Datos técnicos</div>
                   </div>
 
                   {/* Campos del tipo */}
@@ -523,7 +523,7 @@ export default function RevisionCampoPage() {
                       Object.entries(datosActivos).map(([k, v]) =>
                         v != null && v !== '' ? (
                           <div key={k} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '4px 0', borderBottom: '1px solid #0f0f0f', gap: 8 }}>
-                            <span style={{ fontSize: 12, color: '#555', textTransform: 'uppercase', letterSpacing: 0.5, flexShrink: 0, paddingTop: 1 }}>
+                            <span style={{ fontSize: 12, color: '#8f8f8f', textTransform: 'uppercase', letterSpacing: 0.5, flexShrink: 0, paddingTop: 1 }}>
                               {k.replace(/_/g, ' ')}
                             </span>
                             <span style={{ fontSize: 12, color: '#ccc', textAlign: 'right', wordBreak: 'break-word', maxWidth: 180 }}>
@@ -533,15 +533,15 @@ export default function RevisionCampoPage() {
                         ) : null
                       )
                     ) : (
-                      <div style={{ fontSize: 12, color: '#333', padding: '8px 0' }}>Sin datos técnicos registrados.</div>
+                      <div style={{ fontSize: 12, color: '#8f8f8f', padding: '8px 0' }}>Sin datos técnicos registrados.</div>
                     )}
                   </div>
 
                   {/* Ubicación */}
                   {selected.coords_lat != null && selected.coords_lng != null && (
                     <div style={{ padding: '6px 12px', borderBottom: '1px solid #111' }}>
-                      <div style={{ fontSize: 11, color: '#444', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 4 }}>Ubicación GPS</div>
-                      <div style={{ fontSize: 12, color: '#666', ...MONO }}>
+                      <div style={{ fontSize: 11, color: '#8f8f8f', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 4 }}>Ubicación GPS</div>
+                      <div style={{ fontSize: 12, color: '#8f8f8f', ...MONO }}>
                         {selected.coords_lat.toFixed(6)}, {selected.coords_lng.toFixed(6)}
                       </div>
                     </div>
@@ -549,14 +549,14 @@ export default function RevisionCampoPage() {
 
                   {/* Fotos */}
                   <div style={{ padding: '8px 12px' }}>
-                    <div style={{ fontSize: 12, color: '#444', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>
+                    <div style={{ fontSize: 12, color: '#8f8f8f', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>
                       Fotos adjuntas {fotos.length > 0 ? `(${fotos.length})` : ''}
                     </div>
                     {fotos.length > 0 ? (
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 5 }}>
                         {fotos.map((url, i) => (
                           <div key={i} onClick={() => setLightbox(url)}
-                            style={{ aspectRatio: '4/3', overflow: 'hidden', borderRadius: 3, border: '1px solid #1e1e1e', cursor: 'zoom-in', background: '#111' }}>
+                            style={{ aspectRatio: '4/3', overflow: 'hidden', borderRadius: 2, border: '1px solid #1e1e1e', cursor: 'zoom-in', background: '#111' }}>
                             <img src={url} alt={`foto ${i + 1}`}
                               style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                               onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
@@ -564,7 +564,7 @@ export default function RevisionCampoPage() {
                         ))}
                       </div>
                     ) : (
-                      <div style={{ fontSize: 12, color: '#2e2e2e' }}>Sin fotos adjuntas.</div>
+                      <div style={{ fontSize: 12, color: '#8f8f8f' }}>Sin fotos adjuntas.</div>
                     )}
                   </div>
                 </div>

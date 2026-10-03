@@ -79,9 +79,9 @@ function baseName(rel: Relevamiento) {
 // ── componente ────────────────────────────────────────────────────────────────
 
 const GHOST: React.CSSProperties = {
-  background: 'transparent', border: '1px solid #252525', color: '#555',
-  padding: '7px 14px', fontSize: 13, fontWeight: 600,
-  cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, letterSpacing: 0.5,
+  background: 'transparent', border: '1px solid #2a2a2a', color: '#a0a0a0', borderRadius: 2,
+  padding: '7px 14px', fontSize: 12, fontWeight: 600, fontFamily: 'monospace', textTransform: 'uppercase',
+  cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, letterSpacing: 0.8,
 }
 
 export default function RelevamientoActions({ rel }: { rel: Relevamiento }) {
@@ -124,17 +124,17 @@ export default function RelevamientoActions({ rel }: { rel: Relevamiento }) {
   return (
     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 20 }}>
       <button onClick={handleKML} className="glow-g" style={GHOST}
-        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#3a3a3a'; (e.currentTarget as HTMLButtonElement).style.color = '#aaa' }}
-        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#252525'; (e.currentTarget as HTMLButtonElement).style.color = '#555' }}
-      >⬇ KML</button>
+        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#3a3a3a'; (e.currentTarget as HTMLButtonElement).style.color = '#e0e0e0' }}
+        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#2a2a2a'; (e.currentTarget as HTMLButtonElement).style.color = '#a0a0a0' }}
+      >↓ KML</button>
       <button onClick={handleSHP} className="glow-g" style={GHOST}
-        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#3a3a3a'; (e.currentTarget as HTMLButtonElement).style.color = '#aaa' }}
-        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#252525'; (e.currentTarget as HTMLButtonElement).style.color = '#555' }}
-      >⬇ SHP</button>
+        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#3a3a3a'; (e.currentTarget as HTMLButtonElement).style.color = '#e0e0e0' }}
+        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#2a2a2a'; (e.currentTarget as HTMLButtonElement).style.color = '#a0a0a0' }}
+      >↓ SHP</button>
       <div style={{ flex: 1 }} />
-      <button onClick={handleDelete} className="glow-r" style={{ ...GHOST, border: '1px solid #252525', color: '#444' }}
+      <button onClick={handleDelete} className="glow-r" style={{ ...GHOST, border: '1px solid #2a2a2a', color: '#a0a0a0' }}
         onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#f44336'; (e.currentTarget as HTMLButtonElement).style.color = '#f44336' }}
-        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#252525'; (e.currentTarget as HTMLButtonElement).style.color = '#444' }}
+        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#2a2a2a'; (e.currentTarget as HTMLButtonElement).style.color = '#a0a0a0' }}
       >✕ Eliminar</button>
     </div>
   )

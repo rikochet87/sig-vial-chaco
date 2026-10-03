@@ -69,6 +69,7 @@ const NAV_ITEMS = [
 const REL_ITEMS = [
   { id: 'lista',    label: 'Lista',            icon: '≡', href: '/dashboard/relevamientos'         },
   { id: 'revision', label: 'Revisión de campo', icon: '⊕', href: '/dashboard/relevamientos/revision' },
+  { id: 'nuevo',    label: 'Nuevo de gabinete', icon: '+', href: '/dashboard/relevamientos/nuevo' },
 ]
 
 // Sub-herramientas — agregar nuevas acá
@@ -209,7 +210,7 @@ export default function Sidebar() {
           {relOpen && !collapsed && (
             <div style={{ borderLeft: '1px solid #1e1e1e', marginLeft: 24, marginTop: 2, marginBottom: 2 }}>
               {REL_ITEMS.map(item => {
-                const isActive  = item.id === 'lista' ? pathname === item.href || (pathname.startsWith('/dashboard/relevamientos') && !pathname.startsWith('/dashboard/relevamientos/revision')) : pathname.startsWith(item.href)
+                const isActive  = item.id === 'lista' ? pathname === item.href || (pathname.startsWith('/dashboard/relevamientos') && !pathname.startsWith('/dashboard/relevamientos/revision') && !pathname.startsWith('/dashboard/relevamientos/nuevo')) : pathname.startsWith(item.href)
                 const isHovered = hoveredHref === item.id
                 return (
                   <Link key={item.id} href={item.href}

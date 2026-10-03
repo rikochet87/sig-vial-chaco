@@ -335,6 +335,39 @@ la fila de perfil —el contexto además con `hasPermiso: () => true`—. El ser
 no se dejaba engañar, pero la interfaz mostraba los controles de administrador.
 Un dato ausente tiene que significar no poder hacer nada.
 
+### Relevamientos de gabinete
+
+`/dashboard/relevamientos/nuevo` — el formulario de la app de campo, cargado
+desde la computadora sin ir al lugar: una alcantarilla que se ve en el satélite,
+un tramo que se dibuja sobre la imagen. Mapa propio
+(`components/relevamiento/MapaGabinete.tsx`) con satélite por defecto, imágenes
+anteriores y la red vial de fondo.
+
+- **Queda marcado `datos_especificos.origen = 'gabinete'`**, y la lista, la
+  ficha y Hidrología lo distinguen. Una medida tomada mirando una imagen no es
+  una medida con cinta. Va en el JSON y no en una columna para no depender de un
+  `alter table` aplicado a mano; la app ignora la clave. `lib/relevamientoOrigen.ts`
+  la lee.
+- **Lo que en la app sale del GPS acá sale del mapa**: zona y consorcio de la
+  sede más cercana (euclidiana, como la app), y la ruta del camino de la red
+  que pasa por el punto, con el mismo formato que arma la app. Se pueden
+  corregir, y una vez tocados dejan de seguir al mapa.
+- **`POST /api/relevamientos`** con `requirePermiso('relevamientos')`. El
+  `tecnico_id` sale de la sesión, no del navegador. Es `insert` y no `upsert`:
+  el id tiene el formato de la app (`Date.now()`) y un choque tiene que ser un
+  error, no pisar un relevamiento de campo.
+- **Las fotos se suben primero** (`/api/relevamientos/fotos`, mismo bucket y
+  carpeta que la app, `upsert: false`) y la fila lleva sólo las que llegaron.
+  **El navegador las achica a 2.000 px antes**: el cuerpo de una función de
+  Vercel tiene tope de 4,5 MB.
+- **Los campos de cada tipo están en `components/relevamiento/editores.tsx`** y
+  los usan la carga nueva y la edición. Tienen los nombres de la app
+  (`types/relevamiento.ts` en la raíz): antes la edición del panel no tenía los
+  subtipos Tramo y Canal, ni las luces del puente, ni el tablero de la
+  alcantarilla.
+- **La ficha ya no muestra toneladas de ripio**: la tarjeta vieja multiplicaba
+  por 2,1 t/m³ fijo. Muestra el volumen, que es geometría y no supone densidad.
+
 ### Calculadoras de obra
 
 `admin/src/app/dashboard/obras/calculadoras/page.tsx` — cuatro pestañas:
@@ -392,6 +425,12 @@ Cosas que no son obvias:
 - **La botonera «Dibujar en mapa» / «Guardar obra» de la página se sacó.** Canal
   era la última calculadora que la usaba; las demás dibujan y guardan desde su
   propio panel.
+- **Terraplén y Excavación no cargan precio.** La barra «Precio unit.» de la
+  cabecera se sacó: una obra nueva se guarda con presupuesto cero, y el modal
+  de guardar no muestra Total ni P. Unit. cuando el precio es cero, para no
+  presentar un $0 como dato. **Una obra vieja que se abre para editar conserva
+  su `precio_unitario`** (la página lo repone sin mostrarlo), así que volver a
+  guardarla no le borra el presupuesto.
 - **La pantalla de Planta (`obras/planta`) se borró**, con `lib/obraTransfer.ts`,
   que sólo existía para pasarle datos. Era el mapa al que mandaba «Dibujar en
   mapa»: sin la botonera no quedaba ningún enlace que llevara a ella, y eran

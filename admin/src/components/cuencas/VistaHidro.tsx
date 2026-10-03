@@ -175,7 +175,7 @@ export default function VistaHidro({ cuencas, tramos }: Props) {
       <b style={{ color: '#a0a0a0', fontWeight: 400 }}>no son un inventario</b>: dicen dónde tiene que haber
       una obra de arte según la carta, no qué hay construido, y la posición vale al centenar de metros.
       {obras && obrasCerca !== null && (
-        <> De las {obras.length} obras de arte relevadas con la app, {obrasCerca} está{obrasCerca === 1 ? '' : 'n'} a
+        <> De las {obras.length} obras de arte relevadas (en campo o de gabinete), {obrasCerca} está{obrasCerca === 1 ? '' : 'n'} a
         menos de {TOL_M} m de un cruce; el resto está sobre cursos que la carta no tiene, o sobre caminos
         que no son de la red de consorcios.</>
       )}

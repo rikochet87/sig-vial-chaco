@@ -3,6 +3,11 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { Relevamiento } from '@/types'
+import { esGabinete } from '@/lib/relevamientoOrigen'
+import {
+  ZONAS, ESTADOS, field, label, input, select, textarea, grid2, sectionCard, sectionTitle,
+  EditLineal, EditPuente, EditAlcantarilla, EditTubos, EditOtro,
+} from '@/components/relevamiento/editores'
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -11,260 +16,88 @@ function fmtFecha(s: string | null) {
   return s.split('T')[0]
 }
 
-const ZONAS = ['ZI', 'ZII', 'ZIII', 'ZIV', 'ZV', 'ZVI']
-const ESTADOS: string[] = ['Bueno', 'Regular', 'Malo']
-
-// ── small form primitives ─────────────────────────────────────────────────────
-
-const field: React.CSSProperties = {
-  display: 'flex', flexDirection: 'column', gap: 4,
-}
-const label: React.CSSProperties = {
-  color: '#9E9E9E', fontSize: 13, textTransform: 'uppercase', letterSpacing: 0.5,
-}
-const input: React.CSSProperties = {
-  background: '#1a1a1a', border: '1px solid #252525',
-  color: '#e0e0e0', fontSize: 13, padding: '8px 10px', outline: 'none', width: '100%',
-}
-const select: React.CSSProperties = { ...input, cursor: 'pointer' }
-const textarea: React.CSSProperties = {
-  ...input, resize: 'vertical', minHeight: 80, fontFamily: 'inherit',
-}
-const grid2: React.CSSProperties = {
-  display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12,
-}
-const sectionCard: React.CSSProperties = {
-  background: '#191919', border: '1px solid #1e1e1e', padding: '16px 20px', marginBottom: 12,
-}
-const sectionTitle: React.CSSProperties = {
-  color: '#F5C300', fontSize: 13, fontWeight: 700, marginBottom: 14,
-  textTransform: 'uppercase', letterSpacing: 1.5,
-}
-
-// ── read-only cell ────────────────────────────────────────────────────────────
+// ── Vista de sólo lectura ────────────────────────────────────────────────────
 
 function ROCell({ label: l, value }: { label: string; value: string | number | null | undefined }) {
   return (
     <div>
       <div style={label}>{l}</div>
-      <div style={{ color: '#fff', fontSize: 14 }}>{String(value ?? '-')}</div>
+      <div style={{ color: '#fff', fontSize: 14 }}>{value === null || value === undefined || value === '' ? '-' : String(value)}</div>
     </div>
   )
 }
 
-// ── LinealCard (read-only) ────────────────────────────────────────────────────
-
-function LinealCard({ data }: { data: Record<string, unknown> | null | undefined }) {
-  if (!data) return null
-  const ancho    = parseFloat(String(data.ancho    ?? '')) || 0
-  const espesor  = parseFloat(String(data.espesor  ?? '')) || 0
-  const longitud = parseFloat(String(data.longitud ?? '')) || 0
-  const toneladas = ancho > 0 && espesor > 0 && longitud > 0
-    ? (ancho * longitud * espesor * 2.1).toFixed(2) : null
-  const cellStyle: React.CSSProperties = { background: '#3C3C3C', borderRadius: 8, padding: '12px 16px' }
-  const labelSt: React.CSSProperties  = { color: '#9E9E9E', fontSize: 13, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }
-  const valueSt: React.CSSProperties  = { color: '#fff', fontSize: 18, fontWeight: 700 }
-  const unitSt: React.CSSProperties   = { color: '#9E9E9E', fontSize: 13, marginLeft: 4 }
-  return (
-    <div style={{ background: '#2C2C2C', borderRadius: 10, padding: 20, marginBottom: 16 }}>
-      <h3 style={sectionTitle}>Datos Lineal</h3>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12 }}>
-        {ancho > 0 && <div style={cellStyle}><div style={labelSt}>Ancho</div><div style={valueSt}>{ancho}<span style={unitSt}>m</span></div></div>}
-        {espesor > 0 && <div style={cellStyle}><div style={labelSt}>Espesor</div><div style={valueSt}>{espesor}<span style={unitSt}>m</span></div></div>}
-        {longitud > 0 && <div style={cellStyle}><div style={labelSt}>Longitud</div><div style={valueSt}>{longitud.toLocaleString('es-AR')}<span style={unitSt}>m</span></div></div>}
-        {!!data.empresa && <div style={cellStyle}><div style={labelSt}>Empresa</div><div style={{ color: '#fff', fontSize: 14 }}>{String(data.empresa)}</div></div>}
-        {toneladas && (
-          <div style={{ ...cellStyle, borderLeft: '3px solid #F5C300', gridColumn: 'span 2' }}>
-            <div style={labelSt}>Toneladas estimadas</div>
-            <div style={{ color: '#F5C300', fontSize: 22, fontWeight: 700 }}>
-              {parseFloat(toneladas).toLocaleString('es-AR', { maximumFractionDigits: 2 })}
-              <span style={unitSt}>t</span>
-            </div>
-            <div style={{ color: '#666', fontSize: 12, marginTop: 4 }}>
-              {ancho}m × {longitud}m × {espesor}m × 2,1 t/m³
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  )
+/**
+ * Cómo se llama en pantalla cada campo de `datos_especificos`. Antes la ficha
+ * mostraba el nombre interno —«longitudTotal», «hBarandas»—; lo que no está
+ * acá se sigue mostrando así, que es mejor que esconderlo.
+ */
+const ROTULOS: Record<string, string> = {
+  longitudTotal: 'Longitud total (m)', cantidadPalizadas: 'Palizadas', lucesPalizadas: 'Luces de vanos (m)',
+  h: 'H — altura (m)', j: 'J — ancho camino (m)', tipoEstructura: 'Tipo estructura',
+  guiaRuedas: 'Guía ruedas', estadoGuiaRuedas: 'Estado guía ruedas', barandas: 'Barandas',
+  hBarandas: 'H barandas (m)', estadoEstructural: 'Estado estructural',
+  cantidadLuces: 'Cantidad luces', longitudLuces: 'Longitud luces (m)', anchoTotal: 'Ancho total (m)',
+  anchoCalzada: 'Ancho calzada (m)', materialesAlas: 'Materiales alas', longitudAlas: 'Longitud alas (m)',
+  tableroMaterial: 'Tablero — material', tableroEstado: 'Tablero — estado', losaFondoEstado: 'Losa de fondo',
+  situacionHidraulica: 'Situación hidráulica',
+  jAncho: 'J — ancho (m)', d: 'D — diámetro', cabezales: 'Cabezales', tapada: 'Tapada', cantidad: 'Cantidad',
+  descripcion: 'Descripción',
+  subtipo: 'Subtipo', ancho: 'Ancho (m)', longitud: 'Longitud (m)', espesor: 'Espesor (m)',
+  empresa: 'Empresa', fechaEjecucion: 'Fecha ejecución',
+  esNuevo: 'Tramo nuevo', zonaTramo: 'Zona', ccNumeroTramo: 'N° de CC', numTramo: 'N° de tramo',
+  nomenclatura: 'Nomenclatura',
+  anchoCanal: 'Ancho (m)', profundidad: 'Profundidad (m)', longitudCanal: 'Longitud (m)',
+  estadoLimpieza: 'Estado de limpieza', tiposObstruccion: 'Obstrucción',
 }
 
-// ── DataCard (read-only generic) ──────────────────────────────────────────────
+/** Qué campos son de qué subtipo de lineal: uno de ripio no muestra los de canal */
+const DE_SUBTIPO: Record<string, string[]> = {
+  Ripio: ['ancho', 'longitud', 'espesor', 'empresa', 'fechaEjecucion'],
+  Tramo: ['esNuevo', 'zonaTramo', 'ccNumeroTramo', 'numTramo', 'nomenclatura'],
+  Canal: ['anchoCanal', 'profundidad', 'longitudCanal', 'estadoLimpieza', 'tiposObstruccion'],
+}
 
-function DataCard({ title, data }: { title: string; data: Record<string, unknown> | null | undefined }) {
+const mostrar = (v: unknown): string =>
+  typeof v === 'boolean' ? (v ? 'Sí' : 'No')
+    : Array.isArray(v) ? v.filter(x => x !== '').join(' · ')
+      : String(v)
+
+function DataCard({ title, data, lineal = false }: {
+  title: string; data: Record<string, unknown> | null | undefined; lineal?: boolean
+}) {
   if (!data) return null
-  const entries = Object.entries(data).filter(([, v]) => v !== null && v !== undefined && v !== '')
+  const subtipo = lineal ? String(data.subtipo || 'Ripio') : null
+  const propias = subtipo ? DE_SUBTIPO[subtipo] ?? null : null
+  const entries = Object.entries(data).filter(([k, v]) =>
+    k !== 'subtipo' && v !== null && v !== undefined && v !== '' && !(Array.isArray(v) && !v.some(x => x !== ''))
+    && (!propias || propias.includes(k)))
   if (entries.length === 0) return null
+
+  /*
+   * En un ripio se muestra el volumen y no las toneladas. La tarjeta vieja
+   * multiplicaba por 2,1 t/m³ fijo, y la densidad del ripio es por tramo y sin
+   * valor por defecto: esas toneladas eran un número con apariencia de dato.
+   * El volumen es geometría y no supone nada.
+   */
+  const n = (k: string) => parseFloat(String(data[k] ?? '').replace(',', '.')) || 0
+  const volumen = subtipo === 'Ripio' ? n('ancho') * n('longitud') * n('espesor') : 0
+
   return (
     <div style={sectionCard}>
-      <h3 style={sectionTitle}>{title}</h3>
+      <h3 style={sectionTitle}>{subtipo ? `${title} — ${subtipo}` : title}</h3>
       <div style={grid2}>
-        {entries.map(([k, v]) => (
-          <ROCell key={k} label={k.replace(/_/g, ' ')} value={Array.isArray(v) ? v.join(', ') : (v as string | number)} />
-        ))}
-      </div>
-    </div>
-  )
-}
-
-// ── tipo-specific edit sections ───────────────────────────────────────────────
-
-function EditLineal({
-  data, onChange,
-}: {
-  data: Record<string, unknown>
-  onChange: (d: Record<string, unknown>) => void
-}) {
-  const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) =>
-    onChange({ ...data, [k]: e.target.value })
-  return (
-    <div style={sectionCard}>
-      <h3 style={sectionTitle}>Datos Lineal</h3>
-      <div style={grid2}>
-        <div style={field}>
-          <span style={label}>Ancho (m)</span>
-          <input style={input} value={String(data.ancho ?? '')} onChange={set('ancho')} placeholder="0" />
-        </div>
-        <div style={field}>
-          <span style={label}>Espesor (m)</span>
-          <input style={input} value={String(data.espesor ?? '')} onChange={set('espesor')} placeholder="0" />
-        </div>
-        <div style={field}>
-          <span style={label}>Longitud (m)</span>
-          <input style={input} value={String(data.longitud ?? '')} onChange={set('longitud')} placeholder="0" />
-        </div>
-        <div style={field}>
-          <span style={label}>Empresa</span>
-          <input style={input} value={String(data.empresa ?? '')} onChange={set('empresa')} placeholder="Empresa ejecutora" />
-        </div>
-        <div style={field}>
-          <span style={label}>Fecha ejecución</span>
-          <input style={input} value={String(data.fechaEjecucion ?? '')} onChange={set('fechaEjecucion')} placeholder="DD/MM/AAAA" />
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function EditPuente({
-  data, onChange,
-}: {
-  data: Record<string, unknown>
-  onChange: (d: Record<string, unknown>) => void
-}) {
-  const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
-    onChange({ ...data, [k]: e.target.value })
-  return (
-    <div style={sectionCard}>
-      <h3 style={sectionTitle}>Datos Puente</h3>
-      <div style={grid2}>
-        <div style={field}><span style={label}>Longitud total (m)</span><input style={input} value={String(data.longitudTotal ?? '')} onChange={set('longitudTotal')} /></div>
-        <div style={field}><span style={label}>H — altura libre (m)</span><input style={input} value={String(data.h ?? '')} onChange={set('h')} /></div>
-        <div style={field}><span style={label}>J — ancho camino (m)</span><input style={input} value={String(data.j ?? '')} onChange={set('j')} /></div>
-        <div style={field}><span style={label}>Tipo estructura</span><input style={input} value={String(data.tipoEstructura ?? '')} onChange={set('tipoEstructura')} placeholder="Madera, Hormigón, etc." /></div>
-        <div style={field}>
-          <span style={label}>Estado estructural</span>
-          <select style={select} value={String(data.estadoEstructural ?? 'Regular')} onChange={set('estadoEstructural')}>
-            {ESTADOS.map(e => <option key={e} value={e}>{e}</option>)}
-          </select>
-        </div>
-        <div style={field}><span style={label}>Cantidad palizadas</span><input style={input} type="number" value={String(data.cantidadPalizadas ?? '')} onChange={set('cantidadPalizadas')} /></div>
-        <div style={field}><span style={label}>Guía ruedas</span>
-          <select style={select} value={data.guiaRuedas ? 'true' : 'false'} onChange={e => onChange({ ...data, guiaRuedas: e.target.value === 'true' })}>
-            <option value="false">No</option><option value="true">Sí</option>
-          </select>
-        </div>
-        {!!data.guiaRuedas && (
-          <div style={field}>
-            <span style={label}>Estado guía ruedas</span>
-            <select style={select} value={String(data.estadoGuiaRuedas ?? 'Regular')} onChange={set('estadoGuiaRuedas')}>
-              {ESTADOS.map(e => <option key={e} value={e}>{e}</option>)}
-            </select>
+        {entries.map(([k, v]) => <ROCell key={k} label={ROTULOS[k] ?? k} value={mostrar(v)} />)}
+        {volumen > 0 && (
+          <div style={{ borderLeft: '3px solid #F5C300', paddingLeft: 10 }}>
+            <div style={label}>Volumen (m³)</div>
+            <div style={{ color: '#F5C300', fontSize: 16, fontWeight: 700, fontFamily: 'monospace' }}>
+              {volumen.toLocaleString('es-AR', { maximumFractionDigits: 1 })}
+            </div>
+            <div style={{ color: '#8f8f8f', fontSize: 11 }}>ancho × longitud × espesor</div>
           </div>
         )}
-        <div style={field}><span style={label}>Barandas</span>
-          <select style={select} value={data.barandas ? 'true' : 'false'} onChange={e => onChange({ ...data, barandas: e.target.value === 'true' })}>
-            <option value="false">No</option><option value="true">Sí</option>
-          </select>
-        </div>
-        {!!data.barandas && (
-          <div style={field}><span style={label}>H barandas (m)</span><input style={input} value={String(data.hBarandas ?? '')} onChange={set('hBarandas')} /></div>
-        )}
       </div>
-    </div>
-  )
-}
-
-function EditAlcantarilla({
-  data, onChange,
-}: {
-  data: Record<string, unknown>
-  onChange: (d: Record<string, unknown>) => void
-}) {
-  const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
-    onChange({ ...data, [k]: e.target.value })
-  return (
-    <div style={sectionCard}>
-      <h3 style={sectionTitle}>Datos Alcantarilla</h3>
-      <div style={grid2}>
-        <div style={field}><span style={label}>Longitud total (m)</span><input style={input} value={String(data.longitudTotal ?? '')} onChange={set('longitudTotal')} /></div>
-        <div style={field}><span style={label}>Cantidad luces</span><input style={input} value={String(data.cantidadLuces ?? '')} onChange={set('cantidadLuces')} /></div>
-        <div style={field}><span style={label}>Longitud luces (m)</span><input style={input} value={String(data.longitudLuces ?? '')} onChange={set('longitudLuces')} /></div>
-        <div style={field}><span style={label}>Ancho total (m)</span><input style={input} value={String(data.anchoTotal ?? '')} onChange={set('anchoTotal')} /></div>
-        <div style={field}><span style={label}>Ancho calzada (m)</span><input style={input} value={String(data.anchoCalzada ?? '')} onChange={set('anchoCalzada')} /></div>
-        <div style={field}><span style={label}>H — altura (m)</span><input style={input} value={String(data.h ?? '')} onChange={set('h')} /></div>
-        <div style={field}><span style={label}>Materiales alas</span><input style={input} value={String(data.materialesAlas ?? '')} onChange={set('materialesAlas')} /></div>
-        <div style={field}><span style={label}>Longitud alas (m)</span><input style={input} value={String(data.longitudAlas ?? '')} onChange={set('longitudAlas')} /></div>
-        <div style={field}>
-          <span style={label}>Estado estructural</span>
-          <select style={select} value={String(data.estadoEstructural ?? 'Regular')} onChange={set('estadoEstructural')}>
-            {ESTADOS.map(e => <option key={e} value={e}>{e}</option>)}
-          </select>
-        </div>
-        <div style={field}><span style={label}>Situación hidráulica</span><input style={input} value={String(data.situacionHidraulica ?? '')} onChange={set('situacionHidraulica')} /></div>
-      </div>
-    </div>
-  )
-}
-
-function EditTubos({
-  data, onChange,
-}: {
-  data: Record<string, unknown>
-  onChange: (d: Record<string, unknown>) => void
-}) {
-  const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) =>
-    onChange({ ...data, [k]: e.target.value })
-  return (
-    <div style={sectionCard}>
-      <h3 style={sectionTitle}>Datos Tubos</h3>
-      <div style={grid2}>
-        <div style={field}><span style={label}>J — ancho (m)</span><input style={input} value={String(data.jAncho ?? '')} onChange={set('jAncho')} /></div>
-        <div style={field}><span style={label}>D — diámetro</span><input style={input} value={String(data.d ?? '')} onChange={set('d')} /></div>
-        <div style={field}><span style={label}>Cabezales</span><input style={input} value={String(data.cabezales ?? '')} onChange={set('cabezales')} /></div>
-        <div style={field}><span style={label}>Tapada</span><input style={input} value={String(data.tapada ?? '')} onChange={set('tapada')} /></div>
-        <div style={field}><span style={label}>Cantidad</span><input style={input} type="number" value={String(data.cantidad ?? '')} onChange={set('cantidad')} /></div>
-      </div>
-    </div>
-  )
-}
-
-function EditOtro({
-  data, onChange,
-}: {
-  data: Record<string, unknown>
-  onChange: (d: Record<string, unknown>) => void
-}) {
-  return (
-    <div style={sectionCard}>
-      <h3 style={sectionTitle}>Descripción</h3>
-      <textarea
-        style={textarea}
-        value={String(data.descripcion ?? '')}
-        onChange={e => onChange({ ...data, descripcion: e.target.value })}
-        placeholder="Descripción libre..."
-      />
     </div>
   )
 }
@@ -354,12 +187,14 @@ export default function RelevamientoEditForm({ rel, tecnicoNombre }: Props) {
         <div style={sectionCard}>
           <div style={grid2}>
             <ROCell label="Fecha"         value={fmtFecha(rel.fecha)} />
-            <ROCell label="Técnico"       value={tecnicoNombre} />
+            <ROCell label={esGabinete(rel) ? 'Cargado por' : 'Técnico'} value={tecnicoNombre} />
             <ROCell label="Ruta / Tramo"  value={rel.ruta_tramo} />
             <ROCell label="Estado calzada" value={rel.estado_calzada} />
             <ROCell label="Zona"          value={rel.zona} />
             <ROCell label="Consorcio"     value={rel.cc_asociado} />
-            <ROCell label="Sincronizado"  value={rel.sincronizado_en ? new Date(rel.sincronizado_en).toLocaleString('es-AR') : 'pendiente'} />
+            {esGabinete(rel)
+              ? <ROCell label="Origen" value="Gabinete — cargado desde el panel" />
+              : <ROCell label="Sincronizado" value={rel.sincronizado_en ? new Date(rel.sincronizado_en).toLocaleString('es-AR') : 'pendiente'} />}
           </div>
         </div>
 
@@ -373,7 +208,7 @@ export default function RelevamientoEditForm({ rel, tecnicoNombre }: Props) {
         <DataCard title="Datos Puente"       data={rel.datos_especificos?.puente as Record<string, unknown>} />
         <DataCard title="Datos Alcantarilla" data={rel.datos_especificos?.alcantarilla as Record<string, unknown>} />
         <DataCard title="Datos Tubos"        data={rel.datos_especificos?.tubos as Record<string, unknown>} />
-        <LinealCard                           data={rel.datos_especificos?.ripio as Record<string, unknown>} />
+        <DataCard title="Datos lineal"       data={rel.datos_especificos?.ripio as Record<string, unknown>} lineal />
         <DataCard title="Otros datos"        data={rel.datos_especificos?.otro as Record<string, unknown>} />
       </>
     )
@@ -402,16 +237,16 @@ export default function RelevamientoEditForm({ rel, tecnicoNombre }: Props) {
           disabled={saving}
           className="glow-g"
           style={{
-            background: 'transparent', color: '#555', border: '1px solid #252525',
+            background: 'transparent', color: '#a0a0a0', border: '1px solid #2a2a2a',
             padding: '9px 20px', fontWeight: 500,
             fontSize: 13, cursor: 'pointer', letterSpacing: 0.5,
           }}
-          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#3a3a3a'; (e.currentTarget as HTMLButtonElement).style.color = '#888' }}
-          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#252525'; (e.currentTarget as HTMLButtonElement).style.color = '#555' }}
+          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#3a3a3a'; (e.currentTarget as HTMLButtonElement).style.color = '#ccc' }}
+          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#2a2a2a'; (e.currentTarget as HTMLButtonElement).style.color = '#a0a0a0' }}
         >
           Cancelar
         </button>
-        {error && <span style={{ color: '#e74c3c', fontSize: 13 }}>⚠️ {error}</span>}
+        {error && <span style={{ color: '#E57373', fontSize: 13 }}>{error}</span>}
       </div>
 
       <div style={sectionCard}>
