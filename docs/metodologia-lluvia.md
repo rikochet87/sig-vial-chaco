@@ -514,6 +514,12 @@ todavía no incorpora.
 - El día en curso no se incluye: el pronóstico diario cubre desde la
   medianoche, horas que ya transcurrieron.
 
+**Registro para la verificación.** Desde el 02/10/2026 se guarda cada día el
+pronóstico emitido, en los 137 nodos y con las 51 corridas. Cuando haya
+suficientes semanas se va a comparar contra las láminas medidas por los
+pluviómetros, sobre todos los días del período y no sólo sobre los días con
+lluvia, con el mismo cuidado descripto en 4.5.
+
 ### 6.7 Cursos de agua, canales y cruces con la red vial
 
 `lib/hidrografia.ts`. Agrega a las cuencas por dónde corre el agua, y con eso

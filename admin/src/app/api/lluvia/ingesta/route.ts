@@ -19,6 +19,7 @@ import { estimarPorConsorcio, type Medicion, type PuntoRed } from '@/lib/fusion'
 import { PUNTOS_LLUVIA } from '@/data/puntosLluvia'
 import { ESTACIONES_ACTIVAS, estacionPorId } from '@/data/estacionesApa'
 import { fechasApa, lecturasApa } from '@/lib/apa'
+import { registrarPronostico } from '@/lib/pronosticoRegistro'
 
 /**
  * Tope de días por corrida.
@@ -422,6 +423,19 @@ export async function GET(req: NextRequest) {
   if (req.headers.get('x-vercel-cron-schedule') === CRON_SOLO_FUSION) {
     const ok = await autorizado(req)
     if (ok instanceof NextResponse) return ok
+    /*
+     * El registro diario del pronóstico va en este cron y no en el de la
+     * mañana: éste termina en dos segundos, y el de la mañana ya está cerca
+     * del minuto con la ingesta. Un fallo del registro no frena el recálculo
+     * —son cosas independientes—; queda en el log, y la pantalla de Pronóstico
+     * avisa cuando el último guardado tiene más de un día.
+     */
+    try {
+      const r = await registrarPronostico(createServiceClient())
+      console.log('[cron] pronóstico guardado', r.emitido, r.nodos, 'nodos')
+    } catch (e) {
+      console.error('[cron] no se pudo guardar el pronóstico', e)
+    }
     // Siete días, la misma ventana que repisa la ingesta de la mañana. El
     // default de `recalcularFusion` son 30 y para una corrida diaria es de más:
     // no cuesta cupo, pero son 23 días que ya se recalcularon ayer.

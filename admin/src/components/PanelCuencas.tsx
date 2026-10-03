@@ -213,7 +213,7 @@ export default function PanelCuencas({ datos, estaciones, desde, hasta, hoy, tra
 
           {!error && cuencas && vista === 'pronostico' && (
             <VistaPronostico cuencas={cuencas} observado={observado} errorObservado={errorDiario}
-              onReintentarObservado={() => setIntentoDiario(v => v + 1)} />
+              onReintentarObservado={() => setIntentoDiario(v => v + 1)} hoy={hoy} />
           )}
 
           {!error && cuencas && vista === 'periodo' && estaciones.length === 0 && (

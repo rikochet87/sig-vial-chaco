@@ -26,6 +26,7 @@ import {
   type Pronostico, type PronosticoCuenca, type Rango,
 } from '@/lib/pronostico'
 import { boton, fCorta, mono, nMm, td, tdD, th, thD } from './piezas'
+import EstadoRegistro from './EstadoRegistro'
 
 /** El umbral de la columna de probabilidad: el corte de lluvia fuerte del mapa */
 const UMBRAL_MM = 25
@@ -45,8 +46,10 @@ function Celda({ r }: { r: Rango | null }) {
 
 const nSigno = (v: number) => `${v > 0.5 ? '+' : ''}${nMm(v)}`
 
-export default function VistaPronostico({ cuencas, observado, errorObservado, onReintentarObservado }: {
+export default function VistaPronostico({ cuencas, observado, errorObservado, onReintentarObservado, hoy }: {
   cuencas: Cuenca[]
+  /** AAAA-MM-DD; llega de afuera para no leer el reloj al renderizar */
+  hoy: string
   /** La serie medida de cada cuenca hasta hoy, por código; null mientras carga */
   observado: Map<number, DiaCuenca[]> | null
   errorObservado: string | null
@@ -169,6 +172,7 @@ export default function VistaPronostico({ cuencas, observado, errorObservado, on
         pronóstico es el de un punto, no un promedio.
       </div>
     )}
+    <EstadoRegistro hoy={hoy} />
   </>)
 }
 

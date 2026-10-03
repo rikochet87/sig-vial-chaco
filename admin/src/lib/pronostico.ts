@@ -194,3 +194,58 @@ export function pronosticoPorCuenca(p: Pronostico, asignados: PuntosDeCuenca[]):
     }
   })
 }
+
+// ── El registro diario ───────────────────────────────────────────────────────
+
+/** Una fila de `pronostico_lluvia` (docs/sql/13-pronostico-registro.sql) */
+export interface FilaRegistro {
+  emitido: string
+  lat: number
+  lng: number
+  dia0: string
+  dias: number
+  corridas: number
+  /** Plano, `dias × corridas`: el día d y la corrida m van en `d * corridas + m` */
+  mm: number[]
+  et0: number[]
+  modelo: string
+  consultado: string
+}
+
+/**
+ * El pronóstico como filas para guardar, una por nodo.
+ *
+ * `emitido` es el día en que se guarda, hora local; el primer día pronosticado
+ * es el siguiente. Un nodo con menos corridas que el resto —no debería pasar—
+ * no se guarda: el arreglo plano supone el mismo largo en todos los días.
+ */
+export function filasRegistro(p: Pronostico, emitido: string): FilaRegistro[] {
+  return p.puntos.flatMap(pt => {
+    const corridas = pt.mm[0]?.length ?? 0
+    if (!corridas || pt.mm.some(d => d.length !== corridas)) return []
+    return [{
+      emitido, lat: pt.lat, lng: pt.lng, dia0: p.dias[0], dias: p.dias.length, corridas,
+      mm: pt.mm.flat(), et0: pt.et0, modelo: p.modelo, consultado: p.consultado,
+    }]
+  })
+}
+
+/** La vuelta: las filas de una emisión como un `Pronostico`, para leerlo con las mismas funciones */
+export function pronosticoDeFilas(filas: FilaRegistro[]): Pronostico | null {
+  if (!filas.length) return null
+  const { dia0, dias, modelo, consultado } = filas[0]
+  const t0 = Date.parse(dia0)
+  return {
+    modelo, consultado,
+    dias: Array.from({ length: dias }, (_, d) => new Date(t0 + d * 86_400_000).toISOString().slice(0, 10)),
+    puntos: filas.map(f => ({
+      lat: f.lat, lng: f.lng, et0: f.et0,
+      mm: Array.from({ length: f.dias }, (_, d) => f.mm.slice(d * f.corridas, (d + 1) * f.corridas)),
+    })),
+  }
+}
+
+/** La fecha local de Argentina, AAAA-MM-DD — la del día en que se emite */
+export function hoyArgentina(ahora = new Date()): string {
+  return new Date(ahora.getTime() - 3 * 3600_000).toISOString().slice(0, 10)
+}

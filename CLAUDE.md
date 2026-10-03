@@ -1443,9 +1443,29 @@ que se descartó el índice de humedad antecedente.
   cuencas en el mapa es otro tono y no aparece en esta vista.
 - **El balance es la mediana de la lluvia menos la ET₀**, no cuánta agua se
   queda. La pantalla lo dice.
-- **Todavía no se mide cuánto acierta.** Para eso hay que guardar cada día el
-  pronóstico emitido y compararlo con la APA cuando llega el parte: hace falta
-  una tabla nueva (SQL a mano) y un paso en el cron. Está sin hacer.
+- **Cada día se guarda el pronóstico emitido**, para medir después cuánto
+  acierta contra la APA: el servicio no ofrece pronósticos pasados, así que lo
+  que no se guarda no se puede verificar nunca. Tabla `pronostico_lluvia`
+  (`docs/sql/13-pronostico-registro.sql`), **por nodo y con las 51 corridas**,
+  no promediado por cuenca: mismo criterio que `mediciones_lluvia` por
+  estación — la agregación es una decisión de cálculo que puede cambiar. Una
+  fila por día y por nodo (137), con los mm en un arreglo plano
+  `dias × corridas`; `filasRegistro` y `pronosticoDeFilas` hacen la ida y la
+  vuelta, y el test la afirma.
+- **Lo guarda el cron de las 12:00** (la rama de las 15:00 UTC de
+  `/api/lluvia/ingesta`), no el de la mañana, que ya está cerca del minuto. Un
+  fallo del registro no frena el recálculo de la fusión: queda en el log.
+  **Por eso el pie de la vista dice cuántos días hay guardados y avisa si el
+  último tiene más de un día**: un registro que se corta en silencio se
+  descubre meses después, cuando se va a medir. Un admin puede guardar el del
+  día a mano (`POST /api/lluvia/pronostico/registro`).
+- **La consulta a Open-Meteo está en `lib/pronosticoFuente.ts`**, compartida por
+  la ruta que muestra y el cron que guarda: lo que se verifica tiene que ser lo
+  que se mostró.
+- **La comparación contra la APA todavía no está hecha**: hacen falta semanas de
+  registro antes de que diga algo. Cuando se haga, va sobre todos los días —los
+  sin parte cuentan como cero deducido— y no sólo sobre los días con lluvia
+  (ver «Cuidado con las métricas condicionadas»).
 
 `scripts/verificar-pronostico.ts` no sale a la red. Una consulta real del
 02/10/2026 tardó 2 s y la respuesta propia pesa 263 KB.
@@ -2299,8 +2319,8 @@ Los arregla `docs/sql/09-seguridad.sql`, ya aplicado.
   La función corta el ciclo porque no aplica RLS adentro. Lo mismo vale para
   `is_admin()`. **Toda función SECURITY DEFINER necesita `set search_path`** o es
   un vector de escalada de privilegios.
-- **`precipitaciones`, `mediciones_lluvia` y `estaciones_lluvia` tienen RLS y
-  cero políticas, a propósito.** Sólo se acceden con la clave de servicio. No es
+- **`precipitaciones`, `mediciones_lluvia`, `estaciones_lluvia` y
+  `pronostico_lluvia` tienen RLS y cero políticas, a propósito.** Sólo se acceden con la clave de servicio. No es
   un olvido: si algún día el navegador necesita leerlas, se agrega una política
   de select, **no** se desactiva RLS.
 - **Siete tablas no tienen script de creación en el repo** — `profiles`,

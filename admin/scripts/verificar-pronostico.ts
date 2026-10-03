@@ -21,7 +21,7 @@ import { join } from 'node:path'
 import { parsearCuencas } from '../src/lib/cuencas'
 import { CONTORNO_CHACO } from '../src/data/contornoChaco'
 import {
-  asignarPuntos, cuantil, grillaEn, laminaPorCorrida, probSuperar, pronosticoPorCuenca, ventana,
+  asignarPuntos, cuantil, filasRegistro, grillaEn, hoyArgentina, pronosticoDeFilas, laminaPorCorrida, probSuperar, pronosticoPorCuenca, ventana,
   PASO_GRADOS, type Pronostico,
 } from '../src/lib/pronostico'
 
@@ -109,6 +109,29 @@ ok('ningún nodo en dos cuencas', new Set(asignados.filter(a => !a.prestado).fla
   ok('siete días dan 140 y el rango se cierra', filas.every(f => cerca(f.siete!.p10, 140) && cerca(f.siete!.p90, 140)))
   ok('la ET₀ de siete días es 7 × 4 = 28', filas.every(f => cerca(f.et0Siete, 28)))
 }
+
+// ── El registro diario ───────────────────────────────────────────────────────
+console.log('\nEl registro diario')
+{
+  // Cada valor distinto, para que un índice corrido se note
+  const p = armar([{ lat: -27, lng: -59 }, { lat: -26.75, lng: -60.5 }], 3, 4, (pt, d, m) => pt * 100 + d * 10 + m, 5)
+  const filas = filasRegistro(p, '2026-10-02')
+  ok('una fila por nodo', filas.length, 2)
+  ok('el arreglo plano tiene días × corridas', filas[0].mm.length, 3 * 4)
+  // día 2, corrida 3 del nodo 1 → 1·100 + 2·10 + 3 = 123 mm = 1230 décimas, en 2·4 + 3
+  ok('el día d y la corrida m van en d·corridas + m', filas[1].mm[2 * 4 + 3], 1230)
+  ok('el primer día pronosticado es el día siguiente a la emisión', filas[0].dia0 === p.dias[0] && filas[0].emitido === '2026-10-02')
+  const vuelta = pronosticoDeFilas(filas)!
+  ok('ida y vuelta: mismos días', JSON.stringify(vuelta.dias), JSON.stringify(p.dias))
+  ok('ida y vuelta: mismos milímetros', JSON.stringify(vuelta.puntos.map(x => x.mm)), JSON.stringify(p.puntos.map(x => x.mm)))
+  ok('ida y vuelta: misma ET₀', JSON.stringify(vuelta.puntos.map(x => x.et0)), JSON.stringify(p.puntos.map(x => x.et0)))
+  const roto = { ...p, puntos: [{ ...p.puntos[0], mm: [[1, 2, 3, 4], [1, 2]] , et0: [1, 1] }] }
+  ok('un nodo con corridas desparejas no se guarda', filasRegistro(roto, '2026-10-02').length, 0)
+  ok('sin filas no hay pronóstico', pronosticoDeFilas([]), null)
+}
+// La emisión es el día local: a las 01:00 UTC en Argentina todavía es el día anterior
+ok('a las 01:00 UTC del 3 en Argentina es el 2', hoyArgentina(new Date('2026-10-03T01:00:00Z')), '2026-10-02')
+ok('a las 15:00 UTC (el cron) es el mismo día', hoyArgentina(new Date('2026-10-03T15:00:00Z')), '2026-10-03')
 
 console.log(fallos ? `\n✗ ${fallos} fallo(s).` : '\n✓ Todo bien.')
 process.exit(fallos ? 1 : 0)
