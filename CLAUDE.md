@@ -1400,6 +1400,56 @@ Cosas que no son obvias:
 `components/cuencas/piezas.ts` son los formatos y estilos de tabla que comparten
 las cuatro vistas.
 
+#### El pronóstico por cuenca
+
+`lib/pronostico.ts` + `app/api/lluvia/pronostico/route.ts` +
+`components/cuencas/VistaPronostico.tsx`, la quinta vista del panel. Por
+cuenca: lo medido en los últimos 7 días y lo pronosticado para mañana, 3 y 7
+días, la probabilidad de juntar 25 mm en tres días, la ET₀ y el balance
+climático. Al abrir una fila, siete días medidos y catorce pronosticados en el
+mismo hietograma.
+
+Es el paso 1 de tres que se acordaron el 02/10/2026: **(1)** el pronóstico
+como suma de lluvia; **(2)** manchas de agua de Sentinel-1 por cuenca, como
+observación; **(3)** recién entonces suelos y humedad, para un balance hídrico
+que se pueda verificar contra esas manchas. Sin el paso 2, un balance con
+suelos sería una hipótesis presentada como resultado — el mismo motivo por el
+que se descartó el índice de humedad antecedente.
+
+- **La fuente es el pronóstico por conjuntos de ECMWF** (IFS 0,25°, 51
+  corridas, 15 días) de `ensemble-api.open-meteo.com`, sin clave. **Windy se
+  evaluó y no sirve como fuente**: su API cuesta 990 € por año, la gratuita
+  devuelve "datos mezclados al azar y levemente modificados", no incluye ECMWF
+  por licencia y no guarda pronósticos pasados. Es un visor de los mismos
+  modelos públicos.
+- **Se muestra como rango, no como un número**: mediana y p10–p90. Mismo
+  criterio que la banda del INA.
+- **Se promedia por corrida y recién después se saca el rango**, y las
+  ventanas de varios días suman por corrida. Promediar o sumar percentiles da
+  un rango más ancho que el real; el test lo afirma con dos puntos que se
+  compensan corrida a corrida (rango de 10 a 90 cada uno, 50 fijo la cuenca).
+- **Grilla de 0,25°, la resolución nativa del modelo: 137 nodos.** Todas las
+  cuencas tienen al menos uno adentro; Quiá y el valle del Paraná, uno solo, y
+  la pantalla lo dice. Si alguna quedara sin nodo, toma el más cercano a su
+  rótulo (`prestado`).
+- **El día de hoy no entra**: el diario de hoy arranca a las 00:00, horas que
+  ya pasaron.
+- **La ruta cachea 3 horas** (ECMWF corre cada 6). Son 137 ubicaciones por
+  consulta contra el cupo de Open-Meteo, que se cuenta por ubicación: con la
+  caché, a lo sumo ~1.100 por día, sumadas a las ~453 de la ingesta. **No pasa
+  por `consultarPuntos()`**, que es de la API de archivo.
+- **Lo medido y lo pronosticado no se suman en ningún número**, y van en
+  colores distintos (azul medido, violeta claro pronóstico). El violeta de las
+  cuencas en el mapa es otro tono y no aparece en esta vista.
+- **El balance es la mediana de la lluvia menos la ET₀**, no cuánta agua se
+  queda. La pantalla lo dice.
+- **Todavía no se mide cuánto acierta.** Para eso hay que guardar cada día el
+  pronóstico emitido y compararlo con la APA cuando llega el parte: hace falta
+  una tabla nueva (SQL a mano) y un paso en el cron. Está sin hacer.
+
+`scripts/verificar-pronostico.ts` no sale a la red. Una consulta real del
+02/10/2026 tardó 2 s y la respuesta propia pesa 263 KB.
+
 #### Cursos de agua, canales y cruces con la red
 
 `lib/hidrografia.ts` + `public/geo/geo_hidro.json`, la cuarta vista del panel

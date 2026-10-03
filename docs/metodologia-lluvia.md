@@ -479,6 +479,41 @@ suposición: en otra carpeta de shapefiles de la provincia —la de canales, ver
 6.7— las capas sin archivo de proyección resultaron estar en Campo Inchauspe. No
 se sabe si comparten origen con las cuencas y no se modificó nada.
 
+### 6.6 bis Pronóstico de lluvia por cuenca
+
+Además de lo medido, la pantalla muestra lo pronosticado para los próximos 14
+días por cuenca.
+
+**Fuente.** El pronóstico por conjuntos del Centro Europeo (ECMWF IFS, 0,25°):
+51 corridas del mismo modelo con condiciones iniciales apenas distintas,
+servidas por Open-Meteo. La dispersión entre corridas es la incertidumbre del
+pronóstico, y por eso **se informa la mediana junto con el rango en que cae el
+80 % de las corridas** (percentiles 10 y 90), nunca un valor solo.
+
+**Cálculo.** Se consulta el modelo en los 137 nodos de una grilla de 0,25°
+dentro de la provincia, que es su resolución nativa. Para cada cuenca y cada
+corrida se promedian los nodos que caen adentro; recién sobre esas 51 láminas
+se calculan la mediana y el rango. Las láminas de 3 y 7 días se suman por
+corrida antes de calcular el rango. Hacerlo al revés —promediar o sumar
+percentiles— exageraría la incertidumbre, porque supone que todos los puntos y
+todos los días tienen su peor caso en la misma corrida.
+
+**Balance climático.** Lluvia pronosticada (mediana) menos evapotranspiración
+de referencia FAO-56 (ET₀) de los próximos 7 días. Indica si el período viene
+con exceso o con déficit de agua. **No estima cuánta agua queda en el terreno**:
+eso depende del suelo, de su humedad previa y del relieve, que el sistema
+todavía no incorpora.
+
+**Límites.**
+
+- Es un modelo, no una medición, y **todavía no se comparó contra los
+  pluviómetros de la APA**: no hay una cifra de cuánto erra en la provincia.
+- La celda del modelo mide unos 25 km: no distingue un consorcio de otro, y en
+  las cuencas más chicas (Quiá, valle del Paraná) el pronóstico es el de un
+  solo punto.
+- El día en curso no se incluye: el pronóstico diario cubre desde la
+  medianoche, horas que ya transcurrieron.
+
 ### 6.7 Cursos de agua, canales y cruces con la red vial
 
 `lib/hidrografia.ts`. Agrega a las cuencas por dónde corre el agua, y con eso
