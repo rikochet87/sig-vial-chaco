@@ -131,7 +131,7 @@ export default function VistaHidro({ cuencas, tramos }: Props) {
             Densidad km/km²
           </th>
           {CATEGORIAS.map(k => <th key={k} style={thD}>{ROTULO_CATEGORIA[k]}</th>)}
-          <th style={thD} title={`Cruces con una obra de arte relevada a menos de ${TOL_M} m`}>Con obra relevada</th>
+          <th style={thD} title={`Cruces con una obra de arte relevada a menos de ${TOL_M} m, sobre el total de cruces de la cuenca. El total son los cruces que marca la carta a 1:250.000, no las obras que existen ni las que faltan relevar`}>Con obra relevada</th>
         </tr>
       </thead>
       <tbody>
@@ -147,7 +147,9 @@ export default function VistaHidro({ cuencas, tramos }: Props) {
             {nDens(adentro.reduce((s, r) => s + r.km.reduce((a, b) => a + b, 0), 0) / km2)}
           </td>
           {CATEGORIAS.map((k, i) => <td key={k} style={{ ...tdD, fontWeight: 700 }}>{suma(r => r.cruces[i])}</td>)}
-          <td style={{ ...tdD, fontWeight: 700 }}>{obras ? suma(r => r.conObra) : '…'}</td>
+          <td style={{ ...tdD, fontWeight: 700 }}>
+            {obras ? `${suma(r => r.conObra)} de ${suma(r => r.lista.length)} cruces` : '…'}
+          </td>
         </tr>
       </tbody>
     </table>
@@ -177,6 +179,12 @@ export default function VistaHidro({ cuencas, tramos }: Props) {
         menos de {TOL_M} m de un cruce; el resto está sobre cursos que la carta no tiene, o sobre caminos
         que no son de la red de consorcios.</>
       )}
+    </div>
+    <div style={{ color: '#8f8f8f', marginTop: 5 }}>
+      La columna <b style={{ color: '#a0a0a0', fontWeight: 400 }}>con obra relevada</b> dice cuántos de los
+      cruces de cada cuenca tienen una obra relevada a menos de {TOL_M} m. El total es el de cruces de la
+      carta, no el de obras: a esta escala faltan los cursos menores, así que va a haber obras donde la carta
+      no marca ningún cruce. Sirve como lista de lugares a visitar, no como cuenta de lo que falta relevar.
     </div>
     <div style={{ color: '#8f8f8f', marginTop: 5 }}>
       La densidad de drenaje —km de cursos y canales por km² de cuenca— depende de la escala de la carta:
@@ -219,7 +227,7 @@ function FilaHidro({ f, cursos, tramos, cargandoObras, abierta, onClick }: {
           <td key={i} style={{ ...tdD, color: n > 0 ? '#ccc' : '#8f8f8f' }}>{celda(n)}</td>
         ))}
         <td style={{ ...tdD, color: f.conObra > 0 ? '#ccc' : '#8f8f8f' }}>
-          {cargandoObras ? '…' : `${f.conObra} de ${f.lista.length}`}
+          {cargandoObras ? '…' : `${f.conObra} de ${f.lista.length} cruces`}
         </td>
       </tr>
 
