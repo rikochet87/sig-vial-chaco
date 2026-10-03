@@ -247,6 +247,9 @@ export default function GuardarObraModal({ open, data, onClose, onSaved, editId 
   }, [open, data?.descripcion, data?.tipo, data?.coordsLinea, data?.preset])
 
   if (!open || !data) return null
+  // Terraplén y Excavación no cargan precio: una obra sin él no muestra un
+  // presupuesto de $0, que se leería como un dato.
+  const conPrecio = data.precio_unitario > 0
 
   const sobrescribe = !!data.sobrescribirId
 
@@ -345,7 +348,8 @@ export default function GuardarObraModal({ open, data, onClose, onSaved, editId 
             Obra guardada correctamente
           </div>
           <div style={{ fontSize: 13, color: '#555', ...mono, marginBottom: 24 }}>
-            {TIPO_LABELS[data.tipo]} · ${data.presupuesto_total.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+            {TIPO_LABELS[data.tipo]}
+            {conPrecio && <> · ${data.presupuesto_total.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</>}
           </div>
           <div style={{ fontSize: 13, color: '#888', marginBottom: 20 }}>
             ¿Deseas notificar a los técnicos de campo?
@@ -400,7 +404,7 @@ export default function GuardarObraModal({ open, data, onClose, onSaved, editId 
         )}
 
         {/* Resumen calculado */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 20,
+        <div style={{ display: 'grid', gridTemplateColumns: conPrecio ? 'repeat(3, 1fr)' : '1fr', gap: 8, marginBottom: 20,
           background: '#0a0a0a', border: '1px solid #1a1a1a', padding: 12 }}>
           <div>
             <div style={{ fontSize: 12, color: '#444', ...mono, textTransform: 'uppercase', letterSpacing: 0.8 }}>Cantidad</div>
@@ -408,6 +412,7 @@ export default function GuardarObraModal({ open, data, onClose, onSaved, editId 
               {data.cantidad.toLocaleString('es-AR', { maximumFractionDigits: 2 })} {data.unidad}
             </div>
           </div>
+          {conPrecio && (<>
           <div>
             <div style={{ fontSize: 12, color: '#444', ...mono, textTransform: 'uppercase', letterSpacing: 0.8 }}>Total</div>
             <div style={{ fontSize: 14, fontWeight: 700, color, ...mono }}>
@@ -420,6 +425,7 @@ export default function GuardarObraModal({ open, data, onClose, onSaved, editId 
               ${data.precio_unitario.toLocaleString('es-AR', { minimumFractionDigits: 0 })}/{data.unidad}
             </div>
           </div>
+          </>)}
         </div>
 
         {/* Jurisdicción */}

@@ -30,12 +30,6 @@ const CLR: Record<Tab, string> = {
   limpieza: '#66BB6A',
 }
 
-// Unidades de precio por tipo (para mostrar en el input)
-const UNIDADES: Record<Tab, string> = {
-  terraplen: '$/t', excavacion: '$/t', ripio: '$/t',
-  limpieza: '$/ha',
-}
-
 // ── Estilos base ──────────────────────────────────────────────────────────────
 // `panel`, `secLabel` y los componentes base se importan de `calc/piezas`.
 const th: React.CSSProperties = {
@@ -2353,6 +2347,7 @@ export default function CalculadorasPage() {
   const editId        = searchParams.get('edit') ?? undefined
 
   const [tab, setTab] = useState<Tab>('terraplen')
+  // Sin control en pantalla: sólo lo repone una obra que se abre para editar
   const [precio, setPrecio] = useState(0)
   const paramsRef = useRef<Params>({})
   const color     = CLR[tab]
@@ -2451,41 +2446,13 @@ export default function CalculadorasPage() {
       </div>
 
       {/*
-        Barra de precio.
-
-        Acá estaban también «Dibujar en mapa» y «Guardar obra», para las
-        calculadoras que no tenían mapa propio. La última era Canal, que pasó a
-        ser un modo de Excavación: Terraplén y Excavación dibujan y guardan
-        desde su propio panel, con `datos_calculadora`, así que la botonera se
-        sacó. Queda el precio unitario, que las dos leen de acá.
+        Acá iba la barra «Precio unit.» que leían Terraplén y Excavación, y
+        antes también «Dibujar en mapa» y «Guardar obra». Se sacó: esas dos
+        calculadoras computan volumen y toneladas, y el precio no se carga
+        acá. Una obra nueva se guarda con presupuesto cero; una que se abre
+        para editar conserva el precio con que se guardó (`precio`, abajo),
+        para no borrarle el presupuesto al volver a guardarla.
       */}
-      {tab !== 'limpieza' && tab !== 'ripio' && (
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 10,
-        padding: '8px 0 10px', borderBottom: '1px solid #141414', flexShrink: 0,
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: 12, color: '#444', letterSpacing: 1, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
-            Precio unit. ({UNIDADES[tab]})
-          </span>
-          <input
-            type="number" step={100} min={0} value={precio || ''}
-            placeholder="0"
-            onChange={e => setPrecio(parseFloat(e.target.value) || 0)}
-            style={{
-              width: 130, background: '#080808', border: `1px solid ${precio > 0 ? color + '66' : '#222'}`,
-              color: precio > 0 ? color : '#e0e0e0', fontFamily: 'monospace',
-              fontSize: 14, padding: '4px 8px', outline: 'none',
-            }}
-          />
-        </div>
-        {precio > 0 && (
-          <span style={{ fontSize: 12, color: '#333', fontFamily: 'monospace' }}>
-            ARS
-          </span>
-        )}
-      </div>
-      )}
 
       {/* Calculadora activa */}
       <div style={{

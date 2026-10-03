@@ -890,11 +890,6 @@ function Guardar({ obra, precio, onGuardar }: {
         ...mono, fontWeight: 700, letterSpacing: 0.6, cursor: 'pointer',
         border: '1px solid #F5C300', background: '#F5C30022', color: '#F5C300',
       }}>Guardar obra</button>
-      {precio <= 0 && (
-        <div style={{ fontSize: 11, color: '#E8833A', marginTop: 5, lineHeight: 1.45 }}>
-          Sin precio unitario se guarda con presupuesto cero.
-        </div>
-      )}
     </>
   )
 }
