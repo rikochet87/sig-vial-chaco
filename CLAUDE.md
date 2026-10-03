@@ -362,6 +362,16 @@ anteriores y la red vial de fondo.
   carpeta que la app, `upsert: false`) y la fila lleva sólo las que llegaron.
   **El navegador las achica a 2.000 px antes**: el cuerpo de una función de
   Vercel tiene tope de 4,5 MB.
+- **El mapa es la pantalla y el formulario es un panel de propiedades** de 380
+  px a la derecha, con Guardar fijo abajo. La primera versión era al revés —un
+  formulario largo de cajas con el mapa al costado— y no gustó: había que bajar
+  hasta el fondo para guardar, el mapa abría en medio continente y la zona, el
+  consorcio y la ruta eran campos vacíos que invitaban a cargarlos a mano.
+  Ahora el mapa encuadra la provincia, esos tres se muestran como dato con un
+  «editar», y sobre el mapa va sólo lo que es del mapa.
+- **Los campos son compactos** (28 px, rótulo chico, secciones separadas por una
+  línea y no por cajas) y los estilos están en `editores.tsx`: la edición de un
+  relevamiento los comparte.
 - **Los campos de cada tipo están en `components/relevamiento/editores.tsx`** y
   los usan la carga nueva y la edición. Tienen los nombres de la app
   (`types/relevamiento.ts` en la raíz): antes la edición del panel no tenía los

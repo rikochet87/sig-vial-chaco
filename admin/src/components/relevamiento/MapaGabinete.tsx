@@ -16,12 +16,17 @@ import 'leaflet/dist/leaflet.css'
 import { useEffect, useRef, useState } from 'react'
 import { useRedFondo, LecturaTramo } from '@/components/RedFondoLectura'
 import { DeslizadorHistorico, useImagenesHistoricas } from '@/components/ImagenesHistoricas'
+import { CONTORNO_CHACO } from '@/data/contornoChaco'
 
 export interface Punto { lat: number; lng: number }
 
 const COLOR = '#F5C300'
 const mono = { fontFamily: 'monospace' as const }
-const CENTRO_CHACO: [number, number] = [-26.4, -60.6]
+/** La caja de la provincia, en [lat, lng]: el mapa abre encuadrado ahí y no en medio continente */
+const CAJA_CHACO: [[number, number], [number, number]] = [
+  [Math.min(...CONTORNO_CHACO.map(p => p[1])), Math.min(...CONTORNO_CHACO.map(p => p[0]))],
+  [Math.max(...CONTORNO_CHACO.map(p => p[1])), Math.max(...CONTORNO_CHACO.map(p => p[0]))],
+]
 
 /** Metros entre dos puntos, haversine */
 export function distanciaM(a: Punto, b: Punto): number {
@@ -63,7 +68,9 @@ export default function MapaGabinete({ modo, punto, linea, onPunto, onLinea }: {
     let map: any = null
     import('leaflet').then(({ default: L }) => {
       if (!vivo || !divRef.current) return
-      map = L.map(divRef.current, { center: CENTRO_CHACO, zoom: 7, zoomControl: true })
+      // zoomSnap 0,5: con niveles enteros el encuadre salta de "sobra medio continente" a "no entra"
+      map = L.map(divRef.current, { zoomSnap: 0.5, zoomControl: true })
+      map.fitBounds(CAJA_CHACO, { padding: [12, 12] })
       mapRef.current = map
       map.on('click', (e: { latlng: Punto }) => {
         const p = { lat: e.latlng.lat, lng: e.latlng.lng }
@@ -119,13 +126,15 @@ export default function MapaGabinete({ modo, punto, linea, onPunto, onLinea }: {
     return () => { vivo = false; capas.forEach(c => c.remove()) }
   }, [mapaListo, modo, punto, linea])
 
-  const largo = linea.reduce((s, p, i) => (i ? s + distanciaM(linea[i - 1], p) : 0), 0)
-
   return (
     <div style={{ position: 'relative', height: '100%', minHeight: 420, background: '#0e0e0e' }}>
       <div ref={divRef} style={{ position: 'absolute', inset: 0, cursor: 'crosshair' }} />
 
-      {/* Arriba a la derecha: mapa base */}
+      {/*
+        Sobre el mapa va sólo lo que es del mapa: el mapa base, la red vial y
+        las imágenes anteriores. Qué hacer, la medida del tramo y deshacer van
+        en el panel, junto con el resto de la carga.
+      */}
       <div className="sv-panel" style={{
         ...mono, position: 'absolute', top: 10, right: 10, zIndex: 1000, display: 'flex',
         background: '#0e0e0e', border: '1px solid #222', borderRadius: 2,
@@ -139,31 +148,8 @@ export default function MapaGabinete({ modo, punto, linea, onPunto, onLinea }: {
         ))}
       </div>
 
-      {/* Arriba a la izquierda, al lado del zoom: qué hacer y el tramo dibujado */}
-      <div style={{
-        ...mono, position: 'absolute', top: 10, left: 54, zIndex: 1000, maxWidth: 'calc(100% - 200px)',
-        background: '#0e0e0e', border: '1px solid #222', borderLeft: `3px solid ${COLOR}`,
-        borderRadius: 2, padding: '6px 10px', fontSize: 12, color: '#a0a0a0',
-      }}>
-        {modo === 'punto'
-          ? (punto ? `${punto.lat.toFixed(6)}, ${punto.lng.toFixed(6)} · clic para moverlo` : 'Hacé clic en el mapa para marcar la obra')
-          : linea.length < 2
-            ? 'Hacé clic punto por punto a lo largo del tramo'
-            : <>
-                <b style={{ color: COLOR }}>{largo >= 1000 ? `${(largo / 1000).toFixed(2)} km` : `${Math.round(largo)} m`}</b>
-                {` · ${linea.length} vértices · clic para seguir`}
-              </>}
-        {modo === 'linea' && linea.length > 0 && (
-          <span style={{ marginLeft: 10, display: 'inline-flex', gap: 6 }}>
-            <button type="button" onClick={() => onLinea(linea.slice(0, -1))} style={chico}>Deshacer</button>
-            <button type="button" onClick={() => onLinea([])} style={{ ...chico, color: '#E57373', borderColor: '#4a2a2a' }}>Borrar</button>
-          </span>
-        )}
-      </div>
-
-      {/* Arriba a la derecha, debajo del mapa base: la red vial. El pie es del
-          deslizador de imágenes anteriores. */}
-      <div style={{ position: 'absolute', right: 10, top: 46, zIndex: 1000 }}>
+      {/* Abajo a la izquierda: la red vial. El centro del pie es del deslizador */}
+      <div style={{ position: 'absolute', left: 10, bottom: 22, zIndex: 1000 }}>
         <LecturaTramo tramo={tramo} activa={redActiva} onActiva={setRedActiva} />
       </div>
 
@@ -173,9 +159,4 @@ export default function MapaGabinete({ modo, punto, linea, onPunto, onLinea }: {
       )}
     </div>
   )
-}
-
-const chico: React.CSSProperties = {
-  ...mono, fontSize: 11, padding: '2px 7px', background: 'transparent',
-  border: '1px solid #2a2a2a', color: '#ccc', cursor: 'pointer', borderRadius: 2,
 }

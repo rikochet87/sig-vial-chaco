@@ -262,3 +262,45 @@ export const vigente = (a: { fin: string | null }, ahora: number) => !a.fin || D
 const ORDEN_NIVEL: Record<Nivel, number> = { rojo: 0, naranja: 1, amarillo: 2 }
 export const ordenarAlertas = (l: Alerta[]) =>
   [...l].sort((a, b) => ORDEN_NIVEL[a.nivel] - ORDEN_NIVEL[b.nivel] || (a.inicio ?? '').localeCompare(b.inicio ?? ''))
+
+/**
+ * Las alertas agrupadas por fenómeno y nivel, para mostrar una fila por cada
+ * una y no un renglón por aviso.
+ *
+ * El SMN emite un aviso por franja horaria y por región: un día de tormentas
+ * son ocho o diez avisos que dicen lo mismo en distintos horarios. Para quien
+ * mira, la pregunta es "¿hay tormentas naranja, desde cuándo y hasta cuándo, y
+ * a quiénes?": se toma el inicio más temprano, el fin más tardío y la unión de
+ * los consorcios. Los avisos originales quedan adentro, con su enlace.
+ */
+export interface GrupoAlertas {
+  clave: string
+  evento: string
+  nivel: Nivel
+  inicio: string | null
+  fin: string | null
+  consorcios: number[]
+  avisos: Alerta[]
+}
+
+export function agruparAlertas(alertas: Alerta[]): GrupoAlertas[] {
+  const grupos = new Map<string, GrupoAlertas>()
+  for (const a of alertas) {
+    // «TORMENTAS FUERTES» del aviso corto y «Tormentas» de la alerta son el mismo fenómeno
+    const evento = a.evento.trim().split(/\s+/)[0].toLowerCase()
+    const clave = `${evento}|${a.nivel}`
+    const g = grupos.get(clave)
+    if (!g) {
+      grupos.set(clave, {
+        clave, evento: evento.charAt(0).toUpperCase() + evento.slice(1), nivel: a.nivel,
+        inicio: a.inicio, fin: a.fin, consorcios: [...a.consorcios], avisos: [a],
+      })
+      continue
+    }
+    if (a.inicio && (!g.inicio || Date.parse(a.inicio) < Date.parse(g.inicio))) g.inicio = a.inicio
+    if (!a.fin || (g.fin && Date.parse(a.fin) > Date.parse(g.fin))) g.fin = a.fin
+    g.consorcios = [...new Set([...g.consorcios, ...a.consorcios])].sort((x, y) => x - y)
+    g.avisos.push(a)
+  }
+  return [...grupos.values()].sort((a, b) => ORDEN_NIVEL[a.nivel] - ORDEN_NIVEL[b.nivel] || (a.inicio ?? '').localeCompare(b.inicio ?? ''))
+}

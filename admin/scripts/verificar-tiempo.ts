@@ -11,7 +11,7 @@
 import { SEDES_CONSORCIOS } from '../src/data/sedesConsorcios'
 import { CONTORNO_CHACO } from '../src/data/contornoChaco'
 import {
-  alcanceEnChaco, cieloDe, diasDe, nivelDe, ordenarAlertas, parsearCap, resumenProvincia, rumbo, vigente,
+  agruparAlertas, alcanceEnChaco, cieloDe, diasDe, nivelDe, ordenarAlertas, parsearCap, resumenProvincia, rumbo, vigente,
   type TiempoConsorcio,
 } from '../src/lib/tiempo'
 
@@ -114,6 +114,23 @@ ok('con tormenta en un tercio de la provincia, el día dice tormenta', cieloDe(r
 const r2 = resumenProvincia([cc(1, dia(0, 1)), cc(2, dia(0, 1)), cc(3, dia(0, 1)), cc(4, dia(5, 95))])[0]
 ok('con tormenta en uno de cuatro, manda el cielo más común', r2.codigo, 1)
 ok('sin consorcios no hay resumen', resumenProvincia([]).length, 0)
+
+console.log('\nAgrupar')
+{
+  const base = enR!
+  const g = agruparAlertas([
+    { ...base, id: '1', evento: 'Tormentas', nivel: 'amarillo', inicio: '2026-10-03T09:00:00-03:00', fin: '2026-10-03T14:59:59-03:00', consorcios: [1, 2] },
+    { ...base, id: '2', evento: 'Tormentas', nivel: 'amarillo', inicio: '2026-10-03T21:00:00-03:00', fin: '2026-10-04T02:59:59-03:00', consorcios: [2, 3] },
+    { ...base, id: '3', evento: 'TORMENTAS FUERTES', nivel: 'naranja', inicio: null, fin: '2026-10-03T03:53:00-03:00', consorcios: [] },
+    { ...base, id: '4', evento: 'Tormentas', nivel: 'naranja', inicio: '2026-10-03T15:00:00-03:00', fin: '2026-10-03T20:59:59-03:00', consorcios: [5] },
+  ])
+  ok('dos grupos: tormentas naranja y amarillo', g.length, 2)
+  ok('el naranja primero', g[0].nivel, 'naranja')
+  ok('el aviso corto y la alerta son el mismo fenómeno', g[0].avisos.length, 2)
+  ok('el amarillo va del inicio más temprano', g[1].inicio, '2026-10-03T09:00:00-03:00')
+  ok('al fin más tardío', g[1].fin, '2026-10-04T02:59:59-03:00')
+  ok('con la unión de los consorcios, sin repetir', JSON.stringify(g[1].consorcios), '[1,2,3]')
+}
 
 console.log(fallos ? `\n✗ ${fallos} fallo(s).` : '\n✓ Todo bien.')
 process.exit(fallos ? 1 : 0)

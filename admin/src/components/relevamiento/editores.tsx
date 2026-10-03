@@ -17,29 +17,55 @@
 export const ZONAS = ['ZI', 'ZII', 'ZIII', 'ZIV', 'ZV']
 export const ESTADOS: string[] = ['Bueno', 'Regular', 'Malo']
 
+/*
+ * Compactos, como un panel de propiedades de CAD: rótulo chico en mayúsculas,
+ * campo de 28 px, monoespaciada, esquinas rectas. Las secciones se separan con
+ * una línea y su título lleva el filo amarillo; no van en cajas, que con cinco
+ * secciones apiladas eran más marco que contenido.
+ */
+const MONO = 'ui-monospace, "Roboto Mono", monospace'
 export const field: React.CSSProperties = {
-  display: 'flex', flexDirection: 'column', gap: 4,
+  display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0,
 }
 export const label: React.CSSProperties = {
-  color: '#9E9E9E', fontSize: 13, textTransform: 'uppercase', letterSpacing: 0.5,
+  color: '#8f8f8f', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8, fontFamily: MONO,
 }
 export const input: React.CSSProperties = {
-  background: '#1a1a1a', border: '1px solid #252525',
-  color: '#e0e0e0', fontSize: 13, padding: '8px 10px', outline: 'none', width: '100%',
+  background: '#111', border: '1px solid #2a2a2a', borderRadius: 2,
+  color: '#e0e0e0', fontSize: 12, fontFamily: MONO, padding: '5px 8px', height: 28,
+  outline: 'none', width: '100%', boxSizing: 'border-box',
 }
-export const select: React.CSSProperties = { ...input, cursor: 'pointer' }
+export const select: React.CSSProperties = { ...input, cursor: 'pointer', padding: '3px 6px' }
 export const textarea: React.CSSProperties = {
-  ...input, resize: 'vertical', minHeight: 80, fontFamily: 'inherit',
+  ...input, height: 'auto', resize: 'vertical', minHeight: 64, lineHeight: 1.5,
 }
 export const grid2: React.CSSProperties = {
-  display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12,
+  display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 10,
 }
 export const sectionCard: React.CSSProperties = {
-  background: '#191919', border: '1px solid #1e1e1e', padding: '16px 20px', marginBottom: 12,
+  borderTop: '1px solid #222', padding: '12px 0 14px',
 }
 export const sectionTitle: React.CSSProperties = {
-  color: '#F5C300', fontSize: 13, fontWeight: 700, marginBottom: 14,
-  textTransform: 'uppercase', letterSpacing: 1.5,
+  color: '#c8c8c8', fontSize: 11, fontWeight: 400, margin: '0 0 10px', fontFamily: MONO,
+  textTransform: 'uppercase', letterSpacing: 1.2, borderLeft: '3px solid #F5C300', paddingLeft: 8,
+}
+
+/** El selector de tipo y de subtipo: un control segmentado, no botones sueltos */
+export function Segmentado<T extends string>({ opciones, valor, onChange }: {
+  opciones: readonly T[]; valor: T; onChange: (v: T) => void
+}) {
+  return (
+    <div style={{ display: 'flex', border: '1px solid #2a2a2a', borderRadius: 2, width: 'fit-content', maxWidth: '100%', flexWrap: 'wrap' }}>
+      {opciones.map(o => (
+        <button key={o} type="button" onClick={() => onChange(o)} style={{
+          background: valor === o ? '#F5C3001a' : 'transparent', border: 'none',
+          borderBottom: `2px solid ${valor === o ? '#F5C300' : 'transparent'}`,
+          color: valor === o ? '#F5C300' : '#9a9a9a', padding: '5px 10px', fontSize: 11,
+          fontFamily: MONO, letterSpacing: 0.8, textTransform: 'uppercase', cursor: 'pointer',
+        }}>{o}</button>
+      ))}
+    </div>
+  )
 }
 
 type Datos = Record<string, unknown>
@@ -105,16 +131,9 @@ export function EditLineal({ data, onChange, longitudM }: EditorProps & { longit
   return (
     <div style={sectionCard}>
       <h3 style={sectionTitle}>Datos lineal</h3>
-      <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
-        {SUBTIPOS_LINEAL.map(s => (
-          <button key={s} type="button" onClick={() => onChange({ ...data, subtipo: s })} style={{
-            background: subtipo === s ? '#F5C30022' : 'transparent',
-            border: `1px solid ${subtipo === s ? '#F5C300' : '#2a2a2a'}`,
-            color: subtipo === s ? '#F5C300' : '#9E9E9E',
-            padding: '6px 14px', fontSize: 12, fontFamily: 'monospace', letterSpacing: 0.8,
-            textTransform: 'uppercase', cursor: 'pointer', borderRadius: 2,
-          }}>{s}</button>
-        ))}
+      <div style={{ marginBottom: 12 }}>
+        <Segmentado opciones={SUBTIPOS_LINEAL} valor={subtipo as (typeof SUBTIPOS_LINEAL)[number]}
+          onChange={v => onChange({ ...data, subtipo: v })} />
       </div>
 
       {subtipo === 'Ripio' && (

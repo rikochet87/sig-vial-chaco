@@ -9,6 +9,11 @@
  * (`datos_especificos.origen`), porque no es lo mismo que una medición en el
  * lugar, y la ficha y la lista lo dicen.
  *
+ * **El mapa es la pantalla y el formulario es un panel de propiedades**, como
+ * en un programa de CAD. La primera versión era al revés —un formulario largo
+ * de cajas con el mapa al costado— y para cargar una alcantarilla había que
+ * bajar hasta el fondo a buscar el botón.
+ *
  * Lo que en la app sale del GPS acá sale del mapa:
  *
  * - la **zona y el consorcio** del más cercano, por distancia euclidiana a la
@@ -17,7 +22,8 @@
  * - la **ruta o tramo**, del camino de la red vial que pasa por el punto, con
  *   el mismo formato que arma la app cuando el técnico toca un camino.
  *
- * Los dos se pueden corregir a mano, y una vez tocados dejan de seguir al mapa.
+ * Se muestran como datos, no como campos vacíos, y se pueden corregir; una vez
+ * tocados dejan de seguir al mapa.
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
@@ -26,7 +32,7 @@ import { useRouter } from 'next/navigation'
 import { SEDES_CONSORCIOS } from '@/data/sedesConsorcios'
 import { cargarRedFondo, type TramoInfo } from '@/lib/redFondo'
 import {
-  ZONAS, ESTADOS, field, label, input, select, textarea, grid2, sectionCard, sectionTitle,
+  ZONAS, ESTADOS, field, label, input, select, textarea, grid2, sectionCard, sectionTitle, Segmentado,
   EditLineal, EditPuente, EditAlcantarilla, EditTubos, EditOtro, INICIAL,
 } from '@/components/relevamiento/editores'
 import { distanciaM, type Punto } from '@/components/relevamiento/MapaGabinete'
@@ -40,6 +46,8 @@ const MAX_FOTOS = 10
 const LADO_MAX_PX = 2000
 /** A qué distancia del punto se busca el camino, en km */
 const TOLERANCIA_RUTA_KM = 0.15
+
+const MONO = 'ui-monospace, "Roboto Mono", monospace'
 
 const hoy = () => {
   const d = new Date()
@@ -75,6 +83,8 @@ async function achicar(f: File): Promise<Blob> {
   return new Promise((ok, mal) => c.toBlob(b => (b ? ok(b) : mal(new Error('No se pudo leer la imagen'))), 'image/jpeg', 0.85))
 }
 
+const fLargo = (m: number) => (m >= 1000 ? `${(m / 1000).toFixed(2).replace('.', ',')} km` : `${Math.round(m)} m`)
+
 export default function NuevoRelevamientoPage() {
   const router = useRouter()
   // El id con el formato de la app; se fija una vez para que las fotos y la
@@ -99,7 +109,7 @@ export default function NuevoRelevamientoPage() {
 
   // Si se tocaron a mano, dejan de seguir al mapa
   const manual = useRef({ ruta: false, zona: false, consorcio: false })
-  const [rutaAuto, setRutaAuto] = useState<string | null>(null)
+  const [editando, setEditando] = useState<'ruta' | 'zona' | 'consorcio' | null>(null)
 
   const [guardando, setGuardando] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -121,9 +131,7 @@ export default function NuevoRelevamientoPage() {
     cargarRedFondo().then(red => {
       if (!vivo) return
       const t = red.tramoEn(ref, TOLERANCIA_RUTA_KM)
-      const r = t ? rutaDe(t) : null
-      setRutaAuto(r)
-      if (r && !manual.current.ruta) setRuta(r)
+      if (t && !manual.current.ruta) setRuta(rutaDe(t))
     }).catch(() => { /* sin la red se carga a mano */ })
     return () => { vivo = false }
   }, [ancla, esLineal, linea])
@@ -167,7 +175,7 @@ export default function NuevoRelevamientoPage() {
         urls.push(j.url)
       }
 
-      setGuardando('Guardando el relevamiento…')
+      setGuardando('Guardando…')
       let acumulado = 0
       const r = await fetch('/api/relevamientos', {
         method: 'POST',
@@ -196,74 +204,74 @@ export default function NuevoRelevamientoPage() {
   }
 
   const setDato = (d: Record<string, unknown>) => setDatos(prev => ({ ...prev, [tipo]: d }))
+  const editar = (k: 'ruta' | 'zona' | 'consorcio') => { manual.current[k] = true; setEditando(k) }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 6 }}>
-        <Link href="/dashboard/relevamientos" style={{ color: '#F5C300', textDecoration: 'none', fontSize: 14 }}>← Volver</Link>
-        <h1 style={{ color: '#fff', fontSize: 20, fontWeight: 700 }}>Nuevo relevamiento de gabinete</h1>
-      </div>
-      <div style={{ color: '#a0a0a0', fontSize: 13, marginBottom: 14, maxWidth: 820, lineHeight: 1.5 }}>
-        Cargado desde la computadora, sin ir al lugar. Queda marcado como <b style={{ color: '#ccc' }}>gabinete</b> en
-        la lista y en la ficha, para que no se confunda con una medición en campo.
+    <div style={{
+      display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 380px',
+      height: 'calc(100vh - 92px)', border: '1px solid #1e1e1e', fontFamily: MONO,
+    }}>
+      {/* ── El mapa ── */}
+      <div style={{ minWidth: 0, minHeight: 0 }}>
+        <MapaGabinete modo={esLineal ? 'linea' : 'punto'} punto={punto} linea={linea}
+          onPunto={setPunto} onLinea={setLinea} />
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(360px, 520px) 1fr', gap: 14, flex: 1, minHeight: 0 }}>
-        {/* ── El formulario ── */}
-        <div style={{ overflowY: 'auto', minHeight: 0, paddingRight: 4 }}>
-          <div style={sectionCard}>
+      {/* ── El panel de propiedades ── */}
+      <aside style={{ display: 'flex', flexDirection: 'column', minHeight: 0, background: '#141414', borderLeft: '1px solid #222' }}>
+        <div style={{ padding: '10px 14px 8px', borderBottom: '1px solid #222' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <Link href="/dashboard/relevamientos" title="Volver a la lista" style={{ color: '#8f8f8f', textDecoration: 'none', fontSize: 13 }}>◀</Link>
+            <span style={{ color: '#e0e0e0', fontSize: 13, letterSpacing: 1, textTransform: 'uppercase' }}>Nuevo relevamiento</span>
+            <span style={{
+              color: '#8fd0ff', border: '1px solid #8fd0ff66', borderRadius: 2, padding: '1px 6px',
+              fontSize: 11, letterSpacing: 0.8, textTransform: 'uppercase',
+            }}>Gabinete</span>
+          </div>
+          <div style={{ color: '#8f8f8f', fontSize: 11, marginTop: 4 }}>
+            Desde la computadora, sin ir al lugar. Queda marcado así en la lista y en la ficha.
+          </div>
+        </div>
+
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '0 14px' }}>
+          <div style={{ ...sectionCard, borderTop: 'none' }}>
             <h3 style={sectionTitle}>Tipo</h3>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              {TIPOS.map(t => (
-                <button key={t} type="button" onClick={() => setTipo(t)} style={{
-                  background: tipo === t ? '#F5C30022' : 'transparent',
-                  border: `1px solid ${tipo === t ? '#F5C300' : '#2a2a2a'}`,
-                  color: tipo === t ? '#F5C300' : '#9E9E9E',
-                  padding: '7px 14px', fontSize: 12, fontFamily: 'monospace', letterSpacing: 0.8,
-                  textTransform: 'uppercase', cursor: 'pointer', borderRadius: 2,
-                }}>{t}</button>
-              ))}
-            </div>
-            <div style={{ color: '#8f8f8f', fontSize: 12, marginTop: 10 }}>
-              {esLineal ? 'Un tramo: se dibuja vértice por vértice en el mapa.' : 'Una obra puntual: se marca con un clic en el mapa.'}
+            <Segmentado opciones={TIPOS} valor={tipo} onChange={setTipo} />
+          </div>
+
+          <div style={sectionCard}>
+            <h3 style={sectionTitle}>Ubicación</h3>
+            <Ubicacion esLineal={esLineal} punto={punto} linea={linea} largoM={largoM} onLinea={setLinea} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 10 }}>
+              <Propiedad titulo="Zona" valor={zona} editando={editando === 'zona'} onEditar={() => editar('zona')} onListo={() => setEditando(null)}>
+                <select style={select} value={zona} autoFocus onChange={e => setZona(e.target.value)} onBlur={() => setEditando(null)}>
+                  <option value="">—</option>
+                  {ZONAS.map(z => <option key={z} value={z}>{z}</option>)}
+                </select>
+              </Propiedad>
+              <Propiedad titulo="Consorcio" valor={consorcio.match(/"([^"]+)"/)?.[1] ?? consorcio} editando={editando === 'consorcio'}
+                onEditar={() => editar('consorcio')} onListo={() => setEditando(null)}>
+                <input style={input} value={consorcio} autoFocus onChange={e => setConsorcio(e.target.value)} onBlur={() => setEditando(null)} />
+              </Propiedad>
+              <Propiedad titulo="Ruta / tramo" valor={ruta} editando={editando === 'ruta'} onEditar={() => editar('ruta')} onListo={() => setEditando(null)}>
+                <input style={input} value={ruta} autoFocus onChange={e => setRuta(e.target.value)} onBlur={() => setEditando(null)} />
+              </Propiedad>
             </div>
           </div>
 
           <div style={sectionCard}>
-            <h3 style={sectionTitle}>Información general</h3>
+            <h3 style={sectionTitle}>General</h3>
             <div style={grid2}>
               <div style={field}>
                 <span style={label}>Fecha</span>
-                <input style={input} type="date" value={fecha} max={hoy()} onChange={e => setFecha(e.target.value)} />
+                <input style={{ ...input, colorScheme: 'dark' }} type="date" value={fecha} max={hoy()} onChange={e => setFecha(e.target.value)} />
               </div>
               <div style={field}>
                 <span style={label}>Estado calzada</span>
                 <select style={select} value={estado} onChange={e => setEstado(e.target.value)}>
-                  <option value="">— seleccionar —</option>
+                  <option value="">—</option>
                   {ESTADOS.map(e => <option key={e} value={e}>{e}</option>)}
                 </select>
-              </div>
-              <div style={field}>
-                <span style={label}>Zona</span>
-                <select style={select} value={zona} onChange={e => { manual.current.zona = true; setZona(e.target.value) }}>
-                  <option value="">— seleccionar —</option>
-                  {ZONAS.map(z => <option key={z} value={z}>{z}</option>)}
-                </select>
-              </div>
-              <div style={{ ...field, gridColumn: '1 / -1' }}>
-                <span style={label}>Ruta / Tramo</span>
-                <input style={input} value={ruta} placeholder="Se completa al marcar sobre un camino"
-                  onChange={e => { manual.current.ruta = true; setRuta(e.target.value) }} />
-                {rutaAuto && ruta !== rutaAuto && (
-                  <button type="button" onClick={() => { manual.current.ruta = false; setRuta(rutaAuto) }} style={sugerencia}>
-                    Usar el camino del mapa: {rutaAuto}
-                  </button>
-                )}
-              </div>
-              <div style={{ ...field, gridColumn: '1 / -1' }}>
-                <span style={label}>Consorcio</span>
-                <input style={input} value={consorcio} placeholder="El más cercano al punto"
-                  onChange={e => { manual.current.consorcio = true; setConsorcio(e.target.value) }} />
               </div>
             </div>
           </div>
@@ -281,23 +289,22 @@ export default function NuevoRelevamientoPage() {
           </div>
 
           <div style={sectionCard}>
-            <h3 style={sectionTitle}>Fotos ({fotos.length} de {MAX_FOTOS})</h3>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <h3 style={sectionTitle}>Fotos <span style={{ color: '#8f8f8f' }}>{fotos.length}/{MAX_FOTOS}</span></h3>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               {fotos.map((f, i) => (
-                <div key={f.vista} style={{ position: 'relative', width: 96, height: 72, border: '1px solid #252525' }}>
+                <div key={f.vista} style={{ position: 'relative', width: 70, height: 52, border: '1px solid #2a2a2a' }}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={f.vista} alt={`Foto ${i + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   <button type="button" onClick={() => quitarFoto(i)} title="Quitar" style={{
-                    position: 'absolute', top: 2, right: 2, background: '#000c', border: 'none',
-                    color: '#fff', fontSize: 11, width: 18, height: 18, cursor: 'pointer', padding: 0,
+                    position: 'absolute', top: 1, right: 1, background: '#000c', border: 'none',
+                    color: '#fff', fontSize: 11, width: 16, height: 16, cursor: 'pointer', padding: 0, lineHeight: '16px',
                   }}>✕</button>
                 </div>
               ))}
               {fotos.length < MAX_FOTOS && (
-                <label style={{
-                  width: 96, height: 72, border: '1px dashed #3a3a3a', color: '#8f8f8f', fontSize: 12,
+                <label title={`Se achican a ${LADO_MAX_PX} px de lado antes de subirlas`} style={{
+                  width: 70, height: 52, border: '1px dashed #3a3a3a', color: '#8f8f8f', fontSize: 11,
                   display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
-                  fontFamily: 'monospace', textAlign: 'center',
                 }}>
                   + Agregar
                   <input type="file" accept="image/*" multiple style={{ display: 'none' }}
@@ -305,34 +312,76 @@ export default function NuevoRelevamientoPage() {
                 </label>
               )}
             </div>
-            <div style={{ color: '#8f8f8f', fontSize: 12, marginTop: 8 }}>
-              Se achican a {LADO_MAX_PX} px de lado antes de subirlas.
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '4px 0 20px', flexWrap: 'wrap' }}>
-            <button type="button" onClick={guardar} disabled={!!guardando} className="glow-y" style={{
-              background: '#F5C300', color: '#111', border: 'none', padding: '10px 22px',
-              fontWeight: 700, fontSize: 13, letterSpacing: 1, cursor: guardando ? 'wait' : 'pointer',
-              opacity: guardando ? 0.6 : 1,
-            }}>{guardando ? 'GUARDANDO…' : 'GUARDAR RELEVAMIENTO'}</button>
-            {guardando && <span style={{ color: '#a0a0a0', fontSize: 13 }}>{guardando}</span>}
-            {!guardando && falta && !error && <span style={{ color: '#8f8f8f', fontSize: 13 }}>{falta}</span>}
-            {error && <span style={{ color: '#E57373', fontSize: 13 }}>{error}</span>}
           </div>
         </div>
 
-        {/* ── El mapa ── */}
-        <div style={{ border: '1px solid #1e1e1e', minHeight: 420 }}>
-          <MapaGabinete modo={esLineal ? 'linea' : 'punto'} punto={punto} linea={linea}
-            onPunto={setPunto} onLinea={setLinea} />
+        {/* ── Guardar, siempre a la vista ── */}
+        <div style={{ borderTop: '1px solid #222', padding: '10px 14px', background: '#111' }}>
+          <div style={{ fontSize: 11, minHeight: 15, marginBottom: 6, color: error ? '#E57373' : '#8f8f8f' }}>
+            {error ?? guardando ?? falta ?? 'Listo para guardar.'}
+          </div>
+          <button type="button" onClick={guardar} disabled={!!guardando} style={{
+            width: '100%', background: falta ? 'transparent' : '#F5C300', color: falta ? '#8f8f8f' : '#111',
+            border: `1px solid ${falta ? '#2a2a2a' : '#F5C300'}`, borderRadius: 2, padding: '8px 0',
+            fontFamily: MONO, fontWeight: 700, fontSize: 12, letterSpacing: 1.2, textTransform: 'uppercase',
+            cursor: guardando ? 'wait' : 'pointer', opacity: guardando ? 0.6 : 1,
+          }}>{guardando ? 'Guardando…' : 'Guardar relevamiento'}</button>
         </div>
-      </div>
+      </aside>
     </div>
   )
 }
 
-const sugerencia: React.CSSProperties = {
-  background: 'none', border: 'none', color: '#F5C300', fontSize: 11, cursor: 'pointer',
-  padding: '2px 0', textAlign: 'left', fontFamily: 'monospace',
+/** Qué hacer en el mapa y lo que ya se marcó */
+function Ubicacion({ esLineal, punto, linea, largoM, onLinea }: {
+  esLineal: boolean; punto: Punto | null; linea: Punto[]; largoM: number; onLinea: (l: Punto[]) => void
+}) {
+  const chico: React.CSSProperties = {
+    fontFamily: MONO, fontSize: 11, padding: '2px 7px', background: 'transparent',
+    border: '1px solid #2a2a2a', color: '#ccc', cursor: 'pointer', borderRadius: 2,
+  }
+  if (!esLineal) {
+    return punto
+      ? <div style={{ fontSize: 12, color: '#e0e0e0' }}>{punto.lat.toFixed(6)}, {punto.lng.toFixed(6)}
+          <div style={{ fontSize: 11, color: '#8f8f8f' }}>Clic en el mapa para moverla.</div></div>
+      : <div style={{ fontSize: 12, color: '#F5C300' }}>Hacé clic en el mapa para marcar la obra.</div>
+  }
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+      {linea.length < 2
+        ? <span style={{ fontSize: 12, color: '#F5C300' }}>Clic en el mapa, punto por punto a lo largo del tramo.</span>
+        : <span style={{ fontSize: 12, color: '#e0e0e0' }}><b style={{ color: '#F5C300' }}>{fLargo(largoM)}</b> · {linea.length} vértices</span>}
+      {linea.length > 0 && (<>
+        <span style={{ flex: 1 }} />
+        <button type="button" onClick={() => onLinea(linea.slice(0, -1))} style={chico}>Deshacer</button>
+        <button type="button" onClick={() => onLinea([])} style={{ ...chico, color: '#E57373', borderColor: '#4a2a2a' }}>Borrar</button>
+      </>)}
+    </div>
+  )
+}
+
+/**
+ * Un dato que sale del mapa: se muestra como valor, no como campo vacío, y se
+ * edita a pedido. Antes de marcar dice qué va a pasar, en vez de un «—
+ * seleccionar —» que invita a cargarlo a mano.
+ */
+function Propiedad({ titulo, valor, editando, onEditar, onListo, children }: {
+  titulo: string; valor: string; editando: boolean
+  onEditar: () => void; onListo: () => void; children: React.ReactNode
+}) {
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '96px 1fr auto', gap: 8, alignItems: 'center', minHeight: 28 }}>
+      <span style={label}>{titulo}</span>
+      {editando
+        ? <div onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') onListo() }}>{children}</div>
+        : <span style={{ fontSize: 12, color: valor ? '#e0e0e0' : '#8f8f8f', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={valor}>
+            {valor || 'se completa al marcar'}
+          </span>}
+      {!editando && (
+        <button type="button" onClick={onEditar} title={`Corregir ${titulo.toLowerCase()} a mano`} style={{
+          background: 'none', border: 'none', color: '#8f8f8f', fontSize: 11, cursor: 'pointer', fontFamily: MONO, padding: 0,
+        }}>editar</button>
+      )}
+    </div>
+  )
 }
