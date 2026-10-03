@@ -303,6 +303,8 @@ Node.**
 - `requireAdminRole()` — exige rol admin
 - `requirePermiso(clave)` — exige un permiso concreto, con el mismo
   `tienePermiso()` que usan el middleware y el Sidebar
+- `requireAlgunPermiso([claves])` — alguno de varios permisos, para las rutas
+  que alimentan a más de una pantalla (el tiempo va en Dashboard y Hidrología)
 - `checkOwnerOrAdmin()` — admin o dueño del recurso
 
 **`requirePermiso` es el que faltaba.** Había sólo dos extremos —sesión a secas o
@@ -802,13 +804,14 @@ año de datos, y ERA5 permitiría décadas.
 
 ## Lluvia — cómo está organizada la pantalla
 
-Cuatro pestañas, cada una con la pantalla entera:
+Cinco pestañas, cada una con la pantalla entera:
 
 | Pestaña | Qué tiene | Selector de período |
 |---|---|---|
 | **Mapa** | el mapa y, al lado, la lista de consorcios **o** de cuencas | sí |
 | **Cuencas** | `PanelCuencas` con sus cuatro vistas | sí, salvo la de cursos de agua |
 | **Río Paraná** | `PanelRio`, abierto | sí |
+| **Tiempo** | alertas del SMN y pronóstico por consorcio (ver «El tiempo») | no: mira hacia adelante |
 | **Precisión** | la comparación de métodos y `PanelMediciones` | no: habla de métodos, no de un período |
 
 **Antes todo iba apilado** —el mapa, y debajo, en renglones plegados, el río,
@@ -2272,6 +2275,59 @@ para la ingesta por consorcio y para la comparación por estación.
 
 `admin/src/data/estacionesApa.ts` se **genera** desde `docs/geo/localidades-apa.json`
 — no editar a mano.
+
+## El tiempo — pronóstico por consorcio y alertas del SMN
+
+`lib/tiempo.ts` (puro) + `lib/tiempoFuente.ts` (servidor) + `components/tiempo/`.
+Pestaña «Tiempo» de Hidrología (`PanelTiempo`) y una franja en el Dashboard
+(`ResumenTiempo`). Para cuatro usos: planificar obras, enterarse de un evento,
+mirar el tiempo y preparar una salida de campo.
+
+**Dos fuentes que no significan lo mismo, y van separadas en pantalla:**
+
+| | Qué es | Quién la respalda | Ruta, caché |
+|---|---|---|---|
+| **Alertas** | avisos del SMN en CAP 1.2, con polígono | el SMN | `/api/tiempo/alertas`, 10 min |
+| **Pronóstico** | Open-Meteo en la sede de cada uno de los 103 consorcios, 7 días | nadie: es un modelo | `/api/tiempo/pronostico`, 1 h |
+
+- **Las alertas son sólo las del SMN; no se calcula ninguna con umbrales
+  propios.** Mismo criterio que el río con los niveles del INA. Una "alerta"
+  nuestra sobre el modelo podría contradecir el aviso oficial.
+- **El SMN publica un índice HTML** (`ssl.smn.gob.ar/CAP/AR.php`) con un XML por
+  aviso, ~170 en todo el país un día de tormentas. Se piden todos y se quedan
+  los vigentes que tocan el Chaco. Un aviso viene partido en varios XML por
+  región: se juntan por título y vigencia. **No está documentado como API**: si
+  el índice deja de traer enlaces, la ruta lo informa como error.
+- **Dos formatos el mismo día**: las alertas, con espacio de nombres por defecto
+  y acentos en entidades numéricas (`&#xE1;`), y los avisos a muy corto plazo,
+  con prefijo `cap:` y el color en el título («AVISO NARANJA…»). Las primeras
+  traen sólo la severidad, que se lleva a color con la equivalencia estándar
+  (Moderate amarillo, Severe naranja, Extreme rojo). El test cubre las dos.
+- **Un consorcio está cubierto si su sede cae adentro del polígono.** Un aviso
+  toca la provincia también si algún vértice cae adentro del contorno —uno chico
+  entre sedes— o, sin polígono, si la descripción nombra al Chaco.
+- **Un error no es "sin alertas".** Si el SMN no contesta, la ruta da 502 y la
+  pantalla dice que no pudo consultar, nunca "no hay alertas". Los avisos sueltos
+  que no se pudieron leer se cuentan en `fallaron` y se informan.
+- **Planificación: días con y sin lluvia pronosticada, no "días aptos".** Si un
+  camino está para trabajar depende de lo que llovió antes y del suelo: es el
+  índice de transitabilidad que la pantalla descartó. El corte de 1 mm
+  (`DIA_LLUVIA_MM`) es la convención climatológica para contar un día de lluvia.
+- **El pronóstico es por sede, no por red.** Las celdas del modelo miden 10 a 25
+  km y vecinos cercanos dan parecido; la pantalla lo dice. Ocho variables
+  diarias: más de diez cuentan doble en el cupo de Open-Meteo.
+- **La lluvia por cuenca y como rango sigue en Cuencas → Pronóstico**, con el
+  pronóstico por conjuntos. Ésta es una sola corrida, para el tiempo general.
+- **El SMN tiene también `pron5d`** (`ssl.smn.gob.ar/dpd/descarga_opendata.php`),
+  pronóstico de 5 días cada 3 horas, pero sólo en estaciones —en el Chaco,
+  Resistencia y pocas más— y el propio archivo aclara que es salida de modelo y
+  puede diferir del pronóstico del SMN. No se usó.
+- Íconos de cielo en SVG de trazo 1,2 px (`components/tiempo/piezas.tsx`): la
+  convención prohíbe emojis, y los de clima son los que más tientan.
+
+`scripts/verificar-tiempo.ts` no sale a la red. El 02/10/2026 el SMN tenía 169
+avisos en el país y 16 tocaban el Chaco: tormentas, naranja y amarillo, para el
+día siguiente.
 
 ## Base de datos
 

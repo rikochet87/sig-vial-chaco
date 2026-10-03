@@ -34,6 +34,7 @@ import { useRedLluvia } from '@/hooks/useRedLluvia'
 import { useCuencasLluvia } from '@/hooks/useCuencasLluvia'
 import PanelMediaAreal from '@/components/PanelMediaAreal'
 import PanelRio from '@/components/PanelRio'
+import PanelTiempo from '@/components/tiempo/PanelTiempo'
 import PanelCuencas from '@/components/PanelCuencas'
 import ListaCuencas from '@/components/cuencas/ListaCuencas'
 import { csvTramos } from '@/lib/redLluvia'
@@ -71,7 +72,7 @@ type Orden = 'mm' | 'pico' | 'numero'
  * Cada cosa tiene ahora la pantalla entera.
  */
 const VISTAS = [
-  ['mapa', 'Mapa'], ['cuencas', 'Cuencas'], ['rio', 'Río Paraná'], ['precision', 'Precisión'],
+  ['mapa', 'Mapa'], ['cuencas', 'Cuencas'], ['rio', 'Río Paraná'], ['tiempo', 'Tiempo'], ['precision', 'Precisión'],
 ] as const
 type Vista = typeof VISTAS[number][0]
 
@@ -372,8 +373,18 @@ export default function LluviaPage() {
         </div>
       )}
 
+      {/*
+        Tiempo mira hacia adelante —alertas del SMN y pronóstico por consorcio—,
+        así que tampoco lleva el selector de período.
+      */}
+      {vista === 'tiempo' && (
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+          <PanelTiempo />
+        </div>
+      )}
+
       {/* El período es común a las tres pestañas que miran lluvia */}
-      {vista !== 'precision' && (<>
+      {vista !== 'precision' && vista !== 'tiempo' && (<>
 
       <SelectorPeriodo
         desde={desde} hasta={hasta} hoy={hoy}

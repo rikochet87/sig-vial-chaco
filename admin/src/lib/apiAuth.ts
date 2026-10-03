@@ -81,6 +81,37 @@ export async function requirePermiso(
 }
 
 /**
+ * Exige **alguno** de varios permisos. Para las rutas que alimentan a más de
+ * una pantalla —el tiempo va en el Dashboard y en Hidrología—: quien ve
+ * cualquiera de las dos tiene que poder leerlas.
+ */
+export async function requireAlgunPermiso(
+  claves: PermisoKey[],
+): Promise<{ userId: string } | NextResponse> {
+  const auth = await requireAdmin()
+  if (auth instanceof NextResponse) return auth
+
+  const supabase = createServiceClient()
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('rol, permisos')
+    .eq('id', auth.userId)
+    .single()
+
+  const perfil = {
+    rol: profile?.rol as string | undefined,
+    permisos: profile?.permisos as string[] | undefined,
+  }
+  if (!claves.some(c => tienePermiso(perfil, c))) {
+    return NextResponse.json(
+      { error: `Se requiere alguno de los permisos: ${claves.join(', ')}` },
+      { status: 403 },
+    )
+  }
+  return auth
+}
+
+/**
  * Verifica que el caller sea admin o el dueño del recurso.
  * Devuelve NextResponse 403 si no tiene acceso, null si está permitido.
  */

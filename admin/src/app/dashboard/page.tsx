@@ -1,6 +1,7 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import type { Relevamiento } from '@/types'
 import DashboardMap from '@/components/DashboardMap'
+import ResumenTiempo from '@/components/tiempo/ResumenTiempo'
 
 const TIPO_COLORS: Record<string, string> = {
   Puente: '#2196F3', Alcantarilla: '#FF9800', Tubos: '#9C27B0', Lineal: '#4CAF50', Otro: '#607D8B',
@@ -94,8 +95,11 @@ export default async function DashboardPage() {
         <StatCard label="Consorcios" value={totalConsorcios ?? 0} />
       </div>
 
+      {/* El tiempo: alertas del SMN y la semana, en una franja */}
+      <ResumenTiempo />
+
       {/* Map — gana el alto que dejó la cabecera */}
-      <div style={{ height: 'calc(100vh - 118px)', minHeight: 480, margin: '0 -1.5rem', borderRadius: 0, position: 'relative' }}>
+      <div style={{ height: 'calc(100vh - 190px)', minHeight: 440, margin: '0 -1.5rem', borderRadius: 0, position: 'relative' }}>
         <DashboardMap relevamientos={(relevamientos as Relevamiento[]) ?? []} />
       </div>
     </div>
