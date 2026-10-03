@@ -12,7 +12,7 @@ import { SEDES_CONSORCIOS } from '../src/data/sedesConsorcios'
 import { CONTORNO_CHACO } from '../src/data/contornoChaco'
 import {
   agruparAlertas, alcanceEnChaco, cieloDe, diasDe, nivelDe, ordenarAlertas, parsearCap, resumenProvincia, rumbo, vigente,
-  type TiempoConsorcio,
+  type DiaTiempo, type TiempoConsorcio,
 } from '../src/lib/tiempo'
 
 let fallos = 0
@@ -105,7 +105,7 @@ ok('la lluvia se lee', dias[0].lluvia, 12.5)
 console.log('\nLa semana en la provincia')
 const dia = (lluvia: number, codigo: number, tMin = 15, tMax = 30) =>
   ({ fecha: '2026-10-03', codigo, tMin, tMax, lluvia, probLluvia: 50, viento: 10, rafagas: 30, dirViento: 0 })
-const cc = (n: number, d: ReturnType<typeof dia>): TiempoConsorcio => ({ numero: n, nombre: '', zona: 'ZI', lat: 0, lng: 0, dias: [d] })
+const cc = (n: number, d: DiaTiempo): TiempoConsorcio => ({ numero: n, nombre: '', zona: 'ZI', lat: 0, lng: 0, dias: [d] })
 const r = resumenProvincia([cc(1, dia(0, 1, 12, 28)), cc(2, dia(0.5, 3)), cc(3, dia(20, 95, 18, 33))])[0]
 ok('mínima de la provincia: la menor', r.tMin, 12)
 ok('máxima de la provincia: la mayor', r.tMax, 33)
@@ -114,6 +114,12 @@ ok('con tormenta en un tercio de la provincia, el día dice tormenta', cieloDe(r
 const r2 = resumenProvincia([cc(1, dia(0, 1)), cc(2, dia(0, 1)), cc(3, dia(0, 1)), cc(4, dia(5, 95))])[0]
 ok('con tormenta en uno de cuatro, manda el cielo más común', r2.codigo, 1)
 ok('sin consorcios no hay resumen', resumenProvincia([]).length, 0)
+{
+  const conProb = (n: number, p: number | null) => cc(n, { ...dia(0, 1), probLluvia: p })
+  const r3 = resumenProvincia([conProb(1, 20), conProb(2, 80), conProb(3, null)])[0]
+  ok('la probabilidad mayor entre los consorcios', r3.probMax, 80)
+  ok('el promedio no cuenta el que no informa', r3.probMedia, 50)
+}
 
 console.log('\nAgrupar')
 {

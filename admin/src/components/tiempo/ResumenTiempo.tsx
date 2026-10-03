@@ -35,7 +35,7 @@ export default function ResumenTiempo() {
   const peor = grupos[0]
 
   return (
-    <Link href="/dashboard/lluvia" title="Ver el tiempo por consorcio en Hidrología → Tiempo" style={{
+    <Link href="/dashboard/lluvia?vista=tiempo" title="Ver el tiempo por consorcio en Hidrología → Tiempo" style={{
       ...mono, display: 'flex', alignItems: 'center', gap: 14, textDecoration: 'none',
       background: '#191919', border: '1px solid #1e1e1e', borderLeft: '3px solid #F5C300',
       padding: '5px 14px', flex: 3, minWidth: 420,
@@ -61,19 +61,23 @@ export default function ResumenTiempo() {
 
       <span style={{ flex: 1 }} />
 
-      {/* La semana: inicial del día, cielo —celeste si llueve en algún consorcio— y máxima */}
+      {/*
+        La semana: inicial del día, cielo —celeste si llueve en algún consorcio—,
+        máxima y probabilidad de lluvia. La probabilidad es la mayor entre los
+        consorcios: la pregunta es si va a llover en algún lado.
+      */}
       {error
         ? <span style={{ color: '#E8A87C', fontSize: 12 }}>sin pronóstico</span>
         : <span style={{ display: 'flex', gap: 10 }}>
             {semana.map(d => {
               const c = cieloDe(d.codigo)
               return (
-                <span key={d.fecha} title={`${c.texto} · ${n0(d.tMin)}°/${n0(d.tMax)}° · lluvia en ${d.conLluvia} consorcios, hasta ${n0(d.lluviaMax)} mm`}
+                <span key={d.fecha} title={`${c.texto} · ${n0(d.tMin)}°/${n0(d.tMax)}° · probabilidad de lluvia hasta ${n0(d.probMax)} % (promedio ${n0(d.probMedia)} %) · lluvia en ${d.conLluvia} consorcios, hasta ${n0(d.lluviaMax)} mm`}
                   style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1.15 }}>
                   <span style={{ fontSize: 11, color: '#8f8f8f' }}>{inicial(d.fecha)}</span>
                   <IconoCielo cielo={c.cielo} tam={14} color={d.conLluvia ? '#8fd0ff' : '#a0a0a0'} />
-                  <span style={{ fontSize: 11, color: '#c8c8c8' }}>
-                    {n0(d.tMax)}°
+                  <span style={{ fontSize: 11, color: '#c8c8c8', whiteSpace: 'nowrap' }}>
+                    {n0(d.tMax)}° <span style={{ color: (d.probMax ?? 0) >= 50 ? '#8fd0ff' : '#8f8f8f' }}>{n0(d.probMax)}%</span>
                   </span>
                 </span>
               )

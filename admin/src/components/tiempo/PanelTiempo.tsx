@@ -144,7 +144,11 @@ function SemanaProvincia({ resumen, total }: { resumen: ReturnType<typeof resume
               <span style={{ fontSize: 12, color: '#ccc', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={c.texto}>{c.texto}</span>
             </div>
             <div style={{ fontSize: 13, color: '#e0e0e0' }}>{n0(d.tMin)}° / {n0(d.tMax)}°</div>
-            <div style={{ fontSize: 12, color: d.conLluvia ? '#8fd0ff' : '#8f8f8f', marginTop: 3 }}>
+            <div style={{ fontSize: 12, color: (d.probMax ?? 0) >= 50 ? '#8fd0ff' : '#a0a0a0', marginTop: 3 }}
+              title={`probabilidad de lluvia: hasta ${n0(d.probMax)} % en algún consorcio, ${n0(d.probMedia)} % en promedio`}>
+              {n0(d.probMax)} % de lluvia
+            </div>
+            <div style={{ fontSize: 12, color: d.conLluvia ? '#8fd0ff' : '#8f8f8f' }}>
               {d.conLluvia ? `lluvia en ${d.conLluvia} de ${total}` : 'sin lluvia'}
             </div>
             {d.conLluvia > 0 && <div style={{ fontSize: 11, color: '#8f8f8f' }}>hasta {n0(d.lluviaMax)} mm</div>}

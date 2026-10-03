@@ -21,6 +21,7 @@
  * histórico que se va juntando solo con el cron diario.
  */
 
+import { useSearchParams } from 'next/navigation'
 import { useEffect, useMemo, useState, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import { useUser } from '@/lib/UserContext'
@@ -100,7 +101,22 @@ export default function LluviaPage() {
     { hecho: number; total: number; desde: string; hasta: string } | null
   >(null)
   const [autoEpisodio, setAutoEpisodio] = useState(true)
-  const [vista, setVista] = useState<Vista>('mapa')
+  /*
+   * La pestaña sale de la URL (`?vista=tiempo`) y se escribe en ella al
+   * cambiar: así la tarjeta del Dashboard abre directo en Tiempo, y cualquier
+   * pestaña se puede compartir con un enlace. El panel se renderiza por pedido
+   * —el layout lee la sesión—, así que el servidor ya ve el parámetro y no hay
+   * desajuste de hidratación.
+   */
+  const params = useSearchParams()
+  const [vista, setVista] = useState<Vista>(() => {
+    const v = params.get('vista')
+    return VISTAS.some(([k]) => k === v) ? (v as Vista) : 'mapa'
+  })
+  const elegirVista = (v: Vista) => {
+    setVista(v)
+    window.history.replaceState(null, '', v === 'mapa' ? window.location.pathname : `?vista=${v}`)
+  }
   /** Qué se lista al lado del mapa, y la cuenca elegida ahí */
   const [lista, setLista] = useState<'consorcios' | 'cuencas'>('consorcios')
   const [cuencaSel, setCuencaSel] = useState<number | null>(null)
@@ -339,7 +355,7 @@ export default function LluviaPage() {
         </h1>
         <div style={{ display: 'flex', border: '1px solid #252525' }}>
           {VISTAS.map(([v, t]) => (
-            <button key={v} onClick={() => setVista(v)} style={{
+            <button key={v} onClick={() => elegirVista(v)} style={{
               ...mono, fontSize: 13, padding: '5px 14px', cursor: 'pointer',
               border: 'none', letterSpacing: 0.5,
               background: vista === v ? '#1e1e1e' : 'transparent',
@@ -580,7 +596,7 @@ export default function LluviaPage() {
 
           {lista === 'cuencas' && (
             <ListaCuencas datos={datosCuencas} hayMediciones={estaciones.length > 0}
-              elegida={cuencaSel} onElegir={setCuencaSel} onVerTabla={() => setVista('cuencas')} />
+              elegida={cuencaSel} onElegir={setCuencaSel} onVerTabla={() => elegirVista('cuencas')} />
           )}
 
           {lista === 'consorcios' && (<>

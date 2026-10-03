@@ -118,6 +118,14 @@ export interface ResumenDia {
   /** Cuántos consorcios pronostican al menos DIA_LLUVIA_MM */
   conLluvia: number
   rafagaMax: number | null
+  /**
+   * Probabilidad de lluvia, %: la mayor entre los consorcios y el promedio.
+   * Se muestra la mayor —«hasta 80 %»— porque la pregunta es si va a llover en
+   * algún lado; el promedio va al lado para que no se lea como la de toda la
+   * provincia.
+   */
+  probMax: number | null
+  probMedia: number | null
   /** El cielo que más se repite, priorizando tormenta: si hay en un tercio de la provincia, se dice */
   codigo: number | null
 }
@@ -140,6 +148,8 @@ export function resumenProvincia(consorcios: TiempoConsorcio[]): ResumenDia[] {
       lluviaMax: max(nums(d => d.lluvia)),
       conLluvia: dia.filter(d => (d.lluvia ?? 0) >= DIA_LLUVIA_MM).length,
       rafagaMax: max(nums(d => d.rafagas)),
+      probMax: max(nums(d => d.probLluvia)),
+      probMedia: (() => { const p = nums(d => d.probLluvia); return p.length ? p.reduce((a, b) => a + b, 0) / p.length : null })(),
       codigo: tormentas.length >= codigos.length / 3 ? max(tormentas) : masComun,
     }
   })
