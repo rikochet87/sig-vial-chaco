@@ -136,9 +136,26 @@ export function tileDe(lat: number, lon: number, z: number): { z: number; y: num
   }
 }
 
+/**
+ * Clave del tile de la cadena que contiene el punto. Dos centros con la misma
+ * clave tienen la misma lista de fotos: es la unidad de búsqueda.
+ */
+export function claveTile(lat: number, lon: number): string {
+  const t = tileDe(lat, lon, Z_CADENA)
+  return `${t.z}/${t.y}/${t.x}`
+}
+
 // ── Qué fotos distintas hay en un lugar ──────────────────────────────────────
 
 const resultadosCache = new Map<string, Imagen[]>()
+
+/**
+ * Metadatos ya consultados, por tile y versión. Las fechas de toma son lo
+ * lento —segundos por pedido en una zona fría— y una búsqueda cortada al mover
+ * el mapa no tiene que perder las que ya trajo: al volver al mismo tile se
+ * retoman. `null` es "la versión no la informa", que también es una respuesta.
+ */
+const metaCache = new Map<string, Pick<Imagen, 'captura' | 'fuente' | 'resolucionM'> | null>()
 
 /**
  * Las fotos distintas en un punto, ordenadas de la más vieja a la más nueva
@@ -155,7 +172,7 @@ export async function fechasEn(
   opts: { signal?: AbortSignal; onParcial?: (l: Imagen[]) => void } = {},
 ): Promise<Imagen[]> {
   const t = tileDe(lat, lon, Z_CADENA)
-  const clave = `${t.z}/${t.y}/${t.x}`
+  const clave = claveTile(lat, lon)
   const cacheada = resultadosCache.get(clave)
   if (cacheada) return cacheada
 
@@ -163,19 +180,26 @@ export async function fechasEn(
   const duenos = await cadenaDeDuenos(versiones, t, opts.signal)
   const imgs: Imagen[] = duenos.map(v => ({
     n: v.n, publicada: v.publicada, captura: null, fuente: null, resolucionM: null,
+    ...metaCache.get(`${clave}#${v.n}`),
   }))
-  opts.onParcial?.(ordenar(imgs))
+  // Mientras llegan las fechas de toma el orden es el de publicación, que no
+  // cambia: si cada fecha que llega reordenara la lista, el cursor del
+  // deslizador se correría solo, sin que nadie lo toque. Se ordena por toma
+  // una sola vez, al final, junto con el colapso.
+  opts.onParcial?.(ordenarPorPublicacion(imgs))
 
+  const pendientes = duenos.map((_, i) => i).filter(i => !metaCache.has(`${clave}#${duenos[i].n}`))
   let siguiente = 0
   const trabajador = async () => {
-    while (siguiente < duenos.length) {
-      const i = siguiente++
+    while (siguiente < pendientes.length) {
+      const i = pendientes[siguiente++]
       const m = await metadatos(duenos[i].metaUrl, lat, lon, opts.signal).catch(e => {
         if (opts.signal?.aborted) throw e
-        return null // una versión sin metadatos queda con su fecha de publicación
+        return undefined // falló el pedido: no se cachea, el próximo intento pregunta de nuevo
       })
+      if (m !== undefined) metaCache.set(`${clave}#${duenos[i].n}`, m)
       if (m) imgs[i] = { ...imgs[i], ...m }
-      opts.onParcial?.(ordenar(imgs))
+      opts.onParcial?.(ordenarPorPublicacion(imgs))
     }
   }
   await Promise.all(Array.from({ length: CONCURRENCIA_META }, trabajador))
@@ -249,6 +273,7 @@ export async function cadenaPorTandas(
 async function metadatos(
   metaUrl: string, lat: number, lon: number, signal?: AbortSignal,
 ): Promise<Pick<Imagen, 'captura' | 'fuente' | 'resolucionM'> | null> {
+  let fallo = false
   for (const capa of CAPAS_META) {
     const q = new URLSearchParams({
       f: 'json', geometry: `${lon},${lat}`, geometryType: 'esriGeometryPoint', inSR: '4326',
@@ -256,7 +281,7 @@ async function metadatos(
       returnGeometry: 'false',
     })
     const r = await fetch(`${metaUrl}/${capa}/query?${q}`, { signal })
-    if (!r.ok) continue
+    if (!r.ok) { fallo = true; continue }
     const j = await r.json() as { features?: { attributes: Record<string, string | number | null> }[] }
     const a = j.features?.[0]?.attributes
     const captura = fechaSrc(a?.SRC_DATE)
@@ -265,6 +290,8 @@ async function metadatos(
       return { captura, fuente: typeof a.NICE_DESC === 'string' ? a.NICE_DESC : null, resolucionM: Number.isFinite(res) ? res : null }
     }
   }
+  // Una capa que no contestó no es "no informa": no se puede cachear como tal.
+  if (fallo) throw new Error('Wayback metadatos no respondió')
   return null
 }
 
@@ -279,6 +306,10 @@ export function fechaSrc(s: string | number | null | undefined): string | null {
 }
 
 const fechaDe = (i: Imagen) => i.captura ?? i.publicada
+
+function ordenarPorPublicacion(l: Imagen[]): Imagen[] {
+  return [...l].sort((a, b) => a.publicada.localeCompare(b.publicada))
+}
 
 function ordenar(l: Imagen[]): Imagen[] {
   return [...l].sort((a, b) => fechaDe(a).localeCompare(fechaDe(b)) || a.publicada.localeCompare(b.publicada))

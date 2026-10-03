@@ -599,7 +599,21 @@ Cosas que no son obvias:
   esa versión muestra en el lugar nuevo (`entradaVigente`: la más nueva
   publicada hasta esa fecha).
 - **El colapso por captura se hace una sola vez, al final**, para que las marcas
-  del deslizador no se reacomoden bajo el dedo de quien lo está usando.
+  del deslizador no se reacomoden bajo el dedo de quien lo está usando. **Y el
+  orden también**: mientras llegan las fechas de toma la lista va por fecha de
+  publicación, que no cambia. Antes cada fecha que llegaba reordenaba la lista
+  —una toma de 2007 publicada en 2016 saltaba hacia atrás— y el cursor del
+  deslizador se corría solo.
+- **Acercar o alejar no relanza la búsqueda si el centro sigue en el mismo
+  tile** (`claveTile`, zoom 16). La rueda acerca hacia el cursor y corre el
+  centro unos metros; cada `moveend` cortaba la búsqueda a mitad de las fechas
+  de toma —que tardan de 9 a 98 s en un lugar frío— y la empezaba de cero, así
+  que el deslizador volvía a la lista a medio armar y se reacomodaba otra vez.
+  Era lo que se veía como "se mueve solo al hacer zoom".
+- **Las fechas de toma ya consultadas se cachean por tile y versión**, así una
+  búsqueda cortada no pierde lo que trajo. Sólo se cachea una respuesta: si
+  alguna capa de metadatos no contestó, `metadatos()` tira en vez de devolver
+  "no informa", que quedaría guardado para siempre.
 - La fecha que se venía mirando se queda debajo hasta que la nueva cargó. Sin
   eso, un paso a una fecha sin precargar parpadea a la imagen actual.
 

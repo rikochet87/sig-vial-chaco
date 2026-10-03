@@ -21,7 +21,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
-  ATRIBUCION, entradaVigente, fechasEn, urlTiles, type Imagen,
+  ATRIBUCION, claveTile, entradaVigente, fechasEn, urlTiles, type Imagen,
 } from '@/lib/wayback'
 
 /**
@@ -95,13 +95,23 @@ export function useImagenesHistoricas(
 
     let ctrl: AbortController | null = null
     let reloj: ReturnType<typeof setTimeout> | null = null
+    // Tile de la búsqueda en curso o terminada. Acercar o alejar con la rueda
+    // corre el centro unos metros; si sigue en el mismo tile la lista es la
+    // misma, y relanzar la búsqueda la cortaba a mitad de las fechas de toma y
+    // volvía a mostrar la lista a medio armar.
+    let claveActual: string | null = null
 
     const buscar = async () => {
+      if (map.getZoom() < ZOOM_MIN_HISTORICO) {
+        ctrl?.abort(); claveActual = null; setFase('lejos'); return
+      }
+      const { lat, lng } = map.getCenter()
+      const clave = claveTile(lat, lng)
+      if (clave === claveActual) return
       ctrl?.abort()
-      if (map.getZoom() < ZOOM_MIN_HISTORICO) { setFase('lejos'); return }
+      claveActual = clave
 
       const mio = ctrl = new AbortController()
-      const { lat, lng } = map.getCenter()
       const recibir = (l: Imagen[], f: FaseHistorico) => {
         if (mio.signal.aborted) return
         setLista(l)
@@ -114,7 +124,7 @@ export function useImagenesHistoricas(
         const final = await fechasEn(lat, lng, { signal: mio.signal, onParcial: l => recibir(l, 'parcial') })
         recibir(final, 'lista')
       } catch {
-        if (!mio.signal.aborted) setFase('error')
+        if (!mio.signal.aborted) { claveActual = null; setFase('error') }
       }
     }
 
