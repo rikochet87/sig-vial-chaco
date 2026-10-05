@@ -100,14 +100,20 @@ export async function GET(req: NextRequest) {
    * falta nada».
    */
   let faltan: string[] | null = null
+  // Las fechas con parte según la APA, que es lo que mira el control de
+  // crecidas sin parte: una fecha publicada y sin importar no es un día seco.
+  let publicadas: string[] | null = null
   try {
-    faltan = partesFaltantes(await fechasApa(), porFecha.keys(), desde, hasta)
+    const todas = await fechasApa()
+    faltan = partesFaltantes(todas, porFecha.keys(), desde, hasta)
+    publicadas = todas.filter(f => f >= desde && f <= hasta).sort()
   } catch {
     faltan = null
+    publicadas = null
   }
 
   return NextResponse.json({
-    desde, hasta, faltan,
+    desde, hasta, faltan, publicadas,
     estaciones: ESTACIONES_ACTIVAS.map(e => ({ nombre: e.nombre, lat: e.lat, lng: e.lng })),
     partes: [...porFecha].sort((a, b) => a[0].localeCompare(b[0])).map(([fecha, mm]) => ({ fecha, mm })),
   })

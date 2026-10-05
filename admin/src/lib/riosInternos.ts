@@ -83,6 +83,8 @@ export const ESTACIONES_INTERNAS: EstacionInterna[] = [
   { id: 7193, serie: 38214, curso: 'Canal Línea Paraná', lugar: 'Los Amores', lat: -28.11028, lng: -59.97556, cuenca: 10, aLaSalida: true },
 ]
 
+export const nombreDe = (e: EstacionInterna) => `${e.curso}, ${e.lugar}`
+
 /** Cuántos días sin lectura hacen que una estación se marque como atrasada */
 export const DIAS_ATRASO = 3
 
@@ -161,6 +163,110 @@ export function resumirAlturas(serie: DiaAltura[], hoy: string): ResumenAltura |
   }
 }
 
+// ── Crecidas sin parte ───────────────────────────────────────────────────────
+
+/** Cuánto tiene que subir una escala para contarla como crecida, en metros */
+export const SUBIDA_M = 0.5
+/** En cuántos días */
+export const DIAS_SUBIDA = 3
+/** En cuántos cursos de agua distintos tiene que pasar a la vez */
+export const CURSOS_MINIMOS = 2
+/** Cuántos días hacia atrás se busca un parte de la APA */
+export const DIAS_PARTE = 5
+
+export interface CrecidaSinParte {
+  /** Primer y último día en que las escalas estaban subiendo */
+  desde: string
+  hasta: string
+  /** Cuánto subió cada escala, la mayor subida del episodio, en metros */
+  escalas: { id: number; nombre: string; subida: number }[]
+}
+
+/**
+ * Las crecidas que no tienen un parte de la APA que las explique.
+ *
+ * **Es un control de los datos de lluvia, no un aviso de crecida.** La pantalla
+ * supone que un día sin parte es un día sin lluvia, porque la APA publica
+ * cuando llueve. Las escalas son una observación que no pasa por la APA: si
+ * dos cursos de agua distintos suben a la vez y en los días previos no hay
+ * ningún parte, lo que falta es el parte, no la lluvia.
+ *
+ * Pasó: entre el 20 y el 26/12/2025 subieron el Negro, el Tapenagá y el canal
+ * —el Negro más de cuatro metros— y la APA no tiene un solo parte de diciembre
+ * de 2025. Las láminas de ese mes describen la falta de dato.
+ *
+ * ── El criterio, y contra qué se probó ────────────────────────────────────────
+ *
+ * Una escala «está subiendo» un día si su altura supera en `SUBIDA_M` a la
+ * menor de los `DIAS_SUBIDA` anteriores. Hay crecida si eso pasa en
+ * `CURSOS_MINIMOS` cursos distintos el mismo día: dos escalas del mismo río
+ * no alcanzan, y una sola puede ser una compuerta. Y le falta el parte si no
+ * hay ninguno desde `DIAS_PARTE` días antes de que empezara a subir hasta que
+ * dejó de hacerlo.
+ *
+ * Sobre el año de 09/2025 a 10/2026 da siete crecidas y **una sola sin
+ * parte**, la de diciembre. Con el umbral en un metro, o contando escalas en
+ * vez de cursos, la respuesta es la misma: no depende de dónde se ponga la
+ * vara.
+ *
+ * No dice cuánto llovió ni dónde, y que haya un parte no quiere decir que esté
+ * completo: sólo que la APA publicó algo esos días.
+ */
+export function crecidasSinParte(
+  series: { e: EstacionInterna; serie: DiaAltura[] }[], conParte: Iterable<string>,
+): CrecidaSinParte[] {
+  const partes = new Set(conParte)
+  const n = Math.max(0, ...series.map(s => s.serie.length))
+  const episodios: (CrecidaSinParte & { ultimo: number })[] = []
+
+  for (let t = 0; t < n; t++) {
+    const subiendo: { e: EstacionInterna; subida: number }[] = []
+    let fecha = ''
+    for (const { e, serie } of series) {
+      const hoy = serie[t]
+      if (!hoy) continue
+      fecha = hoy.fecha
+      if (hoy.m === null) continue
+      let minima = Infinity
+      for (let k = 1; k <= DIAS_SUBIDA; k++) {
+        const antes = serie[t - k]?.m
+        if (antes !== null && antes !== undefined) minima = Math.min(minima, antes)
+      }
+      if (hoy.m - minima >= SUBIDA_M) subiendo.push({ e, subida: hoy.m - minima })
+    }
+    if (new Set(subiendo.map(s => s.e.curso)).size < CURSOS_MINIMOS) continue
+
+    // Días seguidos, o con uno de por medio, son la misma crecida. Primero se
+    // arma la crecida entera y recién después se le busca el parte: un río
+    // sigue «subiendo» varios días después de la lluvia, y mirar cada día por
+    // separado dejaría sin parte el final de una crecida que sí lo tiene.
+    let ep = episodios[episodios.length - 1]
+    if (!ep || t - ep.ultimo > 2) {
+      ep = { desde: fecha, hasta: fecha, escalas: [], ultimo: t }
+      episodios.push(ep)
+    }
+    ep.hasta = fecha
+    ep.ultimo = t
+    for (const s of subiendo) {
+      const ya = ep.escalas.find(x => x.id === s.e.id)
+      const subida = Math.round(s.subida * 100) / 100
+      if (ya) ya.subida = Math.max(ya.subida, subida)
+      else ep.escalas.push({ id: s.e.id, nombre: nombreDe(s.e), subida })
+    }
+  }
+  // Le falta el parte si no hay ninguno desde `DIAS_PARTE` días antes de que
+  // empezara a subir hasta que dejó de hacerlo
+  const sinParte = episodios.filter(ep => {
+    for (let t = Date.parse(ep.desde) - DIAS_PARTE * DIA_MS; t <= Date.parse(ep.hasta); t += DIA_MS) {
+      if (partes.has(isoDe(t))) return false
+    }
+    return true
+  })
+  return sinParte.map(({ desde, hasta, escalas }) => ({
+    desde, hasta, escalas: escalas.sort((a, b) => b.subida - a.subida),
+  }))
+}
+
 /** Lo que devuelve `/api/lluvia/rios-internos` por estación */
 export interface EstacionInternaConSerie extends EstacionInterna {
   lecturas: LecturaRio[]
@@ -176,4 +282,3 @@ export interface RespuestaRiosInternos {
   fuente: string
 }
 
-export const nombreDe = (e: EstacionInterna) => `${e.curso}, ${e.lugar}`

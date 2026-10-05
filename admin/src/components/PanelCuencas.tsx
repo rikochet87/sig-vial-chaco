@@ -69,6 +69,8 @@ interface Diario {
   partes: ParteDiario[]
   /** Partes que la APA publicó en el rango y no están cargados; null = no se pudo comprobar */
   faltan?: string[] | null
+  /** Fechas con parte según la APA en el rango; null = no se pudo consultar */
+  publicadas?: string[] | null
 }
 
 /** La serie y las máximas de una cuenca */
@@ -228,7 +230,8 @@ export default function PanelCuencas({ datos, estaciones, desde, hasta, hoy, tra
           {!error && cuencas && vista === 'rios' && (
             <VistaRios cuencas={cuencas} observado={observado} errorObservado={errorDiario}
               onReintentarObservado={() => setIntentoDiario(v => v + 1)}
-              serieDesde={serieDesde} hoy={hoy} desde={desde} hasta={hasta} />
+              serieDesde={serieDesde} hoy={hoy} desde={desde} hasta={hasta}
+              conParte={diarioVigente ? (diarioVigente.publicadas ?? diarioVigente.partes.map(p => p.fecha)) : null} />
           )}
 
           {!error && cuencas && vista === 'pronostico' && (

@@ -1587,9 +1587,23 @@ grande del período adentro. Consecuencias que hay que tener presentes:
   mes describen la falta de dato, no la falta de lluvia.
 - Lo único que hay para ese mes es la serie modelada de Open-Meteo, que no pasa
   por los pluviómetros.
-- **Las escalas sirven de control de los partes**: una crecida en varias a la
-  vez sin parte en la semana es un parte que falta. Hoy eso no se avisa en
-  pantalla.
+- **Las escalas sirven de control de los partes, y la vista «Ríos internos» lo
+  avisa.** `crecidasSinParte()` en `riosInternos.ts`: si dos cursos de agua
+  distintos suben 0,5 m o más en tres días y no hay ningún parte desde cinco
+  días antes, lo que falta es el parte. Dos escalas del mismo río no alcanzan,
+  y una sola puede ser una compuerta. **Es un control de los datos de lluvia,
+  no un aviso de crecida.** Sobre el año de 09/2025 a 10/2026 hay siete
+  crecidas y marca una sola, la de diciembre; con el umbral en un metro o
+  contando escalas en vez de cursos da lo mismo. El aviso aparece cuando la
+  ventana que se mira incluye la crecida: en los 90 días de siempre, hoy no
+  hay ninguna.
+- **Primero se arma la crecida entera y después se le busca el parte.** La
+  primera versión miraba día por día, y un río que sigue subiendo varios días
+  después de la lluvia quedaba «sin parte» al final de una crecida que sí lo
+  tenía. Lo atrapó el test, con un parte cinco días antes.
+- Para esto `/api/lluvia/estaciones/diario` devuelve también `publicadas`, las
+  fechas con parte según la APA: una fecha publicada y sin importar no es un
+  día seco.
 - La pregunta abierta para la APA de `docs/lluvia-pendientes.md` —¿publican
   parte sólo los días que llueve?— tiene acá una respuesta parcial: al menos
   ese mes, no.

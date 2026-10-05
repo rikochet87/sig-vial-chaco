@@ -17,7 +17,8 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { cuencaEn, parsearCuencas } from '../src/lib/cuencas'
 import {
-  ESTACIONES_INTERNAS, serieDeAlturas, resumirAlturas, nombreDe, DIAS_CAMBIO,
+  ESTACIONES_INTERNAS, serieDeAlturas, resumirAlturas, nombreDe, crecidasSinParte,
+  DIAS_CAMBIO, DIAS_PARTE, SUBIDA_M,
 } from '../src/lib/riosInternos'
 
 let fallos = 0
@@ -162,6 +163,52 @@ const meseta = resumirAlturas(serieDeAlturas([
   { fecha: '2026-09-03T03:00:00.000Z', m: 1 },
 ], '2026-09-01', '2026-09-03'), '2026-09-03')!
 ok('con la máxima repetida, la más reciente', meseta.maxima.fecha, '2026-09-02')
+
+// ── Crecidas sin parte ──────────────────────────────────────────────────────
+titulo('Crecidas que ningún parte explica')
+
+/*
+ * Escalas de mentira sobre tres cursos. `sube(dia, m)` arma una serie quieta en
+ * un metro que ese día empieza a subir `m` metros en dos días y se queda.
+ */
+const D0 = '2026-03-01', D1 = '2026-03-31'
+const dia = (n: number) => new Date(Date.parse(D0) + n * 86_400_000).toISOString().slice(0, 10)
+const sube = (cuando: number, m: number) => serieDeAlturas(
+  Array.from({ length: 31 }, (_, t) => ({
+    fecha: `${dia(t)}T03:00:00.000Z`,
+    m: 1 + (t < cuando ? 0 : t === cuando ? m / 2 : m),
+  })), D0, D1)
+const escNegro = ESTACIONES_INTERNAS.find(e => e.lugar === 'Laguna Blanca')!
+const escNegro2 = ESTACIONES_INTERNAS.find(e => e.lugar === 'San Fernando')!
+const escTapenaga = ESTACIONES_INTERNAS.find(e => e.curso === 'Arroyo Tapenagá')!
+
+const dosCursos = [{ e: escNegro, serie: sube(10, 3) }, { e: escTapenaga, serie: sube(10, 1.2) }]
+const c1 = crecidasSinParte(dosCursos, [])
+ok('dos cursos suben a la vez y no hay ningún parte: una crecida', c1.length, 1)
+ok('que empieza el día en que empiezan a subir', c1[0]?.desde, dia(10))
+ok('con las dos escalas, la que más subió primero',
+  c1[0]?.escalas.map(x => x.id).join(','), `${escNegro.id},${escTapenaga.id}`)
+ok('y cuánto subió cada una', c1[0]?.escalas[0].subida === 3 && c1[0]?.escalas[1].subida === 1.2)
+
+ok('con un parte ese día, no se marca', crecidasSinParte(dosCursos, [dia(10), dia(11), dia(12)]).length, 0)
+ok(`con un parte ${DIAS_PARTE} días antes, tampoco`, crecidasSinParte(dosCursos, [dia(10 - DIAS_PARTE)]).length, 0)
+ok('con el parte un día más atrás, sí', crecidasSinParte(dosCursos, [dia(10 - DIAS_PARTE - 1)]).length, 1)
+ok('un parte posterior a la crecida no la explica', crecidasSinParte(dosCursos, [dia(20)]).length, 1)
+
+ok('dos escalas del mismo río no alcanzan',
+  crecidasSinParte([{ e: escNegro, serie: sube(10, 3) }, { e: escNegro2, serie: sube(10, 2) }], []).length, 0)
+ok('una sola escala tampoco: puede ser una compuerta',
+  crecidasSinParte([{ e: escNegro, serie: sube(10, 3) }], []).length, 0)
+ok(`una subida de menos de ${SUBIDA_M} m no cuenta`,
+  crecidasSinParte([{ e: escNegro, serie: sube(10, 0.4) }, { e: escTapenaga, serie: sube(10, 0.4) }], []).length, 0)
+ok('si suben con una semana de diferencia, no es la misma crecida',
+  crecidasSinParte([{ e: escNegro, serie: sube(5, 3) }, { e: escTapenaga, serie: sube(15, 2) }], []).length, 0)
+ok('sin series no hay nada que marcar', crecidasSinParte([], []).length, 0)
+
+/* Un hueco en la lectura no inventa una subida ni la tapa. */
+const conHueco = sube(10, 3).map((d, t) => (t === 9 ? { ...d, m: null } : d))
+ok('con un hueco el día anterior, la subida se mide contra los otros dos',
+  crecidasSinParte([{ e: escNegro, serie: conHueco }, { e: escTapenaga, serie: sube(10, 1.2) }], []).length, 1)
 
 console.log(fallos === 0 ? '\n✓ Todo bien.' : `\n✗ ${fallos} fallo(s).`)
 process.exit(fallos === 0 ? 0 : 1)

@@ -30,7 +30,7 @@ import { Fragment, useEffect, useMemo, useState } from 'react'
 import type { Cuenca } from '@/lib/cuencas'
 import type { DiaCuenca } from '@/lib/lluviaCuencas'
 import {
-  ESTACIONES_INTERNAS, DIAS_ATRASO, DIAS_CAMBIO, nombreDe, resumirAlturas, serieDeAlturas,
+  ESTACIONES_INTERNAS, DIAS_ATRASO, DIAS_CAMBIO, DIAS_PARTE, crecidasSinParte, nombreDe, resumirAlturas, serieDeAlturas,
   type DiaAltura, type EstacionInterna, type RespuestaRiosInternos, type ResumenAltura,
 } from '@/lib/riosInternos'
 import { boton, fCorta, mono, nMm, td, tdD, th, thD } from './piezas'
@@ -41,6 +41,8 @@ const MAX_DIAS = 400
 const C_AGUA = '#19B5A5'
 const C_LLUVIA = '#4A90C2'
 
+/** Con el año: la ventana puede cruzar de un año a otro */
+const fLarga = (f: string) => f.split('-').reverse().join('/')
 const nM = (v: number) => v.toFixed(2).replace('.', ',').replace('-', '−')
 const nCambio = (v: number) => (Math.abs(v) < 0.005 ? '0,00' : `${v > 0 ? '+' : '−'}${Math.abs(v).toFixed(2).replace('.', ',')}`)
 
@@ -50,7 +52,7 @@ interface Fila {
   resumen: ResumenAltura | null
 }
 
-export default function VistaRios({ cuencas, observado, errorObservado, onReintentarObservado, serieDesde, hoy, desde, hasta }: {
+export default function VistaRios({ cuencas, observado, errorObservado, onReintentarObservado, serieDesde, hoy, desde, hasta, conParte }: {
   cuencas: Cuenca[]
   /** La lámina diaria de cada cuenca entre `serieDesde` y `hoy`, por código; null mientras carga */
   observado: Map<number, DiaCuenca[]> | null
@@ -62,6 +64,8 @@ export default function VistaRios({ cuencas, observado, errorObservado, onReinte
   /** El período elegido arriba, para marcarlo en las franjas */
   desde: string
   hasta: string
+  /** Las fechas con parte de la APA en la ventana; null mientras carga */
+  conParte: string[] | null
 }) {
   const [datos, setDatos] = useState<(RespuestaRiosInternos & { clave: string }) | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -99,6 +103,12 @@ export default function VistaRios({ cuencas, observado, errorObservado, onReinte
     })
   }, [vigente, serieDesde, hoy])
 
+  // El control de los partes: crecidas en varios cursos sin ninguno que las explique
+  const sinParte = useMemo(
+    () => (filas && conParte ? crecidasSinParte(filas, conParte) : []),
+    [filas, conParte],
+  )
+
   if (error) {
     return (
       <div style={{ color: '#E8A87C' }}>
@@ -118,6 +128,19 @@ export default function VistaRios({ cuencas, observado, errorObservado, onReinte
       Del {fCorta(serieDesde)} al {fCorta(hoy)} · altura media diaria en {filas.length} escalas del INA.
       Tocá una para verla al lado de la lluvia de su cuenca.
     </div>
+
+    {sinParte.map(c => (
+      <div key={c.desde} style={{ color: '#E8A87C', border: '1px solid #7a4a22', borderLeft: '3px solid #E8833A',
+        background: 'rgba(40,24,16,.5)', padding: '7px 11px', marginBottom: 8, lineHeight: 1.5 }}>
+        <b>
+          {c.desde === c.hasta ? `El ${fLarga(c.desde)}` : `Entre el ${fCorta(c.desde)} y el ${fLarga(c.hasta)}`} subieron
+          los ríos y la APA no publicó ningún parte.
+        </b>{' '}
+        {c.escalas.map(x => `${x.nombre} +${nM(x.subida)} m`).join(' · ')}. No hay ningún parte desde{' '}
+        {DIAS_PARTE} días antes, así que la lluvia de esas fechas figura como cero en toda la pantalla:
+        lo que falta es el parte, no la lluvia.
+      </div>
+    ))}
 
     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
       <thead>
