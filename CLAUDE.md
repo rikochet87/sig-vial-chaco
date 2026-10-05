@@ -1523,6 +1523,77 @@ importación no frena el recálculo: queda en el log.
 `scripts/verificar-rios-internos.ts` no sale a la red: afirma el catálogo
 contra las cuencas y los canales, y el armado de la serie y su resumen.
 
+#### Sentinel-1: lo que se probó, y por qué no se usa
+
+Era el paso 2 del plan del balance hídrico: la superficie anegada por cuenca
+después de cada evento, como observación. **Se midió el 05/10/2026 y el
+producto disponible no sirve para eso en el Chaco.** No hay pantalla; queda
+`scripts/explorar-gfm.mjs` para repetir la medición.
+
+**La fuente es buena y está abierta**, que es lo que conviene no volver a
+averiguar: el *Global Flood Monitoring* de Copernicus publica, por cada pasada
+de Sentinel-1 desde 2015, el agua observada, lo inundado y una máscara de
+exclusión, a 20 m. Catálogo STAC en `stac.eodc.eu` (colección `GFM`) y
+archivos en `data.eodc.eu`, sin cuenta ni clave. Se leen desde Node sin
+dependencias: son TIFF con ZSTD.
+
+Lo medido, sobre un año de pasadas (09/2025 a 10/2026) en el mosaico del este
+de la provincia, cruzado con los partes de la APA y la altura de los ríos:
+
+- **Más de la mitad del terreno está excluido.** La máscara de exclusión cubre
+  el 65 % de Negro - Salado, el 42 a 56 % del Tapenagá y un tercio de Línea
+  Paraná: monte y vegetación densa, donde el radar de banda C no ve el agua.
+- **Donde ve, detecta muy poco.** En los 5.091 km² de Negro - Salado lo
+  inundado fue de 0,5 a 7,4 km² en todo el año. El 14/08/2026, con el Negro en
+  4,29 m en Laguna Blanca —bajando de una crecida de 5,22—, dio 1,2 km²: lo
+  mismo que un día cualquiera. El agua de una crecida de llanura está debajo de
+  vegetación o es una lámina con plantas emergentes, y eso no se detecta.
+- **En Línea Paraná no sigue a la lluvia, y a veces va al revés.** 193 km² el
+  20/05/2026 sin lluvia en la semana; 99 y 107 km² en septiembre con 1 a 7 mm
+  y el canal bajo; y **0,1 km² el 14/04/2026, después de la semana más
+  lluviosa de la serie** (83 mm de media, 173 en una estación). Es lo que hace
+  un suelo desnudo, seco y liso: se ve oscuro como el agua, y cuando se moja
+  deja de verse así. Buena parte de lo que marca ahí no es agua.
+- **La revisita no alcanza para un evento.** Una misma órbita vuelve cada 12
+  días. La crecida del Negro de agosto culminó entre el 8 y el 9; las pasadas
+  que cubren la cuenca entera fueron el 2 y el 14.
+- Sí vio el encharcamiento del 22/12/2025 (7,4 km², el máximo del año en Negro
+  - Salado), con la pasada el mismo día en que empezó a subir el río. Ve el
+  agua recién caída en campo abierto, no la crecida.
+
+**El servicio de estadísticas de EODC (titiler) no sirve para esto**: falla en
+la mayoría de las escenas y decima el archivo. Se leen los TIFF.
+
+**Lo que queda como observación son las escalas del INA** (la vista «Ríos
+internos»), que sí responden. Si se vuelve sobre el satélite, lo que falta
+probar es otra cosa: la retrodispersión cruda de Sentinel-1 contra su propia
+historia en cada píxel —EODC publica `SENTINEL1_SIG0_20M`—, o el agua de la
+clasificación de escena de Sentinel-2, que es óptico y no ve con nubes.
+
+#### En diciembre de 2025 llovió y la APA no publicó ningún parte
+
+Salió de mirar las escalas contra los partes. Entre el 20 y el 26/12/2025
+subieron a la vez las cuatro: el Negro en Laguna Blanca de −0,03 a 5,07 m, en
+San Fernando de 1,19 a 3,23, el Tapenagá de 1,79 a 3,48 y el canal Línea
+Paraná de 1,01 a 1,54. **La APA no tiene ningún parte entre el 01/12 y el
+31/12/2025.**
+
+Es el caso que la pantalla declara como posible —«si un día llovió y no hubo
+parte, estos números quedan cortos»— y acá es un mes entero con el evento más
+grande del período adentro. Consecuencias que hay que tener presentes:
+
+- **«Día sin parte = no llovió» no vale para diciembre de 2025.** Las láminas
+  por cuenca, las máximas en varios días y la procedencia `sin_parte` de ese
+  mes describen la falta de dato, no la falta de lluvia.
+- Lo único que hay para ese mes es la serie modelada de Open-Meteo, que no pasa
+  por los pluviómetros.
+- **Las escalas sirven de control de los partes**: una crecida en varias a la
+  vez sin parte en la semana es un parte que falta. Hoy eso no se avisa en
+  pantalla.
+- La pregunta abierta para la APA de `docs/lluvia-pendientes.md` —¿publican
+  parte sólo los días que llueve?— tiene acá una respuesta parcial: al menos
+  ese mes, no.
+
 #### El pronóstico por cuenca
 
 `lib/pronostico.ts` + `app/api/lluvia/pronostico/route.ts` +
