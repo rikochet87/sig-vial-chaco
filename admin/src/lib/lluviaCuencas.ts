@@ -270,6 +270,26 @@ export function pesosIdw(
 /** Lo que midió cada estación un día con parte, en el orden de las estaciones */
 export interface ParteDiario { fecha: string; mm: number[] }
 
+/**
+ * Qué partes publicó la APA en el rango y no están cargados.
+ *
+ * **Existe porque la falta no se ve.** La serie diaria sale de
+ * `mediciones_lluvia`, que se llena importando; un día que la APA publicó y
+ * nadie importó no tiene filas, y entonces se lee igual que un día sin parte:
+ * suma cero. Pasó —el 05/10/2026 la tabla tenía 11 fechas de las 168
+ * publicadas— y se descubrió por otro lado, mirando un río que había crecido
+ * sin lluvia a la vista.
+ *
+ * `publicadas` es la lista de fechas de la APA; `cargadas`, las que tienen
+ * alguna fila. Devuelve las que faltan, de la más vieja a la más nueva.
+ */
+export function partesFaltantes(
+  publicadas: string[], cargadas: Iterable<string>, desde: string, hasta: string,
+): string[] {
+  const ya = new Set(cargadas)
+  return [...new Set(publicadas)].filter(f => f >= desde && f <= hasta && !ya.has(f)).sort()
+}
+
 /** Un día de la serie de una cuenca */
 export interface DiaCuenca {
   fecha: string

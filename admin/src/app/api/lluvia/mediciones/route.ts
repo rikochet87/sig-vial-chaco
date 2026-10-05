@@ -122,12 +122,30 @@ async function importar(
 
   // Saltear lo ya importado, salvo que se pida explícitamente rehacerlo
   if (body.soloNuevas !== false) {
-    const { data } = await supabase
-      .from('mediciones_lluvia')
-      .select('fecha')
-      .gte('fecha', desde).lte('fecha', hasta)
-      .not('importado_en', 'is', null)
-    const ya = new Set((data ?? []).map(r => r.fecha as string))
+    /*
+     * **Paginado y con `order`, y sin eso la importación no termina nunca.**
+     *
+     * La consulta trae una fila por medición, no por fecha, y Supabase corta en
+     * mil. Con más de mil mediciones importadas el conjunto de «ya está» venía
+     * incompleto: las fechas que quedaban afuera se volvían a traer en cada
+     * corrida, siempre las mismas 25, y las más viejas no entraban jamás. No
+     * fallaba nada —cada corrida decía que había guardado— y el contador de
+     * pendientes se quedaba clavado. Se encontró el 05/10/2026 queriendo
+     * completar el histórico: la tabla tenía 11 fechas de 168.
+     */
+    const ya = new Set<string>()
+    for (let off = 0; ; off += PAGINA) {
+      const { data, error } = await supabase
+        .from('mediciones_lluvia')
+        .select('fecha')
+        .gte('fecha', desde).lte('fecha', hasta)
+        .not('importado_en', 'is', null)
+        .order('fecha').order('estacion')
+        .range(off, off + PAGINA - 1)
+      if (error) return dbError(error, 400, 'leer las fechas ya importadas')
+      for (const r of data ?? []) ya.add(r.fecha as string)
+      if (!data || data.length < PAGINA) break
+    }
     disponibles = disponibles.filter(f => !ya.has(f))
   }
 
@@ -244,14 +262,26 @@ export async function GET() {
   if (auth instanceof NextResponse) return auth
   const supabase = createServiceClient()
 
-  const { data: meds, error: e1 } = await supabase
-    .from('mediciones_lluvia')
-    .select('estacion, fecha, mm, mm_modelo')
-    .order('fecha', { ascending: false })
-    .limit(5000)
-  if (e1) return dbError(e1)
+  /*
+   * Paginado: `.limit(5000)` no alcanza, porque Supabase corta en mil filas por
+   * pedido. Con más de mil mediciones las métricas se calculaban sobre las mil
+   * más recientes —56 eventos de 168— y la pantalla lo mostraba como el total.
+   */
+  type Medicion = { estacion: string; fecha: string; mm: number; mm_modelo: number | null }
+  const meds: Medicion[] = []
+  for (let off = 0; ; off += PAGINA) {
+    const { data, error } = await supabase
+      .from('mediciones_lluvia')
+      .select('estacion, fecha, mm, mm_modelo')
+      .order('fecha', { ascending: false }).order('estacion')
+      .range(off, off + PAGINA - 1)
+    if (error) return dbError(error, 400, 'leer las mediciones')
+    if (!data?.length) break
+    meds.push(...(data as Medicion[]))
+    if (data.length < PAGINA) break
+  }
 
-  if (!meds?.length) {
+  if (!meds.length) {
     return NextResponse.json({
       mediciones: 0, eventos: 0, metricas: null, factor: null, evaluacion: null,
       aviso: 'Todavía no hay mediciones cargadas.',
@@ -270,6 +300,8 @@ export async function GET() {
         .from('precipitaciones')
         .select('consorcio_numero, fecha, mm')
         .in('fecha', fechasViejas)
+        // Sin `order` el paginado no es estable y se pierden o repiten filas
+        .order('fecha').order('consorcio_numero')
         .range(off, off + PAGINA - 1)
       if (error) return dbError(error)
       if (!data?.length) break

@@ -16,7 +16,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { parsearCuencas } from '../src/lib/cuencas'
 import {
-  csvCuencas, csvMaximas, laminaMaxima, laminaPorCuenca, leerPunto, muestrasDe, pesosIdw, serieDiaria,
+  csvCuencas, csvMaximas, laminaMaxima, laminaPorCuenca, leerPunto, muestrasDe, partesFaltantes, pesosIdw, serieDiaria,
   totalCuencas, PASO_KM, VENTANAS_DIAS, type DiaCuenca,
 } from '../src/lib/lluviaCuencas'
 import { arealPorPartes, arealPorSuperficie, type MedicionConNombre } from '../src/lib/thiessenAreal'
@@ -348,6 +348,22 @@ const puntoLejano = leerPunto(-34.6, -58.4, gradiente, cuencas, filasG)
 ok('fuera de las cuencas no hay cuenca', puntoLejano.cuenca, null)
 ok('fuera del radio no hay dato', puntoLejano.mm, null)
 ok('pero se dice cuál es el pluviómetro más cercano y a cuánto', (puntoLejano.cercano?.km ?? 0) > 60)
+
+// ── Los partes sin importar ──────────────────────────────────────────────────
+titulo('Los partes que la APA publicó y no están cargados')
+
+const publicadas = ['2026-10-03', '2026-09-28', '2026-08-03', '2026-08-01', '2026-06-30']
+ok('lo publicado y no cargado, de la más vieja a la más nueva',
+  partesFaltantes(publicadas, ['2026-09-28', '2026-10-03'], '2026-07-08', '2026-10-05').join(','), '2026-08-01,2026-08-03')
+ok('lo que está fuera del rango no cuenta',
+  partesFaltantes(publicadas, [], '2026-09-01', '2026-10-05').join(','), '2026-09-28,2026-10-03')
+ok('las dos puntas del rango entran',
+  partesFaltantes(publicadas, [], '2026-08-01', '2026-08-03').length, 2)
+ok('con todo cargado no falta nada', partesFaltantes(publicadas, publicadas, '2026-01-01', '2026-12-31').length, 0)
+ok('una fecha cargada que la APA no lista no es un faltante',
+  partesFaltantes(publicadas, ['2026-07-15'], '2026-07-01', '2026-07-31').length, 0)
+ok('una fecha repetida en la lista se cuenta una vez',
+  partesFaltantes(['2026-08-01', '2026-08-01'], [], '2026-08-01', '2026-08-01').length, 1)
 
 console.log(fallos === 0 ? '\n✓ Todo bien.' : `\n✗ ${fallos} fallo(s).`)
 process.exit(fallos === 0 ? 0 : 1)

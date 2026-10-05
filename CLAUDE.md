@@ -1480,17 +1480,41 @@ Siete escalas, con altura media diaria desde 09/2024:
   la serie, la descartaba y la volvía a bajar.
 
 **Lo que se vio al abrir la vista, el 05/10/2026: a `mediciones_lluvia` le
-faltan partes.** El Negro en Laguna Blanca tuvo su máxima de la ventana, 5,22 m,
-el 09/08/2026, y la franja de lluvia de su cuenca estaba vacía en esas semanas. No es que no haya
-llovido: la APA tiene 168 fechas con parte y la tabla tenía 11, todas desde el
-10/09/2026 (214 mediciones). En la ventana de 90 días son 11 de 33. **Todo lo
-que usa la serie diaria por cuenca —«Máximas en varios días», lo medido del
-pronóstico y esta vista— ve sólo esas fechas**, sin avisar: un día sin fila en
-la tabla se lee igual que un día sin parte. Se arregla con el botón Importar de
-la pestaña Precisión (25 fechas por corrida, consulta el modelo en cada
-estación, así que gasta cupo). El acumulado por consorcio no está afectado: la
-fusión lee los partes de la APA en vivo, no de esta tabla. **Falta que la
-pantalla compare las fechas de la APA contra las de la tabla y lo diga.**
+faltaban casi todos los partes.** El Negro en Laguna Blanca había subido de
+2,0 a 5,2 m entre el 3 y el 8 de agosto y la franja de lluvia de su cuenca
+estaba vacía. No era que no hubiera llovido: la APA tenía 168 fechas con parte
+y la tabla 11, todas desde el 10/09/2026. Todo lo que usa la serie diaria por
+cuenca —«Máximas en varios días», lo medido del pronóstico y esta vista— veía
+sólo esas fechas, sin avisar. El acumulado por consorcio no estaba afectado: la
+fusión lee los partes de la APA en vivo, no de esta tabla.
+
+Ya está importado entero (3.425 mediciones, 168 fechas), y con eso la franja
+muestra 12 mm el 01/08 y 30 mm el 03/08 sobre la cuenca, y el río llegando a su
+máxima cinco días después. Salieron tres cosas:
+
+- **La importación no podía terminar nunca, por una lectura sin paginar.** Para
+  saltear lo ya importado la ruta pedía las fechas con `importado_en`, una
+  fila por medición, y Supabase corta en mil. Pasadas las mil mediciones el
+  conjunto venía incompleto y cada corrida volvía a traer las mismas 25 fechas:
+  decía que había guardado, y el contador de pendientes no bajaba. **Se
+  encontró porque un bucle que tenía que terminar en siete corridas no
+  terminaba.** Ahora pagina con `order`.
+- **Las métricas de Precisión se calculaban sobre mil mediciones**, no sobre
+  todas: el GET tenía `.limit(5000)`, que no levanta el tope de mil filas por
+  pedido. Con la tabla llena mostraba 1.000 mediciones en 56 eventos como si
+  fuera el total. También pagina. **En este repo, toda lectura que pueda pasar
+  de mil filas va con `range()` y `order`; `.limit()` solo no alcanza.**
+- **La serie diaria ahora dice lo que le falta.** `/api/lluvia/estaciones/diario`
+  le pide a la APA la lista de fechas publicadas y devuelve `faltan`: las que
+  están en el rango y no tienen filas (`partesFaltantes()` en
+  `lluviaCuencas.ts`). Las tres vistas muestran un aviso con cuántas son y
+  entre qué fechas. `faltan: null` es «la APA no contestó, no se pudo
+  comprobar», y también se dice: no es lo mismo que «no falta nada». El aviso
+  no lleva botón: importar es de administrador y gasta cupo.
+
+**El cron no importa partes a esta tabla**: se llena sólo con el botón Importar
+de Precisión. Hasta que eso cambie, el aviso va a volver a aparecer con cada
+parte nuevo de la APA, y es correcto que aparezca.
 
 `scripts/verificar-rios-internos.ts` no sale a la red: afirma el catálogo
 contra las cuencas y los canales, y el armado de la serie y su resumen.

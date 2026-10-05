@@ -30,6 +30,8 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { requirePermiso, dbError } from '@/lib/apiAuth'
 import { hace, aISO } from '@/lib/lluvia'
 import { ESTACIONES_ACTIVAS } from '@/data/estacionesApa'
+import { fechasApa } from '@/lib/apa'
+import { partesFaltantes } from '@/lib/lluviaCuencas'
 
 export const dynamic = 'force-dynamic'
 
@@ -88,8 +90,24 @@ export async function GET(req: NextRequest) {
     if (data.length < PAGINA) break
   }
 
+  /*
+   * Los partes que la APA publicó y acá no están cargados.
+   *
+   * Un día sin filas en la tabla se lee igual que un día sin parte, así que la
+   * falta no se ve desde la serie: hay que preguntarle a la APA qué publicó. Es
+   * un pedido liviano —la lista de fechas—, y si la APA no contesta la serie se
+   * entrega igual con `faltan: null`, que es «no se pudo comprobar» y no «no
+   * falta nada».
+   */
+  let faltan: string[] | null = null
+  try {
+    faltan = partesFaltantes(await fechasApa(), porFecha.keys(), desde, hasta)
+  } catch {
+    faltan = null
+  }
+
   return NextResponse.json({
-    desde, hasta,
+    desde, hasta, faltan,
     estaciones: ESTACIONES_ACTIVAS.map(e => ({ nombre: e.nombre, lat: e.lat, lng: e.lng })),
     partes: [...porFecha].sort((a, b) => a[0].localeCompare(b[0])).map(([fecha, mm]) => ({ fecha, mm })),
   })

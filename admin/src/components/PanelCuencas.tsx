@@ -67,6 +67,8 @@ const DIAS_SERIE = 90
 interface Diario {
   estaciones: { nombre: string; lat: number; lng: number }[]
   partes: ParteDiario[]
+  /** Partes que la APA publicó en el rango y no están cargados; null = no se pudo comprobar */
+  faltan?: string[] | null
 }
 
 /** La serie y las máximas de una cuenca */
@@ -195,6 +197,14 @@ export default function PanelCuencas({ datos, estaciones, desde, hasta, hoy, tra
             </div>
           )}
 
+          {/*
+            Un parte sin importar se lee igual que un día sin parte: suma cero.
+            Las tres vistas que usan la serie diaria lo tienen que decir, porque
+            desde la serie sola no se puede notar.
+          */}
+          {!error && cuencas && (vista === 'maximas' || vista === 'rios' || vista === 'pronostico')
+            && diarioVigente && <AvisoFaltantes faltan={diarioVigente.faltan} />}
+
           {!error && cuencas && vista === 'maximas' && (
             <VistaMaximas
               filas={filasMaximas} error={errorDiario}
@@ -298,6 +308,33 @@ export default function PanelCuencas({ datos, estaciones, desde, hasta, hoy, tra
           </>)}
         </div>
       )}
+    </div>
+  )
+}
+
+/**
+ * Los partes que la APA publicó y la serie diaria no tiene.
+ *
+ * No lleva botón: importar es de administrador, consulta el modelo en cada
+ * estación y se hace desde Precisión. Acá se dice qué falta y dónde se arregla.
+ */
+function AvisoFaltantes({ faltan }: { faltan: string[] | null | undefined }) {
+  if (faltan === null) {
+    return (
+      <div style={{ color: '#8f8f8f', marginBottom: 8 }}>
+        No se pudo consultar a la APA qué partes publicó, así que no se sabe si a esta serie le falta alguno.
+      </div>
+    )
+  }
+  if (!faltan || faltan.length === 0) return null
+  const n = faltan.length
+  return (
+    <div style={{ color: '#E8A87C', border: '1px solid #7a4a22', borderLeft: '3px solid #E8833A',
+      background: 'rgba(40,24,16,.5)', padding: '7px 11px', marginBottom: 8, lineHeight: 1.5 }}>
+      <b>A esta serie le {n === 1 ? 'falta 1 parte' : `faltan ${n} partes`} que la APA sí publicó</b>
+      {n === 1 ? `: el del ${fCorta(faltan[0])}.` : `, del ${fCorta(faltan[0])} al ${fCorta(faltan[n - 1])}.`}
+      {' '}Esos días figuran como si no hubiera habido parte y suman cero, así que las láminas de abajo
+      pueden estar cortas. Se cargan con «Importar» en la pestaña Precisión.
     </div>
   )
 }
