@@ -17,13 +17,11 @@
  *
  * `requirePermiso('lluvia')`, que es el permiso de la pantalla que la consume.
  *
- * **`/api/lluvia` y `/api/lluvia/serie` todavía usan `requireAdmin()`**, que
- * sólo verifica que haya sesión — el nombre engaña. Son de sólo lectura y de
- * datos públicos, así que el daño es bajo, pero es el mismo molde que ya causó
- * agujeros acá: el botón escondido en la pantalla y el endpoint abierto. Un
- * técnico de la app móvil tiene cuenta y puede obtener sesión en `/login`
- * aunque el middleware después lo saque del panel. Esta ruta no repite el
- * patrón; las otras dos habría que emparejarlas.
+ * Las lecturas de `/api/lluvia` —el resumen, la serie, las estaciones y las
+ * mediciones— usaban `requireAdmin()`, que sólo verifica que haya sesión: el
+ * nombre engaña. Un técnico de la app móvil tiene cuenta y puede obtener sesión
+ * en `/login` aunque el middleware después lo saque del panel. Ya están todas
+ * con este mismo guard.
  *
  * ── Qué NO hace ───────────────────────────────────────────────────────────────
  *

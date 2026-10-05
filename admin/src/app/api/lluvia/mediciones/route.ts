@@ -14,7 +14,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { requireAdmin, requireAdminRole, dbError } from '@/lib/apiAuth'
+import { requirePermiso, requireAdminRole, dbError } from '@/lib/apiAuth'
 import {
   leerParteApa, metricas, ajustarFactor, evaluarCorreccion, type Par,
 } from '@/lib/calibracion'
@@ -240,7 +240,7 @@ async function importar(
  * citar, así que tampoco es el peor sustituto.
  */
 export async function GET() {
-  const auth = await requireAdmin()
+  const auth = await requirePermiso('lluvia')
   if (auth instanceof NextResponse) return auth
   const supabase = createServiceClient()
 

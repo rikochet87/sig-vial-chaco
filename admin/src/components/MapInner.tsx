@@ -1533,7 +1533,9 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
         L.geoJSON(geo.departamentos as GeoJSON.FeatureCollection, {
           style: { color: '#444', weight: 1, fillOpacity: 0, dashArray: '3 3' },
           onEachFeature(feature, layer) {
-            const nombre = feature.properties?.nombre || feature.properties?.NOMBRE || ''
+            // El nombre viene en `Departamen`: lo cortó a diez caracteres el
+            // shapefile de origen. Buscando `nombre` el popup no aparecía nunca.
+            const nombre = String(feature.properties?.Departamen ?? feature.properties?.nombre ?? '').trim()
             if (nombre) layer.bindPopup(`<div class="poi-popup"><div class="poi-name">${nombre}</div><div class="poi-type">Departamento</div></div>`)
           },
         }).addTo(deptGroup)

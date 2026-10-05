@@ -20,7 +20,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { requireAdmin, dbError } from '@/lib/apiAuth'
+import { requirePermiso, dbError } from '@/lib/apiAuth'
 import { hace, aISO } from '@/lib/lluvia'
 
 export const dynamic = 'force-dynamic'
@@ -30,7 +30,7 @@ const MAX_DIAS = 400
 const PAGINA = 1000
 
 export async function GET(req: NextRequest) {
-  const auth = await requireAdmin()
+  const auth = await requirePermiso('lluvia')
   if (auth instanceof NextResponse) return auth
 
   const pedido = Number(new URL(req.url).searchParams.get('dias') ?? 90)

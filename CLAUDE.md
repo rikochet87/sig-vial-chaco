@@ -37,7 +37,7 @@ npx expo-doctor               # desde la raíz — detecta incompatibilidades de
 ```
 
 **Todo eso corre junto con `npm run verificar`** (desde `admin/`):
-`tsc --noEmit`, la barrera de lint, la sintaxis de los `.sql` y los veintidós
+`tsc --noEmit`, la barrera de lint, la sintaxis de los `.sql` y los veinticinco
 `scripts/verificar-*.ts`. `next build` queda afuera a propósito: tarda minutos y
 usa el binario nativo de SWC, así que sólo corre donde se instalaron los
 paquetes. El orquestador es `scripts/verificar-todo.mjs`, en Node y no en un
@@ -861,8 +861,8 @@ Cosas que no son obvias:
   zoom 9, igual que los de las cuencas.
 - **El nombre del departamento viene en `Departamen`**, no en `nombre`: lo cortó
   a diez caracteres el shapefile de origen. `MapInner` busca `nombre` y
-  `NOMBRE`, así que **el popup de departamento del mapa principal nunca
-  aparece**. Está sin arreglar.
+  `NOMBRE`, así que **el popup de departamento del mapa principal no aparecía
+  nunca**. Se arregló el 05/10/2026: lee `Departamen`.
 - `scripts/verificar-limites.ts` cruza las 103 sedes contra los polígonos: cada
   una cae en una sola zona y un solo departamento, y **la zona del polígono es
   la que dice la ficha del consorcio en las 103** — dos datos cargados por
@@ -1769,10 +1769,10 @@ otras cinco**. Lo que no llegó se informa con `fallaron`, para que un panel con
 cuatro de seis diga que faltan dos en vez de mostrarse completo.
 
 **El guard es `requirePermiso('lluvia')`**, el permiso de la pantalla que lo
-consume. `/api/lluvia` y `/api/lluvia/serie` siguen con `requireAdmin()`, que
-sólo verifica sesión: son de sólo lectura y de datos públicos, así que el daño
-es bajo, pero es el mismo molde que ya causó agujeros acá. **Habría que
-emparejarlas.**
+consume. Las cuatro lecturas de lluvia que quedaban con `requireAdmin()` —que
+sólo verifica sesión— se emparejaron el 05/10/2026: `/api/lluvia`,
+`/api/lluvia/serie`, `/api/lluvia/estaciones` y el GET de
+`/api/lluvia/mediciones`. Las consume sólo esta pantalla.
 
 ### La fuente publica lecturas imposibles, y hay que filtrarlas
 
@@ -2033,8 +2033,8 @@ correlaciona con la estación del Paraguay desfase por desfase.
   mirando el número**: Barranqueras, que está enfrente de Corrientes, aparecía
   "aportando" seis días antes. Con los seis desfases da cero, y Goya da después.
   Los dos controles están en el test.
-- **Es cuánto se parecen, no cuántos centímetros aporta.** No es un modelo. Un
-  balance en la confluencia se plantearía con caudales, y eso no está hecho.
+- **Es cuánto se parecen, no cuántos centímetros aporta.** No es un modelo. El
+  balance con caudales va aparte, en la sección que sigue.
 - **Formosa e Isla del Cerrito quedaron afuera**: tienen media diaria recién
   desde 2006. Paso de la Patria (id 18), sobre el Paraná en la confluencia, da un
   día antes que Corrientes con correlación 0,74 y tampoco se sumó.
@@ -2043,6 +2043,84 @@ correlaciona con la estación del Paraguay desfase por desfase.
   es el mes en que más veces cae el máximo "anual" —13 años—, y eso es la cola
   de la crecida anterior. Otro motivo por el que el pico anual no sirve para
   este río.
+
+### De dónde viene el caudal de Corrientes
+
+`lib/rioCaudales.ts` + `components/rio/BalanceConfluencia.tsx`, debajo del
+traslado. Una altura no se suma; un caudal sí:
+
+```
+Corrientes(t) = Yacyretá(t − 4) + Paraguay(t − 10) + Bermejo(t − 3) + resto
+```
+
+Sobre 6.811 días entre 2001 y 2025, con caudal medio diario del INA:
+
+| | m³/s | Parte |
+|---|---|---|
+| Corrientes | 17.696 | |
+| Paraná, efluente de Yacyretá | 13.793 | 77,9 % |
+| Paraguay, en Puerto Pilcomayo | 3.221 | 18,2 % |
+| Bermejo, en El Colorado | 422 | 2,4 % |
+| Resto | 261 | 1,5 % |
+
+- **Que cierre es la verificación.** Son lo que larga una represa y tres curvas
+  de gasto de tres escalas: nada obliga a que tres sumen la cuarta. El resto es
+  una resta, no un ajuste. R² 0,92 día por día.
+- **El control es Puerto Formosa**: el mismo río más abajo, con otra escala y
+  otra curva, da 19,0 % para el Paraguay y 1,2 % de resto.
+- **El Paraguay pesa 14 % en febrero y 23 % en julio**; el Bermejo llega al 6 %
+  en marzo y no es nada en primavera. Día por día, lo que entra por el Paraguay
+  con el Bermejo va del 11 al 31 % en nueve de cada diez días, y llegó al 47 %
+  el 24/04/2019.
+- **Las estaciones más cercanas a la confluencia no tienen caudal.** Itá Ibaté,
+  Paso de la Patria y Puerto Bermejo tienen la serie listada y vacía. Por eso el
+  Paraná se toma en Yacyretá y el Paraguay frente a Asunción.
+- **El Bermejo no está contado dos veces**: desemboca en el Paraguay aguas abajo
+  de Puerto Pilcomayo y de Formosa.
+- **El resto no se reparte.** Es el Tebicuary y los demás afluentes sin medir,
+  más el error de las curvas.
+- **Las demoras se eligen por la variación del resto, no por su tamaño.** Correr
+  una serie unos días no le cambia el promedio; lo que cambia es cuánto sube y
+  baja el resto. La de Yacyretá queda bien determinada —4 días con las dos
+  estaciones del Paraguay—; **la del Paraguay no**: 10 con Pilcomayo y 6 con
+  Formosa, sobre un río tan lento que una semana de diferencia casi no mueve la
+  cuenta. No es una medida de cuánto tarda, y la pantalla lo dice. La del
+  Bermejo es fija en 3 y **supuesta**: con el 2 % del caudal no hay con qué
+  medirla.
+- **Son caudales de curva de gasto, no aforos**, salvo Yacyretá. Los promedios
+  son firmes; un día suelto, con el río fuera de cauce, no tanto.
+- **La serie del Bermejo termina el 31/08/2025** y hay años con pocos días en
+  común (2021 a 2023 no entran). El balance es del período, no de hoy.
+- **El archivo es `public/rio/confluencia_caudal.json`** (305 KB, m³/s enteros
+  desde el 24/07/1994) y lo genera `node scripts/build_rio_caudales.mjs`.
+  **Va aparte de `build_rio_historico.mjs`** para no volver a bajar ni mover
+  los dos archivos de alturas, sobre los que hay tests.
+
+`scripts/verificar-rio-caudales.ts` arma tres ríos de mentira cuya suma es
+exacta —el resto tiene que ser cero, y un afluente sin medir tiene que ir
+entero al resto— y sobre la serie real afirma que cierra bajo el 5 %, el
+control de Formosa, el régimen de cada río y que las dos mitades del período
+dan el mismo reparto.
+
+### Los ríos internos del Chaco también están en el INA
+
+Relevado el 05/10/2026 buscando los caudales, y **todavía sin usar**. Son
+observaciones de cómo responde una cuenca a la lluvia, que es lo que el plan del
+balance hídrico pide antes de cualquier modelo:
+
+| Estación (id del INA) | Qué tiene | Período |
+|---|---|---|
+| Tapenagá, Florencia (1933) | caudal y altura media diaria | 2001 a 2022 / 2024 |
+| Salado, RN 11 (2100) | caudal medio diario, 1.088 días | 2016 a 2025 |
+| Riacho Palometa, RP 13 (2099) | caudal medio diario | 2016 a 2022 |
+| Canal Línea Paraná, RP 3 (1945) | altura media diaria | 2010 a 2026 |
+| Bermejo, El Colorado (2046) | caudal y altura | 2001 a 2025 |
+| Negro: Laguna Blanca (6432), San Fernando (7296), Philipon (7295) | altura, y lluvia en la primera | desde 2023–2025, al día |
+| Tapenagá, Estancia (7184); Canal Soberanía (7164) | altura | desde 09/2024, al día |
+
+Las que están al día se superponen con el año de lluvia de la APA. Las de
+caudal largas terminan antes de que empiece: para cruzarlas hace falta lluvia
+histórica.
 
 ### El relevamiento no entra en `npm run verificar`
 

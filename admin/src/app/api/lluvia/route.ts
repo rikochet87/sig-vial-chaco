@@ -11,7 +11,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { requireAdmin, dbError } from '@/lib/apiAuth'
+import { requirePermiso, dbError } from '@/lib/apiAuth'
 import {
   resumirPorConsorcio, detectarEpisodios, hace, aISO, diasEntre, type RegistroLluvia,
 } from '@/lib/lluvia'
@@ -20,7 +20,7 @@ import {
 const PAGINA = 1000
 
 export async function GET(req: NextRequest) {
-  const auth = await requireAdmin()
+  const auth = await requirePermiso('lluvia')
   if (auth instanceof NextResponse) return auth
 
   const { searchParams } = new URL(req.url)

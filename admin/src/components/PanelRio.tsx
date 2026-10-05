@@ -47,6 +47,7 @@ import { Fragment, useEffect, useMemo, useState } from 'react'
 import { COLOR_ESTADO, ETIQUETA_ESTADO, type EstadoRio, type PuntoPronostico } from '@/lib/ina'
 import HistoricoCorrientes from '@/components/rio/HistoricoCorrientes'
 import TrasladoCrecida from '@/components/rio/TrasladoCrecida'
+import BalanceConfluencia from '@/components/rio/BalanceConfluencia'
 
 const mono: React.CSSProperties = { fontFamily: 'monospace' }
 
@@ -365,6 +366,7 @@ export default function PanelRio({ dias = 90, desde, hasta, abiertoInicial = fal
       <HistoricoCorrientes actual={datos.estaciones.find(e => e.id === 19)?.ultima ?? null} />
     )}
     {abierto && <TrasladoCrecida />}
+    {abierto && <BalanceConfluencia />}
     </>
   )
 }
