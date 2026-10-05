@@ -37,7 +37,7 @@ npx expo-doctor               # desde la raíz — detecta incompatibilidades de
 ```
 
 **Todo eso corre junto con `npm run verificar`** (desde `admin/`):
-`tsc --noEmit`, la barrera de lint, la sintaxis de los `.sql` y los veinticinco
+`tsc --noEmit`, la barrera de lint, la sintaxis de los `.sql` y los veintiséis
 `scripts/verificar-*.ts`. `next build` queda afuera a propósito: tarda minutos y
 usa el binario nativo de SWC, así que sólo corre donde se instalaron los
 paquetes. El orquestador es `scripts/verificar-todo.mjs`, en Node y no en un
@@ -819,7 +819,7 @@ Cinco pestañas, cada una con la pantalla entera:
 | Pestaña | Qué tiene | Selector de período |
 |---|---|---|
 | **Mapa** | el mapa y, al lado, la lista de consorcios **o** de cuencas | sí |
-| **Cuencas** | `PanelCuencas` con sus cuatro vistas | sí, salvo la de cursos de agua |
+| **Cuencas** | `PanelCuencas` con sus seis vistas | sí, salvo la de cursos de agua |
 | **Río Paraná** | `PanelRio`, abierto | sí |
 | **Tiempo** | alertas del SMN y pronóstico por consorcio (ver «El tiempo») | no: mira hacia adelante |
 | **Precisión** | la comparación de métodos y `PanelMediciones` | no: habla de métodos, no de un período |
@@ -1412,6 +1412,88 @@ Cosas que no son obvias:
 
 `components/cuencas/piezas.ts` son los formatos y estilos de tabla que comparten
 las cuatro vistas.
+
+#### Los ríos internos: qué hizo el agua después
+
+`lib/riosInternos.ts` + `app/api/lluvia/rios-internos/route.ts` +
+`components/cuencas/VistaRios.tsx`, la sexta vista del panel. Una fila por
+escala del INA con la última altura, el cambio en 7 días, la mínima y la máxima
+de la ventana y la serie en miniatura. Al abrir una fila, dos franjas con el
+mismo eje de tiempo: la lámina diaria de la cuenca arriba y la altura abajo.
+
+**Es la primera observación del sistema de qué hace el agua después de la
+lluvia**, que es lo que el plan del balance hídrico pide antes de cualquier
+modelo. No es el Paraná: éstos sí responden a lo que llueve acá.
+
+Siete escalas, con altura media diaria desde 09/2024:
+
+| Curso | Escala (id del INA, serie) | Cuenca |
+|---|---|---|
+| Río Negro | Philipon (7295, 38276) | 6 |
+| Río Negro | Laguna Blanca (6432, 38058) | 6 |
+| Río Negro | San Fernando (7296, 38277) | 6 |
+| Río Salado | RN 11 (6633, 38041) | 6 |
+| Arroyo Tapenagá | Estancia Tapenagá (7184, 38205) | 8 |
+| Canal Línea Paraná | Tramo IV (7190, 38211) | 10, a la salida |
+| Canal Línea Paraná | Los Amores (7193, 38214) | 10, a la salida |
+
+- **Se eligieron estaciones, no se filtran lecturas.** El INA lista más de
+  veinte escalas en la provincia; se miró la serie de cada una y quedaron las
+  que se leen como un río —crecida tras la lluvia y bajante lenta—. Afuera: la
+  Obra de Control del Negro (piso fijo en 1,21 m), Canal Soberanía (una
+  compuerta que se opera), Laguna María Cristina (puntas de −8 m), Bajo
+  Chorotis (piso en −2,50 y una punta de 12 m), PF El Aguará (escalones) y las
+  tres del Bermejo (puntas de metros, y agua que viene de los Andes). La lista
+  con el motivo está en la cabecera de `riosInternos.ts`.
+- **No pasan por `depurar()`**, que descarta saltos de más de 2 m: está pensado
+  para el Paraná. El Negro en Laguna Blanca subió 2,34 m en un día el
+  15/04/2026, y San Fernando 1,23 m el mismo día: es una crecida, no basura.
+  Para esto se agregó `observacionesDeSerie()` en `ina.ts`.
+- **Dos franjas y no dos líneas en un eje**, por lo mismo que en el Paraná:
+  milímetros y metros no comparten eje vertical. Comparten el horizontal.
+- **La franja de la altura va de su mínima a su máxima, no desde cero.** El
+  cero de cada escala es arbitrario y ninguna está vinculada: no se comparan
+  entre sí en metros ni contra el terreno. Una altura negativa es agua bajo el
+  cero y es un dato.
+- **No hay niveles de alerta**: el INA no publica ninguno para estas escalas y
+  no se inventan.
+- **Las dos del canal están fuera de los polígonos de cuencas** —sobre el
+  límite sur y 12 km adentro de Santa Fe—, así que la cuenca no se les asigna
+  por posición sino por el canal que miden. El test lo comprueba contra la
+  traza de `geo_hidro.json`: están a 0,6 y 0,9 km de un canal principal del
+  sistema Línea Paraná. Subiendo derecho al norte desde Los Amores se entra a
+  La Rica - Sábalo, no a Línea Paraná.
+- **La escala sólo ve lo que drena aguas arriba de ella**, y la lámina que va
+  al lado es la de la cuenca entera. La pantalla lo dice.
+- **Una estación atrasada se ve atrasada.** Philipon no informa desde el
+  17/08/2026 y el Salado desde el 20/08: van en la tabla con la fecha en
+  naranja y un aviso de que el número no es de hoy (`DIAS_ATRASO` = 3).
+- **El cambio en 7 días es contra el día exacto**, no contra la lectura más
+  cercana: si ese día no hay lectura, no hay cambio.
+- **La ruta va de a una estación, no en paralelo**, como `/api/rio`: el INA deja
+  de contestar ante una ráfaga. Tarda 3 a 4 s y se cachea una hora. Guard
+  `requirePermiso('lluvia')`. Si no contesta ninguna da 502, no una lista vacía.
+- **`timeend` es un instante**: con la fecha a secas el INA deja afuera la
+  lectura de ese día, marcada a las 03:00 UTC. Se pide un día de más y se
+  recorta.
+- De paso se sacó un pedido repetido en `observadasDeSerie()` de `ina.ts`: bajaba
+  la serie, la descartaba y la volvía a bajar.
+
+**Lo que se vio al abrir la vista, el 05/10/2026: a `mediciones_lluvia` le
+faltan partes.** El Negro en Laguna Blanca tuvo su máxima de la ventana, 5,22 m,
+el 09/08/2026, y la franja de lluvia de su cuenca estaba vacía en esas semanas. No es que no haya
+llovido: la APA tiene 168 fechas con parte y la tabla tenía 11, todas desde el
+10/09/2026 (214 mediciones). En la ventana de 90 días son 11 de 33. **Todo lo
+que usa la serie diaria por cuenca —«Máximas en varios días», lo medido del
+pronóstico y esta vista— ve sólo esas fechas**, sin avisar: un día sin fila en
+la tabla se lee igual que un día sin parte. Se arregla con el botón Importar de
+la pestaña Precisión (25 fechas por corrida, consulta el modelo en cada
+estación, así que gasta cupo). El acumulado por consorcio no está afectado: la
+fusión lee los partes de la APA en vivo, no de esta tabla. **Falta que la
+pantalla compare las fechas de la APA contra las de la tabla y lo diga.**
+
+`scripts/verificar-rios-internos.ts` no sale a la red: afirma el catálogo
+contra las cuencas y los canales, y el armado de la serie y su resumen.
 
 #### El pronóstico por cuenca
 
@@ -2104,7 +2186,9 @@ dan el mismo reparto.
 
 ### Los ríos internos del Chaco también están en el INA
 
-Relevado el 05/10/2026 buscando los caudales, y **todavía sin usar**. Son
+Relevado el 05/10/2026 buscando los caudales. **Las alturas al día ya están en
+pantalla** (ver «Los ríos internos: qué hizo el agua después»); **las series de
+caudal siguen sin usar**. Son
 observaciones de cómo responde una cuenca a la lluvia, que es lo que el plan del
 balance hídrico pide antes de cualquier modelo:
 

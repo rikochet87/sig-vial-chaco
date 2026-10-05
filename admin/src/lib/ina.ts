@@ -205,11 +205,30 @@ async function observadasDeSerie(
   serie: FilaSerie | null, desde: string, hasta: string,
 ): Promise<LecturaRio[]> {
   if (!serie) return []
+  return (await observadasDeSerieCompleto(serie, desde, hasta)).validas
+}
+
+/**
+ * Las observaciones de una serie cuyo id ya se conoce, **tal como las publica
+ * el INA**: sin pasar por `depurar()`.
+ *
+ * Es para los ríos internos (`lib/riosInternos.ts`). El salto de 2 m que
+ * descarta `depurar()` está pensado para el Paraná; un arroyo de llanura sube
+ * dos metros en un día después de una lluvia, y filtrarlo con esa regla
+ * borraría justamente las crecidas.
+ */
+export async function observacionesDeSerie(
+  serieId: number, desde: string, hasta: string,
+): Promise<LecturaRio[]> {
   const j = await traer(
-    `/obs/puntual/series/${serie.id}/observaciones`
+    `/obs/puntual/series/${serieId}/observaciones`
     + `?timestart=${desde}&timeend=${hasta}&format=json`,
   ) as { timestart: string; valor: number | null }[]
-  return (await observadasDeSerieCompleto(serie, desde, hasta)).validas
+  if (!Array.isArray(j)) throw new Error('El Alerta Hidrológico del INA devolvió una respuesta inesperada')
+  return j
+    .filter(o => typeof o?.valor === 'number' && typeof o?.timestart === 'string')
+    .map(o => ({ fecha: o.timestart, m: o.valor as number }))
+    .sort((a, b) => a.fecha.localeCompare(b.fecha))
 }
 
 /** Lo mismo, pero además devuelve lo que se descartó y por qué se pudo decir */
