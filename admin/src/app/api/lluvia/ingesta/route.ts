@@ -20,6 +20,7 @@ import { PUNTOS_LLUVIA } from '@/data/puntosLluvia'
 import { ESTACIONES_ACTIVAS, estacionPorId } from '@/data/estacionesApa'
 import { fechasApa, lecturasApa } from '@/lib/apa'
 import { registrarPronostico } from '@/lib/pronosticoRegistro'
+import { importarPartes } from '@/lib/importarPartes'
 
 /**
  * Tope de días por corrida.
@@ -435,6 +436,21 @@ export async function GET(req: NextRequest) {
       console.log('[cron] pronóstico guardado', r.emitido, r.nodos, 'nodos')
     } catch (e) {
       console.error('[cron] no se pudo guardar el pronóstico', e)
+    }
+    /*
+     * Los partes nuevos de la APA van a `mediciones_lluvia`, que es de donde
+     * sale la serie diaria por cuenca. Antes se cargaban sólo con el botón
+     * Importar, y un parte sin importar se lee como un día sin parte. Trae lo
+     * que falte de los últimos 30 días —lo normal es una fecha o ninguna— y
+     * consulta el modelo sólo en las estaciones que informaron: es lo único
+     * de este cron que toca Open-Meteo, y son unas decenas de ubicaciones los
+     * días que hay parte. Tampoco frena el recálculo si falla.
+     */
+    try {
+      const r = await importarPartes(createServiceClient(), { userId: null })
+      console.log('[cron] partes importados', r.fechas, 'fechas,', r.guardadas, 'mediciones', r.aviso ?? '')
+    } catch (e) {
+      console.error('[cron] no se pudieron importar los partes', e)
     }
     // Siete días, la misma ventana que repisa la ingesta de la mañana. El
     // default de `recalcularFusion` son 30 y para una corrida diaria es de más:

@@ -1512,9 +1512,13 @@ máxima cinco días después. Salieron tres cosas:
   comprobar», y también se dice: no es lo mismo que «no falta nada». El aviso
   no lleva botón: importar es de administrador y gasta cupo.
 
-**El cron no importa partes a esta tabla**: se llena sólo con el botón Importar
-de Precisión. Hasta que eso cambie, el aviso va a volver a aparecer con cada
-parte nuevo de la APA, y es correcto que aparezca.
+**El cron de las 12:00 importa los partes nuevos.** Antes la tabla se llenaba
+sólo con el botón Importar, y un paso manual que hay que hacer cada vez que
+llueve es un paso que se olvida. La lógica se sacó de la ruta a
+`lib/importarPartes.ts`, que usan el botón y el cron: trae lo que falte de los
+últimos 30 días —lo normal es una fecha o ninguna— con `cargado_por` en null.
+Con eso el aviso queda para cuando algo falla de verdad. Un fallo de la
+importación no frena el recálculo: queda en el log.
 
 `scripts/verificar-rios-internos.ts` no sale a la red: afirma el catálogo
 contra las cuencas y los canales, y el armado de la serie y su resumen.
@@ -2339,7 +2343,7 @@ peor que no tener botón.**
 | Horario UTC | Hora local | Qué hace | Cupo |
 |---|---|---|---|
 | `30 9 * * *` | 06:30 | ingesta de los últimos 7 días, e interpola al final | ~453 llamadas |
-| `0 15 * * *` | 12:00 | sólo reinterpola los últimos 7 días | **nada** |
+| `0 15 * * *` | 12:00 | reinterpola los últimos 7 días, guarda el pronóstico e importa los partes nuevos | el modelo en las estaciones que informaron, sólo los días con parte nuevo |
 
 **El segundo existe por un desfasaje real.** A las 06:30 la APA todavía no
 publicó el parte del día —su período va de 17:00 a 07:00 y carga con retraso—,
@@ -2357,7 +2361,10 @@ botón «Run» del panel de Vercel. El log lo confirma por tres lados: user agen
 `vercel-cron/1.0`, respuesta en **1,8 s** —la ingesta completa no puede terminar
 en ese tiempo, son 453 llamadas con espera— y en «External APIs» aparecen sólo
 Supabase y tres a `mapas.apachaco.gob.ar`, **ninguna a Open-Meteo**. O sea que
-tomó la rama del recálculo y no gastó cupo.
+tomó la rama del recálculo y no gastó cupo. **Desde el 05/10/2026 esa rama sí
+toca Open-Meteo los días en que hay un parte nuevo que importar** —unas decenas
+de ubicaciones por un día—, así que ver una llamada ahí ya no es señal de que
+tomó la rama equivocada.
 
 **En Hobby la ventana es de ±1 hora**, como avisa la propia pantalla de Cron
 Jobs: el de las 15:00 UTC puede caer hasta las 15:59. Sigue holgado sobre el
