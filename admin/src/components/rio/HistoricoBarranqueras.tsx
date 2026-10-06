@@ -1,15 +1,15 @@
 'use client'
 
 /**
- * El Paraná en Corrientes sobre 125 años: máximos anuales, recurrencia y curva
- * de permanencia.
+ * El Paraná en Barranqueras sobre 120 años: máximos anuales, recurrencia y
+ * curva de permanencia.
  *
  * ── Para qué está ─────────────────────────────────────────────────────────────
  *
  * Las franjas de arriba dicen cuánto marca el río hoy y cuánto le falta para el
- * alerta. Lo que no dicen es **qué tan raro es eso**: si 6,5 m es algo que pasa
- * un año de cada tres o uno de cada treinta. Esa lectura sólo la puede dar una
- * serie larga, y Corrientes la tiene.
+ * alerta. Lo que no dicen es **qué tan raro es eso**: si 6 m es algo que pasa
+ * un año de cada dos o uno de cada veinte. Esa lectura sólo la puede dar una
+ * serie larga.
  *
  * ── Lo contado y lo ajustado van separados ────────────────────────────────────
  *
@@ -24,10 +24,17 @@
  * afuera del período elegido **se atenúan en vez de desaparecer**: el gráfico
  * no se reacomoda y se ve qué se está dejando afuera.
  *
- * ── Todo en la escala de Corrientes ───────────────────────────────────────────
+ * ── Todo en la escala de Barranqueras ─────────────────────────────────────────
  *
- * Las alturas y los umbrales son los de Corrientes. La frecuencia vale para el
- * tramo; los metros no se pueden llevar a la escala de Barranqueras.
+ * Las alturas y los umbrales son los de Barranqueras, que es la escala que
+ * decide de este lado del río. Antes eran los de Corrientes, y la pantalla
+ * contestaba cada cuánto se supera un alerta que no es el de acá.
+ *
+ * ── De dónde sale lo anterior a 1970 ──────────────────────────────────────────
+ *
+ * El registro son dos series del INA y la pantalla lo dice: la media diaria
+ * desde 1970 y, antes, la lectura diaria de la escala. Un número que se va a
+ * citar tiene que poder decir de dónde sale.
  */
 
 import { useEffect, useMemo, useState } from 'react'
@@ -40,7 +47,7 @@ import {
 } from '@/lib/rioHistorico'
 import { mono, boton, th, thD, td, tdD, bajarCsv } from '@/components/cuencas/piezas'
 
-const CORRIENTES = ESTACIONES.find(e => e.id === 19)!
+const BARRANQUERAS = ESTACIONES.find(e => e.id === 20)!
 
 const C_NORMAL = '#7d7d7d'
 const C_ALERTA = '#EF9F27'
@@ -51,7 +58,7 @@ const nM = (m: number) => m.toFixed(2).replace('.', ',')
 const n1 = (v: number) => v.toFixed(1).replace('.', ',')
 const fLarga = (f: string) => f.slice(0, 10).split('-').reverse().join('/')
 const colorDe = (m: number) =>
-  m >= CORRIENTES.evacuacion ? C_EVAC : m >= CORRIENTES.alerta ? C_ALERTA : C_NORMAL
+  m >= BARRANQUERAS.evacuacion ? C_EVAC : m >= BARRANQUERAS.alerta ? C_ALERTA : C_NORMAL
 
 const rotulo: React.CSSProperties = {
   fontSize: 11, color: '#a0a0a0', textTransform: 'uppercase', letterSpacing: 1,
@@ -59,11 +66,11 @@ const rotulo: React.CSSProperties = {
 }
 
 interface Props {
-  /** La última lectura de Corrientes del panel del día, para ubicarla en el registro */
+  /** La última lectura de Barranqueras del panel del día, para ubicarla en el registro */
   actual?: { fecha: string; m: number } | null
 }
 
-export default function HistoricoCorrientes({ actual }: Props) {
+export default function HistoricoBarranqueras({ actual }: Props) {
   const [serie, setSerie] = useState<SerieDiariaRio | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [intento, setIntento] = useState(0)
@@ -73,7 +80,7 @@ export default function HistoricoCorrientes({ actual }: Props) {
 
   useEffect(() => {
     let vivo = true
-    fetch('/rio/corrientes_diario.json')
+    fetch('/rio/barranqueras_diario.json')
       .then(r => {
         // Un 404 devuelve una página de error que `.json()` no puede leer: se
         // mira `ok` antes, para poder decir qué pasó.
@@ -92,7 +99,7 @@ export default function HistoricoCorrientes({ actual }: Props) {
 
   // Lo que no depende del período: se calcula una vez por archivo
   const anios = useMemo(
-    () => serie ? extremosAnuales(serie, [CORRIENTES.alerta, CORRIENTES.evacuacion]) : [],
+    () => serie ? extremosAnuales(serie, [BARRANQUERAS.alerta, BARRANQUERAS.evacuacion]) : [],
     [serie],
   )
 
@@ -130,7 +137,7 @@ export default function HistoricoCorrientes({ actual }: Props) {
       <div style={{ ...mono, fontSize: 12, color: '#E8A87C', border: '1px solid #7a4a22',
         background: 'rgba(40,24,16,.5)', borderLeft: '3px solid #E8833A', borderRadius: 2,
         padding: '8px 12px', marginTop: 8 }}>
-        <b>No se pudo cargar el registro histórico de Corrientes.</b> {error}
+        <b>No se pudo cargar el registro histórico de Barranqueras.</b> {error}
         <button onClick={() => setIntento(i => i + 1)} style={{ ...boton, marginLeft: 10 }}>
           Reintentar
         </button>
@@ -141,7 +148,7 @@ export default function HistoricoCorrientes({ actual }: Props) {
   if (!serie || !calc) {
     return (
       <div style={{ ...mono, fontSize: 12, color: '#8f8f8f', marginTop: 8 }}>
-        Cargando el registro histórico de Corrientes…
+        Cargando el registro histórico de Barranqueras…
       </div>
     )
   }
@@ -152,11 +159,11 @@ export default function HistoricoCorrientes({ actual }: Props) {
   const incompletos = delPeriodo(anios, periodo).filter(a => !a.completo)
 
   const umbrales = [
-    { nombre: 'Alerta', h: CORRIENTES.alerta, color: C_ALERTA },
-    { nombre: 'Evacuación', h: CORRIENTES.evacuacion, color: C_EVAC },
+    { nombre: 'Alerta', h: BARRANQUERAS.alerta, color: C_ALERTA },
+    { nombre: 'Evacuación', h: BARRANQUERAS.evacuacion, color: C_EVAC },
   ]
   const crecidas = usados
-    .filter(a => a.max >= CORRIENTES.evacuacion)
+    .filter(a => a.max >= BARRANQUERAS.evacuacion)
     .sort((a, b) => b.max - a.max)
 
   return (
@@ -165,7 +172,7 @@ export default function HistoricoCorrientes({ actual }: Props) {
 
       <div style={{ display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', gap: 6 }}>
         <span style={{ fontSize: 12, color: '#ddd', textTransform: 'uppercase', letterSpacing: 1.2, flex: 1 }}>
-          Corrientes — registro histórico
+          Barranqueras — registro histórico
         </span>
         {(['completo', 'reciente'] as const).map(p => (
           <button key={p} onClick={() => setPeriodo(p)} style={{
@@ -178,14 +185,18 @@ export default function HistoricoCorrientes({ actual }: Props) {
         ))}
         <button style={boton} onClick={() => bajarCsv(
           csvAnios(usados, umbrales.map(u => ({ nombre: u.nombre.toLowerCase() }))),
-          `corrientes-anual-${etiquetaAnio(primero.anio).replace('/', '-')}-a-${etiquetaAnio(ultimo.anio).replace('/', '-')}.csv`,
+          `barranqueras-anual-${etiquetaAnio(primero.anio).replace('/', '-')}-a-${etiquetaAnio(ultimo.anio).replace('/', '-')}.csv`,
         )}>
           CSV
         </button>
       </div>
 
       <div style={{ fontSize: 11, color: '#8f8f8f', lineHeight: 1.5, marginTop: 4 }}>
-        Altura media diaria en la escala de Corrientes, {fLarga(serie.desde)} a {fLarga(serie.hasta)}.
+        Altura diaria en la escala de Barranqueras, {fLarga(serie.desde)} a {fLarga(serie.hasta)}.
+        {serie.origen && (
+          <> Hasta el {fLarga(diaAntes(serie.origen.mediaDesde))} es la lectura diaria de la escala;
+            desde entonces, la media diaria.</>
+        )}
         {' '}Se usan <b style={{ color: '#a0a0a0' }}>{usados.length} años hidrológicos</b> (septiembre
         a agosto), de {etiquetaAnio(primero.anio)} a {etiquetaAnio(ultimo.anio)}.
         {incompletos.length > 0 && (
@@ -199,8 +210,8 @@ export default function HistoricoCorrientes({ actual }: Props) {
           Hoy <b>{nM(actual.m)} m</b>. El río estuvo a esa altura o más el{' '}
           <b>{n1(perm.sobre(actual.m) * 100)} %</b> de los días del período.
           <span style={{ color: '#a0a0a0' }}>
-            {' '}Última vez sobre el alerta: {fechaO(ultimaVezSobre(serie, CORRIENTES.alerta))};
-            sobre evacuación: {fechaO(ultimaVezSobre(serie, CORRIENTES.evacuacion))}.
+            {' '}Última vez sobre el alerta: {fechaO(ultimaVezSobre(serie, BARRANQUERAS.alerta))};
+            sobre evacuación: {fechaO(ultimaVezSobre(serie, BARRANQUERAS.evacuacion))}.
           </span>
         </div>
       )}
@@ -369,16 +380,31 @@ export default function HistoricoCorrientes({ actual }: Props) {
         serie el mínimo anual promedia {nM(regimen.minAntes)} m hasta {ANIO_REGIMEN - 1} y{' '}
         {nM(regimen.minDespues)} m después; el máximo, {nM(regimen.maxAntes)} y {nM(regimen.maxDespues)} m.
         Por eso se puede calcular con la serie completa o sólo con el período reciente: son dos
-        respuestas y hay que decir cuál se cita. Las alturas son de la escala de Corrientes y no
-        se trasladan a la de Barranqueras. Los días sin dato no se rellenan. El registro llega al
+        respuestas y hay que decir cuál se cita. Las alturas son de la escala de Barranqueras y no
+        se trasladan a otra escala del tramo.
+        {serie.origen && (
+          <> El registro junta dos series de la misma escala: la de lecturas
+            ({serie.origen.deLecturaAntes.toLocaleString('es-AR')} días hasta el{' '}
+            {fLarga(diaAntes(serie.origen.mediaDesde))}, una lectura por día, y{' '}
+            {serie.origen.deLecturaDespues} días sueltos después) y la media diaria
+            ({serie.origen.deMedia.toLocaleString('es-AR')} días). En los{' '}
+            {serie.origen.comunes.toLocaleString('es-AR')} días en que existen las dos difieren{' '}
+            {serie.origen.maeCm.toFixed(2).replace('.', ',')} cm en promedio.</>
+        )}
+        {' '}Los días sin dato no se rellenan. El registro llega al
         {' '}{fLarga(serie.hasta)}; el año hidrológico en curso no entra hasta que se regenere el
-        archivo. Fuente: {serie.fuente}, serie {serie.serie}.
+        archivo. Fuente: {serie.fuente}, series {serie.serie}
+        {serie.serieLecturas !== undefined && <> y {serie.serieLecturas}</>}.
       </div>
     </div>
   )
 }
 
 const fechaO = (f: string | null) => (f ? fLarga(f) : 'nunca')
+
+/** El día anterior a una fecha 'AAAA-MM-DD' */
+const diaAntes = (f: string) =>
+  new Date(Date.parse(f + 'T00:00:00Z') - 86_400_000).toISOString().slice(0, 10)
 
 /**
  * Una barra por año hidrológico, desde cero.
@@ -392,7 +418,7 @@ function MaximosAnuales({ anios, periodo, sobre, onSobre }: {
 }) {
   const ALTO = 40
   const n = anios.length
-  const techo = Math.max(...anios.map(a => a.max), CORRIENTES.evacuacion) * 1.06
+  const techo = Math.max(...anios.map(a => a.max), BARRANQUERAS.evacuacion) * 1.06
   const y = (m: number) => ALTO - (Math.max(0, m) / techo) * ALTO
   const paso = 100 / n
   const pct = (m: number) => `${(y(m) / ALTO) * 100}%`
@@ -412,7 +438,7 @@ function MaximosAnuales({ anios, periodo, sobre, onSobre }: {
         }}
         onMouseLeave={() => onSobre(null)}>
         <svg viewBox={`0 0 100 ${ALTO}`} preserveAspectRatio="none" role="img"
-          aria-label="Máximo de cada año hidrológico en Corrientes, con los niveles de alerta y evacuación"
+          aria-label="Máximo de cada año hidrológico en Barranqueras, con los niveles de alerta y evacuación"
           style={{ width: '100%', height: 150, display: 'block', background: '#141414' }}>
           {anios.map((a, i) => {
             const fuera = periodo === 'reciente' && a.anio < ANIO_REGIMEN
@@ -424,13 +450,13 @@ function MaximosAnuales({ anios, periodo, sobre, onSobre }: {
                 opacity={a.anio === sobre ? 1 : fuera ? 0.22 : sobre === null ? 0.9 : 0.6} />
             )
           })}
-          <line x1={0} x2={100} y1={y(CORRIENTES.evacuacion)} y2={y(CORRIENTES.evacuacion)}
+          <line x1={0} x2={100} y1={y(BARRANQUERAS.evacuacion)} y2={y(BARRANQUERAS.evacuacion)}
             stroke={C_EVAC} strokeWidth={1} strokeDasharray="4 3" vectorEffect="non-scaling-stroke" />
-          <line x1={0} x2={100} y1={y(CORRIENTES.alerta)} y2={y(CORRIENTES.alerta)}
+          <line x1={0} x2={100} y1={y(BARRANQUERAS.alerta)} y2={y(BARRANQUERAS.alerta)}
             stroke={C_ALERTA} strokeWidth={1} strokeDasharray="4 3" vectorEffect="non-scaling-stroke" />
         </svg>
-        <Etiqueta top={pct(CORRIENTES.evacuacion)} color={C_EVAC} arriba>evacuación {nM(CORRIENTES.evacuacion)} m</Etiqueta>
-        <Etiqueta top={pct(CORRIENTES.alerta)} color={C_ALERTA}>alerta {nM(CORRIENTES.alerta)} m</Etiqueta>
+        <Etiqueta top={pct(BARRANQUERAS.evacuacion)} color={C_EVAC} arriba>evacuación {nM(BARRANQUERAS.evacuacion)} m</Etiqueta>
+        <Etiqueta top={pct(BARRANQUERAS.alerta)} color={C_ALERTA}>alerta {nM(BARRANQUERAS.alerta)} m</Etiqueta>
       </div>
       <div style={{ position: 'relative', height: 16, fontSize: 11, color: '#8f8f8f' }}>
         {marcas.map(({ a, i }) => (
@@ -506,15 +532,15 @@ function CurvaPermanencia({ perm, actual, sobre, onSobre }: {
         }}
         onMouseLeave={() => onSobre(null)}>
         <svg viewBox={`0 0 100 ${ALTO}`} preserveAspectRatio="none" role="img"
-          aria-label="Curva de permanencia de alturas del Paraná en Corrientes"
+          aria-label="Curva de permanencia de alturas del Paraná en Barranqueras"
           style={{ width: '100%', height: 150, display: 'block', background: '#141414' }}>
           {[25, 50, 75].map(v => (
             <line key={v} x1={v} x2={v} y1={0} y2={ALTO} stroke="#232323" strokeWidth={1}
               vectorEffect="non-scaling-stroke" />
           ))}
-          <line x1={0} x2={100} y1={y(CORRIENTES.evacuacion)} y2={y(CORRIENTES.evacuacion)}
+          <line x1={0} x2={100} y1={y(BARRANQUERAS.evacuacion)} y2={y(BARRANQUERAS.evacuacion)}
             stroke={C_EVAC} strokeWidth={1} strokeDasharray="4 3" vectorEffect="non-scaling-stroke" />
-          <line x1={0} x2={100} y1={y(CORRIENTES.alerta)} y2={y(CORRIENTES.alerta)}
+          <line x1={0} x2={100} y1={y(BARRANQUERAS.alerta)} y2={y(BARRANQUERAS.alerta)}
             stroke={C_ALERTA} strokeWidth={1} strokeDasharray="4 3" vectorEffect="non-scaling-stroke" />
           {actual !== null && actual >= piso && actual <= techo && (
             <line x1={0} x2={100} y1={y(actual)} y2={y(actual)}
@@ -530,8 +556,8 @@ function CurvaPermanencia({ perm, actual, sobre, onSobre }: {
               stroke="#F5C300" strokeWidth={1} vectorEffect="non-scaling-stroke" />
           )}
         </svg>
-        <Etiqueta top={pct(CORRIENTES.evacuacion)} color={C_EVAC} arriba>evacuación {nM(CORRIENTES.evacuacion)} m</Etiqueta>
-        <Etiqueta top={pct(CORRIENTES.alerta)} color={C_ALERTA}>alerta {nM(CORRIENTES.alerta)} m</Etiqueta>
+        <Etiqueta top={pct(BARRANQUERAS.evacuacion)} color={C_EVAC} arriba>evacuación {nM(BARRANQUERAS.evacuacion)} m</Etiqueta>
+        <Etiqueta top={pct(BARRANQUERAS.alerta)} color={C_ALERTA}>alerta {nM(BARRANQUERAS.alerta)} m</Etiqueta>
         {actual !== null && pActual !== null && (
           /*
            * A la izquierda y debajo de su línea: a la izquierda del cruce la

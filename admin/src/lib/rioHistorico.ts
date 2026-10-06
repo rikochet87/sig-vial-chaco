@@ -1,15 +1,24 @@
 /**
- * El Paraná en Corrientes, mirado sobre 125 años: máximos anuales, recurrencia
- * y permanencia.
+ * El Paraná en Barranqueras, mirado sobre 120 años: máximos anuales,
+ * recurrencia y permanencia.
  *
- * ── Por qué Corrientes y no Barranqueras ──────────────────────────────────────
+ * ── Barranqueras, y de dónde sale su serie larga ──────────────────────────────
  *
- * Barranqueras es la que decide en el área metropolitana, pero la serie larga
- * es la de Corrientes: altura media diaria desde 1901, casi sin huecos —117
- * días sin dato en 45.929—. Están enfrentadas sobre el mismo tramo, así que la
- * frecuencia de las crecidas es la misma; la altura no, porque cada escala
- * tiene su cero. **Todo lo de este módulo está en metros de la escala de
- * Corrientes y se compara contra los umbrales de Corrientes.**
+ * Barranqueras es la que decide en el área metropolitana: sus umbrales son los
+ * que valen de este lado del río. **Todo lo de este módulo está en metros de la
+ * escala de Barranqueras y se compara contra los umbrales de Barranqueras.**
+ *
+ * Hasta el 06/10/2026 esto se calculaba con la escala de Corrientes, porque la
+ * media diaria de Barranqueras arranca en 1970 y la de Corrientes en 1901. Las
+ * dos están enfrentadas y la frecuencia de las crecidas es la misma, pero los
+ * metros no se trasladan —cada escala tiene su cero— y los umbrales tampoco:
+ * la pantalla contestaba cada cuánto se supera el alerta *de Corrientes*.
+ *
+ * La serie larga de Barranqueras existe, en otra serie del INA: las lecturas
+ * directas de la escala, desde el 02/03/1906 y a razón de una por día. Donde
+ * las dos series existen, coinciden al centímetro. El archivo las junta con una
+ * sola regla —la media diaria donde existe, y si no la lectura del día—; el
+ * detalle y la comprobación están en `scripts/build_rio_barranqueras.mjs`.
  *
  * ── Qué afirma y qué no ───────────────────────────────────────────────────────
  *
@@ -35,20 +44,35 @@
  *
  * ── El régimen cambió, y hay que decir con qué período se calcula ─────────────
  *
- * Medido sobre esta serie: el **mínimo** anual promedia 0,85 m hasta 1970 y
- * 2,02 m desde 1971. El río dejó de bajar como bajaba — coincide con la
+ * Medido sobre esta serie: el **mínimo** anual promedia 0,79 m hasta 1970 y
+ * 1,96 m desde 1971. El río dejó de bajar como bajaba — coincide con la
  * regulación por los embalses de aguas arriba. Con los **máximos** el cambio es
- * menos claro: 5,75 m hasta 1970, 6,57 entre 1971 y 2000, y 5,72 desde 2001.
+ * menos claro: 5,61 m hasta 1970, 6,35 entre 1971 y 2000, y 5,69 desde 2001.
  *
  * Por eso todo se puede calcular sobre la serie completa o sólo desde 1971, y
  * la pantalla dice cuál se está mirando. Es el mismo criterio que con los
  * kilómetros de red: hay dos números y hay que decir cuál es.
  */
 
-/** El archivo que genera `scripts/build_rio_historico.mjs` */
+/** El archivo que genera `scripts/build_rio_barranqueras.mjs` */
 export interface SerieDiariaRio {
   estacion: number
+  /** La serie de altura media diaria */
   serie: number
+  /** La de lecturas de la escala, de donde sale lo que la media diaria no tiene */
+  serieLecturas?: number
+  /** De qué serie salió cada parte del registro */
+  origen?: {
+    /** Desde qué fecha existe la media diaria; antes, todo son lecturas */
+    mediaDesde: string
+    deMedia: number
+    deLecturaAntes: number
+    deLecturaDespues: number
+    /** Días en que existen las dos series, y cuánto difieren ahí */
+    comunes: number
+    sesgoCm: number
+    maeCm: number
+  }
   fuente: string
   generado: string
   /** Fecha del primer elemento de `cm` */
@@ -64,9 +88,12 @@ export const MES_INICIO = 9
 /**
  * Días con dato que tiene que tener un año para que su máximo cuente.
  *
- * Con menos, el pico pudo haber caído en el hueco. Deja afuera 1900/01 —el
- * registro arranca en enero— y el año en curso; 2009/10, al que le falta enero
- * entero, queda adentro con 335 días.
+ * Con menos, el pico pudo haber caído en el hueco. Deja afuera 1905/06 —el
+ * registro arranca en marzo—, 1911/12, 1989/90 y 1990/91 —327 y 319 días— y el
+ * año en curso; 2009/10, al que le falta enero entero, queda adentro con 335.
+ *
+ * **1989/90 es una crecida grande que no entra en el ajuste**: lo que hay de
+ * ese año llega a 7,66 m. La pantalla lo lista entre los incompletos.
  */
 export const DIAS_MINIMOS = 330
 
@@ -167,7 +194,7 @@ export interface Gumbel {
  * Es el método de manual para máximos anuales y el que alguien puede rehacer
  * con una calculadora: la escala sale del desvío y la posición de la media. Se
  * probó también por momentos L, que pesa menos los extremos: la altura de 100
- * años cambia de 9,35 a 9,49 m, menos que su propio error.
+ * años cambia de 8,96 a 9,10 m, menos que su propio error.
  *
  * Devuelve `null` con menos de diez años: con tan pocos el ajuste no dice nada.
  */

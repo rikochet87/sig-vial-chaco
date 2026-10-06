@@ -15,9 +15,10 @@
  *
  * Así que van **dos franjas grandes** y el resto en renglones compactos:
  *
- * - **Barranqueras** es la del área metropolitana: la que decide acá.
- * - **Corrientes** es la que tiene serie desde 1901. Es la única que puede
- *   sostener un "es la mayor en N años".
+ * - **Barranqueras** es la del área metropolitana: la que decide acá, y la del
+ *   registro histórico de abajo.
+ * - **Corrientes** está enfrente, con la media diaria más larga del tramo: es
+ *   el control de Barranqueras.
  *
  * Y las demás **se promueven solas a franja grande** si su altura observada o
  * su pronóstico llega al alerta. El criterio no es un número inventado por
@@ -45,7 +46,7 @@
 
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import { COLOR_ESTADO, ETIQUETA_ESTADO, type EstadoRio, type PuntoPronostico } from '@/lib/ina'
-import HistoricoCorrientes from '@/components/rio/HistoricoCorrientes'
+import HistoricoBarranqueras from '@/components/rio/HistoricoBarranqueras'
 import TrasladoCrecida from '@/components/rio/TrasladoCrecida'
 import BalanceConfluencia from '@/components/rio/BalanceConfluencia'
 
@@ -359,11 +360,11 @@ export default function PanelRio({ dias = 90, desde, hasta, abiertoInicial = fal
     </div>
 
     {/*
-      El registro largo va en su propio recuadro, debajo: habla de 125 años y no
+      El registro largo va en su propio recuadro, debajo: habla de 120 años y no
       de los 90 días de las franjas, y se carga recién al abrir el panel.
     */}
     {abierto && (
-      <HistoricoCorrientes actual={datos.estaciones.find(e => e.id === 19)?.ultima ?? null} />
+      <HistoricoBarranqueras actual={datos.estaciones.find(e => e.id === 20)?.ultima ?? null} />
     )}
     {abierto && <TrasladoCrecida />}
     {abierto && <BalanceConfluencia />}

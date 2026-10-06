@@ -1931,6 +1931,8 @@ Cuatro cosas que importan:
 - **Se usa la serie de medición directa, no la simulada.** El número que se
   muestra tiene que ser el que alguien leyó en la escala. Mismo criterio que los
   pluviómetros frente al modelo.
+- **El registro largo es el de Barranqueras, desde 1906** (ver «Recurrencia y
+  permanencia en Barranqueras»).
 - **Corrientes tiene altura medida desde 1901** —47.954 registros— y caudal
   desde 1910. Acá el histórico profundo **ya existe**, al revés de la lluvia
   donde tenemos un año. Eso permite decir "es la mayor en N años", que es la
@@ -2052,75 +2054,141 @@ llame `cero_ign` no dice en qué sistema está el número.**
 `relevar-ina.ts` compara el `cero_ign` del INA contra `ceroMop` y avisa si
 cambia: lo más probable es que ese día hayan cargado el del IGN de verdad.
 
-### Recurrencia y permanencia en Corrientes
+### Recurrencia y permanencia en Barranqueras
 
-`lib/rioHistorico.ts` + `components/rio/HistoricoCorrientes.tsx` — debajo de las
-franjas del río. Contesta lo que las franjas no pueden: **qué tan raro es** que
-el río esté a cierta altura. Máximo de cada año, cada cuánto se supera cada
+`lib/rioHistorico.ts` + `components/rio/HistoricoBarranqueras.tsx` — debajo de
+las franjas del río. Contesta lo que las franjas no pueden: **qué tan raro es**
+que el río esté a cierta altura. Máximo de cada año, cada cuánto se supera cada
 umbral, altura por recurrencia y curva de permanencia.
+
+**Hasta el 06/10/2026 era la escala de Corrientes, y se cambió.** Se había
+elegido Corrientes porque su media diaria arranca en 1901 y la de Barranqueras
+en 1970. El costo era que la pantalla contestaba cada cuánto se supera el
+alerta *de Corrientes* (6,50 m), no el de Barranqueras (6,00 m), que es el que
+decide de este lado. Y no es lo mismo: en Corrientes el alerta se superó 1 año
+de cada 3,4; en Barranqueras, 1 de cada 2,3.
 
 **Hay dos clases de número y van separadas en pantalla:**
 
 | | Qué es | Ejemplo, serie completa |
 |---|---|---|
-| **Contado** | en cuántos años se superó, qué parte de los días | alerta en 37 de 125 años; 2,58 % de los días |
-| **Ajustado** | Gumbel sobre los máximos anuales, con su error | 100 años: 9,35 ± 0,75 m |
+| **Contado** | en cuántos años se superó, qué parte de los días | alerta en 51 de 117 años; 4,61 % de los días |
+| **Ajustado** | Gumbel sobre los máximos anuales, con su error | 100 años: 8,96 ± 0,72 m |
 
-Si difieren, lo contado es lo que pasó. El ajuste da el alerta 1 cada 4,0 años
-y la cuenta 1 cada 3,4.
+Si difieren, lo contado es lo que pasó. El ajuste da el alerta 1 cada 2,8 años
+y la cuenta 1 cada 2,3; la evacuación (6,50 m), 1 cada 4,9 contra 30 de 117
+años, 1 cada 3,9.
+
+#### El registro son dos series, y por qué se pueden juntar
+
+| | Serie del INA | Período | Días |
+|---|---|---|---|
+| Lecturas de la escala | 20 | 02/03/1906 a 31/12/1969 | 22.856 |
+| Media diaria | 26262 | desde 01/01/1970 | 20.451 |
+| Lecturas, en huecos de la media diaria | 20 | después de 1970 | 45 |
+
+- **La regla es una sola: la media diaria donde existe, y si no el promedio de
+  las lecturas de ese día.** Antes de 1970 eso es siempre una lectura única.
+- **El reparo contra las lecturas sueltas no aplica acá.** El problema de la
+  serie de lecturas es que trae una, dos o más por día según la época, y un
+  máximo anual dependería de cuántas veces se leyó la escala. En Barranqueras
+  hay **exactamente una por día hasta 2012**.
+- **Donde existen las dos, coinciden**: sobre 20.451 días, sesgo 0,00 cm y
+  error medio 0,02 cm, con un solo día a más de 10 cm. La media diaria del INA
+  *es* el promedio de esas lecturas. Con las fechas corridas un día eso no
+  daría cero, así que también es la comprobación de las fechas.
+- **El script vuelve a medir la coincidencia en cada corrida y no escribe si se
+  perdió** (`MAE_MAX_CM` = 0,5). Si el INA recarga una de las dos series,
+  juntarlas deja de estar justificado.
+- **El archivo dice de dónde salió cada parte** (`origen`) y la pantalla lo
+  informa: hasta cuándo son lecturas, cuántos días de cada una y cuánto
+  difieren. Un número que se va a citar tiene que poder decir de dónde sale.
+- **No hay escalón el 01/01/1970**: 2,08 m el día anterior y 2,00 ese día, con
+  el río moviéndose de 0 a 8 cm por día esa semana. El test lo afirma.
+- **Completar los huecos posteriores a 1970 no rescató lo que se esperaba.**
+  Sumó 45 días; 1989/90 y 1990/91 siguen incompletos (327 y 319 días) porque
+  ahí tampoco hay lecturas.
 
 Cosas que no son obvias:
 
-- **La serie es la 26261, media diaria, no la 19 de lecturas sueltas** que usa
-  el panel del día. La 19 trae una, dos o más lecturas por día según la época, y
-  un máximo anual sacado de ahí dependería de cuántas veces se leyó la escala.
-- **Está congelada en `public/rio/corrientes_diario.json`** (180 KB, centímetros
-  enteros, `null` donde no hay dato) y se regenera con
-  `node scripts/build_rio_historico.mjs`. Son 125 años que no cambian: pedirlos
-  en vivo serían 11 MB contra el INA en cada visita, y la recurrencia —que se
-  cita— dependería de que el INA conteste ese día. **El año en curso no entra
-  hasta regenerar**; conviene hacerlo una vez por año, pasado agosto.
+- **Está congelado en `public/rio/barranqueras_diario.json`** (175 KB,
+  centímetros enteros, `null` donde no hay dato; falta el 1,6 % de los días) y
+  se regenera con `node scripts/build_rio_barranqueras.mjs`. Son 120 años que
+  no cambian: pedirlos en vivo serían 18 MB contra el INA en cada visita, y la
+  recurrencia —que se cita— dependería de que el INA conteste ese día. **El año
+  en curso no entra hasta regenerar**; conviene hacerlo una vez por año, pasado
+  agosto.
+- **Va aparte de `build_rio_historico.mjs`**, que ahora genera sólo el archivo
+  del tramo: para no volver a bajar ni mover `tramo_diario.json`, sobre el que
+  hay tests. `corrientes_diario.json` se borró —ninguna pantalla lo leía más—;
+  si hace falta, es la serie 26261 entera y está en el historial de git.
 - **El año hidrológico va de septiembre a agosto.** Con el año calendario la
-  crecida de 1982/83 aporta dos máximos —7,80 m en diciembre y 9,02 en julio—
-  siendo un solo evento. Septiembre y agosto son los meses con menos picos: uno
-  cada uno en 125 años.
+  crecida de 1982/83 aporta dos máximos —7,56 m en diciembre y 8,59 en 1983—
+  siendo un solo evento. Agosto tiene un solo pico en 117 años y septiembre
+  ninguno.
+- **En 1983 la mayor es la cresta de junio, por un centímetro**: 8,59 m el
+  22/06 y 8,58 el 18/07, que es el día del máximo en Corrientes. No es un
+  corrimiento de fechas; el test afirma las dos.
+- **1989/90 es una crecida grande que no entra en el ajuste.** Lo que hay de
+  ese año llega a 7,66 m, pero tiene 327 días con dato y el corte es 330
+  (`DIAS_MINIMOS`). La pantalla lo lista entre los incompletos. No se bajó el
+  corte para hacerlo entrar: sería elegir la regla mirando el resultado.
 - **El régimen cambió hacia 1971 y por eso hay dos períodos.** El mínimo anual
-  promedia 0,85 m antes y 2,02 después. En los máximos es menos claro: 5,75 m
-  antes, 6,57 entre 1971 y 2000, y 5,72 desde 2001. La pantalla calcula con la
+  promedia 0,79 m antes y 1,96 después. En los máximos es menos claro: 5,61 m
+  antes, 6,35 entre 1971 y 2000, y 5,69 desde 2001. La pantalla calcula con la
   serie completa o desde 1970/71 y dice cuál; los números del cambio salen del
   archivo, no están escritos a mano. **Al citar una recurrencia hay que decir
-  con qué período.** Desde 1970/71 la de 100 años sube a 9,86 ± 1,21 m.
-- **La fecha es el día de `timestart` leído en UTC, sin convertir.** El INA marca
-  la medianoche local, y Argentina estuvo siempre al oeste de Greenwich (de
-  −4:16:48 en 1901 a −3 hoy), así que cae entre las 02:00 y las 04:17 UTC del
-  mismo día. Convertir con el huso de hoy correría un día las fechas viejas.
-- **Los ceros exactos de la serie son reales.** Hay 15, en 1903, 1916, 1917,
-  1925, 1944 y 1969, todos rodeados de alturas de pocos centímetros: son
-  bajantes. Es el caso que `depurar()` ya contemplaba.
-- **El río sí puede subir más de 30 cm en un día.** La serie tiene 28 días con
-  un cambio de más de 60 cm. Algunos parecen errores de carga, pero no todos:
-  en octubre de 1915 subió 76 y 72 cm en dos días seguidos, dentro de una
-  crecida sostenida. Lo de "10 a 30 cm por día" es lo típico, no el techo;
-  `SALTO_MAX_M` = 2 sigue holgado.
-- **Las alturas son de la escala de Corrientes.** La frecuencia vale para el
-  tramo; los metros no se trasladan a Barranqueras, que tiene otro cero.
+  con qué período.** Desde 1970/71 (54 años) la de 100 años sube a 9,50 ± 1,16
+  m, y el alerta se superó en 28 de 54 años.
+- **El corte del régimen coincide casi con el cambio de serie** (1970/71 y
+  01/01/1970). Es coincidencia, y conviene saberlo antes de sospechar: el mismo
+  cambio en los mínimos se medía en Corrientes —0,85 a 2,02 m—, sobre una sola
+  serie.
+- **La fecha es el día de `timestart` leído en UTC, sin convertir.** La media
+  diaria va marcada a la medianoche local y las lecturas entre las 03:00 y las
+  19:00 UTC: caen siempre en el mismo día. Convertir con el huso de hoy
+  correría un día las fechas viejas.
+- **Los ceros exactos de la serie son reales.** Hay 17, en 1916, 1917, 1925,
+  1934, 1944, 1949 y 1969, y 142 días bajo el cero de escala: son bajantes. Es
+  el caso que `depurar()` ya contemplaba.
+- **El río sí puede subir más de 30 cm en un día.** La serie tiene 56 días con
+  un cambio de más de 60 cm. Algunos son errores de carga, pero no todos: en
+  octubre de 1915 subió 80 y 67 cm en dos días seguidos, dentro de una crecida
+  sostenida —la misma que se ve en Corrientes—. `SALTO_MAX_M` = 2 sigue
+  holgado.
+- **Las alturas son de la escala de Barranqueras** y no se trasladan a otra
+  escala del tramo. Los máximos anuales de Corrientes van de 23 cm por debajo a
+  43 por encima, 11 en promedio.
 - **Los rótulos de los umbrales van en un margen a la derecha del gráfico.** La
-  primera versión los ponía encima, a la izquierda, y tapaban la crecida de 1905
-  y el tramo empinado de la curva de permanencia. Se vio en la pantalla.
+  primera versión los ponía encima, a la izquierda, y tapaban las barras de los
+  primeros años y el tramo empinado de la curva de permanencia. Se vio en la
+  pantalla.
 - **Las barras fuera del período se atenúan, no desaparecen**: el gráfico no se
   reacomoda al cambiar y se ve qué se deja afuera.
 
 `scripts/verificar-rio-historico.ts` corre sobre el archivo real, sin red. **Acá
-sí hay contra qué comparar**: las crecidas del Paraná están documentadas, así
-que afirma que la mayor es 9,02 m en julio de 1983, seguida de 1992, 1905 y
-1998, y que el mínimo es el de 1944. Con las fechas corridas o las unidades
-cruzadas eso no cierra. Gumbel se afirma por propiedades —la altura de 2 años es
-la mediana, ida y vuelta devuelve lo mismo— porque nadie publicó la recurrencia
-con esta serie y este método.
+sí hay contra qué comparar, y son dos controles que no se conocen entre sí:**
 
-**La serie no se depuró.** Tiene algún salto de un día que parece error de carga
-(01/01/1941, 01/11/1920). No tocan ningún máximo anual, y filtrarlos sería
-afirmar algo distinto de la fuente.
+- **La Resolución 1111/98 de la APA** da el pico del 04/05/1998 como «8,17 m en
+  el hidrómetro de Puerto Barranqueras». El archivo da 8,17 m ese día. Con las
+  fechas corridas o las unidades cruzadas eso no cierra.
+- **Corrientes, que está enfrente**, con su propia media diaria
+  (`tramo_diario.json`): sobre 54 años en común los máximos anuales
+  correlacionan 0,995.
+
+Además afirma el orden de las crecidas —1982/83, 1991/92, 1997/98 y 1965/66—,
+que el mínimo es el de 1944, la costura de 1970 y cuánto salió de cada serie.
+Gumbel se afirma por propiedades —la altura de 2 años es la mediana, ida y
+vuelta devuelve lo mismo— porque nadie publicó la recurrencia con esta serie y
+este método.
+
+**La serie no se depuró.** Tiene saltos de un día que son errores de carga —el
+14/09/1990 baja tres metros y vuelve—, y filtrarlos sería afirmar algo distinto
+de la fuente. **Uno toca un máximo anual**: el 09/02/1981 la serie da 6,16 ·
+6,36 · 6,16 sobre un río quieto, y ese 6,36 es el máximo de 1980/81. Con o sin
+él el año pasó el alerta y no llegó a evacuación, así que no cambia nada de lo
+contado; el test lo deja escrito. También hay un mínimo anual que es un día
+suelto (2,03 m el 24/08/1993), y no es el del registro.
 
 ### Traslado de la crecida en el tramo
 
@@ -2173,7 +2241,7 @@ Cosas que no son obvias:
   los días con Corrientes sobre 5 m el desfase da cero con correlación 0,53. No
   se investigó por qué. Para aguas altas, el pico.
 - **El archivo es `public/rio/tramo_diario.json`** (680 KB, las seis estaciones
-  desde 1970 y dos del Paraguay) y lo genera el mismo `build_rio_historico.mjs`.
+  desde 1970 y dos del Paraguay) y lo genera `build_rio_historico.mjs`.
   Arranca en 1970 porque Barranqueras y Bella Vista no tienen media diaria
   anterior. Empedrado no tiene datos entre 1970 y 1989.
 

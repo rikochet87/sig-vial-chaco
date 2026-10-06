@@ -1,12 +1,17 @@
 /**
- * Genera los dos archivos congelados del río Paraná, tal como los publica el
+ * Genera el archivo congelado del tramo del río Paraná, tal como lo publica el
  * Alerta Hidrológico del INA:
  *
- *   public/rio/corrientes_diario.json   Corrientes, altura media diaria desde 1901
  *   public/rio/tramo_diario.json        las seis estaciones del tramo, desde 1970,
  *                                       y dos del río Paraguay
  *
  *   node scripts/build_rio_historico.mjs
+ *
+ * El registro largo —Barranqueras desde 1906— lo genera
+ * `build_rio_barranqueras.mjs`. Hasta el 06/10/2026 este script escribía
+ * también `corrientes_diario.json`, la serie de Corrientes desde 1901, que era
+ * la del registro histórico; se sacó cuando el registro pasó a Barranqueras y
+ * ninguna pantalla la leía más. Si hace falta, es la serie 26261 entera.
  *
  * ── Por qué van congelados y no se piden en vivo ──────────────────────────────
  *
@@ -119,22 +124,6 @@ try {
     console.log(`Pidiendo la serie ${serie} (estación ${estacion})…`)
     bajadas[estacion] = await bajar(serie)
     await pausa(1500)
-  }
-
-  // ── Corrientes, completa ────────────────────────────────────────────────
-  {
-    const desde = '1901-01-01'
-    const hasta = ultima(bajadas[19])
-    const cm = aCentimetros(bajadas[19], desde, hasta)
-    const salida = join(DIR, 'corrientes_diario.json')
-    writeFileSync(salida, JSON.stringify({
-      estacion: 19, serie: SERIES[19], fuente: FUENTE,
-      variable: 'Altura hidrométrica media diaria, en cm sobre el cero de escala',
-      generado: hoy, desde, hasta, cm,
-    }))
-    const conDato = cm.filter(v => v !== null).length
-    console.log(`✓ ${salida}`)
-    console.log(`  ${desde} a ${hasta}: ${cm.length} días, ${conDato} con dato, ${cm.length - conDato} sin dato`)
   }
 
   // ── El tramo, desde 1970 ────────────────────────────────────────────────
