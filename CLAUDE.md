@@ -37,7 +37,7 @@ npx expo-doctor               # desde la raíz — detecta incompatibilidades de
 ```
 
 **Todo eso corre junto con `npm run verificar`** (desde `admin/`):
-`tsc --noEmit`, la barrera de lint, la sintaxis de los `.sql` y los veintiséis
+`tsc --noEmit`, la barrera de lint, la sintaxis de los `.sql` y los veintisiete
 `scripts/verificar-*.ts`. `next build` queda afuera a propósito: tarda minutos y
 usa el binario nativo de SWC, así que sólo corre donde se instalaron los
 paquetes. El orquestador es `scripts/verificar-todo.mjs`, en Node y no en un
@@ -2429,6 +2429,49 @@ a 10 m, mejorando hasta 15 % la habilidad para reproducir la mancha.
 Antes de gastar en eso conviene averiguar si existe **lidar o fotogrametría
 sobre el Gran Resistencia**: las áreas urbanas suelen tener relevamientos mucho
 mejores que la grilla nacional.
+
+### Lluvia histórica: ERA5, congelada por año
+
+`scripts/build_era5.ts` + `lib/era5.ts` + `public/lluvia/era5/`. **Todavía no
+alimenta ninguna pantalla**: es la descarga, que lleva días por el cupo.
+
+Los partes de la APA empiezan en 09/2025. Con un año no se puede decir qué tan
+raro es un evento ni cruzar la lluvia con los caudales del INA, que terminan
+antes. ERA5 —el reanálisis de ECMWF, desde 1940— es lo único que hay hacia
+atrás.
+
+- **Es lluvia modelada y no se mezcla con la medida.** Ningún número que hoy
+  sale de los pluviómetros pasa a salir de acá. Sirve para frecuencias y
+  promedios por cuenca, no para decir cuánto llovió un día en un lugar.
+- **Se pide `models=era5`, no el pedido de siempre.** La ingesta diaria no fija
+  modelo y Open-Meteo mezcla tres —IFS desde 2017, ERA5 y ERA5-Land—. Para ayer
+  es lo mejor que hay; para una serie de décadas el producto cambia en el medio
+  y un salto puede ser del modelo y no de la lluvia.
+- **Los nodos son los 137 de la grilla del pronóstico por cuenca**
+  (`grillaEn(CONTORNO_CHACO)`), así `asignarPuntos()` los reparte entre las
+  cuencas igual, y el pronóstico se va a poder poner al lado de lo que es
+  normal para la época. Si la grilla cambia, el script se niega a seguir.
+- **El cupo es lo que manda.** Un nodo por un año son ~26 llamadas; un año
+  entero, ~3.600, contra 600 por minuto, 5.000 por hora y 10.000 por día. El
+  script va de a 8 nodos con 25 s de pausa —un año tarda ocho minutos— y espera
+  una hora entre un año y el siguiente. Con dos años por día, la serie desde
+  2001 lleva unas dos semanas.
+- **El cupo es por dirección de red, no por proyecto**: lo que se baja desde la
+  máquina de trabajo no le saca nada al cron de Vercel. Pero sí compite con lo
+  que se haga ese día desde el panel en local.
+- **Baja de lo más nuevo hacia atrás** y un año se escribe entero o no se
+  escribe. Sin argumentos baja el año que sigue; `--anios 2` baja dos.
+- **El año en curso queda incompleto** —ERA5 llega con una semana de atraso— y
+  hay que volver a pedirlo por nombre (`npx tsx scripts/build_era5.ts 2026`).
+- Un archivo por año, ~85 KB: décimas de mm, día por día y nodo por nodo.
+
+Al 05/10/2026 está bajado **sólo 2026**, hasta el 28/09. Para diciembre de
+2025, el mes sin partes de la APA, una consulta suelta a ERA5 dio 29 y 62 mm
+el 22/12 en dos nodos: el modelo sí ve ese evento.
+
+`scripts/verificar-era5.ts` no sale a la red: afirma la forma de cada archivo
+y, en los años completos, lo que se sabe del Chaco sin estos datos —entre 500
+y 1.800 mm, y más al este que al oeste—. **No afirma que ERA5 acierte.**
 
 ### Cuidado con las métricas condicionadas
 
