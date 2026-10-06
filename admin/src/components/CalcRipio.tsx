@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import dynamic from 'next/dynamic'
 import type { RipioTramo, LatLng } from './RipioMapPanel'
 import { PALETTE } from '@/lib/ripioPalette'
+import { useUser } from '@/lib/UserContext'
 import type { GuardarObraData } from './GuardarObraModal'
 import PanelAPU from './ripio/PanelAPU'
 import PanelCoeficientes from './ripio/PanelCoeficientes'
@@ -115,6 +116,8 @@ export default function CalcRipio({ onGuardarObra, focoObra, obraEnEdicionId }: 
    */
   obraEnEdicionId?: string
 }) {
+  // La papelera de proyectos es sólo del administrador; la ruta también lo exige
+  const esAdmin = useUser().profile.rol === 'admin'
   const [proyectos,    setProyectos]    = useState<Proyecto[]>([])
   const [activeProyId, setActiveProyId] = useState<string | null>(null)
   const [selectedId,   setSelectedId]   = useState<string | null>(null)
@@ -548,10 +551,12 @@ export default function CalcRipio({ onGuardarObra, focoObra, obraEnEdicionId }: 
           Proyectos
         </span>
         <div style={{ display: 'flex', gap: 4 }}>
-          <button onClick={abrirPapelera} title="Proyectos archivados" style={{
-            fontSize: 12, ...MONO, cursor: 'pointer', whiteSpace: 'nowrap',
-            background: 'transparent', border: '1px solid #333', color: '#777', padding: '2px 7px',
-          }}>🗄</button>
+          {esAdmin && (
+            <button onClick={abrirPapelera} title="Proyectos archivados" style={{
+              fontSize: 12, ...MONO, cursor: 'pointer', whiteSpace: 'nowrap',
+              background: 'transparent', border: '1px solid #333', color: '#777', padding: '2px 7px',
+            }}>🗄</button>
+          )}
           <button onClick={addProyecto} style={{
             fontSize: 12, ...MONO, cursor: 'pointer', whiteSpace: 'nowrap',
             background: 'transparent', border: '1px solid #333', color: '#aaa', padding: '2px 8px',
@@ -1073,7 +1078,8 @@ export default function CalcRipio({ onGuardarObra, focoObra, obraEnEdicionId }: 
         </div>
         <div style={{ fontSize: 13, color: '#777', ...MONO, marginBottom: 18, lineHeight: 1.6 }}>
           Borrar un proyecto lo saca del cómputo pero no lo destruye. Restaurar
-          lo devuelve con sus tramos y su análisis, tal como estaba.
+          lo devuelve con sus tramos y su análisis, tal como estaba. Eliminar
+          sí lo destruye, y no tiene vuelta.
         </div>
 
         {archivados === null && (
@@ -1118,6 +1124,17 @@ export default function CalcRipio({ onGuardarObra, focoObra, obraEnEdicionId }: 
                     border: '1px solid #2e6b3e', color: '#7BC47F', fontWeight: 700,
                   }}
                 >{restaurando === p.id ? '…' : '↩ Restaurar'}</button>
+                <button
+                  onClick={() => purgarProyecto(p)}
+                  disabled={restaurando === p.id}
+                  title="Eliminar definitivamente"
+                  style={{
+                    fontSize: 13, ...MONO, whiteSpace: 'nowrap',
+                    cursor: restaurando === p.id ? 'default' : 'pointer',
+                    padding: '6px 10px', background: 'transparent',
+                    border: '1px solid #5a2a2a', color: '#e57373', fontWeight: 700,
+                  }}
+                >✕ Eliminar</button>
               </div>
             )
           })}
@@ -1431,6 +1448,45 @@ export default function CalcRipio({ onGuardarObra, focoObra, obraEnEdicionId }: 
       setArchivados(prev => (prev ?? []).filter(x => x.id !== p.id))
     } catch (e) {
       alert(e instanceof Error ? e.message : 'No se pudo restaurar el proyecto')
+    } finally {
+      setRestaurando(null)
+    }
+  }
+
+  /** Borrado definitivo. Sólo admin, sólo sobre archivados, y con el nombre tipeado. */
+  async function purgarProyecto(p: Proyecto) {
+    const esperado = p.nombre.trim() || 'ELIMINAR'
+
+    // Las obras guardadas desde este proyecto sobreviven, pero sin cómputo que
+    // reabrir: se avisa con el número antes de confirmar. Sólo cuenta las
+    // activas; si la consulta falla se pregunta igual, sin el número.
+    let obras = 0
+    try {
+      const r = await fetch(`/api/obras?proyecto_ripio_id=${p.id}`)
+      if (r.ok) obras = ((await r.json()) as unknown[]).length
+    } catch { /* se confirma sin el dato */ }
+
+    const aviso = obras > 0
+      ? `\n\nHay ${obras} obra${obras === 1 ? '' : 's'} en la lista guardada${obras === 1 ? '' : 's'} desde este proyecto: ` +
+        `queda${obras === 1 ? '' : 'n'} en Obras, pero ya no se va${obras === 1 ? '' : 'n'} a poder abrir en la calculadora.`
+      : ''
+    const tipeado = prompt(
+      `Eliminar «${p.nombre}» para siempre, con sus tramos y su análisis de precios. No se puede deshacer.${aviso}` +
+      `\n\nEscribí ${p.nombre.trim() ? 'el nombre del proyecto' : 'ELIMINAR'} para confirmar:`)
+    if (tipeado === null) return
+    if (tipeado.trim() !== esperado) {
+      alert('El texto no coincide. No se eliminó nada.')
+      return
+    }
+
+    setRestaurando(p.id)
+    try {
+      const r = await fetch(`/api/proyectos-ripio/${p.id}?purgar=1`, { method: 'DELETE' })
+      if (!r.ok) {
+        alert((await r.json().catch(() => ({}))).error ?? 'No se pudo eliminar el proyecto')
+        return
+      }
+      setArchivados(prev => (prev ?? []).filter(x => x.id !== p.id))
     } finally {
       setRestaurando(null)
     }

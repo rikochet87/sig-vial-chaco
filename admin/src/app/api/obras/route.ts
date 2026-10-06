@@ -67,6 +67,12 @@ export async function GET(req: NextRequest) {
   // ?archivadas=1 → la papelera. Por defecto la lista muestra sólo las activas.
   const soloArchivadas = searchParams.get('archivadas') === '1'
 
+  // La papelera es sólo del administrador, también para las obras propias.
+  // Va acá y no sólo en la pestaña: esconderla en la pantalla no cierra la ruta.
+  if (soloArchivadas && !isAdmin) {
+    return NextResponse.json({ error: 'Se requiere rol de administrador' }, { status: 403 })
+  }
+
   let query = supabase
     .from('obras')
     .select('*')

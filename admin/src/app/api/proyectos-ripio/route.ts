@@ -14,6 +14,12 @@ export async function GET(req: NextRequest) {
   // ?archivados=1 → la papelera de la calculadora
   const soloArchivados = new URL(req.url).searchParams.get('archivados') === '1'
 
+  // La papelera es sólo del administrador, también para los proyectos propios.
+  // Va acá y no sólo en el botón: esconderlo en la pantalla no cierra la ruta.
+  if (soloArchivados && !isAdmin) {
+    return NextResponse.json({ error: 'Se requiere rol de administrador' }, { status: 403 })
+  }
+
   let query = supabase
     .from('proyectos_ripio')
     .select('*, ripios(*)')

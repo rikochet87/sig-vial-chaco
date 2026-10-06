@@ -703,7 +703,9 @@ export default function ObrasPage() {
 
   const handleArchivar = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation()
-    if (!confirm('¿Archivar esta obra?\n\nSale de la lista y deja de verse en la app, pero queda guardada: se puede recuperar desde Archivadas.')) return
+    if (!confirm(currentUser?.rol === 'admin'
+      ? '¿Archivar esta obra?\n\nSale de la lista y deja de verse en la app, pero queda guardada: se puede recuperar desde Archivadas.'
+      : '¿Archivar esta obra?\n\nSale de la lista y deja de verse en la app, pero queda guardada: un administrador puede recuperarla.')) return
     await fetch(`/api/obras?id=${id}`, { method: 'DELETE' })
     setObras(prev => prev.filter(o => o.id !== id))
     if (panelObra?.id === id) setPanelObra(null)
@@ -760,19 +762,22 @@ export default function ObrasPage() {
         </h1>
         <span style={{ color: '#333', fontSize: 13, ...mono }}>{filtered.length} registros</span>
 
-        <div style={{ display: 'flex', border: '1px solid #252525' }}>
-          {([
-            ['activas',    'Activas'],
-            ['archivadas', 'Archivadas'],
-          ] as const).map(([v, lbl]) => (
-            <button key={v} onClick={() => setVista(v)} style={{
-              ...mono, fontSize: 13, padding: '5px 14px', cursor: 'pointer',
-              border: 'none', letterSpacing: 0.5,
-              background: vista === v ? '#1e1e1e' : 'transparent',
-              color: vista === v ? (v === 'archivadas' ? '#F5C300' : '#e0e0e0') : '#555',
-            }}>{lbl}</button>
-          ))}
-        </div>
+        {/* Las archivadas son sólo del administrador; la ruta también lo exige */}
+        {currentUser?.rol === 'admin' && (
+          <div style={{ display: 'flex', border: '1px solid #252525' }}>
+            {([
+              ['activas',    'Activas'],
+              ['archivadas', 'Archivadas'],
+            ] as const).map(([v, lbl]) => (
+              <button key={v} onClick={() => setVista(v)} style={{
+                ...mono, fontSize: 13, padding: '5px 14px', cursor: 'pointer',
+                border: 'none', letterSpacing: 0.5,
+                background: vista === v ? '#1e1e1e' : 'transparent',
+                color: vista === v ? (v === 'archivadas' ? '#F5C300' : '#e0e0e0') : '#555',
+              }}>{lbl}</button>
+            ))}
+          </div>
+        )}
       </div>
 
       {vista === 'archivadas' && (
