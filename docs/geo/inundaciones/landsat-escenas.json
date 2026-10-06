@@ -1,0 +1,177 @@
+[
+ {
+  "id": "LM02_L1TP_243079_19810810_02_T2",
+  "coleccion": "landsat-c2-l1",
+  "rol": "base",
+  "fecha": "1981-08-10",
+  "altura": 2.44
+ },
+ {
+  "id": "LM03_L1TP_243079_19820709_02_T2",
+  "coleccion": "landsat-c2-l1",
+  "rol": "crecida",
+  "fecha": "1982-07-09",
+  "altura": 6.3
+ },
+ {
+  "id": "LM03_L1TP_243079_19820814_02_T2",
+  "coleccion": "landsat-c2-l1",
+  "rol": "crecida",
+  "fecha": "1982-08-14",
+  "altura": 5.15,
+  "mapa": true,
+  "nota": "tres semanas después de la rotura del dique del río Negro"
+ },
+ {
+  "id": "LM04_L1TP_226079_19830111_02_T2",
+  "coleccion": "landsat-c2-l1",
+  "rol": "descartada",
+  "fecha": "1983-01-11",
+  "altura": 7.04,
+  "nota": "sombras de nube contadas como agua"
+ },
+ {
+  "id": "LM04_L1TP_226079_19830228_02_T2",
+  "coleccion": "landsat-c2-l1",
+  "rol": "crecida",
+  "fecha": "1983-02-28",
+  "altura": 7.8,
+  "mapa": true
+ },
+ {
+  "id": "LM04_L1TP_226079_19830604_02_T2",
+  "coleccion": "landsat-c2-l1",
+  "rol": "descartada",
+  "fecha": "1983-06-04",
+  "altura": 7.95,
+  "nota": "manchas grandes al oeste que no aparecen dos semanas después: sombra o bruma"
+ },
+ {
+  "id": "LM04_L1TP_226079_19830620_02_T2",
+  "coleccion": "landsat-c2-l1",
+  "rol": "crecida",
+  "fecha": "1983-06-20",
+  "altura": 8.53,
+  "mapa": true,
+  "nota": "dos días antes del máximo del registro"
+ },
+ {
+  "id": "LM04_L1TP_226079_19830722_02_T2",
+  "coleccion": "landsat-c2-l1",
+  "rol": "crecida",
+  "fecha": "1983-07-22",
+  "altura": 8.26,
+  "mapa": true
+ },
+ {
+  "id": "LM04_L1TP_226079_19830823_02_T2",
+  "coleccion": "landsat-c2-l1",
+  "rol": "crecida",
+  "fecha": "1983-08-23",
+  "altura": 5.98
+ },
+ {
+  "id": "LM04_L1TP_226079_19830908_02_T2",
+  "coleccion": "landsat-c2-l1",
+  "rol": "crecida",
+  "fecha": "1983-09-08",
+  "altura": 5.04
+ },
+ {
+  "id": "LT05_L2SP_226079_19860807_02_T1",
+  "coleccion": "landsat-c2-l2",
+  "rol": "base",
+  "fecha": "1986-08-07",
+  "altura": 3.3
+ },
+ {
+  "id": "LT05_L2SP_226079_19870522_02_T1",
+  "coleccion": "landsat-c2-l2",
+  "rol": "crecida",
+  "fecha": "1987-05-22",
+  "altura": 5.87
+ },
+ {
+  "id": "LT05_L2SP_226079_19900223_02_T1",
+  "coleccion": "landsat-c2-l2",
+  "rol": "crecida",
+  "fecha": "1990-02-23",
+  "altura": 3.48,
+  "nota": "tres semanas después del pico de 7,66 m"
+ },
+ {
+  "id": "LT05_L2SP_226079_19920519_02_T1",
+  "coleccion": "landsat-c2-l2",
+  "rol": "crecida",
+  "fecha": "1992-05-19",
+  "altura": 6.93
+ },
+ {
+  "id": "LT05_L2SP_226079_19980520_02_T1",
+  "coleccion": "landsat-c2-l2",
+  "rol": "crecida",
+  "fecha": "1998-05-20",
+  "altura": 7.07,
+  "mapa": true
+ },
+ {
+  "id": "LT05_L2SP_226079_19980621_02_T1",
+  "coleccion": "landsat-c2-l2",
+  "rol": "crecida",
+  "fecha": "1998-06-21",
+  "altura": 4.77
+ },
+ {
+  "id": "LT05_L2SP_226079_19981027_02_T1",
+  "coleccion": "landsat-c2-l2",
+  "rol": "crecida",
+  "fecha": "1998-10-27",
+  "altura": 6.71
+ },
+ {
+  "id": "LT05_L2SP_226079_20100129_02_T1",
+  "coleccion": "landsat-c2-l2",
+  "rol": "crecida",
+  "fecha": "2010-01-29",
+  "altura": 6.72
+ },
+ {
+  "id": "LC08_L2SP_226079_20140719_02_T1",
+  "coleccion": "landsat-c2-l2",
+  "rol": "crecida",
+  "fecha": "2014-07-19",
+  "altura": 5.09
+ },
+ {
+  "id": "LC08_L2SP_226079_20160114_02_T1",
+  "coleccion": "landsat-c2-l2",
+  "rol": "crecida",
+  "fecha": "2016-01-14",
+  "altura": 7.23,
+  "mapa": true
+ },
+ {
+  "id": "LC08_L2SP_226079_20190122_02_T1",
+  "coleccion": "landsat-c2-l2",
+  "rol": "lluvia",
+  "fecha": "2019-01-22",
+  "altura": 4.43,
+  "mapa": true,
+  "nota": "río bajo: enero de 2019, el mes más lluvioso del registro de Resistencia"
+ },
+ {
+  "id": "LC08_L2SP_226079_20210807_02_T1",
+  "coleccion": "landsat-c2-l2",
+  "rol": "base",
+  "fecha": "2021-08-07",
+  "altura": 0.34,
+  "nota": "bajante extraordinaria"
+ },
+ {
+  "id": "LC09_L2SP_226079_20231125_02_T1",
+  "coleccion": "landsat-c2-l2",
+  "rol": "crecida",
+  "fecha": "2023-11-25",
+  "altura": 6.07
+ }
+]

@@ -1,0 +1,65 @@
+[
+ {
+  "fecha": "2021-08-19",
+  "rol": "base",
+  "altura": 0.38,
+  "aguaKm2": 61.9,
+  "validoPct": 99,
+  "aguaUrbanoKm2": 1.6,
+  "validoUrbanoPct": 100
+ },
+ {
+  "fecha": "2018-01-27",
+  "rol": "crecida",
+  "altura": 6.53,
+  "aguaKm2": 136.7,
+  "validoPct": 98,
+  "aguaUrbanoKm2": 3.5,
+  "validoUrbanoPct": 99
+ },
+ {
+  "fecha": "2019-01-17",
+  "rol": "lluvia",
+  "altura": 4.08,
+  "aguaKm2": 102.9,
+  "validoPct": 99,
+  "aguaUrbanoKm2": 3.8,
+  "validoUrbanoPct": 99
+ },
+ {
+  "fecha": "2019-01-22",
+  "rol": "lluvia",
+  "altura": 4.43,
+  "aguaKm2": 94.9,
+  "validoPct": 91,
+  "aguaUrbanoKm2": 2,
+  "validoUrbanoPct": 99
+ },
+ {
+  "fecha": "2019-02-06",
+  "rol": "lluvia",
+  "altura": 3.16,
+  "aguaKm2": 92.3,
+  "validoPct": 86,
+  "aguaUrbanoKm2": 2.6,
+  "validoUrbanoPct": 82
+ },
+ {
+  "fecha": "2023-11-07",
+  "rol": "crecida",
+  "altura": 6.76,
+  "aguaKm2": 183.2,
+  "validoPct": 100,
+  "aguaUrbanoKm2": 5,
+  "validoUrbanoPct": 100
+ },
+ {
+  "fecha": "2023-11-12",
+  "rol": "crecida",
+  "altura": 6.94,
+  "aguaKm2": 205.1,
+  "validoPct": 100,
+  "aguaUrbanoKm2": 6.5,
+  "validoUrbanoPct": 100
+ }
+]

@@ -2875,6 +2875,23 @@ límites que sólo aplica cuando se le pasa un `buf` propio. No se toca.
   funciona, o el que se cita en un expediente. Está escrito para un lector
   humano externo; este CLAUDE.md, para trabajar sobre el código. **Si cambia un
   método o una constante, hay que tocar los dos.**
+- `docs/inundaciones-gran-resistencia.md` — investigación del 06/10/2026 sobre
+  las áreas inundables del Gran Resistencia: qué imágenes antiguas existen, la
+  mancha de agua en Landsat (21 escenas elegidas de 1981 a 2023 y la serie
+  entera, 337 desde 1984) y en Sentinel-2, a qué altura del río se moja cada
+  lugar, la mancha urbana por época, y el cruce con Barranqueras, el Niño y la
+  lluvia local. Resultados en `docs/geo/inundaciones/`. **No alimenta ninguna
+  pantalla.** Cosas que conviene no volver a averiguar:
+  - Landsat y Sentinel-2 se leen sin cuenta desde Planetary Computer. **De a
+    una banda y con el permiso pedido una sola vez**: en paralelo las
+    conexiones se cortan, y pedir el permiso en cada lectura da 429.
+  - **ERA5 da la mitad de lo medido en los meses más lluviosos de Resistencia**
+    (290 mm contra 588 en enero de 2019).
+  - La ocurrencia de agua propia coincide 0,97 con el *Global Surface Water*
+    del JRC, que se baja sin cuenta.
+  - Los scripts están en `admin/scripts/inundaciones/` y usan paquetes que **no
+    están en `package.json`** (geotiff, proj4, d3-contour, pngjs): se corren
+    copiando la carpeta afuera del repo.
 - `docs/lluvia-pendientes.md` — lo que falta probar (IMERG, radar, kriging) con
   el procedimiento para medirlo
 - `docs/propuesta-ripio-presupuesto.md` — análisis de las planillas de cálculo y
