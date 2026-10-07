@@ -520,6 +520,56 @@ suficientes semanas se va a comparar contra las láminas medidas por los
 pluviómetros, sobre todos los días del período y no sólo sobre los días con
 lluvia, con el mismo cuidado descripto en 4.5.
 
+### 6.6 ter Lluvia histórica por cuenca (CHIRPS)
+
+Los partes de la APA empiezan en septiembre de 2025. Con un año de mediciones
+no se puede decir qué es normal para una época ni cada cuánto se repite un
+evento. Para eso la pantalla tiene una vista aparte, «Histórico», con otra
+fuente.
+
+**Fuente.** CHIRPS, del Climate Hazards Center de la Universidad de California
+en Santa Bárbara: una estimación diaria de lluvia hecha con imágenes
+infrarrojas de satélite y corregida con pluviómetros, a 0,05° (unos 5 km),
+desde 1981. Se obtiene de ClimateSERV (NASA SERVIR) como promedio diario
+dentro del contorno de cada cuenca. La serie cubre del 01/01/1981 al
+31/08/2026 sin días faltantes, y se publica con algo más de un mes de atraso.
+
+**Es una estimación, no una medición, y no se mezcla con los pluviómetros.**
+Ningún número de las otras vistas sale de CHIRPS, y los de esta vista no se
+comparan con aquéllos.
+
+**Qué se informa, por cuenca.**
+
+- La media de los años calendario enteros, y el total de cada año.
+- Los últimos doce meses de la serie contra los mismos doce meses de cada año:
+  el porcentaje sobre la mediana y el puesto que ocupan, del más lluvioso al
+  más seco.
+- Para cada mes, la mediana de la lámina mensual y el rango entre los
+  percentiles 10 y 90, junto al último mes disponible.
+- La mayor lámina acumulada en 3, 7 y 30 días corridos, con sus fechas.
+- La lámina que la mayor ventana de una temporada alcanza una de cada dos,
+  cinco y diez temporadas: la mediana y los percentiles 80 y 90 de las máximas
+  de cada temporada.
+
+**La temporada va de julio a junio.** Julio y agosto son los meses más secos en
+las trece cuencas; con el año calendario la temporada de lluvias queda partida
+y un evento de fin de diciembre aportaría el máximo de dos años.
+
+**Las frecuencias son cuentas, no un ajuste.** Con 45 temporadas no se
+extrapola: la vista no informa nada más raro que una de cada diez.
+
+**Límites.**
+
+- **No se usa para un día suelto.** El día de CHIRPS no coincide con el período
+  del parte de la APA: sobre la cuenca Negro - Salado, día por día correlaciona
+  0,64 con la lámina de los pluviómetros, y 0,85 en ventanas de tres y de siete
+  días. Por eso la ventana más corta es de tres días.
+- **Vale para el promedio de una cuenca**, no para un punto.
+- No se validó contra pluviómetros más allá de esa comparación: los controles
+  son de coherencia con el clima conocido de la provincia —más lluvia al este
+  que al oeste, verano lluvioso e invierno seco, 2020 a 2022 por debajo de la
+  media—.
+
 ### 6.7 Cursos de agua, canales y cruces con la red vial
 
 `lib/hidrografia.ts`. Agrega a las cuencas por dónde corre el agua, y con eso
@@ -1015,6 +1065,8 @@ Se enumeran porque condicionan el uso legítimo de la herramienta.
 
 - **Administración Provincial del Agua (Chaco)** — `mapas.apachaco.gob.ar`
 - **Open-Meteo** — `archive-api.open-meteo.com` (ERA5 / IFS operacional)
+- **CHIRPS** — Climate Hazards Center, UC Santa Barbara, vía ClimateSERV de
+  NASA SERVIR (`climateserv.servirglobal.net`)
 - **Instituto Nacional del Agua — Alerta Hidrológico de la Cuenca del Plata** —
   `alerta.ina.gob.ar/a5`
 - Umbrales de alerta y evacuación: publicados por el INA por estación, sobre

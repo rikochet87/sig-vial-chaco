@@ -811,8 +811,7 @@ por ejemplo—, y para eso el campo de lluvia tiene que quedar separado de su
 lectura: la misma vista debería poder alimentarse de lluvia observada, de un
 pronóstico o de un análogo histórico. Hoy falta profundidad histórica en lo
 medido: hay un año de partes. Hacia atrás está CHIRPS por cuenca, desde 1981
-(ver «Lluvia histórica: CHIRPS por cuenca»), que todavía no alimenta ninguna
-vista.
+(ver «Lluvia histórica: CHIRPS por cuenca»), en la vista «Histórico» de Cuencas.
 
 ## Lluvia — cómo está organizada la pantalla
 
@@ -821,7 +820,7 @@ Seis pestañas, cada una con la pantalla entera:
 | Pestaña | Qué tiene | Selector de período |
 |---|---|---|
 | **Mapa** | el mapa y, al lado, la lista de consorcios **o** de cuencas | sí |
-| **Cuencas** | `PanelCuencas` con sus seis vistas | sí, salvo la de cursos de agua |
+| **Cuencas** | `PanelCuencas` con sus siete vistas | sí, salvo la de cursos de agua y la histórica |
 | **Río Paraná** | `PanelRio`, abierto | sí |
 | **Gran Resistencia** | las áreas inundables: mapa propio y panel de escenarios (ver «Gran Resistencia — áreas inundables») | no: se elige una altura del río, no un período |
 | **Tiempo** | alertas del SMN y pronóstico por consorcio (ver «El tiempo») | no: mira hacia adelante |
@@ -2516,8 +2515,8 @@ mejores que la grilla nacional.
 ### Lluvia histórica: CHIRPS por cuenca, desde 1981
 
 `scripts/build_chirps.mjs` + `lib/chirps.ts` +
-`public/lluvia/chirps_cuencas.json`. **Todavía no alimenta ninguna pantalla**:
-está la serie y cómo leerla.
+`public/lluvia/chirps_cuencas.json` + `components/cuencas/VistaHistorico.tsx`,
+la séptima vista del panel de cuencas («Histórico»).
 
 Los partes de la APA empiezan en 09/2025. Con un año no se puede decir qué tan
 raro es un evento ni cruzar la lluvia con los caudales del INA, que terminan
@@ -2567,6 +2566,48 @@ archivo armado a mano, la forma del archivo real y lo que se sabe del Chaco sin
 estos datos —más lluvia al este que al oeste, enero al menos el doble que
 julio, 2020 a 2022 bajo la media en las trece— y la semana de diciembre de
 2025. **No afirma que CHIRPS acierte.**
+
+#### La vista «Histórico»
+
+Qué es normal y qué es raro, por cuenca. En la tabla: la media anual, los
+últimos doce meses contra los mismos doce meses de cada año, y la mayor lámina
+acumulada en 3, 7 y 30 días con sus fechas. Al abrir una fila: el total de
+cada año, lo normal de cada mes al lado del último, y cada cuánto la mayor
+ventana de una temporada llega a cierta lámina.
+
+- **No hay ventana de un día** (`VENTANAS_CHIRPS` = 3, 7 y 30), por lo del día
+  de CHIRPS contra el de la APA.
+- **La temporada va de julio a junio** (`MES_INICIO_TEMPORADA`). Julio es el
+  mes más seco en nueve cuencas y agosto en las cuatro del norte —el test lo
+  afirma—. Con el año calendario la temporada de lluvias queda partida y un
+  evento de fin de diciembre aporta el máximo de dos años. Los totales anuales
+  sí van por año calendario, que es como se cita un año.
+- **Las frecuencias son cuentas, no un ajuste**: la mediana y los percentiles
+  80 y 90 de las máximas de cada temporada entera, dichos como una de cada dos,
+  cinco y diez. Con 45 temporadas no se informa nada más raro, y la pantalla lo
+  dice. No hay Gumbel acá, a diferencia de Barranqueras, que tiene 117 años.
+- **Los últimos doce meses se comparan contra la misma época**, no contra el
+  año calendario: los 365 días que terminan el mismo día de cada año. Así el
+  número no depende de en qué mes termina el archivo.
+- **«Lo normal» de un mes es la mediana con el rango p10–p90** de todos los
+  años del archivo, no una normal de 30 años. El último mes va marcado con ▲ o
+  ▼ si cae fuera de ese rango.
+- **Va en color arena** (`C_CHIRPS`), que no es el azul de lo medido ni el
+  violeta del pronóstico, y la pantalla dice que estos números no se comparan
+  con los de las otras vistas.
+- **No se cruza con el período elegido ni con el pronóstico.** Poner el
+  pronóstico por cuenca al lado de lo normal para la época sigue sin hacer.
+- El calendario del archivo —año y mes de cada posición— se arma una vez
+  (`calendarioDe`): son 16 mil fechas y todo lo recorre por cuenca.
+
+Lo que se vio al armarla: **los doce meses a agosto de 2026 están entre los
+más lluviosos del registro** —2.º de 45 en Tapenagá, La Rica - Sábalo y Línea
+Paraná—, y en Negro - Salado la semana del 14 al 20/04/2026 dio 178 mm, a uno
+del máximo desde 1981 (179, del 31/03 al 06/04/1986).
+
+Mirándola en pantalla salieron dos cosas de alineación que el test no ve: el
+rótulo «El último» quedaba al pie de su celda de dos renglones, y la tabla de
+frecuencias tenía los encabezados pegados.
 
 ### Lluvia histórica: ERA5, de respaldo
 
