@@ -180,8 +180,7 @@ ok('todo vértice cae dentro del recuadro, con medio km de margen',
 titulo('El Canal 16 y lo informado')
 
 /*
- * Un ingeniero hidrólogo que revisó la pantalla dijo que con el pico de 1998
- * (8,17 m) el agua entró al Canal 16. No hay imagen de ese pico, y las
+ * Con el pico de 1998 (8,17 m) el agua entró al Canal 16. No hay imagen de ese pico, y las
  * imágenes de 60 m no ven un canal. Lo que se afirma acá es lo poco que sí se
  * ve alrededor: nada hasta 7,23 m, y agua junto al tramo final —el que da al
  * Paraná— que aparece entre 7,80 y 8,02 m.
@@ -219,7 +218,7 @@ ok('el doble que con 7,80 m, una semana antes', f802 > 2 * f780)
 
 const inf = indice.informes ?? []
 ok('hay un informe, el del Canal 16 en 1998', inf.map(i => i.id).join(), 'canal-16-1998')
-ok('dice quién lo informó y qué muestran las imágenes', inf.every(i => i.fuente.length > 10 && i.contraste.length > 40))
+ok('dice qué muestran las imágenes', inf.every(i => i.contraste.length > 40))
 ok('apunta a una línea que existe', inf.every(i => !i.referencia || indice.referencias?.some(x => x.id === i.referencia)))
 ok('no aparece por debajo de su altura', informesHasta(inf, 8.1).length, 0)
 ok('aparece en la altura de 1998', informesHasta(inf, 8.17).length, 1)

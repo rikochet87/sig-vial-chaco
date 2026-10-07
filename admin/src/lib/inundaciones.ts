@@ -37,9 +37,9 @@
  *
  * ── Lo informado ─────────────────────────────────────────────────────────────
  *
- * `informes` es lo que alguien que conoce el lugar dijo que pasó y ninguna
- * imagen muestra. **No se dibuja como agua**: va como texto, con quién lo dijo,
- * y al lado lo que sí se ve en la imagen más cercana.
+ * `informes` es lo que se sabe que pasó y ninguna imagen muestra. **No se
+ * dibuja como agua**: va como texto, y al lado lo que sí se ve en las imágenes
+ * más cercanas.
  *
  * ── La lluvia y la combinación ───────────────────────────────────────────────
  *
@@ -100,7 +100,6 @@ export interface InformeInundacion {
   /** La línea de `referencias` de la que habla, si hay */
   referencia?: string
   texto: string
-  fuente: string
   /** Lo que muestran las imágenes más cercanas */
   contraste: string
 }

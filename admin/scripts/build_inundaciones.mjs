@@ -120,16 +120,15 @@ const REFERENCIAS = [
 ]
 
 /**
- * Lo que alguien que conoce el lugar dijo que pasó y ninguna imagen muestra.
+ * Lo que se sabe que pasó y ninguna imagen muestra.
  *
- * **No es agua vista y no se dibuja como agua**: va como texto, con quién lo
- * dijo y cuándo, al lado de la imagen más cercana que hay. Se muestra cuando la
- * altura pedida llega a `alturaM`.
+ * **No es agua vista y no se dibuja como agua**: va como texto, al lado de lo
+ * que muestran las imágenes más cercanas. Se muestra cuando la altura pedida
+ * llega a `alturaM`. No lleva quién lo informó.
  */
 const INFORMES = [
   { id: 'canal-16-1998', alturaM: 8.17, fecha: '1998-05-04', referencia: 'canal-16',
     texto: 'Con el pico de 1998 el agua entró al Canal 16, el último canal al sur del Gran Resistencia.',
-    fuente: 'Ingeniero hidrólogo que revisó esta pantalla, octubre de 2026',
     contraste: 'No hay imagen de ese pico. En las de 1998 que hay —el 09/04, con el río en 7,22 m y subiendo, y el 20/05, dieciséis días después y en 7,07 m— no se ve agua abierta sobre el canal. En 1983, con 7,80 m casi no hay agua junto a su tramo final; una semana después, con 8,02 m, la hay a menos de 300 m en más de la mitad de ese tramo, del lado del Paraná. Las imágenes no muestran el canal desbordado a lo largo: a 60 m por píxel un canal no se ve.' },
 ]
 

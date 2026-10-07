@@ -12,8 +12,8 @@
  * dice de cada capa de qué imagen sale, avisa cuando la altura pedida pasa lo
  * que hay observado, y dibuja en gris rayado lo que una imagen no llegó a ver.
  *
- * Lo que alguien informó y ninguna imagen muestra va aparte, como texto y con
- * quién lo dijo: no se pinta como agua. Ver `lib/inundaciones.ts`.
+ * Lo que se sabe que pasó y ninguna imagen muestra va aparte, como texto: no se
+ * pinta como agua. Ver `lib/inundaciones.ts`.
  */
 import dynamic from 'next/dynamic'
 import { useEffect, useMemo, useState, useCallback } from 'react'
@@ -405,7 +405,6 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
                 Informado, sin imagen · {f2(i.alturaM)} m, {fFecha(i.fecha)}
               </span>
               <br /><b style={{ color: '#e8e8e8' }}>{i.texto}</b>
-              <br /><span style={{ color: '#8f8f8f' }}>{i.fuente}.</span>
               <br />{i.contraste}
             </div>
           ))}
@@ -531,8 +530,8 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
           <div style={{ ...texto, fontSize: 11, color: '#8f8f8f' }}>
             Toda el agua dibujada es agua que se vio desde un satélite, con su fecha. No hay modelo hidráulico ni cotas del
             terreno: no da profundidades ni sirve para un lote. No ve agua debajo de monte ni de nubes, así que cada
-            mancha es un piso; en gris rayado va lo que una imagen no llegó a ver. Lo «informado» es lo que dijo alguien
-            que conoce el lugar: no se pinta. La zonificación que vale para un certificado de riesgo hídrico es la de la APA.
+            mancha es un piso; en gris rayado va lo que una imagen no llegó a ver. Lo «informado» es lo que se sabe que
+            pasó y no tiene imagen: no se pinta. La zonificación que vale para un certificado de riesgo hídrico es la de la APA.
             {error && <><br /><span style={{ color: '#E8A87C' }}>{error}</span></>}
           </div>
         </div>

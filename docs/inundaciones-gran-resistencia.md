@@ -352,7 +352,7 @@ cada escena.
 
 ## Tercera pasada: la otra órbita, el Canal 16 y los modelos de elevación
 
-Del 07/10/2026. Un ingeniero hidrólogo revisó la pestaña y la corrigió: **con
+Del 07/10/2026. La pestaña tenía un error: **con
 el pico de 1998 (8,17 m) el agua entró al Canal 16**, el último canal al sur
 del Gran Resistencia. La pantalla mostraba el canal seco a esa altura.
 
@@ -433,13 +433,13 @@ tramos de 1,6 km, de noroeste a sudeste:
   vegetación. Es el límite de leer esto a 60 m.
 - **El 20/06/1983 hay agua a lo largo de casi todo el canal.** Son las «manchas
   sueltas al oeste» que quedaron sin confirmar porque no están el 22/07. Lo
-  que dijo el hidrólogo sobre 1998 las hace más creíbles, y no las confirma.
+  que se sabe de 1998 las hace más creíbles, y no las confirma.
 - **Ninguna imagen muestra el canal desbordado**: un canal no se ve a 60 m.
   Lo que hay es compatible con que el agua le entre por abajo cerca de los 8
   m, y no prueba más que eso.
 
 **En el panel va como lo que es**: la capa del 07/03/1983 es agua vista, y lo
-que dijo el hidrólogo va aparte, como texto con su fuente («Informado, sin
+que se sabe del pico de 1998 va aparte, como texto («Informado, sin
 imagen»), al llegar a 8,17 m. No se pinta como agua.
 
 ### Los modelos de elevación de 30 m no alcanzan
@@ -688,7 +688,7 @@ paso que más rinde, y es un pedido a la APA.
 6. **El MDT de 5 m del IGN** (y el de 0,5 m de Fontana). Es lo único
    disponible que permitiría ponerle cota al borde de cada mancha en el área
    urbana. Pedido redactado, sin enviar.
-7. **Preguntarle al hidrólogo qué más sabe**: otras marcas de la crecida de
+7. **Conseguir más marcas de campo**: otras de la crecida de
    1998, con lugar y si es posible cota. Cada una entra como un informe más.
 8. **Está montado en el panel**: pestaña «Gran Resistencia» de Hidrología, con
    selector de altura del río, la lluvia de 2019, la combinación de 1998 y el

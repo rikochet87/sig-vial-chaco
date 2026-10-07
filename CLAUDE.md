@@ -926,7 +926,7 @@ cada capa está en `docs/inundaciones-gran-resistencia.md`.
 
 ### El Canal 16, la otra órbita y lo informado
 
-El 07/10/2026 un ingeniero hidrólogo revisó la pestaña y la corrigió: **con el
+El 07/10/2026 se corrigió un error de la pestaña: **con el
 pico de 1998 (8,17 m) el agua entró al Canal 16**, el último al sur de la
 ciudad, y la pantalla lo mostraba seco. De ahí salieron cuatro cosas; el
 detalle está en «Tercera pasada» de `docs/inundaciones-gran-resistencia.md`.
@@ -944,18 +944,19 @@ detalle está en «Tercera pasada» de `docs/inundaciones-gran-resistencia.md`.
   sin un cuerpo de agua grande parte la tierra en dos. El 09/04/1998 da 207 km²
   de «agua» contra 6 de agua abierta. La del 07/03/1983 tiene el desborde
   adentro y se revisó a la vista.
-- **Lo que dicen las imágenes es menos que lo que dijo el hidrólogo, y la
+- **Lo que dicen las imágenes es menos que lo que se sabe que pasó, y la
   pantalla no lo estira.** Hasta 7,23 m no hay agua junto al canal; entre 7,80
   y 8,02 m aparece junto al tramo final, el que da al Paraná (26 a 59 % a
   menos de 310 m). El 22/07/1983, con 8,26 m, hay menos: no es monótono.
   **Ninguna imagen muestra el canal desbordado**: a 60 m un canal no se ve.
 - **Lo informado no se pinta como agua.** Va en `informes` del índice y se
-  muestra como texto —«Informado, sin imagen»— con quién lo dijo y qué muestran
+  muestra como texto —«Informado, sin imagen»— con lo que muestran
   las imágenes más cercanas, al llegar a esa altura (`informesHasta`). La caja
   es gris con filo blanco: ni el naranja de los avisos ni el color de una
   capa. La traza del canal va en `referencias`, de OpenStreetMap, como línea a
   rayas con su nombre. **Un informe nuevo se agrega en `INFORMES` de
-  `build_inundaciones.mjs`**, con su fuente.
+  `build_inundaciones.mjs`**. **No lleva quién lo informó**: se pidió
+  expresamente que la pantalla no lo diga.
 - **Las manchas de un día pasaron de 90 a 60 m y de 8 a 1,5 ha.** A 90 m se
   perdían los bajos chicos del área urbana, que son lo que se mira ahí: el
   agua junto al tramo final del canal son manchas de 5 a 10 ha. El compuesto
