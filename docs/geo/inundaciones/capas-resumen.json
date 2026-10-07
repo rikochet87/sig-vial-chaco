@@ -29,6 +29,11 @@
   "urbanoKm2": 20.04,
   "construidoKm2": 0.95
  },
+ "obs-1983-03-07": {
+  "km2": 93,
+  "urbanoKm2": 23.33,
+  "construidoKm2": 1.1
+ },
  "obs-1983-07-22": {
   "km2": 290.82,
   "urbanoKm2": 31.78,

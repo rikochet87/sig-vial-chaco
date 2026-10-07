@@ -1,0 +1,57 @@
+Para:    asesoriatecnica@ign.gob.ar
+Asunto:  Solicitud de MDT/MDE de 5 m y 0,5 m — Gran Resistencia (Chaco)
+
+------------------------------------------------------------------------
+
+Estimados:
+
+Me dirijo a ustedes desde la Dirección de Vialidad Provincial del Chaco para
+solicitar modelos digitales de elevación del área del Gran Resistencia, de
+acuerdo con la disponibilidad que indica el visor de MDE del Instituto.
+
+1. Área de interés
+
+Gran Resistencia (Resistencia, Barranqueras, Puerto Vilelas y Fontana) y su
+entorno, dentro del siguiente recuadro en coordenadas geográficas:
+
+  Oeste 59° 06' O (-59,10)    Este 58° 44' O (-58,73)
+  Norte 27° 24' S (-27,40)    Sur  27° 33' S (-27,55)
+
+Corresponde a las hojas del proyecto "0037 - 2016 - Ciudades -
+Corrientes-Resistencia": 2760-29-2-b, 2760-29-2-d, 2760-29-4-b, 2760-30-1-a,
+2760-30-1-b, 2760-30-1-c, 2760-30-1-d, 2760-30-2-a, 2760-30-2-c, 2760-30-3-a,
+2760-30-3-b y 2760-30-4-a.
+
+2. Productos solicitados
+
+  a) MDT de 5 m del proyecto "Corrientes-Resistencia" (2016). En el visor
+     figura publicado sólo como MDE; consultamos si existe el MDT
+     correspondiente a ese sector.
+  b) MDE de 5 m del mismo proyecto, para el caso de que el MDT no esté
+     disponible.
+  c) MDT y MDE de 0,5 m del proyecto "2021 - Fontana" (hoja 2760-29-2-d).
+
+3. Institución
+
+Dirección de Vialidad Provincial del Chaco.
+
+Uso previsto: análisis de la red vial y de sus obras de arte frente a
+crecidas del río Paraná y anegamientos por lluvia en el área metropolitana.
+Uso interno, sin fines comerciales.
+
+Agradeceríamos además, si está disponible, la siguiente información de los
+modelos:
+
+  - La exactitud vertical obtenida en la validación de cada vuelo.
+  - El sistema de referencia vertical (SRVN16 u otro) y el marco horizontal.
+  - La fecha de los vuelos.
+
+Quedo a disposición para precisar el área o enviar el polígono en el formato
+que les resulte más conveniente.
+
+Saludos cordiales,
+
+[Nombre y apellido]
+[Cargo]
+Dirección de Vialidad Provincial del Chaco
+[Teléfono] · [Correo institucional]

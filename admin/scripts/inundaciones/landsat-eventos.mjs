@@ -13,8 +13,26 @@
  * La lista de escenas trae la altura de Barranqueras de cada fecha, tomada de
  * public/rio/barranqueras_diario.json, y el rol de cada una: `base` (aguas
  * bajas, define el agua permanente), `crecida`, `lluvia` (río bajo, agua de
- * lluvia) o `descartada` (sombras de nube contadas como agua; se procesa y se
- * informa, pero no entra al compuesto). Lo que sale está en
+ * lluvia), `parcial` (crecida vista por otra órbita, que no cubre el recuadro
+ * entero: va al mapa pero no al compuesto, que cuenta escenas) o `descartada`
+ * (sombras de nube contadas como agua; se procesa y se informa, pero no entra
+ * al compuesto).
+ *
+ * ── Las órbitas ────────────────────────────────────────────────────────────
+ *
+ * La 226/079 cubre el recuadro entero y es la de casi todas las escenas. **La
+ * 227/079 pasa en otras fechas y cubre el oeste** —cuánto, cambia de una pasada
+ * a otra: el 07/03/1983 entra el recuadro urbano entero, en 1998 tres cuartos,
+ * en junio de 1983 nada—. De ahí sale la escena del 07/03/1983, con el río en
+ * 8,02 m y sin nubes. Una escena que no ve todo el recuadro lleva además el
+ * polígono de lo que NO se ve: ahí no hay agua dibujada y no es porque
+ * estuviera seco.
+ *
+ * **Antes de sumar una escena de la 227 hay que mirarla**: la del 27/05/1998
+ * está mal georreferenciada y muestra otro lugar, y eso no se nota en ningún
+ * número.
+ *
+ * Lo que sale está en
  * docs/geo/inundaciones/ y se lee en docs/inundaciones-gran-resistencia.md.
  *
  * Fuente: Landsat Collection 2 en Microsoft Planetary Computer, sin cuenta ni
@@ -90,24 +108,24 @@ async function banda(item, nombre) {
   if (!a) throw new Error(`${item.id}: no tiene la banda ${nombre}`)
   const tiff = await fromUrl(await firmar(a.href))
   const img = await tiff.getImage()
-  const epsg = img.getGeoKeys()?.ProjectedCSTypeGeoKey
-  if (epsg !== 32621) throw new Error(`${item.id}: está en EPSG ${epsg}, se esperaba 32621`)
+  // Casi todas vienen en UTM 21; una escena de la órbita vecina puede venir en la 20
+  const zona = img.getGeoKeys()?.ProjectedCSTypeGeoKey - 32600
+  if (!(zona >= 19 && zona <= 22)) throw new Error(`${item.id}: proyección inesperada`)
+  const aEscena = zona === 21 ? null : proj4(UTM, `+proj=utm +zone=${zona} +datum=WGS84 +units=m +no_defs`)
   const [ox, oy] = img.getOrigin(), [rx, ry] = img.getResolution() // ry negativo
   const w = img.getWidth(), h = img.getHeight()
-  const c0 = Math.max(0, Math.floor((X0 - ox) / rx)), c1 = Math.min(w, Math.ceil((X1 - ox) / rx))
-  const f0 = Math.max(0, Math.floor((Y1 - oy) / ry)), f1 = Math.min(h, Math.ceil((Y0 - oy) / ry))
+  const esq = [[X0, Y0], [X0, Y1], [X1, Y0], [X1, Y1]].map(p => (aEscena ? aEscena.forward(p) : p))
+  const c0 = Math.max(0, Math.floor((Math.min(...esq.map(e => e[0])) - ox) / rx) - 2), c1 = Math.min(w, Math.ceil((Math.max(...esq.map(e => e[0])) - ox) / rx) + 2)
+  const f0 = Math.max(0, Math.floor((Math.max(...esq.map(e => e[1])) - oy) / ry) - 2), f1 = Math.min(h, Math.ceil((Math.min(...esq.map(e => e[1])) - oy) / ry) + 2)
   const out = new Float32Array(ANCHO * ALTO).fill(NaN)
   if (c1 <= c0 || f1 <= f0) return out
   const [datos] = await img.readRasters({ window: [c0, f0, c1, f1] })
-  const ww = c1 - c0
-  for (let f = 0; f < ALTO; f++) {
-    const fy = Math.floor((Y1 - (f + 0.5) * PASO - oy) / ry) - f0
-    if (fy < 0 || fy >= f1 - f0) continue
-    for (let c = 0; c < ANCHO; c++) {
-      const cx = Math.floor((X0 + (c + 0.5) * PASO - ox) / rx) - c0
-      if (cx < 0 || cx >= ww) continue
-      out[f * ANCHO + c] = datos[fy * ww + cx]
-    }
+  const ww = c1 - c0, hh = f1 - f0
+  for (let f = 0; f < ALTO; f++) for (let c = 0; c < ANCHO; c++) {
+    let x = X0 + (c + 0.5) * PASO, y = Y1 - (f + 0.5) * PASO
+    if (aEscena) [x, y] = aEscena.forward([x, y])
+    const cx = Math.floor((x - ox) / rx) - c0, fy = Math.floor((y - oy) / ry) - f0
+    if (cx >= 0 && cx < ww && fy >= 0 && fy < hh) out[f * ANCHO + c] = datos[fy * ww + cx]
   }
   return out
 }
@@ -185,16 +203,25 @@ function png(nombre, pintar) {
   writeFileSync(`${SALIDA}/${nombre}.png`, PNG.sync.write(p))
 }
 
-/** Polígonos de una máscara binaria, en lon/lat, con la grilla achicada a 90 m */
-function poligonos(binaria, props) {
-  const F = 3, w = Math.floor(ANCHO / F), h = Math.floor(ALTO / F), v = new Float64Array(w * h)
+/**
+ * Polígonos de una máscara binaria, en lon/lat.
+ *
+ * `F` es cuántas celdas de 30 m entran en una del contorno y `minPx` la mancha
+ * más chica que se guarda, en celdas de ésas. El compuesto va a 90 m y sin las
+ * manchas de menos de ~8 ha, como siempre. **La mancha de un día va a 60 m**,
+ * que es el píxel de MSS, y guarda desde 1,5 ha. A 30 m las de TM pesan 2 MB
+ * cada una, y para el detalle de esos años ya está la serie. A 90 m se perdían las lagunas y los bajos chicos del área urbana, que son
+ * justo lo que se mira ahí (el agua sobre el tramo final del Canal 16 con el
+ * río en 8 m son manchas de 5 a 10 ha).
+ */
+function poligonos(binaria, props, F = 3, minPx = 10) {
+  const w = Math.floor(ANCHO / F), h = Math.floor(ALTO / F), v = new Float64Array(w * h)
   for (let f = 0; f < h; f++) for (let c = 0; c < w; c++) {
     let s = 0
     for (let a = 0; a < F; a++) for (let b = 0; b < F; b++) s += binaria[(f * F + a) * ANCHO + c * F + b]
     v[f * w + c] = s / (F * F)
   }
   const [geo] = contours().size([w, h]).thresholds([0.5])(v)
-  const minPx = 10 // descarta manchas de menos de ~8 ha
   const area = an => { let s = 0; for (let i = 0; i < an.length - 1; i++) s += an[i][0] * an[i + 1][1] - an[i + 1][0] * an[i][1]; return Math.abs(s / 2) }
   const coords = geo.coordinates.filter(pol => area(pol[0]) >= minPx).map(pol => pol.filter((an, k) => k === 0 || area(an) >= minPx).map(an => an.map(([x, y]) => {
     const [lon, lat] = aGeo(X0 + x * F * PASO, Y1 - y * F * PASO)
@@ -246,7 +273,14 @@ fc.features.push(poligonos(permanente, { capa: 'agua permanente', criterio: `agu
 // Al GeoJSON van sólo las escenas marcadas `mapa`: todas juntas pesan 14 MB
 for (const { e, m } of mascaras.filter(x => x.e.mapa)) {
   const bin = new Uint8Array(m.length); for (let i = 0; i < m.length; i++) bin[i] = esAgua(m[i]) && !permanente[i] ? 1 : 0
-  fc.features.push(poligonos(bin, { capa: e.rol, fecha: e.fecha, alturaBarranquerasM: e.altura, sensor: e.coleccion === 'landsat-c2-l1' ? 'MSS 60 m' : 'TM/ETM+/OLI 30 m', criterio: 'infrarrojo cercano bajo el umbral de Otsu', escena: e.id, nota: e.nota ?? null }))
+  const mss = e.coleccion === 'landsat-c2-l1'
+  // Lo que la escena no ve dentro del recuadro: fuera de la imagen o debajo de nubes
+  let visto = 0, total = 0
+  const ciego = new Uint8Array(m.length)
+  for (let i = 0; i < m.length; i++) if (enAoi[i]) { total++; if (m[i]) visto++; else ciego[i] = 1 }
+  const validoPct = Math.round(100 * visto / total)
+  if (validoPct < 95) fc.features.push(poligonos(ciego, { capa: 'sin imagen', fecha: e.fecha, validoPct }))
+  fc.features.push(poligonos(bin, { capa: e.rol, validoPct, fecha: e.fecha, alturaBarranquerasM: e.altura, sensor: mss ? 'MSS 60 m' : 'TM/ETM+/OLI 30 m', criterio: 'infrarrojo cercano bajo el umbral de Otsu', escena: e.id, nota: e.nota ?? null }, 2, 4))
 }
 for (const n of CORTES) {
   const bin = new Uint8Array(veces.length); let km2 = 0, km2U = 0

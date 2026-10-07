@@ -884,8 +884,8 @@ Pestaña «Gran Resistencia» de Hidrología (`?vista=inundables`): qué se moja
 con una crecida del Paraná, con una lluvia larga, o con las dos. El mapa es la
 pantalla y a la derecha va el panel de escenarios.
 
-**Todo lo que se dibuja es agua que se vio desde un satélite, con su fecha y
-la altura que tenía el río ese día. No hay ninguna mancha calculada.** No hay
+**Toda el agua que se dibuja es agua que se vio desde un satélite, con su fecha
+y la altura que tenía el río ese día. No hay ninguna mancha calculada.** No hay
 modelo hidráulico ni cotas: no da profundidades ni sirve para un lote. La
 zonificación que vale es la de la APA, y la pantalla lo dice. De dónde sale
 cada capa está en `docs/inundaciones-gran-resistencia.md`.
@@ -897,10 +897,18 @@ cada capa está en `docs/inundaciones-gran-resistencia.md`.
 | **Zona** (celeste) | lo que se moja con el río hasta cierta altura, de la serie de 337 escenas Landsat | **7 m** |
 | **Mancha observada** (naranja) | el agua de un día | 8,53 m, el 20/06/1983 |
 
-- **Sobre 7 m hay una sola escena limpia en cuarenta años**: las crecidas
-  llegan con nubes. Por encima sólo hay manchas sueltas, y las de más de 7,3 m
-  son todas de 1983: otra ciudad, sin el anillo de defensas terminado. La
-  pantalla lo avisa con la imagen a la vista.
+- **Sobre 7 m hay una sola escena limpia en cuarenta años que vea todo el
+  recuadro**: las crecidas llegan con nubes. Por encima sólo hay manchas
+  sueltas, y las de más de 7,3 m son todas de 1983: otra ciudad, sin el anillo
+  de defensas terminado. La pantalla lo avisa con la imagen a la vista.
+- **Una mancha puede no ver todo el recuadro** (`vistoPct`), y entonces **se
+  suma a la referencia, no la reemplaza** (`parcial` en `escenarioRio`). Es la
+  del 07/03/1983: río en 8,02 m, sin nubes, de la órbita 227/079, que ve la
+  ciudad entera y no el valle del Paraná (64 % del recuadro). Con la altura de
+  1998 se dibujan las dos: la del 28/02/1983 (7,80 m, naranja) y ésa (rojizo).
+  Lo que una imagen no ve va con la capa (`sinImagen`) y se pinta en gris
+  rayado: sin eso, «sin agua» y «sin imagen» se leen igual. También lo lleva la
+  del 20/05/1998, por las nubes.
 - **Nunca se muestra una mancha de un río más alto que el pedido**
   (`escenarioRio`): sería dibujar más agua de la que esa altura trajo. Se usa
   la más alta que no lo supere, y si queda a más de 30 cm se dice cuánto falta.
@@ -916,10 +924,66 @@ cada capa está en `docs/inundaciones-gran-resistencia.md`.
 - **La lluvia pronosticada** es la del pronóstico por conjuntos de Cuencas,
   sobre los nodos que caen en el recuadro o a medio paso de grilla (cinco).
 
+### El Canal 16, la otra órbita y lo informado
+
+El 07/10/2026 un ingeniero hidrólogo revisó la pestaña y la corrigió: **con el
+pico de 1998 (8,17 m) el agua entró al Canal 16**, el último al sur de la
+ciudad, y la pantalla lo mostraba seco. De ahí salieron cuatro cosas; el
+detalle está en «Tercera pasada» de `docs/inundaciones-gran-resistencia.md`.
+
+- **La órbita 227/079 se había descartado mal.** Se la miró con escenas del
+  Landsat 5, que cubren sólo el oeste, y se concluyó que no servía. Su huella
+  cambia de una pasada a otra: el 07/03/1983 entra la ciudad entera. **Listar
+  las escenas de todas las órbitas con el río alto** dio 29 con 7,20 m o más;
+  la serie sigue armada sólo con la 226/079.
+- **Una escena de la 227 hay que mirarla antes de usarla.** La del 27/05/1998
+  figura cubriendo todo el recuadro y muestra otro lugar: está mal
+  georreferenciada y ningún número lo delata. `crecidas-altas.mjs` deja una
+  vista en falso color por escena para eso.
+- **El infrarrojo con umbral de Otsu no vale en una escena sin el Paraná**:
+  sin un cuerpo de agua grande parte la tierra en dos. El 09/04/1998 da 207 km²
+  de «agua» contra 6 de agua abierta. La del 07/03/1983 tiene el desborde
+  adentro y se revisó a la vista.
+- **Lo que dicen las imágenes es menos que lo que dijo el hidrólogo, y la
+  pantalla no lo estira.** Hasta 7,23 m no hay agua junto al canal; entre 7,80
+  y 8,02 m aparece junto al tramo final, el que da al Paraná (26 a 59 % a
+  menos de 310 m). El 22/07/1983, con 8,26 m, hay menos: no es monótono.
+  **Ninguna imagen muestra el canal desbordado**: a 60 m un canal no se ve.
+- **Lo informado no se pinta como agua.** Va en `informes` del índice y se
+  muestra como texto —«Informado, sin imagen»— con quién lo dijo y qué muestran
+  las imágenes más cercanas, al llegar a esa altura (`informesHasta`). La caja
+  es gris con filo blanco: ni el naranja de los avisos ni el color de una
+  capa. La traza del canal va en `referencias`, de OpenStreetMap, como línea a
+  rayas con su nombre. **Un informe nuevo se agrega en `INFORMES` de
+  `build_inundaciones.mjs`**, con su fuente.
+- **Las manchas de un día pasaron de 90 a 60 m y de 8 a 1,5 ha.** A 90 m se
+  perdían los bajos chicos del área urbana, que son lo que se mira ahí: el
+  agua junto al tramo final del canal son manchas de 5 a 10 ha. El compuesto
+  de frecuencia sigue a 90 m. A 30 m las de TM pesan 2 MB cada una.
+- **Regenerar las manchas no movió ningún número**: las 23 escenas de antes
+  dan la misma superficie y el compuesto las mismas 389, 238 y 149 km². Es la
+  comprobación de que cambió el contorno y no la clasificación. **Las máscaras
+  intermedias de la investigación no están en el repo**: si no están a mano,
+  el script las vuelve a bajar.
+- **Los modelos de elevación de 30 m se probaron y no alcanzan.** El MDE-Ar del
+  IGN y el Copernicus GLO-30 difieren 1,8 m de media en el recuadro urbano;
+  uno pone el canal 2,5 m sobre el agua de 1998 y el otro, medio metro. Entre
+  una crecida de 7 m y la de 1998 hay 1,2 m. **No se dibuja ninguna «zona bajo
+  cota»**. Lo que lo cambiaría es el MDT de 5 m del IGN sobre
+  Corrientes–Resistencia (2016) y el de 0,5 m de Fontana (2021), que se piden
+  por correo: el borrador está en `docs/pedido-ign-mde-gran-resistencia.txt`.
+- **El IGN publica qué modelos tiene por WFS**
+  (`wms.ign.gob.ar/geoserver/modelos-digitales-elevaciones`, capas `mde_5m`,
+  `mdt_5m`, `mde_50cm`, `mdt_50cm`, `mde_v2_30m`). El de 30 m baja sin cuenta
+  y viene en `.img`, que se convierte con el `gdalwarp` de QGIS.
+- **Mirándolo en pantalla**: la línea del canal en celeste fino no se veía
+  contra el mapa claro, y lo no visto en gris tenue tampoco. Quedaron con
+  borde oscuro la primera y más opaco lo segundo.
+
 Cosas que no son obvias:
 
 - **Las capas van partidas, una por archivo, con un índice chico.** Todas
-  juntas pesan 5,5 MB y la pantalla muestra dos o tres: cada una se pide
+  juntas pesan 8,9 MB y la pantalla muestra dos o tres: cada una se pide
   recién cuando se la prende. Se generan con `node scripts/build_inundaciones.mjs`
   —no editar a mano— desde los GeoJSON de `docs/geo/inundaciones/`.
 - **Las superficies de la tabla no se calculan en el navegador.** Polígono
@@ -954,8 +1018,11 @@ cuesta de 6 a 54 ms. **Antes de optimizar por un cuelgue, medirlo.**
 
 `scripts/verificar-inundaciones.ts` no sale a la red. No hay un valor oficial
 contra el cual comparar una mancha, así que afirma geometría con casos que se
-saben sin calcular, la regla de las alturas, que las zonas del río estén
-anidadas, y el índice en grilla contra la prueba exacta.
+saben sin calcular, la regla de las alturas —también para la mancha parcial—,
+que las zonas del río estén anidadas, el índice en grilla contra la prueba
+exacta, y sobre el Canal 16 sólo lo que las imágenes muestran. **Tres
+afirmaciones que se escribieron primero no se cumplían** —que el agua de 8,02 m
+cubría la mayor parte del tramo final— y se cambiaron por lo medido.
 
 ## Lluvia — de dónde sale cada número
 
@@ -3062,7 +3129,8 @@ límites que sólo aplica cuando se le pasa un `buf` propio. No se toca.
   mancha de agua en Landsat (21 escenas elegidas de 1981 a 2023 y la serie
   entera, 337 desde 1984) y en Sentinel-2, a qué altura del río se moja cada
   lugar, la mancha urbana por época, y el cruce con Barranqueras, el Niño y la
-  lluvia local. Resultados en `docs/geo/inundaciones/`. Alimenta la pestaña
+  lluvia local. Desde el 07/10/2026 tiene una tercera pasada: la órbita
+  227/079, el Canal 16 y la prueba de los modelos de elevación. Resultados en `docs/geo/inundaciones/`. Alimenta la pestaña
   «Gran Resistencia» de Hidrología. Cosas que conviene no volver a averiguar:
   - Landsat y Sentinel-2 se leen sin cuenta desde Planetary Computer. **De a
     una banda y con el permiso pedido una sola vez**: en paralelo las

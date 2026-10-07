@@ -39,6 +39,15 @@
   "mapa": true
  },
  {
+  "id": "LM04_L1TP_227079_19830307_02_T2",
+  "coleccion": "landsat-c2-l1",
+  "rol": "parcial",
+  "fecha": "1983-03-07",
+  "altura": 8.02,
+  "mapa": true,
+  "nota": "órbita 227/079: cubre el oeste del recuadro, con la ciudad entera; el valle del Paraná queda afuera"
+ },
+ {
   "id": "LM04_L1TP_226079_19830604_02_T2",
   "coleccion": "landsat-c2-l1",
   "rol": "descartada",
@@ -105,6 +114,14 @@
   "rol": "crecida",
   "fecha": "1992-05-19",
   "altura": 6.93
+ },
+ {
+  "id": "LT05_L2SP_227079_19980409_02_T1",
+  "coleccion": "landsat-c2-l2",
+  "rol": "parcial",
+  "fecha": "1998-04-09",
+  "altura": 7.22,
+  "nota": "órbita 227/079: tres cuartos del recuadro urbano, sin nubes, con el río subiendo hacia el pico de 8,17 m"
  },
  {
   "id": "LT05_L2SP_226079_19980520_02_T1",

@@ -26,7 +26,12 @@ export interface CapaDibujo {
   trazo: number
   /** Más alto = más arriba */
   orden: number
+  /** Borde a rayas: para lo que no es agua sino falta de imagen */
+  rayas?: boolean
 }
+
+/** Una línea para ubicarse, con su nombre: no es agua */
+export interface ReferenciaDibujo { nombre: string; lineas: [number, number][][] }
 
 export interface LineaDibujo { puntos: [number, number][]; color: string; grosor: number }
 export interface PuntoDibujo { lat: number; lng: number; dentro: boolean; titulo: string }
@@ -34,7 +39,7 @@ export interface PuntoDibujo { lat: number; lng: number; dentro: boolean; titulo
 const mono = { fontFamily: 'monospace' as const }
 const ACENTO = '#F5C300'
 
-export default function MapaInundaciones({ recuadro, urbano, capas, vias, afectadas, obras, leer }: {
+export default function MapaInundaciones({ recuadro, urbano, capas, vias, afectadas, obras, referencias, leer }: {
   recuadro: Caja
   urbano: Caja
   capas: CapaDibujo[]
@@ -42,6 +47,7 @@ export default function MapaInundaciones({ recuadro, urbano, capas, vias, afecta
   /** Los pedazos de camino que caen dentro del escenario */
   afectadas: [number, number][][]
   obras: PuntoDibujo[]
+  referencias: ReferenciaDibujo[]
   /** Qué capas del escenario hay en un punto. Lo contesta el panel */
   leer: (lat: number, lng: number) => string[]
 }) {
@@ -119,7 +125,7 @@ export default function MapaInundaciones({ recuadro, urbano, capas, vias, afecta
         const ll = c.coords.map(pol => pol.map(an => an.map(([x, y]) => [y, x] as [number, number])))
         dibujadas.push(L.polygon(ll, {
           pane: c.orden < 10 ? 'inuBase' : 'inuAgua', renderer: L.canvas({ pane: c.orden < 10 ? 'inuBase' : 'inuAgua' }),
-          color: c.color, weight: c.trazo, opacity: c.trazo ? 0.9 : 0, stroke: c.trazo > 0,
+          color: c.color, weight: c.trazo, opacity: c.trazo ? 0.9 : 0, stroke: c.trazo > 0, dashArray: c.rayas ? '5 4' : undefined,
           fillColor: c.color, fillOpacity: c.relleno, interactive: false, smoothFactor: 1.5,
         }).addTo(map))
       }
@@ -155,6 +161,17 @@ export default function MapaInundaciones({ recuadro, urbano, capas, vias, afecta
         dibujadas.push(L.polyline(afectadas, { pane: 'inuAfectadas', renderer: lienzoAf, color: '#fff', weight: 6, opacity: 0.9, interactive: false }).addTo(map))
         dibujadas.push(L.polyline(afectadas, { pane: 'inuAfectadas', renderer: lienzoAf, color: '#E53935', weight: 3.5, opacity: 1, interactive: false }).addTo(map))
       }
+      // Las líneas de referencia: finas y a rayas, con el nombre fijo. En [lng, lat] como las manchas
+      for (const ref of referencias) {
+        const ll = ref.lineas.map(l => l.map(([x, y]) => [y, x] as [number, number]))
+        dibujadas.push(L.polyline(ll, { pane: 'inuVias', renderer: lienzo, color: '#111', weight: 6, opacity: 0.85, interactive: false }).addTo(map))
+        dibujadas.push(L.polyline(ll, { pane: 'inuVias', renderer: lienzo, color: '#00e5ff', weight: 2.5, opacity: 1, dashArray: '9 5', interactive: false }).addTo(map))
+        const larga = ll.reduce((a, l) => (l.length > a.length ? l : a), ll[0])
+        if (larga?.length) {
+          dibujadas.push(L.tooltip({ permanent: true, direction: 'top', className: 'sv-tt', offset: [0, -4], interactive: false })
+            .setLatLng(larga[Math.floor(larga.length / 2)]).setContent(ref.nombre).addTo(map))
+        }
+      }
       for (const o of obras) {
         dibujadas.push(L.circleMarker([o.lat, o.lng], {
           pane: 'inuObras', radius: o.dentro ? 6 : 4, color: '#111', weight: 1.5,
@@ -163,7 +180,7 @@ export default function MapaInundaciones({ recuadro, urbano, capas, vias, afecta
       }
     })
     return () => { vivo = false; dibujadas.forEach(d => d.remove()) }
-  }, [mapaListo, vias, afectadas, obras])
+  }, [mapaListo, vias, afectadas, obras, referencias])
 
   return (
     <div style={{ position: 'relative', height: '100%', minHeight: 360, background: '#0e0e0e' }}>
@@ -192,7 +209,7 @@ export default function MapaInundaciones({ recuadro, urbano, capas, vias, afecta
           <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
             <span style={{
               width: 14, height: 10, flexShrink: 0, background: c.color,
-              opacity: Math.min(1, c.relleno + 0.35), border: c.trazo ? `1px solid ${c.color}` : 'none',
+              opacity: Math.min(1, c.relleno + 0.35), border: c.trazo ? `1px ${c.rayas ? 'dashed' : 'solid'} ${c.color}` : 'none',
             }} />
             <span>{c.titulo}</span>
           </div>
@@ -203,6 +220,12 @@ export default function MapaInundaciones({ recuadro, urbano, capas, vias, afecta
             <span>Camino dentro de la mancha</span>
           </div>
         )}
+        {referencias.map(ref => (
+          <div key={ref.nombre} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+            <span style={{ width: 14, height: 0, flexShrink: 0, borderTop: '2px dashed #00e5ff' }} />
+            <span>{ref.nombre}</span>
+          </div>
+        ))}
         {capas.length === 0 && <span style={{ color: '#8f8f8f' }}>Cargando capas…</span>}
       </div>
 

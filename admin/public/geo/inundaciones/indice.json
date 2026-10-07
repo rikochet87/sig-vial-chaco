@@ -1,5 +1,5 @@
 {
- "generado": "2026-10-06",
+ "generado": "2026-10-07",
  "recuadro": {
   "oeste": -59.12,
   "este": -58.78,
@@ -149,8 +149,8 @@
    "km2": 180.29,
    "urbanoKm2": 13.03,
    "construidoKm2": 0.41,
-   "poligonos": 181,
-   "bytes": 322073
+   "poligonos": 539,
+   "bytes": 834911
   },
   {
    "id": "obs-1983-02-28",
@@ -165,8 +165,25 @@
    "km2": 204.13,
    "urbanoKm2": 20.04,
    "construidoKm2": 0.95,
-   "poligonos": 202,
-   "bytes": 340354
+   "poligonos": 479,
+   "bytes": 734382
+  },
+  {
+   "id": "obs-1983-03-07",
+   "grupo": "observada",
+   "titulo": "07/03/1983",
+   "fecha": "1983-03-07",
+   "alturaM": 8.02,
+   "sensor": "Landsat MSS, 60 m",
+   "criterio": "infrarrojo cercano: agua, suelo saturado y sombras",
+   "epoca": 1983,
+   "nota": "Otra órbita del satélite: sin nubes, ve la ciudad entera y el sur hasta el Canal 16, pero no el valle del Paraná al este. Es la imagen más cercana por debajo a la altura del pico de 1998.",
+   "km2": 93,
+   "urbanoKm2": 23.33,
+   "construidoKm2": 1.1,
+   "vistoPct": 64,
+   "poligonos": 328,
+   "bytes": 371582
   },
   {
    "id": "obs-1983-07-22",
@@ -181,8 +198,8 @@
    "km2": 290.82,
    "urbanoKm2": 31.78,
    "construidoKm2": 1.7,
-   "poligonos": 165,
-   "bytes": 375198
+   "poligonos": 364,
+   "bytes": 780098
   },
   {
    "id": "obs-1983-06-20",
@@ -197,8 +214,8 @@
    "km2": 445.32,
    "urbanoKm2": 51.79,
    "construidoKm2": 7.2,
-   "poligonos": 198,
-   "bytes": 512421
+   "poligonos": 460,
+   "bytes": 1034844
   },
   {
    "id": "obs-1982-08-14",
@@ -213,8 +230,8 @@
    "km2": 138.94,
    "urbanoKm2": 15.13,
    "construidoKm2": 2.26,
-   "poligonos": 179,
-   "bytes": 240560
+   "poligonos": 468,
+   "bytes": 560129
   },
   {
    "id": "obs-1998-05-20",
@@ -228,8 +245,9 @@
    "km2": 195.99,
    "urbanoKm2": 33.98,
    "construidoKm2": 2.48,
-   "poligonos": 176,
-   "bytes": 336113
+   "vistoPct": 74,
+   "poligonos": 519,
+   "bytes": 973159
   },
   {
    "id": "lluvia-2019-01-17",
@@ -258,8 +276,182 @@
    "km2": 151.02,
    "urbanoKm2": 11.2,
    "construidoKm2": 0.24,
-   "poligonos": 156,
-   "bytes": 234612
+   "poligonos": 606,
+   "bytes": 672791
+  }
+ ],
+ "referencias": [
+  {
+   "id": "canal-16",
+   "nombre": "Canal 16",
+   "fuente": "OpenStreetMap",
+   "lineas": [
+    [
+     [
+      -59.04318,
+      -27.46452
+     ],
+     [
+      -59.04253,
+      -27.46513
+     ],
+     [
+      -59.04188,
+      -27.46567
+     ],
+     [
+      -59.04005,
+      -27.46732
+     ],
+     [
+      -59.03741,
+      -27.46966
+     ],
+     [
+      -59.03687,
+      -27.47019
+     ],
+     [
+      -59.03672,
+      -27.47033
+     ],
+     [
+      -59.03659,
+      -27.47044
+     ],
+     [
+      -59.03414,
+      -27.47266
+     ],
+     [
+      -59.0337,
+      -27.47298
+     ],
+     [
+      -59.03334,
+      -27.47341
+     ],
+     [
+      -59.03178,
+      -27.47477
+     ],
+     [
+      -59.02963,
+      -27.47668
+     ],
+     [
+      -59.02807,
+      -27.47808
+     ],
+     [
+      -59.02496,
+      -27.48084
+     ],
+     [
+      -59.02232,
+      -27.48317
+     ],
+     [
+      -59.01755,
+      -27.4874
+     ],
+     [
+      -59.01508,
+      -27.48958
+     ],
+     [
+      -59.0079,
+      -27.49587
+     ],
+     [
+      -59.00041,
+      -27.50202
+     ],
+     [
+      -58.99385,
+      -27.5073
+     ]
+    ],
+    [
+     [
+      -58.99291,
+      -27.50916
+     ],
+     [
+      -58.99231,
+      -27.51028
+     ],
+     [
+      -58.98875,
+      -27.51691
+     ],
+     [
+      -58.98791,
+      -27.51846
+     ],
+     [
+      -58.98802,
+      -27.51931
+     ],
+     [
+      -58.9873,
+      -27.52023
+     ]
+    ],
+    [
+     [
+      -59.05194,
+      -27.45662
+     ],
+     [
+      -59.04898,
+      -27.4593
+     ],
+     [
+      -59.04397,
+      -27.46378
+     ],
+     [
+      -59.04383,
+      -27.46392
+     ]
+    ],
+    [
+     [
+      -59.04383,
+      -27.46392
+     ],
+     [
+      -59.04355,
+      -27.46417
+     ]
+    ],
+    [
+     [
+      -59.04355,
+      -27.46417
+     ],
+     [
+      -59.04333,
+      -27.46438
+     ],
+     [
+      -59.04318,
+      -27.46452
+     ]
+    ]
+   ]
+  }
+ ],
+ "informes": [
+  {
+   "id": "canal-16-1998",
+   "alturaM": 8.17,
+   "fecha": "1998-05-04",
+   "referencia": "canal-16",
+   "texto": "Con el pico de 1998 el agua entró al Canal 16, el último canal al sur del Gran Resistencia.",
+   "fuente": "Ingeniero hidrólogo que revisó esta pantalla, octubre de 2026",
+   "contraste": "No hay imagen de ese pico. En las de 1998 que hay —el 09/04, con el río en 7,22 m y subiendo, y el 20/05, dieciséis días después y en 7,07 m— no se ve agua abierta sobre el canal. En 1983, con 7,80 m casi no hay agua junto a su tramo final; una semana después, con 8,02 m, la hay a menos de 300 m en más de la mitad de ese tramo, del lado del Paraná. Las imágenes no muestran el canal desbordado a lo largo: a 60 m por píxel un canal no se ve."
   }
  ]
 }

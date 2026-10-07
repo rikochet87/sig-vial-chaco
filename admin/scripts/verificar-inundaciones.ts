@@ -14,7 +14,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
-  escenarioRio, IndicePoligonos, recortar, viaContra, resumirVias, rutasDelRecuadro,
+  escenarioRio, informesHasta, VISTO_MINIMO_PCT, IndicePoligonos, recortar, viaContra, resumirVias, rutasDelRecuadro,
   nodosDelRecuadro, cotaMop, distKm, TECHO_ZONAS_M,
   type IndiceInundaciones, type MultiPoligono, type Via,
 } from '../src/lib/inundaciones'
@@ -117,6 +117,16 @@ ok('y sin mancha de referencia: ninguna es de 6,00 o menos', e60.referencia, nul
 ok('con 6,90 m, la de 2018 (6,53) y no la de 2023 (6,94)', e69.referencia?.id, 'obs-2018-01-27')
 ok('con 7,05 m, la de 2023', e70.referencia?.id, 'obs-2023-11-12')
 ok('con la altura de 1998 (8,17), la de febrero de 1983 (7,80)', e82.referencia?.id, 'obs-1983-02-28')
+
+// La del 07/03/1983 es de otra órbita y no ve el valle del Paraná: se suma, no reemplaza
+ok('y además la del 07/03/1983 (8,02), que ve sólo una parte', e82.parcial?.id, 'obs-1983-03-07')
+ok('esa mancha dice cuánto del recuadro ve', e82.parcial?.vistoPct, 64)
+cerca('lo que falta se cuenta desde la más alta de las dos', e82.faltaM!, 0.15, 0.001)
+ok('con 8,00 m todavía no: sería de un río más alto', escenarioRio(indice.capas, 8).parcial, null)
+ok('con 8,30 m tampoco: la del 22/07/1983 ve todo y es más alta', escenarioRio(indice.capas, 8.3).parcial, null)
+ok('con 8,30 m la referencia es la del 22/07/1983', escenarioRio(indice.capas, 8.3).referencia?.id, 'obs-1983-07-22')
+ok('una mancha que ve una parte nunca es la referencia',
+  [2, 5, 7, 7.9, 8.02, 8.1, 8.2, 9].every(m => (escenarioRio(indice.capas, m).referencia?.vistoPct ?? 100) >= VISTO_MINIMO_PCT))
 ok('con la de 1983 (8,59), la del 20/06/1983 (8,53)', e86.referencia?.id, 'obs-1983-06-20')
 ok('bajo 7 m la zona alcanza', e69.sobreZonas, false)
 ok('desde 7 m es un piso', e70.sobreZonas)
@@ -130,8 +140,9 @@ let rotas = 0
 for (let m = 2; m <= 9.5; m += 0.05) {
   const e = escenarioRio(indice.capas, m)
   if (e.referencia && e.referencia.alturaM! > m + 1e-9) rotas++
+  if (e.parcial && e.parcial.alturaM! > m + 1e-9) rotas++
 }
-ok('de 2 a 9,5 m, ninguna referencia es de un río más alto', rotas, 0)
+ok('de 2 a 9,5 m, ninguna mancha es de un río más alto', rotas, 0)
 ok('el techo de las zonas es el de la última', TECHO_ZONAS_M, Math.max(...indice.capas.filter(c => c.grupo === 'rio').map(c => c.alturaM!)))
 cerca('8,17 m en la escala es cota MOP 49,97, como dice la Res. 1111/98', cotaMop(8.17), 49.97, 0.001)
 
@@ -140,7 +151,23 @@ cerca('8,17 m en la escala es cota MOP 49,97, como dice la Res. 1111/98', cotaMo
 titulo('Las capas que se sirven')
 
 ok('hay cuatro zonas del río', indice.capas.filter(c => c.grupo === 'rio').length, 4)
-ok('y seis manchas observadas', indice.capas.filter(c => c.grupo === 'observada').length, 6)
+ok('y siete manchas observadas', indice.capas.filter(c => c.grupo === 'observada').length, 7)
+
+// Lo que una imagen no ve va con la capa: sin eso, «sin agua» y «sin imagen» se confunden
+const conHueco = indice.capas.filter(c => c.vistoPct !== undefined)
+ok('dos capas no ven todo el recuadro', conHueco.map(c => c.id).sort().join(' '), 'obs-1983-03-07 obs-1998-05-20')
+ok('y las dos traen el polígono de lo que no ven',
+  conHueco.every(c => (JSON.parse(readFileSync(join(DIR, `${c.id}.json`), 'utf8')).sinImagen?.length ?? 0) > 0))
+ok('las demás no lo traen',
+  indice.capas.filter(c => c.vistoPct === undefined).every(c => JSON.parse(readFileSync(join(DIR, `${c.id}.json`), 'utf8')).sinImagen === undefined))
+{
+  // El agua y lo no visto de una misma imagen no se pisan: se prueba sobre el agua del 07/03/1983
+  const j = JSON.parse(readFileSync(join(DIR, 'obs-1983-03-07.json'), 'utf8'))
+  const ciego = new IndicePoligonos(j.sinImagen)
+  let dentro = 0, total = 0
+  for (const pol of j.coordinates as [number, number][][][]) for (let k = 0; k < pol[0].length; k += 7) { total++; if (ciego.contiene(pol[0][k][1], pol[0][k][0])) dentro++ }
+  ok('casi ningún vértice del agua cae en lo no visto', dentro / total < 0.03)
+}
 ok('cada capa tiene su archivo, con los polígonos que dice el índice',
   indice.capas.every(c => capa(c.id).length === c.poligonos))
 ok('todas las de agua traen su superficie',
@@ -149,6 +176,54 @@ ok('todo vértice cae dentro del recuadro, con medio km de margen',
   indice.capas.every(c => capa(c.id).every(pol => pol.every(an => an.every(([x, y]) =>
     x >= indice.recuadro.oeste - 0.005 && x <= indice.recuadro.este + 0.005
     && y >= indice.recuadro.sur - 0.005 && y <= indice.recuadro.norte + 0.005)))))
+
+titulo('El Canal 16 y lo informado')
+
+/*
+ * Un ingeniero hidrólogo que revisó la pantalla dijo que con el pico de 1998
+ * (8,17 m) el agua entró al Canal 16. No hay imagen de ese pico, y las
+ * imágenes de 60 m no ven un canal. Lo que se afirma acá es lo poco que sí se
+ * ve alrededor: nada hasta 7,23 m, y agua junto al tramo final —el que da al
+ * Paraná— que aparece entre 7,80 y 8,02 m.
+ */
+const canal = indice.referencias?.find(x => x.id === 'canal-16')
+ok('la traza del Canal 16 está en el índice', canal !== undefined)
+const puntosCanal: [number, number][] = []
+let kmCanal = 0
+for (const l of canal?.lineas ?? []) for (let i = 1; i < l.length; i++) {
+  const d = Math.hypot((l[i][0] - l[i - 1][0]) * 98.6, (l[i][1] - l[i - 1][1]) * 110.8)
+  kmCanal += d
+  const n = Math.max(1, Math.ceil(d / 0.05))
+  for (let k = 0; k <= n; k++) puntosCanal.push([l[i - 1][1] + (l[i][1] - l[i - 1][1]) * k / n, l[i - 1][0] + (l[i][0] - l[i - 1][0]) * k / n])
+}
+cerca('mide 9,4 km', kmCanal, 9.4, 0.1)
+ok('y está entero adentro del recuadro urbano', puntosCanal.every(([lat, lng]) =>
+  lat >= indice.urbano.sur && lat <= indice.urbano.norte && lng >= indice.urbano.oeste && lng <= indice.urbano.este))
+
+// El tramo final: el último sexto, 1,5 km, del lado del Paraná
+puntosCanal.sort((p, q) => q[0] - p[0])
+const tramoFinal = puntosCanal.slice(Math.floor(puntosCanal.length * 5 / 6))
+/** Qué parte de unos puntos tiene agua de una capa a menos de `m` metros */
+const conAgua = (id: string, puntos: [number, number][], m: number) => {
+  const idx = new IndicePoligonos(capa(id)), D = m / 110_800
+  const cerca9 = [[0, 0], [D, 0], [-D, 0], [0, D], [0, -D], [D, D], [-D, -D], [D, -D], [-D, D]]
+  return puntos.filter(([lat, lng]) => cerca9.some(([x, y]) => idx.contiene(lat + x, lng + y))).length / puntos.length
+}
+const f2023 = conAgua('obs-2023-11-12', puntosCanal, 155), f2016 = conAgua('obs-2016-01-14', puntosCanal, 155)
+const f780 = conAgua('obs-1983-02-28', tramoFinal, 310), f802 = conAgua('obs-1983-03-07', tramoFinal, 310)
+info(`tramo final con agua a menos de 310 m: con 7,80 m ${(f780 * 100).toFixed(0)} % · con 8,02 m ${(f802 * 100).toFixed(0)} %`)
+ok('con 6,94 m (2023) no hay agua a menos de 155 m de ningún punto del canal', f2023, 0)
+ok('con 7,23 m (2016) tampoco', f2016, 0)
+ok('con 8,02 m (07/03/1983) más de la mitad del tramo final tiene agua a menos de 310 m', f802 > 0.5)
+ok('el doble que con 7,80 m, una semana antes', f802 > 2 * f780)
+
+const inf = indice.informes ?? []
+ok('hay un informe, el del Canal 16 en 1998', inf.map(i => i.id).join(), 'canal-16-1998')
+ok('dice quién lo informó y qué muestran las imágenes', inf.every(i => i.fuente.length > 10 && i.contraste.length > 40))
+ok('apunta a una línea que existe', inf.every(i => !i.referencia || indice.referencias?.some(x => x.id === i.referencia)))
+ok('no aparece por debajo de su altura', informesHasta(inf, 8.1).length, 0)
+ok('aparece en la altura de 1998', informesHasta(inf, 8.17).length, 1)
+ok('y sigue por encima', informesHasta(inf, 8.59).length, 1)
 
 titulo('Las zonas del río están anidadas')
 

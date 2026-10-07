@@ -28,6 +28,19 @@
  * observada más alta que no la supere. **Nunca una mancha de un río más alto
  * que el pedido**: sería mostrar más agua de la que esa altura trajo.
  *
+ * **Una mancha puede no ver todo el recuadro** (`vistoPct`): otra órbita del
+ * satélite, que cubre sólo el oeste, o nubes. Lo que no ve viene con la capa
+ * (`sinImagen`) y se dibuja: ahí no hay agua pintada y no es porque estuviera
+ * seco. Una mancha así no reemplaza a la que ve todo: se suma (`parcial`). Es
+ * el caso del 07/03/1983, con el río en 8,02 m, que ve la ciudad entera y no
+ * el valle del Paraná.
+ *
+ * ── Lo informado ─────────────────────────────────────────────────────────────
+ *
+ * `informes` es lo que alguien que conoce el lugar dijo que pasó y ninguna
+ * imagen muestra. **No se dibuja como agua**: va como texto, con quién lo dijo,
+ * y al lado lo que sí se ve en la imagen más cercana.
+ *
  * ── La lluvia y la combinación ───────────────────────────────────────────────
  *
  * De lluvia hay un solo evento con imagen (enero de 2019), y de río alto con
@@ -55,6 +68,8 @@ export interface CapaInundacion {
   escenas?: number
   /** Año de la ciudad que se ve: las manchas viejas son de otra Resistencia */
   epoca?: number
+  /** Qué parte del recuadro ve la imagen, en %. Sin el campo, todo */
+  vistoPct?: number
   /** Fuera del agua de siempre, en todo el recuadro */
   km2?: number
   /** Ídem, dentro del recuadro urbano */
@@ -67,6 +82,29 @@ export interface CapaInundacion {
 
 export interface Caja { oeste: number; este: number; sur: number; norte: number }
 
+/** Una línea para ubicarse: no es agua */
+export interface ReferenciaInundacion {
+  id: string
+  nombre: string
+  fuente: string
+  /** `[línea][vértice]` en `[lng, lat]` */
+  lineas: [number, number][][]
+}
+
+/** Algo que se informó y ninguna imagen muestra */
+export interface InformeInundacion {
+  id: string
+  /** La altura del río con la que pasó */
+  alturaM: number
+  fecha: string
+  /** La línea de `referencias` de la que habla, si hay */
+  referencia?: string
+  texto: string
+  fuente: string
+  /** Lo que muestran las imágenes más cercanas */
+  contraste: string
+}
+
 export interface IndiceInundaciones {
   generado: string
   recuadro: Caja
@@ -74,6 +112,8 @@ export interface IndiceInundaciones {
   urbanoKm2: number
   construidoHoyKm2: number
   capas: CapaInundacion[]
+  referencias?: ReferenciaInundacion[]
+  informes?: InformeInundacion[]
 }
 
 /** Anillo en `[lng, lat]`, como en GeoJSON */
@@ -86,15 +126,28 @@ export const BARRANQUERAS = ESTACIONES.find(e => e.nombre === 'Barranqueras')!
 /** Hasta dónde llegan las zonas de la serie. Por encima sólo hay manchas sueltas */
 export const TECHO_ZONAS_M = 7
 
+/** Una mancha que ve menos que esto del recuadro no reemplaza a una que lo ve entero */
+export const VISTO_MINIMO_PCT = 90
+const esParcial = (c: CapaInundacion) => c.vistoPct !== undefined && c.vistoPct < VISTO_MINIMO_PCT
+
+/** Los informes que valen para una altura: los de esa altura o menos */
+export const informesHasta = (informes: InformeInundacion[] | undefined, h: number) =>
+  (informes ?? []).filter(i => i.alturaM <= h + 1e-9)
+
 /** La altura de la escala llevada a cota MOP, que es la de las obras locales */
 export const cotaMop = (m: number) => m + BARRANQUERAS.ceroMop
 
 export interface EscenarioRio {
   /** La zona de la clase de esa altura. `null` sólo si el índice no trae zonas */
   zona: CapaInundacion | null
-  /** La mancha observada más alta que no supera la altura pedida */
+  /** La mancha observada más alta que no supera la altura pedida, entre las que ven todo el recuadro */
   referencia: CapaInundacion | null
-  /** Cuánto le falta a la referencia para llegar a la altura pedida, en m */
+  /**
+   * Una mancha más alta que la referencia —y que tampoco supera lo pedido— que
+   * ve sólo una parte del recuadro. Se suma a la referencia, no la reemplaza
+   */
+  parcial: CapaInundacion | null
+  /** Cuánto le falta a la más alta de las dos para llegar a la altura pedida, en m */
   faltaM: number | null
   /** La altura pedida pasa el techo de las zonas: la zona es un piso */
   sobreZonas: boolean
@@ -116,14 +169,22 @@ export function escenarioRio(capas: CapaInundacion[], h: number): EscenarioRio {
     .sort((a, b) => a.alturaM! - b.alturaM!)
 
   const zona = zonas.find(z => h < z.alturaM!) ?? zonas[zonas.length - 1] ?? null
-  let referencia: CapaInundacion | null = null
-  for (const o of obs) if (o.alturaM! <= h) referencia = o
+  let referencia: CapaInundacion | null = null, parcial: CapaInundacion | null = null
+  for (const o of obs) {
+    if (o.alturaM! > h) continue
+    if (esParcial(o)) parcial = o
+    else referencia = o
+  }
+  // Una parcial más baja que la referencia no agrega nada: la otra ve más y es de un río más alto
+  if (parcial && referencia && parcial.alturaM! <= referencia.alturaM!) parcial = null
   const masAlta = obs[obs.length - 1]
+  const cercana = parcial ?? referencia
 
   return {
     zona,
     referencia,
-    faltaM: referencia ? Math.round((h - referencia.alturaM!) * 100) / 100 : null,
+    parcial,
+    faltaM: cercana ? Math.round((h - cercana.alturaM!) * 100) / 100 : null,
     sobreZonas: h >= TECHO_ZONAS_M,
     sobreObservado: masAlta ? h > masAlta.alturaM! : true,
   }

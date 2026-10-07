@@ -28,7 +28,11 @@ mkdirSync(DESTINO, { recursive: true })
 
 const leer = f => JSON.parse(readFileSync(join(ORIGEN, f), 'utf8'))
 const zonas = leer('zonas-serie.geojson').features
-const landsat = leer('manchas-landsat.geojson').features
+const todasLandsat = leer('manchas-landsat.geojson').features
+const landsat = todasLandsat.filter(f => f.properties.capa !== 'sin imagen')
+/** Lo que cada escena NO ve dentro del recuadro: fuera de la imagen o bajo nubes */
+const ciegas = new Map(todasLandsat.filter(f => f.properties.capa === 'sin imagen').map(f => [f.properties.fecha, f]))
+const canal16 = leer('canal-16.geojson')
 const s2 = leer('manchas-sentinel2.geojson').features
 const resumen = leer('capas-resumen.json')
 
@@ -79,6 +83,9 @@ const CAPAS = [
     fecha: '2016-01-14', alturaM: 7.23, sensor: LANDSAT, criterio: INFRARROJO, nota: 'Cinco días después del pico de 7,31 m.' },
   { id: 'obs-1983-02-28', grupo: 'observada', titulo: '28/02/1983', fuente: buscar(landsat, { fecha: '1983-02-28' }, '1983-02'),
     fecha: '1983-02-28', alturaM: 7.8, sensor: LANDSAT_MSS, criterio: INFRARROJO, epoca: 1983, nota: null },
+  { id: 'obs-1983-03-07', grupo: 'observada', titulo: '07/03/1983', fuente: buscar(landsat, { fecha: '1983-03-07' }, '1983-03'),
+    fecha: '1983-03-07', alturaM: 8.02, sensor: LANDSAT_MSS, criterio: INFRARROJO, epoca: 1983,
+    nota: 'Otra órbita del satélite: sin nubes, ve la ciudad entera y el sur hasta el Canal 16, pero no el valle del Paraná al este. Es la imagen más cercana por debajo a la altura del pico de 1998.' },
   { id: 'obs-1983-07-22', grupo: 'observada', titulo: '22/07/1983', fuente: buscar(landsat, { fecha: '1983-07-22' }, '1983-07'),
     fecha: '1983-07-22', alturaM: 8.26, sensor: LANDSAT_MSS, criterio: INFRARROJO, epoca: 1983,
     nota: 'La imagen más limpia de la crecida de 1983.' },
@@ -103,15 +110,41 @@ const CAPAS = [
 
 const red = c => c.map(p => p.map(an => an.map(([x, y]) => [Math.round(x * 1e4) / 1e4, Math.round(y * 1e4) / 1e4])))
 
+/**
+ * Líneas que no son agua: se dibujan para ubicarse. Van en el índice porque
+ * son pocas y cortas.
+ */
+const REFERENCIAS = [
+  { id: 'canal-16', nombre: 'Canal 16', fuente: 'OpenStreetMap',
+    lineas: canal16.geometry.coordinates.map(l => l.map(([x, y]) => [Math.round(x * 1e5) / 1e5, Math.round(y * 1e5) / 1e5])) },
+]
+
+/**
+ * Lo que alguien que conoce el lugar dijo que pasó y ninguna imagen muestra.
+ *
+ * **No es agua vista y no se dibuja como agua**: va como texto, con quién lo
+ * dijo y cuándo, al lado de la imagen más cercana que hay. Se muestra cuando la
+ * altura pedida llega a `alturaM`.
+ */
+const INFORMES = [
+  { id: 'canal-16-1998', alturaM: 8.17, fecha: '1998-05-04', referencia: 'canal-16',
+    texto: 'Con el pico de 1998 el agua entró al Canal 16, el último canal al sur del Gran Resistencia.',
+    fuente: 'Ingeniero hidrólogo que revisó esta pantalla, octubre de 2026',
+    contraste: 'No hay imagen de ese pico. En las de 1998 que hay —el 09/04, con el río en 7,22 m y subiendo, y el 20/05, dieciséis días después y en 7,07 m— no se ve agua abierta sobre el canal. En 1983, con 7,80 m casi no hay agua junto a su tramo final; una semana después, con 8,02 m, la hay a menos de 300 m en más de la mitad de ese tramo, del lado del Paraná. Las imágenes no muestran el canal desbordado a lo largo: a 60 m por píxel un canal no se ve.' },
+]
+
 const indice = []
 let total = 0
 for (const c of CAPAS) {
   const { fuente, ...resto } = c
   const coords = red(fuente.geometry.coordinates)
-  const cuerpo = JSON.stringify({ id: c.id, coordinates: coords })
+  // Una mancha de un día que no ve todo el recuadro lleva lo que le falta:
+  // fuera de la imagen no hay agua dibujada, y no es porque estuviera seco
+  const ciega = c.fecha && fuente.properties.escena ? ciegas.get(c.fecha) : undefined
+  const cuerpo = JSON.stringify({ id: c.id, coordinates: coords, ...(ciega ? { sinImagen: red(ciega.geometry.coordinates) } : {}) })
   writeFileSync(join(DESTINO, `${c.id}.json`), cuerpo)
   total += cuerpo.length
-  indice.push({ ...resto, ...(resumen[c.id] ?? {}), poligonos: coords.length, bytes: cuerpo.length })
+  indice.push({ ...resto, ...(resumen[c.id] ?? {}), ...(ciega ? { vistoPct: ciega.properties.validoPct } : {}), poligonos: coords.length, bytes: cuerpo.length })
   console.log(c.id.padEnd(20), String(coords.length).padStart(4), 'polígonos', (cuerpo.length / 1024).toFixed(0).padStart(6), 'KB')
 }
 
@@ -122,5 +155,7 @@ writeFileSync(join(DESTINO, 'indice.json'), JSON.stringify({
   urbanoKm2: resumen._recuadro.urbanoKm2,
   construidoHoyKm2: resumen._recuadro.construidoHoyKm2,
   capas: indice,
+  referencias: REFERENCIAS,
+  informes: INFORMES,
 }, null, 1))
 console.log('capas', indice.length, '· total', (total / 1048576).toFixed(1), 'MB')

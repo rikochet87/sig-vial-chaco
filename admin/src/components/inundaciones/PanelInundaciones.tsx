@@ -7,10 +7,13 @@
  * prenden o apagan los otros dos escenarios. Abajo, qué rutas y qué obras
  * relevadas quedan adentro de lo que se está mostrando.
  *
- * **Todo lo que se dibuja es algo que se vio**, con su fecha y la altura que
- * tenía el río ese día. No hay ninguna mancha calculada. Por eso el panel dice
- * de cada capa de qué imagen sale, y avisa cuando la altura pedida pasa lo que
- * hay observado. Ver `lib/inundaciones.ts`.
+ * **Toda el agua que se dibuja es agua que se vio**, con su fecha y la altura
+ * que tenía el río ese día. No hay ninguna mancha calculada. Por eso el panel
+ * dice de cada capa de qué imagen sale, avisa cuando la altura pedida pasa lo
+ * que hay observado, y dibuja en gris rayado lo que una imagen no llegó a ver.
+ *
+ * Lo que alguien informó y ninguna imagen muestra va aparte, como texto y con
+ * quién lo dijo: no se pinta como agua. Ver `lib/inundaciones.ts`.
  */
 import dynamic from 'next/dynamic'
 import { useEffect, useMemo, useState, useCallback } from 'react'
@@ -21,7 +24,7 @@ import { extremosAnuales, ajustarGumbel, alturaDeRecurrencia, recurrenciaDe, ani
 import type { Pronostico } from '@/lib/pronostico'
 import { laminaPorCorrida, ventana, probSuperar } from '@/lib/pronostico'
 import {
-  BARRANQUERAS, TECHO_ZONAS_M, cotaMop, escenarioRio, IndicePoligonos,
+  BARRANQUERAS, TECHO_ZONAS_M, cotaMop, escenarioRio, informesHasta, IndicePoligonos,
   rutasDelRecuadro, caminosDelRecuadro, viaContra, resumirVias, nodosDelRecuadro,
   type IndiceInundaciones, type CapaInundacion, type MultiPoligono, type ClaseVia,
 } from '@/lib/inundaciones'
@@ -44,12 +47,16 @@ const ESTILO: Record<string, { color: string; relleno: number; trazo: number; or
   permanente:    { color: '#0d47a1', relleno: 0.7,  trazo: 0,   orden: 5 },
   rio:           { color: '#29b6f6', relleno: 0.55, trazo: 0,   orden: 20 },
   observada:     { color: '#ff9800', relleno: 0.2,  trazo: 1.2, orden: 30 },
+  // La mancha que ve sólo una parte del recuadro: otro tono, para no leerla como la entera
+  parcial:       { color: '#ff5722', relleno: 0.24, trazo: 1.2, orden: 32 },
   'lluvia-2019-01-22': { color: '#ce93d8', relleno: 0.28, trazo: 0, orden: 24 },
   'lluvia-2019-01-17': { color: '#8e24aa', relleno: 0.6,  trazo: 0, orden: 26 },
   combinada:     { color: '#ef5350', relleno: 0.22, trazo: 1.2, orden: 34 },
   defensa:       { color: '#ffee58', relleno: 0.22, trazo: 1.2, orden: 36 },
 }
-const estiloDe = (c: CapaInundacion) => ESTILO[c.id] ?? ESTILO[c.grupo] ?? ESTILO.rio
+const estiloDe = (c: CapaInundacion, parcial = false) => (parcial ? ESTILO.parcial : ESTILO[c.id] ?? ESTILO[c.grupo] ?? ESTILO.rio)
+/** Lo que una imagen no ve: gris, rayado, por debajo del agua */
+const ESTILO_CIEGO = { color: '#424242', relleno: 0.38, trazo: 1.5, orden: 12, rayas: true }
 
 const COLOR_VIA: Record<ClaseVia, { color: string; grosor: number }> = {
   nacional:   { color: '#F5C300', grosor: 3 },
@@ -69,6 +76,11 @@ const aviso: React.CSSProperties = {
   ...mono, fontSize: 12, color: '#E8A87C', lineHeight: 1.6, background: 'rgba(40,24,16,.6)',
   border: '1px solid #5a3a1a', borderLeft: '3px solid #E8833A', padding: '7px 10px', marginTop: 8,
 }
+/** Lo informado: ni aviso ni dato de imagen, así que no lleva el naranja ni el color de ninguna capa */
+const informe: React.CSSProperties = {
+  ...mono, fontSize: 12, color: '#b8b8b8', lineHeight: 1.6, background: '#141414',
+  border: '1px solid #2a2a2a', borderLeft: '3px solid #e0e0e0', padding: '7px 10px', marginTop: 8,
+}
 const chip = (activo: boolean): React.CSSProperties => ({
   ...mono, fontSize: 11, padding: '4px 8px', cursor: 'pointer', borderRadius: 2,
   letterSpacing: 0.4, background: activo ? '#F5C30022' : 'transparent',
@@ -83,7 +95,7 @@ interface RioHoy {
   emitido: string | null
 }
 
-interface Geometria { coords: MultiPoligono; indice: IndicePoligonos }
+interface Geometria { coords: MultiPoligono; indice: IndicePoligonos; sinImagen?: MultiPoligono }
 
 async function leerJson<T>(url: string): Promise<T> {
   const r = await fetch(url)
@@ -156,7 +168,7 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
   const claveActivas = useMemo(() => {
     if (!esc) return ''
     return [
-      'permanente', verUrbano && 'urbano-hoy', esc.zona?.id, verReferencia && esc.referencia?.id,
+      'permanente', verUrbano && 'urbano-hoy', esc.zona?.id, verReferencia && esc.referencia?.id, verReferencia && esc.parcial?.id,
       conLluvia && 'lluvia-2019-01-22', conLluvia && 'lluvia-2019-01-17',
       conCombinada && 'obs-1998-05-20', conDefensa && 'obs-1982-08-14',
     ].filter(Boolean).join(',')
@@ -168,8 +180,8 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
     let vivo = true
     for (const id of claveActivas.split(',')) {
       if (geo[id]) continue
-      leerJson<{ id: string; coordinates: MultiPoligono }>(`/geo/inundaciones/${id}.json`)
-        .then(j => { if (vivo) setGeo(g => g[id] ? g : { ...g, [id]: { coords: j.coordinates, indice: new IndicePoligonos(j.coordinates) } }) })
+      leerJson<{ id: string; coordinates: MultiPoligono; sinImagen?: MultiPoligono }>(`/geo/inundaciones/${id}.json`)
+        .then(j => { if (vivo) setGeo(g => g[id] ? g : { ...g, [id]: { coords: j.coordinates, indice: new IndicePoligonos(j.coordinates), sinImagen: j.sinImagen } }) })
         .catch(e => { if (vivo) setError(e instanceof Error ? e.message : `No se pudo leer la capa ${id}`) })
     }
     return () => { vivo = false }
@@ -183,12 +195,17 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
     return indice.capas.filter(c => ids.has(c.id))
   }, [indice, claveActivas])
 
-  const dibujo: CapaDibujo[] = useMemo(() => activas.filter(c => geo[c.id]).map(c => ({
-    id: c.id, coords: geo[c.id].coords, ...estiloDe(c),
-    titulo: c.grupo === 'rio' ? `Se moja con el río hasta ${c.alturaM} m`
-      : c.grupo === 'observada' ? `Agua del ${c.titulo}, río en ${f2(c.alturaM!)} m`
-      : c.grupo === 'base' ? c.titulo : `Agua del ${c.titulo}`,
-  })), [activas, geo])
+  const idParcial = esc?.parcial?.id
+  const dibujo: CapaDibujo[] = useMemo(() => activas.filter(c => geo[c.id]).flatMap(c => {
+    const capa: CapaDibujo = {
+      id: c.id, coords: geo[c.id].coords, ...estiloDe(c, c.id === idParcial),
+      titulo: c.grupo === 'rio' ? `Se moja con el río hasta ${c.alturaM} m`
+        : c.grupo === 'observada' ? `Agua del ${c.titulo}, río en ${f2(c.alturaM!)} m`
+        : c.grupo === 'base' ? c.titulo : `Agua del ${c.titulo}`,
+    }
+    const ciego = geo[c.id].sinImagen
+    return ciego ? [capa, { id: `${c.id}-sin-imagen`, coords: ciego, ...ESTILO_CIEGO, titulo: `Sin imagen el ${c.titulo.slice(0, 10)}` }] : [capa]
+  }), [activas, geo, idParcial])
 
   /** Las capas de agua del escenario (sin el fondo), con su índice ya armado */
   const agua = useMemo(
@@ -249,6 +266,9 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
     return { nodos: nodos.length, tres: ventana(porCorrida, 0, 3), siete, p100: siete ? probSuperar(siete, 100) : null }
   }, [prono, indice])
 
+  const informes = useMemo(() => informesHasta(indice?.informes, h), [indice, h])
+  const referencias = useMemo(() => (indice?.referencias ?? []).map(x => ({ nombre: x.nombre, lineas: x.lineas })), [indice])
+
   const atajos = useMemo(() => {
     const a: { t: string; m: number; d?: string }[] = []
     if (rio?.ultima) a.push({ t: 'Hoy', m: rio.ultima.m, d: `medido el ${fFecha(rio.ultima.fecha)}` })
@@ -268,8 +288,9 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
   const filaCapa = (c: CapaInundacion) => (
     <tr key={c.id}>
       <td style={{ padding: '3px 6px 3px 0', color: '#d0d0d0' }}>
-        <span style={{ display: 'inline-block', width: 9, height: 9, background: estiloDe(c).color, marginRight: 6 }} />
+        <span style={{ display: 'inline-block', width: 9, height: 9, background: estiloDe(c, c.id === idParcial).color, marginRight: 6 }} />
         {c.grupo === 'rio' ? `Río hasta ${c.alturaM} m` : c.titulo}
+        {c.vistoPct !== undefined && <span style={{ color: '#8f8f8f' }}> · ve el {c.vistoPct} %</span>}
       </td>
       <td style={{ textAlign: 'right', padding: '3px 0 3px 8px', color: '#e0e0e0' }}>{c.km2 === undefined ? '—' : f1(c.km2)}</td>
       <td style={{ textAlign: 'right', padding: '3px 0 3px 8px', color: '#e0e0e0' }}>{c.urbanoKm2 === undefined ? '—' : f1(c.urbanoKm2)}</td>
@@ -283,7 +304,7 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
     <div style={{ flex: 1, minHeight: 360, display: 'flex', gap: 12 }}>
       <div style={{ flex: 1, minWidth: 0, position: 'relative', background: '#191919', border: '1px solid #1e1e1e' }}>
         <MapaInundaciones recuadro={indice.recuadro} urbano={indice.urbano}
-          capas={dibujo} vias={lineas} afectadas={cruce.partes} obras={puntos} leer={leer} />
+          capas={dibujo} vias={lineas} afectadas={cruce.partes} obras={puntos} referencias={referencias} leer={leer} />
       </div>
 
       <div className="sv-panel" style={{ width: 400, flexShrink: 0, overflowY: 'auto', minHeight: 0,
@@ -359,6 +380,16 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
               <br /><span style={{ color: '#8f8f8f' }}>{esc.referencia.sensor} · {esc.referencia.criterio}.
                 {esc.referencia.nota ? ` ${esc.referencia.nota}` : ''}</span>
             </>)}
+            {esc.parcial && verReferencia && (<>
+              <br />
+              <span style={{ display: 'inline-block', marginTop: 6 }}>
+                <b style={{ color: '#ff5722' }}>Rojizo:</b> el agua del {esc.parcial.titulo}, con el río en {f2(esc.parcial.alturaM!)} m.{' '}
+                <b style={{ color: '#d0d0d0' }}>La imagen ve el {esc.parcial.vistoPct} % del recuadro</b>: en gris rayado, lo que no ve.
+                Ahí no hay agua dibujada y no es porque estuviera seco.
+              </span>
+              <br /><span style={{ color: '#8f8f8f' }}>{esc.parcial.sensor} · {esc.parcial.criterio}.
+                {esc.parcial.nota ? ` ${esc.parcial.nota}` : ''}</span>
+            </>)}
           </div>
 
           {esc.sobreObservado && (
@@ -366,8 +397,18 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
               {' '}{f2(esc.faltaM ?? 0)} m menos. Lo que se dibuja es un piso: con {f2(h)} m habría más agua.</div>
           )}
           {!esc.sobreObservado && esc.sobreZonas && esc.referencia && (esc.faltaM ?? 0) >= 0.3 && (
-            <div style={aviso}>La imagen más cercana por debajo es de {f2(esc.referencia.alturaM!)} m, {f2(esc.faltaM!)} m menos que lo pedido. Con {f2(h)} m habría más agua que la dibujada.</div>
+            <div style={aviso}>La imagen más cercana por debajo es de {f2((esc.parcial ?? esc.referencia).alturaM!)} m, {f2(esc.faltaM!)} m menos que lo pedido. Con {f2(h)} m habría más agua que la dibujada.</div>
           )}
+          {informes.map(i => (
+            <div key={i.id} style={informe}>
+              <span style={{ color: '#a0a0a0', textTransform: 'uppercase', letterSpacing: 1, fontSize: 11 }}>
+                Informado, sin imagen · {f2(i.alturaM)} m, {fFecha(i.fecha)}
+              </span>
+              <br /><b style={{ color: '#e8e8e8' }}>{i.texto}</b>
+              <br /><span style={{ color: '#8f8f8f' }}>{i.fuente}.</span>
+              <br />{i.contraste}
+            </div>
+          ))}
           {esc.referencia?.epoca && (
             <div style={aviso}><b>La imagen es de {esc.referencia.epoca}.</b> Muestra dónde llegó el agua con una ciudad de la mitad del tamaño y sin el anillo de defensas terminado.
               Dentro del recinto no dice qué pasaría hoy; fuera, sí.</div>
@@ -488,9 +529,10 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
         <div style={seccion}>
           <div style={rotulo}>Cómo leerlo</div>
           <div style={{ ...texto, fontSize: 11, color: '#8f8f8f' }}>
-            Todo lo dibujado es agua que se vio desde un satélite, con su fecha. No hay modelo hidráulico ni cotas del
+            Toda el agua dibujada es agua que se vio desde un satélite, con su fecha. No hay modelo hidráulico ni cotas del
             terreno: no da profundidades ni sirve para un lote. No ve agua debajo de monte ni de nubes, así que cada
-            mancha es un piso. La zonificación que vale para un certificado de riesgo hídrico es la de la APA.
+            mancha es un piso; en gris rayado va lo que una imagen no llegó a ver. Lo «informado» es lo que dijo alguien
+            que conoce el lugar: no se pinta. La zonificación que vale para un certificado de riesgo hídrico es la de la APA.
             {error && <><br /><span style={{ color: '#E8A87C' }}>{error}</span></>}
           </div>
         </div>

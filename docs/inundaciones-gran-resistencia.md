@@ -57,8 +57,11 @@ en las fechas en que pasó un satélite.
 - **De 1992 y 1998 hay pocas imágenes limpias.** El pico de junio de 1992 no
   tiene ninguna; la más cercana es del 19/05, con el río en 6,93 m y subiendo.
   La de 1998 es del 20/05, dieciséis días después del pico, con nubes.
-- **La órbita 227/079 no sirve para esto**: cubre sólo el borde oeste del
-  área. Las escenas útiles son las 226/079 (y 243/079 en los Landsat 1 a 3).
+- **La órbita 227/079 sirve a veces, y eso se había leído mal.** Cubre el
+  oeste del área, y cuánto cambia de una pasada a otra: con el Landsat 5 son
+  tres cuartos del recuadro urbano o menos, pero el 07/03/1983 entra la ciudad
+  entera. Las escenas que cubren todo el recuadro son las 226/079 (y 243/079
+  en los Landsat 1 a 3). Ver «Tercera pasada».
 - Dónde pedir fotografía aérea: IGN (fotogramas históricos), APA (las que usó
   para la línea de ribera de 1993 y el estudio Halcrow), el Instituto de
   Investigaciones Geohistóricas de la UNNE y Catastro municipal.
@@ -93,6 +96,7 @@ Superficies en km². «Urbano» es el recuadro de 199 km².
 | 09/07/1982 | 6,30 | 201 | 13,5 | — | — | |
 | 14/08/1982 | 5,15 | 207 | 16,5 | — | — | tres semanas después de la rotura del dique |
 | 28/02/1983 | 7,80 | 283 | 21,4 | — | — | |
+| 07/03/1983 | 8,02 | 95 | 24,7 | — | — | órbita 227: ve el 64 % del recuadro, y el urbano entero |
 | **20/06/1983** | **8,53** | **522** | **52,6** | — | — | dos días antes del máximo |
 | 22/07/1983 | 8,26 | 373 | 33,1 | — | — | la más limpia de la crecida |
 | 23/08/1983 | 5,98 | 270 | 19,1 | — | — | |
@@ -101,6 +105,7 @@ Superficies en km². «Urbano» es el recuadro de 199 km².
 | 22/05/1987 | 5,87 | 191 | 18,9 | 148 | 10,8 | |
 | 23/02/1990 | 3,48 | 282 | 21,7 | 128 | 6,3 | tres semanas después del pico de 7,66 m |
 | 19/05/1992 | 6,93 | 205 | 18,8 | 125 | 9,7 | 23 % tapado por nubes |
+| 09/04/1998 | 7,22 | — | — | 6 | 2,5 | órbita 227: ve el 49 % del recuadro, sin el Paraná; el infrarrojo no vale (ver «Tercera pasada») |
 | 20/05/1998 | 7,07 | 243 | 35,3 | 104 | 6,5 | 26 % tapado por nubes |
 | 21/06/1998 | 4,77 | 194 | 15,7 | 136 | 7,9 | |
 | 27/10/1998 | 6,71 | 233 | 14,0 | 167 | 8,2 | |
@@ -164,11 +169,15 @@ más; naranja, 6 a 9; amarillo, 3 a 5. El recuadro amarillo es el urbano.
 
 `docs/geo/inundaciones/`:
 
-- `manchas-landsat.geojson` (3,6 MB): el agua permanente, las tres clases de
-  frecuencia y la mancha de siete fechas (14/08/1982, 28/02, 20/06 y
-  22/07/1983, 20/05/1998, 14/01/2016 y la de lluvia del 22/01/2019). WGS84,
-  grilla de 90 m, manchas de más de 8 ha. **Todas las escenas juntas pesan 14
-  MB**; el script las regenera.
+- `manchas-landsat.geojson` (7,6 MB): el agua permanente, las tres clases de
+  frecuencia y la mancha de ocho fechas (14/08/1982, 28/02, 07/03, 20/06 y
+  22/07/1983, 20/05/1998, 14/01/2016 y la de lluvia del 22/01/2019). WGS84.
+  **El compuesto va en grilla de 90 m y sin las manchas de menos de 8 ha; la
+  mancha de cada fecha, a 60 m y desde 1,5 ha** (hasta el 07/10/2026 iban
+  también a 90 m, y se perdían los bajos chicos del área urbana). Las fechas
+  que no ven todo el recuadro llevan además el polígono de lo que no ven
+  (`capa: 'sin imagen'`).
+- `canal-16.geojson`: la traza del Canal 16, de OpenStreetMap.
 - `landsat-escenas.json` y `landsat-resultado.json`: lo que entra y lo que sale.
 - `mascaras/`: una imagen por escena, para mirar antes de creer el número.
 
@@ -340,6 +349,132 @@ pelado una temporada no llega.
 `zonas-serie.geojson` (1,5 MB) tiene las cuatro zonas por altura, acumuladas,
 y la mancha urbana de las cuatro épocas. `serie-resultado.json`, la fila de
 cada escena.
+
+## Tercera pasada: la otra órbita, el Canal 16 y los modelos de elevación
+
+Del 07/10/2026. Un ingeniero hidrólogo revisó la pestaña y la corrigió: **con
+el pico de 1998 (8,17 m) el agua entró al Canal 16**, el último canal al sur
+del Gran Resistencia. La pantalla mostraba el canal seco a esa altura.
+
+### Por qué mostraba eso
+
+- A 8,17 m el panel dibujaba la mancha del 28/02/1983 (7,80 m), que es la más
+  alta que no supera lo pedido, y esa mancha casi no toca el canal.
+- **Del pico de 1998 no hay imagen.** La órbita 226/079 pasó el 18/04 (77 % de
+  nubes; del recuadro se ve el 2 %) y el 20/05; del 04/05, el día del pico, no
+  hay escena en el catálogo.
+- El canal son 9,4 km, de 27,457° S 59,052° O a 27,520° S 58,987° O, entero
+  adentro del recuadro urbano.
+
+### Lo que se encontró: escenas de la otra órbita
+
+La serie y las manchas se armaron sólo con la órbita 226/079. Listando **todas**
+las escenas de cualquier órbita con el río en 7,20 m o más salen 29, y entre
+las de la 227/079 hay varias sin nubes que nunca se habían mirado:
+
+| Fecha | Río (m) | Sensor | Qué ve del recuadro urbano | Sirve |
+|---|---|---|---|---|
+| 19/02/1983 | 7,33 | MSS | 44 % | parcial |
+| **07/03/1983** | **8,02** | MSS | **100 %** | **sí: es la capa nueva** |
+| 23/03/1983 | 7,55 | MSS | 47 % | parcial |
+| 19/05/1983 | 8,11 | MSS, órbita 226 | 54 % con nubes | no se usó |
+| 11/06/1983 | 7,92 | MSS | 12 % | no |
+| 27/06/1983 | 8,45 | MSS | 1 % | no |
+| 06/07/1983 | 7,95 | MSS, órbita 226 | nubes que la máscara no marca | no: descartada al mirarla |
+| 29/07/1983 | 7,53 | MSS | 36 % | parcial |
+| 29/05/1987 | 7,28 | TM | 5 % | no |
+| 19/06/1992 | 7,47 | MSS | 2 % | no |
+| 17/02/1997 | 7,28 | TM | 30 % | parcial |
+| 09/04/1998 | 7,22 | TM | 74 % | sí, como control |
+| 21/01/2016 | 7,22 | OLI | 72 % | parcial |
+
+- **La del 07/03/1983 es la imagen que faltaba**: río en 8,02 m —15 cm por
+  debajo del pico de 1998—, sin nubes, con la ciudad entera. No ve el valle
+  del Paraná al este (el 36 % del recuadro).
+- **La huella de la órbita 227 cambia mucho de una pasada a otra**, sobre todo
+  con el Landsat 4: por eso ayer se la descartó mirando escenas del Landsat 5.
+- **Una escena de la 227 hay que mirarla antes de usarla.** La del 27/05/1998
+  figura cubriendo todo el recuadro y muestra otro lugar: está mal
+  georreferenciada, y eso no se nota en ningún número.
+- **El infrarrojo con umbral de Otsu no vale en una escena sin el Paraná.**
+  Otsu busca dos poblaciones; sin un cuerpo de agua grande parte la tierra en
+  dos. El 09/04/1998 da 207 km² de «agua» sobre 550 km² vistos, contra 6 km²
+  de agua abierta. La del 07/03/1983 sí tiene el desborde del Paraná adentro,
+  y su mancha se revisó a la vista. En las escenas parciales de TM vale sólo
+  el agua abierta.
+- El pico de junio de 1992 (8,25 m) sigue sin imagen útil: la del 19/06 ve el
+  2 % del recuadro urbano.
+
+### Qué dicen las imágenes sobre el Canal 16
+
+Parte del canal con agua de cada mancha a menos de 155 y de 310 m, en seis
+tramos de 1,6 km, de noroeste a sudeste:
+
+| Imagen | Río (m) | A menos de 155 m | A menos de 310 m |
+|---|---|---|---|
+| 12/11/2023 | 6,94 | 0 en los seis | — |
+| 14/01/2016 | 7,23 | 0 en los seis | 0 · 0 · 0 · 0 · 0 · 13 % |
+| 28/02/1983 | 7,80 | 69 · 0 · 0 · 0 · 0 · 3 % | 100 · 0 · 0 · 0 · 0 · 26 % |
+| 07/03/1983 | 8,02 | 67 · 0 · 0 · 0 · 5 · 26 % | 92 · 0 · 0 · 0 · 8 · 59 % |
+| 22/07/1983 | 8,26 | 0 en los seis | 0 · 0 · 0 · 0 · 0 · 23 % |
+| 20/06/1983 | 8,53 | 67 · 28 · 67 · 82 · 46 · 95 % | 79 · 59 · 100 · 95 · 87 · 100 % |
+
+- **Hasta 7,23 m no hay agua junto al canal** en ninguna imagen, y en las dos
+  de 1998 (7,22 y 7,07 m) no se ve agua abierta sobre él.
+- **Entre 7,80 y 8,02 m aparece agua junto al tramo final**, el que da al
+  Paraná: de 26 a 59 % a menos de 310 m, en una semana y con el río 22 cm más
+  alto. A la vista son manchas de 5 a 10 ha encadenadas hacia el desborde del
+  Paraná.
+- **El primer tramo no cuenta**: lo que tiene al lado en febrero y marzo de
+  1983 son las piletas de la cabecera del canal, que están en todas las
+  imágenes.
+- **El 22/07/1983, con 8,26 m, hay menos que el 07/03 con 8,02.** No es
+  monótono, y no se sabe por qué: otra época del año, otro umbral, o agua bajo
+  vegetación. Es el límite de leer esto a 60 m.
+- **El 20/06/1983 hay agua a lo largo de casi todo el canal.** Son las «manchas
+  sueltas al oeste» que quedaron sin confirmar porque no están el 22/07. Lo
+  que dijo el hidrólogo sobre 1998 las hace más creíbles, y no las confirma.
+- **Ninguna imagen muestra el canal desbordado**: un canal no se ve a 60 m.
+  Lo que hay es compatible con que el agua le entre por abajo cerca de los 8
+  m, y no prueba más que eso.
+
+**En el panel va como lo que es**: la capa del 07/03/1983 es agua vista, y lo
+que dijo el hidrólogo va aparte, como texto con su fuente («Informado, sin
+imagen»), al llegar a 8,17 m. No se pinta como agua.
+
+### Los modelos de elevación de 30 m no alcanzan
+
+Se probó si el terreno podía decir lo que la imagen no: se llevaron a la
+grilla de las manchas el MDE-Ar v2.1 del IGN (30 m, descarga libre) y el
+Copernicus GLO-30, y se los enfrentó al agua observada y al canal.
+
+| | IGN MDE-Ar | Copernicus GLO-30 |
+|---|---|---|
+| Cota del terreno sobre el Canal 16, mediana | 51,9 m | 49,9 m |
+| ídem, del 10 al 90 % | 51,1 a 52,6 | 49,2 a 51,0 |
+| Canal por debajo de la cota del río de 1998 (49,4 m IGN) | 0 % | 18 % |
+| «Terreno bajo la cota» contra el agua vista, mejor coincidencia | 0,35 a 0,40 | 0,59 a 0,66 |
+
+- **Difieren entre sí 1,8 m de media y 2,2 m de dispersión** en el recuadro
+  urbano. Entre una crecida de 7 m y la de 1998 hay 1,2 m.
+- **Uno dice que el canal queda 2,5 m arriba del agua de 1998 y el otro, medio
+  metro.** Ninguno de los dos sirve para decidir.
+- La coincidencia es la de las tres escenas de 1998 que ven todo el recuadro
+  (intersección sobre unión, con el nivel que mejor separa agua de tierra).
+  Ese nivel sube menos que el río: en Copernicus, 1 m entre una escena con
+  4,77 m y otra con 6,63.
+- **Por eso no se dibuja ninguna «zona bajo cota».** Sería una mancha calculada
+  con un error mayor que lo que se quiere distinguir.
+- Lo que sí cambiaría esto es el **MDT de 5 m del IGN** sobre
+  Corrientes–Resistencia (vuelo de 2016) y el de 0,5 m de Fontana (2021). No
+  se descargan: se piden a asesoriatecnica@ign.gob.ar. El borrador del pedido
+  está en `docs/pedido-ign-mde-gran-resistencia.txt`.
+
+Scripts, en `admin/scripts/inundaciones/`: `crecidas-altas.mjs` (clasifica una
+lista de escenas de cualquier órbita, mide el agua sobre una traza y deja una
+vista en falso color para mirarla) y `dem-contra-agua.mjs` (los modelos de
+elevación contra el agua observada; los modelos se llevan antes a la grilla
+con `gdalwarp`).
 
 ## Las inundaciones y la altura del río
 
@@ -550,7 +685,12 @@ paso que más rinde, y es un pedido a la APA.
    que es el punto ciego de todo lo de acá. Desde 2018; pide registro.
 5. **Mirar una por una las tres escenas sin explicar** de la serie, y las
    crecidas con nubes: sobre 7 m hay una sola escena limpia.
-6. **Está montado en el panel**: pestaña «Gran Resistencia» de Hidrología, con
+6. **El MDT de 5 m del IGN** (y el de 0,5 m de Fontana). Es lo único
+   disponible que permitiría ponerle cota al borde de cada mancha en el área
+   urbana. Pedido redactado, sin enviar.
+7. **Preguntarle al hidrólogo qué más sabe**: otras marcas de la crecida de
+   1998, con lugar y si es posible cota. Cada una entra como un informe más.
+8. **Está montado en el panel**: pestaña «Gran Resistencia» de Hidrología, con
    selector de altura del río, la lluvia de 2019, la combinación de 1998 y el
    cruce con rutas y obras relevadas. Las capas se generan con
    `node scripts/build_inundaciones.mjs`.
@@ -578,6 +718,9 @@ hechos (ver «Segunda pasada»).
 - Lluvias de enero de 2019, enero de 2018 y abril de 1989: Diario de Cuyo,
   16 y 18/01/2019.
   <https://www.diariodecuyo.com.ar/noticias/en-el-litoral-se-viven-horas-dramaticas-por-las-lluvias-211919.html>
+- Traza del Canal 16: © colaboradores de OpenStreetMap (ODbL).
+- MDE-Ar v2.1, Instituto Geográfico Nacional; Copernicus DEM GLO-30, ESA, vía
+  Microsoft Planetary Computer. Usados sólo para la prueba de «Tercera pasada».
 - Landsat Collection 2, USGS, vía Microsoft Planetary Computer.
   <https://planetarycomputer.microsoft.com/api/stac/v1>
 - ONI, NOAA Climate Prediction Center.
