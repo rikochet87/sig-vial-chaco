@@ -37,7 +37,7 @@ npx expo-doctor               # desde la raíz — detecta incompatibilidades de
 ```
 
 **Todo eso corre junto con `npm run verificar`** (desde `admin/`):
-`tsc --noEmit`, la barrera de lint, la sintaxis de los `.sql` y los veintiocho
+`tsc --noEmit`, la barrera de lint, la sintaxis de los `.sql` y los veintinueve
 `scripts/verificar-*.ts`. `next build` queda afuera a propósito: tarda minutos y
 usa el binario nativo de SWC, así que sólo corre donde se instalaron los
 paquetes. El orquestador es `scripts/verificar-todo.mjs`, en Node y no en un
@@ -809,8 +809,10 @@ Dato que enmarca todo: **el 98 % de la red de consorcios es de tierra** (9.595 d
 La pantalla apunta a escalar hacia simulación de escenarios —eventos del Niño,
 por ejemplo—, y para eso el campo de lluvia tiene que quedar separado de su
 lectura: la misma vista debería poder alimentarse de lluvia observada, de un
-pronóstico o de un análogo histórico. Hoy falta profundidad histórica: hay un
-año de datos, y ERA5 permitiría décadas.
+pronóstico o de un análogo histórico. Hoy falta profundidad histórica en lo
+medido: hay un año de partes. Hacia atrás está CHIRPS por cuenca, desde 1981
+(ver «Lluvia histórica: CHIRPS por cuenca»), que todavía no alimenta ninguna
+vista.
 
 ## Lluvia — cómo está organizada la pantalla
 
@@ -2511,15 +2513,73 @@ Antes de gastar en eso conviene averiguar si existe **lidar o fotogrametría
 sobre el Gran Resistencia**: las áreas urbanas suelen tener relevamientos mucho
 mejores que la grilla nacional.
 
-### Lluvia histórica: ERA5, congelada por año
+### Lluvia histórica: CHIRPS por cuenca, desde 1981
 
-`scripts/build_era5.ts` + `lib/era5.ts` + `public/lluvia/era5/`. **Todavía no
-alimenta ninguna pantalla**: es la descarga, que lleva días por el cupo.
+`scripts/build_chirps.mjs` + `lib/chirps.ts` +
+`public/lluvia/chirps_cuencas.json`. **Todavía no alimenta ninguna pantalla**:
+está la serie y cómo leerla.
 
 Los partes de la APA empiezan en 09/2025. Con un año no se puede decir qué tan
 raro es un evento ni cruzar la lluvia con los caudales del INA, que terminan
-antes. ERA5 —el reanálisis de ECMWF, desde 1940— es lo único que hay hacia
-atrás.
+antes. Esto da 45 años enteros por cuenca: 16.679 días, del 01/01/1981 al
+31/08/2026, sin un día faltante.
+
+CHIRPS es una estimación de la Universidad de California en Santa Bárbara:
+infrarrojo de satélite calibrado y corregido con pluviómetros, a 0,05° (~5 km),
+diaria.
+
+- **Es una estimación y no se mezcla con la medida.** Ningún número que hoy
+  sale de los pluviómetros pasa a salir de acá. Sirve para qué es normal para
+  la época y cada cuánto se repite un evento.
+- **Vale para el promedio de una cuenca**, que es lo único que hay en el
+  archivo: una serie diaria por cada una de las trece, sin valor por punto.
+- **El día de CHIRPS no es el día de la APA, y por eso se usa en ventanas de
+  varios días.** Sobre Negro - Salado, la lluvia que la APA informa el
+  03/08/2026 CHIRPS la pone el 04/08. Día por día correlaciona 0,64 con los
+  pluviómetros; en ventanas de tres y de siete días, 0,85.
+- **Sale de ClimateSERV**, de NASA SERVIR, sin cuenta ni clave: se le manda el
+  contorno de la cuenca tal como está en `geo_cuencas.json` y devuelve el
+  promedio diario adentro. El valle del Paraná va como multipolígono.
+- **Hasta 20 años por pedido** —«Max date range is: 20 years»—: se pide de a
+  15. **El contorno va por POST**: por GET la dirección pasa los 4.094
+  caracteres que acepta el servidor. De a un pedido, con pausa.
+- **Son 39 pedidos y media hora**, unos 150 s por cuenca. El 07/10/2026
+  bajaron las trece a la primera.
+- **Una cuenca se guarda entera o no se guarda**, y se la puede volver a pedir
+  por número conservando las demás (`node scripts/build_chirps.mjs 6 8`).
+- **Termina en el último día que tienen todas**: CHIRPS llega con algo más de
+  un mes de atraso. Para sumar meses nuevos se vuelve a correr entero.
+- Décimas de milímetro, un día por posición desde `desde`; `null` sin dato.
+- `acumulado()` no da número si a la ventana le falta un día: una suma con
+  huecos se leería como una ventana seca. `totalesAnuales()` informa el año
+  incompleto, marcado.
+
+Lo que dio, para tener la escala: de 705 mm por año en el Impenetrable a 1.359
+en el valle del Paraná y 1.363 en Quiá. Los años más lluviosos son 1986 y 2002
+en casi todas; 2022 es el más seco del registro en seis.
+
+**Diciembre de 2025, el mes sin partes de la APA: CHIRPS ve el evento.** Del
+20 al 26/12 da 152 mm en Negro - Salado, 130 en Tapenagá y 132 en Línea
+Paraná, las tres cuencas cuyos ríos subieron esa semana.
+
+`scripts/verificar-chirps.ts` no sale a la red: afirma el lector sobre un
+archivo armado a mano, la forma del archivo real y lo que se sabe del Chaco sin
+estos datos —más lluvia al este que al oeste, enero al menos el doble que
+julio, 2020 a 2022 bajo la media en las trece— y la semana de diciembre de
+2025. **No afirma que CHIRPS acierte.**
+
+### Lluvia histórica: ERA5, de respaldo
+
+`scripts/build_era5.ts` + `lib/era5.ts` + `public/lluvia/era5/`. **No alimenta
+ninguna pantalla y no se sigue bajando.** Fue lo primero que se armó para la
+lluvia histórica y quedó de respaldo cuando se sumó CHIRPS el 07/10/2026: lo
+que acá llevaba dos semanas de correr un comando por día, allá es media hora.
+
+Lo que tiene ERA5 —el reanálisis de ECMWF, desde 1940— y CHIRPS no: **un valor
+por nodo**, no sólo el promedio de la cuenca, y los años anteriores a 1981. Si
+alguna vez hace falta una de las dos cosas, la descarga está armada y probada.
+**Contra eso, da la mitad de lo medido en los meses más lluviosos de
+Resistencia** (290 mm contra 588 en enero de 2019).
 
 - **Es lluvia modelada y no se mezcla con la medida.** Ningún número que hoy
   sale de los pluviómetros pasa a salir de acá. Sirve para frecuencias y
@@ -2546,7 +2606,7 @@ atrás.
   hay que volver a pedirlo por nombre (`npx tsx scripts/build_era5.ts 2026`).
 - Un archivo por año, ~85 KB: décimas de mm, día por día y nodo por nodo.
 
-Al 05/10/2026 está bajado **sólo 2026**, hasta el 28/09. Para diciembre de
+Está bajado **sólo 2026**, hasta el 28/09, y así queda. Para diciembre de
 2025, el mes sin partes de la APA, una consulta suelta a ERA5 dio 29 y 62 mm
 el 22/12 en dos nodos: el modelo sí ve ese evento.
 
