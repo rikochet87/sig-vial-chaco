@@ -37,7 +37,7 @@ npx expo-doctor               # desde la raíz — detecta incompatibilidades de
 ```
 
 **Todo eso corre junto con `npm run verificar`** (desde `admin/`):
-`tsc --noEmit`, la barrera de lint, la sintaxis de los `.sql` y los veintisiete
+`tsc --noEmit`, la barrera de lint, la sintaxis de los `.sql` y los veintiocho
 `scripts/verificar-*.ts`. `next build` queda afuera a propósito: tarda minutos y
 usa el binario nativo de SWC, así que sólo corre donde se instalaron los
 paquetes. El orquestador es `scripts/verificar-todo.mjs`, en Node y no en un
@@ -814,13 +814,14 @@ año de datos, y ERA5 permitiría décadas.
 
 ## Lluvia — cómo está organizada la pantalla
 
-Cinco pestañas, cada una con la pantalla entera:
+Seis pestañas, cada una con la pantalla entera:
 
 | Pestaña | Qué tiene | Selector de período |
 |---|---|---|
 | **Mapa** | el mapa y, al lado, la lista de consorcios **o** de cuencas | sí |
 | **Cuencas** | `PanelCuencas` con sus seis vistas | sí, salvo la de cursos de agua |
 | **Río Paraná** | `PanelRio`, abierto | sí |
+| **Gran Resistencia** | las áreas inundables: mapa propio y panel de escenarios (ver «Gran Resistencia — áreas inundables») | no: se elige una altura del río, no un período |
 | **Tiempo** | alertas del SMN y pronóstico por consorcio (ver «El tiempo») | no: mira hacia adelante |
 | **Precisión** | la comparación de métodos y `PanelMediciones` | no: habla de métodos, no de un período |
 
@@ -874,6 +875,86 @@ Cosas que no son obvias:
   2,4:1— y hay usuarios con visión reducida. Quedan dos escalones: `#8f8f8f`
   (5,4:1) para lo terciario y `#a0a0a0` para lo secundario. **Al agregar texto,
   no bajar de `#8f8f8f`.**
+
+## Gran Resistencia — áreas inundables
+
+`lib/inundaciones.ts` + `components/inundaciones/` + `public/geo/inundaciones/`.
+Pestaña «Gran Resistencia» de Hidrología (`?vista=inundables`): qué se moja
+con una crecida del Paraná, con una lluvia larga, o con las dos. El mapa es la
+pantalla y a la derecha va el panel de escenarios.
+
+**Todo lo que se dibuja es agua que se vio desde un satélite, con su fecha y
+la altura que tenía el río ese día. No hay ninguna mancha calculada.** No hay
+modelo hidráulico ni cotas: no da profundidades ni sirve para un lote. La
+zonificación que vale es la de la APA, y la pantalla lo dice. De dónde sale
+cada capa está en `docs/inundaciones-gran-resistencia.md`.
+
+**Un escenario de crecida son dos capas que no valen lo mismo:**
+
+| | Qué es | Hasta dónde |
+|---|---|---|
+| **Zona** (celeste) | lo que se moja con el río hasta cierta altura, de la serie de 337 escenas Landsat | **7 m** |
+| **Mancha observada** (naranja) | el agua de un día | 8,53 m, el 20/06/1983 |
+
+- **Sobre 7 m hay una sola escena limpia en cuarenta años**: las crecidas
+  llegan con nubes. Por encima sólo hay manchas sueltas, y las de más de 7,3 m
+  son todas de 1983: otra ciudad, sin el anillo de defensas terminado. La
+  pantalla lo avisa con la imagen a la vista.
+- **Nunca se muestra una mancha de un río más alto que el pedido**
+  (`escenarioRio`): sería dibujar más agua de la que esa altura trajo. Se usa
+  la más alta que no lo supere, y si queda a más de 30 cm se dice cuánto falta.
+  El test lo afirma de 2 a 9,5 m.
+- **La lluvia es un solo evento** (enero de 2019) y **la combinación, otro**
+  (mayo de 1998, con nubes). Van como lo que son: una observación cada uno. No
+  se suman con las zonas del río ni se calcula nada con ellas. También se puede
+  prender la mancha del 14/08/1982, tres semanas después de la rotura del
+  dique del río Negro: es lo único que hay de una falla de defensa.
+- **Los atajos de altura** son hoy, el techo de la banda del INA, alerta,
+  evacuación, los picos de 2023, 1998 y 1983, y las recurrencias de 10, 50 y
+  100 años del mismo ajuste de «Recurrencia y permanencia en Barranqueras».
+- **La lluvia pronosticada** es la del pronóstico por conjuntos de Cuencas,
+  sobre los nodos que caen en el recuadro o a medio paso de grilla (cinco).
+
+Cosas que no son obvias:
+
+- **Las capas van partidas, una por archivo, con un índice chico.** Todas
+  juntas pesan 5,5 MB y la pantalla muestra dos o tres: cada una se pide
+  recién cuando se la prende. Se generan con `node scripts/build_inundaciones.mjs`
+  —no editar a mano— desde los GeoJSON de `docs/geo/inundaciones/`.
+- **Las superficies de la tabla no se calculan en el navegador.** Polígono
+  contra polígono no cierra; se midieron sobre las grillas originales
+  (`scripts/inundaciones/capas-resumen.mjs`) y van en el índice. Son «fuera del
+  agua de siempre», por eso la zona de menos de 4 m da 0.
+- **Cada capa se informa por separado y no se suman**: las manchas se pisan.
+- **Un camino sobre agua permanente es un puente, no un camino inundado.** El
+  puente a Corrientes salía en rojo porque cruza el Paraná, que está en todas
+  las manchas. `viaContra` toma el agua permanente como excepción. Se vio en
+  la pantalla, no en el test.
+- **Que un tramo caiga adentro no quiere decir que se corte.** La mancha no ve
+  terraplenes. La pantalla lo dice: es la lista de dónde mirar.
+- **`IndicePoligonos` es una grilla de 30 m, no punto en polígono.** Se pinta
+  una vez por capa y una consulta es mirar una celda. Coincide con la prueba
+  exacta en el 98,7 % de los puntos; difieren los que están a menos de media
+  celda de un borde.
+- **Todo lo dibujado es inerte** y va en lienzo, con una polilínea múltiple por
+  color. La lectura bajo el cursor se resuelve por afuera de Leaflet, como en
+  el mapa de lluvia.
+- **Las rutas nacionales y provinciales entran al cruce** (`geo_rn.json`,
+  `geo_rp.json`), además de los caminos de consorcio: en el área metropolitana
+  son las que importan. El campo `Mantenim` de esos archivos no se muestra.
+
+**Una captura que falla no es una pestaña congelada.** Al probar esto, las
+capturas de pantalla del navegador se vencían después de elegir una altura y se
+leyó como que la pestaña se colgaba. Se reescribió el índice y el dibujo de
+caminos persiguiendo eso. La pestaña del navegador estaba en segundo plano
+(`document.visibilityState === 'hidden'`): ahí no hay cuadros de animación y
+los temporizadores van a uno por segundo. Medido después, elegir una altura
+cuesta de 6 a 54 ms. **Antes de optimizar por un cuelgue, medirlo.**
+
+`scripts/verificar-inundaciones.ts` no sale a la red. No hay un valor oficial
+contra el cual comparar una mancha, así que afirma geometría con casos que se
+saben sin calcular, la regla de las alturas, que las zonas del río estén
+anidadas, y el índice en grilla contra la prueba exacta.
 
 ## Lluvia — de dónde sale cada número
 
@@ -2880,8 +2961,8 @@ límites que sólo aplica cuando se le pasa un `buf` propio. No se toca.
   mancha de agua en Landsat (21 escenas elegidas de 1981 a 2023 y la serie
   entera, 337 desde 1984) y en Sentinel-2, a qué altura del río se moja cada
   lugar, la mancha urbana por época, y el cruce con Barranqueras, el Niño y la
-  lluvia local. Resultados en `docs/geo/inundaciones/`. **No alimenta ninguna
-  pantalla.** Cosas que conviene no volver a averiguar:
+  lluvia local. Resultados en `docs/geo/inundaciones/`. Alimenta la pestaña
+  «Gran Resistencia» de Hidrología. Cosas que conviene no volver a averiguar:
   - Landsat y Sentinel-2 se leen sin cuenta desde Planetary Computer. **De a
     una banda y con el permiso pedido una sola vez**: en paralelo las
     conexiones se cortan, y pedir el permiso en cada lectura da 429.

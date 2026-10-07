@@ -1,0 +1,88 @@
+{
+ "rio-4": {
+  "km2": 0,
+  "urbanoKm2": 0,
+  "construidoKm2": 0
+ },
+ "rio-5": {
+  "km2": 34.35,
+  "urbanoKm2": 3.17,
+  "construidoKm2": 0.04
+ },
+ "rio-6": {
+  "km2": 48.18,
+  "urbanoKm2": 4.87,
+  "construidoKm2": 0.04
+ },
+ "rio-7": {
+  "km2": 86.87,
+  "urbanoKm2": 6.07,
+  "construidoKm2": 0.05
+ },
+ "obs-1982-08-14": {
+  "km2": 138.94,
+  "urbanoKm2": 15.13,
+  "construidoKm2": 2.26
+ },
+ "obs-1983-02-28": {
+  "km2": 204.13,
+  "urbanoKm2": 20.04,
+  "construidoKm2": 0.95
+ },
+ "obs-1983-07-22": {
+  "km2": 290.82,
+  "urbanoKm2": 31.78,
+  "construidoKm2": 1.7
+ },
+ "obs-1983-06-20": {
+  "km2": 445.32,
+  "urbanoKm2": 51.79,
+  "construidoKm2": 7.2
+ },
+ "obs-1998-05-20": {
+  "km2": 195.99,
+  "urbanoKm2": 33.98,
+  "construidoKm2": 2.48
+ },
+ "obs-2016-01-14": {
+  "km2": 180.29,
+  "urbanoKm2": 13.03,
+  "construidoKm2": 0.41
+ },
+ "lluvia-2019-01-22": {
+  "km2": 151.02,
+  "urbanoKm2": 11.2,
+  "construidoKm2": 0.24
+ },
+ "obs-2023-11-12": {
+  "km2": 127.31,
+  "urbanoKm2": 5.39,
+  "construidoKm2": 0.03
+ },
+ "obs-2018-01-27": {
+  "km2": 54.62,
+  "urbanoKm2": 2.34,
+  "construidoKm2": 0.04
+ },
+ "lluvia-2019-01-17": {
+  "km2": 24.86,
+  "urbanoKm2": 2.75,
+  "construidoKm2": 0.07
+ },
+ "_recuadro": {
+  "urbanoKm2": 199.4,
+  "construidoHoyKm2": 40.9,
+  "aoi": {
+   "oeste": -59.12,
+   "este": -58.78,
+   "sur": -27.6,
+   "norte": -27.3
+  },
+  "urbano": {
+   "oeste": -59.06,
+   "este": -58.92,
+   "sur": -27.53,
+   "norte": -27.4
+  }
+ }
+}

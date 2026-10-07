@@ -550,8 +550,10 @@ paso que más rinde, y es un pedido a la APA.
    que es el punto ciego de todo lo de acá. Desde 2018; pide registro.
 5. **Mirar una por una las tres escenas sin explicar** de la serie, y las
    crecidas con nubes: sobre 7 m hay una sola escena limpia.
-6. **Nada de esto está en el panel.** Los GeoJSON se pueden montar como capa
-   en Hidrología; no se hizo.
+6. **Está montado en el panel**: pestaña «Gran Resistencia» de Hidrología, con
+   selector de altura del río, la lluvia de 2019, la combinación de 1998 y el
+   cruce con rutas y obras relevadas. Las capas se generan con
+   `node scripts/build_inundaciones.mjs`.
 
 El control contra el JRC y Sentinel-2, que estaban en esta lista, ya están
 hechos (ver «Segunda pasada»).

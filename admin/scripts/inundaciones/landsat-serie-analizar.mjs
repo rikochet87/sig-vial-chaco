@@ -131,6 +131,10 @@ for (const id of ['LM03_L1TP_243079_19820814_02_T2', 'LM04_L1TP_226079_19830228_
   console.log(`agua del ${id.split('_')[3]}: ${(aH * G.KM2).toFixed(1)} km2 sobre lo construido hoy · ${(aA * G.KM2).toFixed(1)} sobre lo construido en 1984-89 · ${(nuevo * G.KM2).toFixed(1)} sobre lo que se construyó después`)
 }
 
+// Las dos grillas que usa capas-resumen.mjs para medir cada capa del panel
+writeFileSync(`${SALIDA}/moja.bin`, moja)
+writeFileSync(`${SALIDA}/urbano-hoy.bin`, hoy)
+
 // ── Imágenes y vectores ─────────────────────────────────────────────────────
 function png(nombre, pintar) {
   const p = new PNG({ width: G.ANCHO, height: G.ALTO })

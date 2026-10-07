@@ -37,6 +37,7 @@ import PanelMediaAreal from '@/components/PanelMediaAreal'
 import PanelRio from '@/components/PanelRio'
 import PanelTiempo from '@/components/tiempo/PanelTiempo'
 import PanelCuencas from '@/components/PanelCuencas'
+import PanelInundaciones from '@/components/inundaciones/PanelInundaciones'
 import ListaCuencas from '@/components/cuencas/ListaCuencas'
 import { csvTramos } from '@/lib/redLluvia'
 import SelectorPeriodo, { type PuntoSerie, type Cobertura } from '@/components/SelectorPeriodo'
@@ -73,7 +74,8 @@ type Orden = 'mm' | 'pico' | 'numero'
  * Cada cosa tiene ahora la pantalla entera.
  */
 const VISTAS = [
-  ['mapa', 'Mapa'], ['cuencas', 'Cuencas'], ['rio', 'Río Paraná'], ['tiempo', 'Tiempo'], ['precision', 'Precisión'],
+  ['mapa', 'Mapa'], ['cuencas', 'Cuencas'], ['rio', 'Río Paraná'], ['inundables', 'Gran Resistencia'],
+  ['tiempo', 'Tiempo'], ['precision', 'Precisión'],
 ] as const
 type Vista = typeof VISTAS[number][0]
 
@@ -399,8 +401,15 @@ export default function LluviaPage() {
         </div>
       )}
 
+      {/*
+        Las áreas inundables del Gran Resistencia tampoco llevan el selector:
+        no miran un período de lluvia sino un escenario —una altura del río—
+        que se elige en su propio panel.
+      */}
+      {vista === 'inundables' && <PanelInundaciones tramos={tramos} />}
+
       {/* El período es común a las tres pestañas que miran lluvia */}
-      {vista !== 'precision' && vista !== 'tiempo' && (<>
+      {vista !== 'precision' && vista !== 'tiempo' && vista !== 'inundables' && (<>
 
       <SelectorPeriodo
         desde={desde} hasta={hasta} hoy={hoy}
