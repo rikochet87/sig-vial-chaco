@@ -174,6 +174,20 @@ async function recalcularFusion(desde: string, hasta: string) {
 
   const supabase = createServiceClient()
 
+  /*
+   * **Antes de interpolar, los partes que falten.** La interpolación lee la APA
+   * en vivo, pero la capa de pluviómetros del mapa y la serie por cuenca leen
+   * `mediciones_lluvia`. Sin esto, un parte que la APA publicó después del cron
+   * quedaba interpolado en la tabla de consorcios y ausente en el mapa: «sin
+   * mediciones de la APA» al lado de 103 consorcios con lluvia. Lo normal es
+   * que no falte nada y no cueste nada; si falla, se interpola igual.
+   */
+  try {
+    await importarPartes(supabase, { userId: null, desde, hasta })
+  } catch (e) {
+    console.error('[recálculo] no se pudieron importar los partes', e)
+  }
+
   // Lo que ya está guardado del modelo, que es lo que se usa de respaldo
   /**
    * Se lee también el estado actual de la fusión, no sólo `mm`.

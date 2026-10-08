@@ -1061,6 +1061,15 @@ que sí tenían parte, y el cartel reaparecía idéntico.
 escribe. Es lo que deduce la API cuando `mm_fusion` es nulo y no hay marca de
 `sin_parte`. Si pudiera persistirse, dejaría de significar "todavía no se hizo".
 
+**"Sin parte" es provisorio mientras la APA no haya publicado.** La APA carga
+los partes con atraso: el del 07/10/2026 apareció después del recálculo diario
+del mediodía. Por eso, al leer, la marca `sin_parte` de una fecha que la APA ya
+publicó se trata como `sin_calcular` —se puede y se debe interpolar—, y el
+recálculo importa los partes faltantes antes de interpolar. Cuando la mayoría
+de los consorcios del período no tiene lluvia medida ni interpolada, la
+pantalla no afirma que llovió: informa que los valores son la estimación del
+modelo. Ese día el modelo daba hasta 50 mm y los pluviómetros, 13.
+
 **La procedencia de un período se pondera por milímetros, no por días.** Una
 semana con dos días de lluvia y cinco secos: los cinco secos no tienen parte y
 marcaban los 103 consorcios como "sin recalcular", ocultando que el 100 % de los

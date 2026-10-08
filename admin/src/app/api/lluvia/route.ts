@@ -12,6 +12,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { requirePermiso, dbError } from '@/lib/apiAuth'
+import { fechasApa } from '@/lib/apa'
 import {
   resumirPorConsorcio, detectarEpisodios, hace, aISO, diasEntre, type RegistroLluvia,
 } from '@/lib/lluvia'
@@ -90,6 +91,19 @@ export async function GET(req: NextRequest) {
    */
   const porFecha = new Map<string, { serie: boolean; interpolado: boolean; sinParte: boolean }>()
 
+  /**
+   * **La marca `sin_parte` puede quedar vieja.** La pone la ingesta cuando la
+   * APA todavía no publicó el parte de ese día, y la APA carga tarde: el parte
+   * del 07/10/2026 apareció después del cron de las 12:00, así que esas filas
+   * quedaron como «sin parte» con el parte ya publicado, y la pantalla mostraba
+   * el modelo —50 mm en el CC 108— cuando los pluviómetros daban 13 como
+   * máximo. Se le pregunta a la APA qué fechas tiene y, si la fecha ya está,
+   * la fila vuelve a `sin_calcular`: eso sí se arregla interpolando, y la
+   * pantalla ofrece el botón. Si la APA no contesta, se deja la marca como está.
+   */
+  let publicadas: Set<string> | null = null
+  try { publicadas = new Set(await fechasApa()) } catch { /* sin APA, la marca guardada */ }
+
   for (let desplazamiento = 0; ; desplazamiento += PAGINA) {
     const { data, error } = await supabase
       .from('precipitaciones')
@@ -117,7 +131,7 @@ export async function GET(req: NextRequest) {
       // podía cambiar nada, y que volvía a aparecer después de apretarlo.
       const marca = r.procedencia as string | null
       const p = r.mm_fusion == null
-        ? (marca === 'sin_parte' ? 'sin_parte' : 'sin_calcular')
+        ? (marca === 'sin_parte' && !publicadas?.has(r.fecha as string) ? 'sin_parte' : 'sin_calcular')
         : (marca ?? 'sin_calcular')
 
       let a = proc.get(cc)

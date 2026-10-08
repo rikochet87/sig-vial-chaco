@@ -1223,6 +1223,30 @@ deduce `api/lluvia/route.ts` cuando `mm_fusion` es null y no hay marca de
 `sin_parte`. Si se pudiera persistir, dejaría de significar "no se hizo
 todavía".
 
+**La marca `sin_parte` se vuelve vieja, y por eso se revisa al leer.** La pone
+la ingesta cuando la APA todavía no publicó el parte, y la APA carga tarde: el
+parte del 07/10/2026 —15 estaciones, 13 mm como máximo, todas en el este—
+apareció después del cron de las 12:00. Esas filas quedaron `sin_parte`, el
+selector decía «Datos al día» y la pantalla afirmaba **«llovió en 103 de los
+103 consorcios, máximo 50 mm en el CC 108»** con números del modelo, mientras
+el mapa —que sólo dibuja pluviómetros— dejaba los caminos sin color. Se
+encontró mirando la pantalla, el 08/10/2026. Tres arreglos:
+
+- `api/lluvia/route.ts` le pide a la APA sus fechas (`fechasApa`) y una fila
+  `sin_parte` de una fecha ya publicada se informa como `sin_calcular`, que
+  hace aparecer el botón «Interpolar». Si la APA no contesta, queda la marca.
+- **El recálculo importa antes los partes que falten** (`importarPartes` al
+  principio de `recalcularFusion`). La interpolación lee la APA en vivo, pero
+  la capa de pluviómetros del mapa lee `mediciones_lluvia`: sin esto, un parte
+  tardío quedaba interpolado en la tabla y ausente del mapa.
+- **Cuando la mayoría de los consorcios no tiene nada medido ni interpolado
+  (`delModelo` en `page.tsx`), la frase de arriba no dice «llovió»**: dice que
+  no hay lluvia medida, que la lista es el modelo, que suele exagerar y que si
+  la APA no publicó lo más probable es que haya llovido poco. El pie del mapa
+  dice por qué los caminos van sin color. **El modelo da algo de lluvia casi en
+  todos lados**: contar consorcios con más de 0 mm del modelo no es contar
+  dónde llovió.
+
 **Y la procedencia del período se pesa por milímetros, no por días.** La primera
 versión tomaba la peor de todos los días del rango: en una semana con dos días de
 lluvia y seis secos, los seis secos no tienen parte de la APA —no hay nada que

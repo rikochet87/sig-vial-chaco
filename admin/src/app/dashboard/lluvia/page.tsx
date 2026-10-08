@@ -337,6 +337,12 @@ export default function LluviaPage() {
     && datos.filter(d => d.procedencia === 'sin_calcular').length > datos.length / 2
   const sinParte = datos.length > 0 && !sinRecalcular
     && datos.filter(d => d.procedencia === 'sin_parte').length > datos.length / 2
+  /**
+   * Los números del período son del modelo, no de los pluviómetros: la mayoría
+   * de los consorcios no tiene nada medido o interpolado detrás.
+   */
+  const delModelo = datos.length > 0
+    && datos.filter(d => d.procedencia === 'medido' || d.procedencia === 'interpolado').length <= datos.length / 2
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column',
@@ -503,7 +509,7 @@ export default function LluviaPage() {
         Máximo, promedio y "consorcios sobre 40 mm" son los mismos datos, pero
         sueltos obligan a interpretarlos; en una oración se leen de corrido.
       */}
-      {vista === 'mapa' && !cargando && conDato.length > 0 && (
+      {vista === 'mapa' && !cargando && conDato.length > 0 && !delModelo && (
         <div style={{
           ...mono, fontSize: 13, lineHeight: 1.5, color: '#d8d8d8', flexShrink: 0,
           background: '#191919', borderLeft: '3px solid #F5C300',
@@ -524,6 +530,31 @@ export default function LluviaPage() {
         </div>
       )}
 
+
+      {/*
+        Sin parte de la APA el número es el del modelo, y el modelo da algo de
+        lluvia casi en todos lados: decir «llovió en 103 de 103» con eso era
+        afirmar una medición que no existe. El 07/10/2026 el modelo daba 50 mm
+        en el CC 108 y la APA, cuando publicó, 13 como máximo y sólo en el este.
+      */}
+      {vista === 'mapa' && !cargando && conDato.length > 0 && delModelo && (
+        <div style={{
+          ...mono, fontSize: 13, lineHeight: 1.5, color: '#bdbdbd', flexShrink: 0,
+          background: '#191919', borderLeft: '3px solid #8f8f8f',
+          padding: '7px 12px', marginBottom: 10,
+        }}>
+          {(cobertura?.interpolados ?? 0) === 0
+            ? <b style={{ color: '#e0e0e0' }}>Sin parte de la APA para {desde === hasta ? 'este día' : 'estos días'}:
+                no hay lluvia medida.</b>
+            : <b style={{ color: '#e0e0e0' }}>La mayor parte de estos milímetros no tiene parte de la APA detrás.</b>}
+          {' '}Lo que se ve en la lista es la estimación del modelo, que
+          da lluvia en {conDato.length} de los {datos.length} consorcios y hasta{' '}
+          {mmRedondeado(maximo)}{mayor && <> en el CC N° {mayor.numero}</>}. No es una medición
+          y suele exagerar: la APA publica parte los días que llueve, y si no lo hizo lo más
+          probable es que haya llovido poco.
+          {esAdmin && ' Si la APA ya lo publicó, aparece el botón «Interpolar» en la franja de datos.'}
+        </div>
+      )}
 
       {vista === 'cuencas' && (
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
@@ -682,8 +713,9 @@ export default function LluviaPage() {
       {vista === 'mapa' && (
         <div style={{ ...mono, fontSize: 12, color: '#8f8f8f', marginTop: 8, flexShrink: 0 }}>
           {!cargando && <>{conDato.length} de {datos.length} consorcios con registro · </>}
-          Lámina interpolada por IDW desde los pluviómetros de la Administración Provincial
-          del Agua, sobre la traza de cada camino.
+          {delModelo
+            ? 'Los caminos van sin color porque no hay pluviómetros en el período; la lista de consorcios es la estimación del modelo.'
+            : 'Lámina interpolada por IDW desde los pluviómetros de la Administración Provincial del Agua, sobre la traza de cada camino.'}
         </div>
       )}
 
