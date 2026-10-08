@@ -3,14 +3,21 @@
  * La pestaña «Gran Resistencia» de Hidrología: qué se moja con una crecida del
  * Paraná, con una lluvia larga, o con las dos a la vez.
  *
- * El mapa es la pantalla y esto es su panel: se elige una altura del río y se
- * prenden o apagan los otros dos escenarios. Abajo, qué rutas y qué obras
- * relevadas quedan adentro de lo que se está mostrando.
+ * El mapa es la pantalla y debajo va el deslizador de la altura del río, que es
+ * el control: al subirlo el agua crece. A la derecha, qué queda adentro.
  *
  * **Toda el agua que se dibuja es agua que se vio**, con su fecha y la altura
- * que tenía el río ese día. No hay ninguna mancha calculada. Por eso el panel
- * dice de cada capa de qué imagen sale, avisa cuando la altura pedida pasa lo
- * que hay observado, y encierra con una línea a rayas lo que una imagen no llegó a ver.
+ * que tenía el río ese día. No hay ninguna mancha calculada. Para una altura se
+ * dibujan, como una sola mancha celeste, la zona de esa altura y todas las
+ * imágenes de un río igual o más bajo (`aguaDelRio`): acumulado, para que
+ * subir el deslizador nunca saque agua. De qué imagen sale cada cosa lo dice
+ * la lectura bajo el cursor y el detalle del panel, no el color.
+ *
+ * La primera versión pintaba cada imagen de un color —celeste la zona, naranja
+ * la mancha más cercana, rojizo la parcial— y explicaba cada uno en el panel.
+ * Era correcta y no se entendía: había que leer tres párrafos para mirar un
+ * mapa. Los otros eventos (lluvia, río con lluvia, defensa rota) siguen, pero
+ * plegados.
  *
  * Lo que se sabe que pasó y ninguna imagen muestra va aparte, como texto: no se
  * pinta como agua. Ver `lib/inundaciones.ts`.
@@ -24,7 +31,7 @@ import { extremosAnuales, ajustarGumbel, alturaDeRecurrencia, recurrenciaDe, ani
 import type { Pronostico } from '@/lib/pronostico'
 import { laminaPorCorrida, ventana, probSuperar } from '@/lib/pronostico'
 import {
-  BARRANQUERAS, TECHO_ZONAS_M, cotaMop, escenarioRio, informesHasta, IndicePoligonos,
+  BARRANQUERAS, cotaMop, escenarioRio, aguaDelRio, informesHasta, IndicePoligonos,
   rutasDelRecuadro, caminosDelRecuadro, viaContra, resumirVias, nodosDelRecuadro,
   type IndiceInundaciones, type CapaInundacion, type MultiPoligono, type ClaseVia,
 } from '@/lib/inundaciones'
@@ -41,20 +48,22 @@ const f1 = (v: number) => v.toFixed(1).replace('.', ',')
 const f2 = (v: number) => v.toFixed(2).replace('.', ',')
 const fFecha = (f: string) => f.slice(0, 10).split('-').reverse().join('/')
 
-/** Cómo se pinta cada capa. El orden decide qué queda arriba; menos de 10 = fondo */
-const ESTILO: Record<string, { color: string; relleno: number; trazo: number; orden: number }> = {
+/** El agua del río a la altura elegida: zona e imágenes van del mismo color, como una sola mancha */
+const C_RIO = '#29b6f6'
+const ESTILO_RIO = { color: C_RIO, relleno: 0.6, trazo: 0, orden: 20, union: true }
+/** Cómo se pinta lo demás. El orden decide qué queda arriba; menos de 10 = fondo */
+const ESTILO: Record<string, { color: string; relleno: number; trazo: number; orden: number; union?: boolean }> = {
   'urbano-hoy':  { color: '#bdbdbd', relleno: 0.32, trazo: 0,   orden: 1 },
   permanente:    { color: '#0d47a1', relleno: 0.7,  trazo: 0,   orden: 5 },
-  rio:           { color: '#29b6f6', relleno: 0.55, trazo: 0,   orden: 20 },
-  observada:     { color: '#ff9800', relleno: 0.2,  trazo: 1.2, orden: 30 },
-  // La mancha que ve sólo una parte del recuadro: otro tono, para no leerla como la entera
-  parcial:       { color: '#ff5722', relleno: 0.24, trazo: 1.2, orden: 32 },
+  rio:           ESTILO_RIO,
+  observada:     ESTILO_RIO,
   'lluvia-2019-01-22': { color: '#ce93d8', relleno: 0.28, trazo: 0, orden: 24 },
   'lluvia-2019-01-17': { color: '#8e24aa', relleno: 0.6,  trazo: 0, orden: 26 },
   combinada:     { color: '#ef5350', relleno: 0.22, trazo: 1.2, orden: 34 },
   defensa:       { color: '#ffee58', relleno: 0.22, trazo: 1.2, orden: 36 },
 }
-const estiloDe = (c: CapaInundacion, parcial = false) => (parcial ? ESTILO.parcial : ESTILO[c.id] ?? ESTILO[c.grupo] ?? ESTILO.rio)
+const estiloDe = (c: CapaInundacion) => ESTILO[c.id] ?? ESTILO[c.grupo] ?? ESTILO.rio
+const esDelRio = (c: CapaInundacion) => c.grupo === 'rio' || c.grupo === 'observada'
 /**
  * Lo que una imagen no ve: sólo el contorno, a rayas y con su rótulo. Sin
  * relleno: una placa gris tapaba el agua que otras imágenes sí vieron ahí y
@@ -85,11 +94,18 @@ const informe: React.CSSProperties = {
   ...mono, fontSize: 12, color: '#b8b8b8', lineHeight: 1.6, background: '#141414',
   border: '1px solid #2a2a2a', borderLeft: '3px solid #e0e0e0', padding: '7px 10px', marginTop: 8,
 }
-const chip = (activo: boolean): React.CSSProperties => ({
-  ...mono, fontSize: 11, padding: '4px 8px', cursor: 'pointer', borderRadius: 2,
-  letterSpacing: 0.4, background: activo ? '#F5C30022' : 'transparent',
-  border: `1px solid ${activo ? '#7a6200' : '#2d2d2d'}`, color: activo ? ACENTO : '#a0a0a0',
-})
+const plegado: React.CSSProperties = { ...rotulo, marginBottom: 0, cursor: 'pointer' }
+const cifra: React.CSSProperties = { ...mono, fontSize: 20, color: '#fff', fontWeight: 700, lineHeight: 1.2 }
+
+/** El deslizador: de la bajante a pasado el máximo del registro (8,59 m) */
+const RIO_MIN = 2, RIO_MAX = 9
+/** Ancho del cursor de `.sv-range-grande`: el recorrido del cursor es el ancho menos esto */
+const CURSOR_PX = 11
+/** Dónde cae una altura sobre el riel, para alinear las marcas con el cursor */
+const enRiel = (m: number) => {
+  const p = Math.min(1, Math.max(0, (m - RIO_MIN) / (RIO_MAX - RIO_MIN)))
+  return `calc(${CURSOR_PX / 2}px + ${p.toFixed(4)} * (100% - ${CURSOR_PX}px))`
+}
 
 interface RioHoy {
   ultima: { fecha: string; m: number } | null
@@ -99,7 +115,7 @@ interface RioHoy {
   emitido: string | null
 }
 
-interface Geometria { coords: MultiPoligono; indice: IndicePoligonos; sinImagen?: MultiPoligono }
+interface Geometria { coords: MultiPoligono; indice: IndicePoligonos; sinImagen?: MultiPoligono; ciego?: IndicePoligonos }
 
 async function leerJson<T>(url: string): Promise<T> {
   const r = await fetch(url)
@@ -123,7 +139,6 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
 
   /** La altura elegida. `null` = todavía nadie tocó: se usa la de hoy */
   const [altura, setAltura] = useState<number | null>(null)
-  const [verReferencia, setVerReferencia] = useState(true)
   const [conLluvia, setConLluvia] = useState(false)
   const [conCombinada, setConCombinada] = useState(false)
   const [conDefensa, setConDefensa] = useState(false)
@@ -168,15 +183,18 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
   const h = altura ?? rio?.ultima?.m ?? BARRANQUERAS.alerta
   const esc = useMemo(() => indice ? escenarioRio(indice.capas, h) : null, [indice, h])
 
-  /** Los ids de las capas que hay que tener dibujadas, en un texto estable */
+  /** El agua del río a esa altura, de la imagen más baja a la más alta */
+  const delRio = useMemo(() => indice ? aguaDelRio(indice.capas, h) : [], [indice, h])
+
+  /** Los ids de las capas que hay que tener dibujadas, en un texto estable: no cambia mientras el deslizador no cruza una imagen */
   const claveActivas = useMemo(() => {
     if (!esc) return ''
     return [
-      'permanente', verUrbano && 'urbano-hoy', esc.zona?.id, verReferencia && esc.referencia?.id, verReferencia && esc.parcial?.id,
+      'permanente', verUrbano && 'urbano-hoy', ...delRio.map(c => c.id),
       conLluvia && 'lluvia-2019-01-22', conLluvia && 'lluvia-2019-01-17',
       conCombinada && 'obs-1998-05-20', conDefensa && 'obs-1982-08-14',
     ].filter(Boolean).join(',')
-  }, [esc, verUrbano, verReferencia, conLluvia, conCombinada, conDefensa])
+  }, [esc, delRio, verUrbano, conLluvia, conCombinada, conDefensa])
 
   // Cada capa se pide recién cuando se la prende, y queda guardada
   useEffect(() => {
@@ -185,7 +203,7 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
     for (const id of claveActivas.split(',')) {
       if (geo[id]) continue
       leerJson<{ id: string; coordinates: MultiPoligono; sinImagen?: MultiPoligono }>(`/geo/inundaciones/${id}.json`)
-        .then(j => { if (vivo) setGeo(g => g[id] ? g : { ...g, [id]: { coords: j.coordinates, indice: new IndicePoligonos(j.coordinates), sinImagen: j.sinImagen } }) })
+        .then(j => { if (vivo) setGeo(g => g[id] ? g : { ...g, [id]: { coords: j.coordinates, indice: new IndicePoligonos(j.coordinates), sinImagen: j.sinImagen, ciego: j.sinImagen ? new IndicePoligonos(j.sinImagen) : undefined } }) })
         .catch(e => { if (vivo) setError(e instanceof Error ? e.message : `No se pudo leer la capa ${id}`) })
     }
     return () => { vivo = false }
@@ -199,17 +217,29 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
     return indice.capas.filter(c => ids.has(c.id))
   }, [indice, claveActivas])
 
+  // La imagen más alta para esta altura puede no cubrir todo: ahí lo dibujado llega hasta la anterior
   const idParcial = esc?.parcial?.id
+  const parcialM = esc?.parcial?.alturaM, completaM = esc?.referencia?.alturaM ?? esc?.zona?.alturaM
   const dibujo: CapaDibujo[] = useMemo(() => activas.filter(c => geo[c.id]).flatMap(c => {
     const capa: CapaDibujo = {
-      id: c.id, coords: geo[c.id].coords, ...estiloDe(c, c.id === idParcial),
-      titulo: c.grupo === 'rio' ? `Se moja con el río hasta ${c.alturaM} m`
-        : c.grupo === 'observada' ? `Agua del ${c.titulo}, río en ${f2(c.alturaM!)} m`
-        : c.grupo === 'base' ? c.titulo : `Agua del ${c.titulo}`,
+      id: c.id, coords: geo[c.id].coords, ...estiloDe(c),
+      // El mismo título para todas las del río: en la leyenda son una sola entrada.
+      // Sin la altura, para que mover el deslizador no redibuje lo que no cambió
+      titulo: esDelRio(c) ? 'Agua con el río a la altura elegida' : c.grupo === 'base' ? c.titulo : `Agua del ${c.titulo}`,
     }
     const ciego = geo[c.id].sinImagen
-    return ciego ? [capa, { id: `${c.id}-sin-imagen`, coords: ciego, ...ESTILO_CIEGO, titulo: `Sin imagen el ${c.titulo.slice(0, 10)}`, rotulo: `Sin imagen el ${c.titulo.slice(0, 10)}` }] : [capa]
-  }), [activas, geo, idParcial])
+    if (!ciego) return [capa]
+    // De las del río, sólo la parcial vigente marca su límite: con una imagen más alta que ve todo ya no hace falta
+    if (esDelRio(c)) {
+      if (c.id !== idParcial || parcialM === undefined) return [capa]
+      return [capa, {
+        id: `${c.id}-sin-imagen`, coords: ciego, ...ESTILO_CIEGO, titulo: `Hasta dónde llega la imagen de ${f2(parcialM)} m`,
+        // Corto y en dos renglones: en uno solo el cartel medía media ciudad y la tapaba
+        rotulo: `<span class="tt-k">Sin imagen de ${f2(parcialM)} m</span>${completaM !== undefined ? `<br>acá, agua hasta ${f2(completaM)} m` : ''}`,
+      }]
+    }
+    return [capa, { id: `${c.id}-sin-imagen`, coords: ciego, ...ESTILO_CIEGO, titulo: `Sin imagen el ${c.titulo.slice(0, 10)}`, rotulo: `Sin imagen el ${c.titulo.slice(0, 10)}` }]
+  }), [activas, geo, idParcial, parcialM, completaM])
 
   /** Las capas de agua del escenario (sin el fondo), con su índice ya armado */
   const agua = useMemo(
@@ -241,12 +271,21 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
     () => obrasAca.map(o => ({ lat: o.lat, lng: o.lng, dentro: o.dentro, titulo: o.tipo })), [obrasAca])
 
   const urbanoIdx = geo['urbano-hoy']?.indice
+  const ciegoParcial = idParcial ? geo[idParcial]?.ciego : undefined
   const leer = useCallback((lat: number, lng: number) => {
-    const out = agua.filter(a => a.indice.contiene(lat, lng)).map(a =>
-      a.capa.grupo === 'rio' ? `se moja con el río hasta ${a.capa.alturaM} m` : `agua del ${a.capa.titulo}`)
+    const out: string[] = []
+    // Del río, la imagen más baja que tiene agua ahí: desde qué altura se la vio
+    const primera = delRio.find(c => geo[c.id]?.indice.contiene(lat, lng))
+    if (primera) {
+      out.push(primera.grupo === 'rio' ? `agua con el río hasta ${primera.alturaM} m`
+        : `agua con el río en ${f2(primera.alturaM!)} m · imagen del ${primera.titulo}`)
+    } else if (ciegoParcial?.contiene(lat, lng) && parcialM !== undefined) {
+      out.push(`sin agua hasta ${f2(completaM ?? 0)} m · la imagen de ${f2(parcialM)} m no cubre este punto`)
+    }
+    for (const a of agua) if (!esDelRio(a.capa) && a.indice.contiene(lat, lng)) out.push(`agua del ${a.capa.titulo}`)
     if (urbanoIdx?.contiene(lat, lng)) out.push('construido hoy')
     return out
-  }, [agua, urbanoIdx])
+  }, [delRio, geo, agua, urbanoIdx, ciegoParcial, parcialM, completaM])
 
   // ── Qué tan seguido llega el río a esa altura ──
   const registro = useMemo(() => {
@@ -279,15 +318,31 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
   }, [indice, informes])
   const nombreRef = (id?: string) => indice?.referencias?.find(x => x.id === id)?.nombre
 
-  const atajos = useMemo(() => {
-    const a: { t: string; m: number; d?: string }[] = []
-    if (rio?.ultima) a.push({ t: 'Hoy', m: rio.ultima.m, d: `medido el ${fFecha(rio.ultima.fecha)}` })
-    if (rio?.pronMax) a.push({ t: 'Pronóstico INA', m: rio.pronMax.m, d: `techo de la banda, ${fFecha(rio.pronMax.fecha)}` })
-    a.push({ t: 'Alerta', m: BARRANQUERAS.alerta }, { t: 'Evacuación', m: BARRANQUERAS.evacuacion })
-    a.push({ t: '2023', m: 7.05, d: '10/11/2023' }, { t: '1998', m: 8.17, d: '04/05/1998' }, { t: '1983', m: 8.59, d: '22/06/1983, máximo del registro' })
-    if (registro?.g) for (const T of [10, 50, 100]) a.push({ t: `${T} años`, m: Math.round(alturaDeRecurrencia(registro.g, T) * 100) / 100, d: 'recurrencia ajustada (Gumbel)' })
-    return a
-  }, [rio, registro])
+  /** Las marcas del deslizador. Arriba, lo de hoy; abajo, los niveles del INA y los picos del registro */
+  const marcas = useMemo(() => {
+    const arriba: { t: string; m: number; d: string }[] = []
+    if (rio?.ultima) arriba.push({ t: 'Hoy', m: rio.ultima.m, d: `${f2(rio.ultima.m)} m, medido el ${fFecha(rio.ultima.fecha)}` })
+    // El pronóstico pegado a lo de hoy se pisaría con su rótulo
+    if (rio?.pronMax && (!rio.ultima || Math.abs(rio.pronMax.m - rio.ultima.m) >= 0.6)) {
+      arriba.push({ t: 'Pronóstico', m: rio.pronMax.m, d: `${f2(rio.pronMax.m)} m, techo de la banda del INA para el ${fFecha(rio.pronMax.fecha)}` })
+    }
+    const abajo = [
+      { t: 'Alerta', m: BARRANQUERAS.alerta, d: `${f2(BARRANQUERAS.alerta)} m, nivel de alerta del INA` },
+      { t: 'Evacuación', m: BARRANQUERAS.evacuacion, d: `${f2(BARRANQUERAS.evacuacion)} m, nivel de evacuación del INA` },
+      { t: '2023', m: 7.05, d: '7,05 m, pico del 10/11/2023' },
+      { t: '1998', m: 8.17, d: '8,17 m, pico del 04/05/1998' },
+      { t: '1983', m: 8.59, d: '8,59 m, el 22/06/1983: máximo del registro' },
+    ]
+    return { arriba, abajo }
+  }, [rio])
+
+  /** Lo que queda bajo agua: el mayor de cada columna entre las capas dibujadas. Se pisan, así que no se suman */
+  const bajoAgua = useMemo(() => {
+    const mayor = (k: 'km2' | 'urbanoKm2' | 'construidoKm2') => delRio.reduce((a, c) => Math.max(a, c[k] ?? 0), 0)
+    return { km2: mayor('km2'), urbano: mayor('urbanoKm2'), construido: mayor('construidoKm2') }
+  }, [delRio])
+  const imagenes = delRio.filter(c => c.grupo === 'observada')
+  const masAlta = imagenes[imagenes.length - 1]
 
   if (error && !indice) {
     return <div style={{ ...aviso, margin: 12 }}><b>No se pudieron cargar las capas.</b> {error}</div>
@@ -298,7 +353,7 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
   const filaCapa = (c: CapaInundacion) => (
     <tr key={c.id}>
       <td style={{ padding: '3px 6px 3px 0', color: '#d0d0d0' }}>
-        <span style={{ display: 'inline-block', width: 9, height: 9, background: estiloDe(c, c.id === idParcial).color, marginRight: 6 }} />
+        <span style={{ display: 'inline-block', width: 9, height: 9, background: estiloDe(c).color, marginRight: 6 }} />
         {c.grupo === 'rio' ? `Río hasta ${c.alturaM} m` : c.titulo}
         {c.vistoPct !== undefined && <span style={{ color: '#8f8f8f' }}> · ve el {c.vistoPct} %</span>}
       </td>
@@ -310,18 +365,143 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
     </tr>
   )
 
+  const marca = (a: { t: string; m: number; d: string }, arriba: boolean) => {
+    const activa = Math.abs(h - a.m) < 0.005
+    return (
+      <button key={a.t} type="button" title={a.d} onClick={() => setAltura(a.m)} style={{
+        ...mono, position: 'absolute', left: enRiel(a.m), transform: 'translateX(-50%)', [arriba ? 'bottom' : 'top']: 0,
+        display: 'flex', flexDirection: arriba ? 'column' : 'column-reverse', alignItems: 'center', gap: 1,
+        background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', whiteSpace: 'nowrap',
+        fontSize: 11, color: activa ? ACENTO : arriba ? '#e0e0e0' : '#a0a0a0',
+      }}>
+        <span>{a.t}</span>
+        <span style={{ width: 1, height: 6, background: activa ? ACENTO : '#8f8f8f' }} />
+      </button>
+    )
+  }
+
   return (
     <div style={{ flex: 1, minHeight: 360, display: 'flex', gap: 12 }}>
-      <div style={{ flex: 1, minWidth: 0, position: 'relative', background: '#191919', border: '1px solid #1e1e1e' }}>
-        <MapaInundaciones recuadro={indice.recuadro} urbano={indice.urbano}
-          capas={dibujo} vias={lineas} afectadas={cruce.partes} obras={puntos} referencias={referencias} leer={leer} />
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', background: '#191919', border: '1px solid #1e1e1e' }}>
+        <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
+          <MapaInundaciones recuadro={indice.recuadro} urbano={indice.urbano}
+            capas={dibujo} vias={lineas} afectadas={cruce.partes} obras={puntos} referencias={referencias} leer={leer} />
+        </div>
+
+        {/* ── El control: la altura del río ── */}
+        <div className="sv-panel" style={{ flexShrink: 0, borderTop: '1px solid #1e1e1e', borderLeft: `3px solid ${ACENTO}`, background: '#111', padding: '10px 18px 8px' }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
+            <span style={{ ...rotulo, marginBottom: 0 }}>Altura del río en Barranqueras</span>
+            <span style={{ ...mono, fontSize: 28, color: '#fff', fontWeight: 700, lineHeight: 1 }}>{f2(h)} <span style={{ fontSize: 14, fontWeight: 400, color: '#a0a0a0' }}>m</span></span>
+            <span style={{ ...texto, marginLeft: 'auto', textAlign: 'right' }}>
+              {frecuencia ? (frecuencia.veces === 0
+                ? <>El río nunca llegó a esa altura en {frecuencia.de} años de registro</>
+                : <>El río llegó a esa altura en <b style={{ color: '#fff' }}>{frecuencia.veces} de {frecuencia.de}</b> años</>)
+                : 'Mové el deslizador para ver qué se inunda'}
+            </span>
+          </div>
+          <div style={{ position: 'relative', height: 22, marginTop: 4 }}>{marcas.arriba.map(a => marca(a, true))}</div>
+          <input type="range" className="sv-range sv-range-grande" min={RIO_MIN} max={RIO_MAX} step={0.01} value={Math.min(RIO_MAX, Math.max(RIO_MIN, h))}
+            onChange={e => setAltura(Number(e.target.value))} style={{ width: '100%', display: 'block' }}
+            aria-label="Altura del río en Barranqueras, en metros" />
+          <div style={{ position: 'relative', height: 22 }}>{marcas.abajo.map(a => marca(a, false))}</div>
+        </div>
       </div>
 
-      <div className="sv-panel" style={{ width: 400, flexShrink: 0, overflowY: 'auto', minHeight: 0,
+      <div className="sv-panel" style={{ width: 380, flexShrink: 0, overflowY: 'auto', minHeight: 0,
         background: '#191919', border: '1px solid #1e1e1e' }}>
 
-        {/* ── Situación ── */}
+        {/* ── Qué se inunda ── */}
         <div style={{ ...seccion, borderTop: 'none' }}>
+          <div style={rotulo}>Con el río en {f2(h)} m</div>
+          <div style={{ display: 'flex', gap: 14 }}>
+            {([[bajoAgua.km2, 'km² bajo agua'], [bajoAgua.urbano, 'en el área urbana'], [bajoAgua.construido, 'sobre lo construido hoy']] as const).map(([v, t]) => (
+              <div key={t} style={{ flex: 1 }}>
+                <div style={{ ...cifra, color: t !== 'km² bajo agua' && v >= 0.5 ? '#E8833A' : '#fff' }}>{v >= 10 ? Math.round(v) : f1(v)}</div>
+                <div style={{ ...texto, fontSize: 11 }}>{t}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{ ...texto, fontSize: 11, color: '#8f8f8f', marginTop: 6 }}>
+            Como mínimo, y sin contar el río y las lagunas de siempre (cota MOP {f2(cotaMop(h))}).
+          </div>
+
+          <div style={{ ...texto, marginTop: 10 }}>
+            <b style={{ color: C_RIO }}>Celeste:</b>{' '}
+            {masAlta ? (<>
+              donde se vio agua desde un satélite con el río a esta altura o más bajo. Son {imagenes.length}{' '}
+              {imagenes.length === 1 ? 'imagen' : 'imágenes'} de crecidas; la más alta, del {masAlta.titulo}, con el río en {f2(masAlta.alturaM!)} m.
+            </>) : (<>
+              donde hubo agua en la mitad o más de las {esc.zona?.escenas} imágenes de satélite con el río hasta {esc.zona?.alturaM} m.
+            </>)}
+          </div>
+
+          {esc.sobreObservado && (
+            <div style={aviso}><b>No hay ninguna imagen con el río tan alto.</b> Lo más alto que se vio es {f2(masAlta?.alturaM ?? 0)} m,
+              {' '}{f2(esc.faltaM ?? 0)} m menos. Lo dibujado es un piso: con {f2(h)} m habría más agua.</div>
+          )}
+          {!esc.sobreObservado && esc.sobreZonas && masAlta && (esc.faltaM ?? 0) >= 0.3 && (
+            <div style={aviso}>La imagen más cercana por debajo es de {f2(masAlta.alturaM!)} m, {f2(esc.faltaM!)} m menos que lo pedido. Con {f2(h)} m habría más agua que la dibujada.</div>
+          )}
+          {esc.parcial && (
+            <div style={informe}>
+              <b style={{ color: '#e8e8e8' }}>La imagen de {f2(esc.parcial.alturaM!)} m no cubre todo.</b> Es del {esc.parcial.titulo} y ve la ciudad pero no el valle
+              del Paraná ({esc.parcial.vistoPct} % del área). En el mapa, la línea a rayas marca hasta dónde llega: del otro lado lo
+              dibujado es hasta {f2(completaM ?? 0)} m.
+            </div>
+          )}
+          {masAlta?.epoca && (
+            <div style={aviso}><b>Sobre 7,3 m las imágenes son de {masAlta.epoca}.</b> Muestran dónde llegó el agua con una ciudad de la mitad del tamaño y sin el anillo de defensas terminado.
+              Dentro del recinto no dicen qué pasaría hoy; fuera, sí.</div>
+          )}
+          {informes.map(i => (
+            <div key={i.id} style={informe}>
+              <span style={{ color: '#a0a0a0', textTransform: 'uppercase', letterSpacing: 1, fontSize: 11 }}>
+                Informado, sin imagen · {f2(i.alturaM)} m, {fFecha(i.fecha)}
+              </span>
+              <br /><b style={{ color: '#e8e8e8' }}>{i.texto}</b>
+              <br />{i.contraste}
+              {nombreRef(i.referencia) && (
+                <><br /><span style={{ color: '#8f8f8f' }}>En el mapa, la línea blanca a rayas es la traza del {nombreRef(i.referencia)}: está para ubicarlo, no es agua.</span></>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* ── Rutas ── */}
+        <div style={seccion}>
+          <div style={rotulo}>Rutas y caminos dentro del agua</div>
+          {cruce.resumen.map(r => (
+            <div key={r.clase} style={{ ...texto, marginBottom: 6 }}>
+              <span style={{ display: 'inline-block', width: 14, height: 3, background: COLOR_VIA[r.clase].color, marginRight: 7, verticalAlign: 'middle' }} />
+              <span style={{ color: '#d0d0d0' }}>{ROTULO_VIA[r.clase]}:</span>{' '}
+              <b style={{ color: r.kmDentro >= 0.05 ? '#E57373' : '#fff' }}>{f1(r.kmDentro)} km</b> de {f1(r.km)}
+              {r.rutas.length > 0 && (
+                <div style={{ color: '#a0a0a0', paddingLeft: 21 }}>
+                  {r.rutas.slice(0, 8).map(x => `${x.nombre} ${f1(x.kmDentro)} km`).join(' · ')}
+                  {r.rutas.length > 8 && ` · y ${r.rutas.length - 8} más`}
+                </div>
+              )}
+            </div>
+          ))}
+          <div style={{ ...texto, fontSize: 11, color: '#8f8f8f' }}>
+            En rojo en el mapa. Que un tramo caiga adentro no quiere decir que se corte: la mancha no ve terraplenes.
+            Es la lista de dónde mirar.
+            {tramos.length === 0 && ' Los caminos de consorcio todavía están cargando.'}
+          </div>
+          {obras !== null && obrasAca.length > 0 && (
+            <div style={{ ...texto, marginTop: 8 }}>
+              Obras de arte relevadas: <b style={{ color: obrasAca.some(o => o.dentro) ? '#E57373' : '#fff' }}>{obrasAca.filter(o => o.dentro).length}</b> de{' '}
+              {obrasAca.length} quedan dentro del agua.
+              {obrasAca.filter(o => o.dentro).slice(0, 6).map(o => (
+                <div key={o.id} style={{ color: '#a0a0a0' }}>{o.tipo}{o.rutaTramo ? ` · ${o.rutaTramo}` : ''}</div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* ── Situación ── */}
+        <div style={seccion}>
           <div style={rotulo}>Situación de hoy</div>
           <div style={texto}>
             {rio?.ultima ? (<>
@@ -346,95 +526,17 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
               ? <span style={{ color: '#E8A87C' }}>No se pudo consultar el pronóstico de lluvia. Está en Cuencas → Pronóstico.</span>
               : 'Consultando el pronóstico de lluvia…'}
           </div>
-          {lluvia && <div style={{ ...texto, fontSize: 11, color: '#8f8f8f', marginTop: 4 }}>
-            Mediana y rango p10–p90 del pronóstico por conjuntos, sobre {lluvia.nodos} {lluvia.nodos === 1 ? 'nodo' : 'nodos'} del modelo.
-          </div>}
-        </div>
-
-        {/* ── Crecida ── */}
-        <div style={seccion}>
-          <div style={rotulo}>Crecida del Paraná</div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
-            <span style={{ ...mono, fontSize: 26, color: '#fff', fontWeight: 700 }}>{f2(h)}</span>
-            <span style={{ ...texto }}>m en Barranqueras · cota MOP {f2(cotaMop(h))}</span>
-          </div>
-          <input type="range" className="sv-range" min={2} max={9.5} step={0.05} value={h}
-            onChange={e => setAltura(Number(e.target.value))} style={{ width: '100%', margin: '8px 0 10px' }}
-            aria-label="Altura del río en Barranqueras, en metros" />
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-            {atajos.map(a => (
-              <button key={a.t} type="button" title={a.d ? `${f2(a.m)} m · ${a.d}` : `${f2(a.m)} m`}
-                onClick={() => setAltura(a.m)} style={chip(Math.abs(h - a.m) < 0.005)}>
-                {a.t} · {f2(a.m)}
-              </button>
-            ))}
-          </div>
-
-          <div style={{ ...texto, marginTop: 10 }}>
-            {frecuencia ? (<>
-              El río llegó a esa altura en <b style={{ color: '#fff' }}>{frecuencia.veces} de {frecuencia.de}</b> años
-              {frecuencia.veces > 1 && <> (1 de cada {f1(frecuencia.de / frecuencia.veces)})</>}
-              {frecuencia.cada !== null && frecuencia.cada >= 1.5 && <>; el ajuste da 1 cada {frecuencia.cada >= 20 ? Math.round(frecuencia.cada) : f1(frecuencia.cada)}</>}.
-            </>) : 'Sin el registro histórico no se puede decir cada cuánto pasa.'}
-          </div>
-
-          <div style={{ ...texto, marginTop: 8 }}>
-            <b style={{ color: '#29b6f6' }}>Celeste:</b> lo que se moja con el río hasta {esc.zona?.alturaM} m, de{' '}
-            {esc.zona?.escenas} imágenes sin nubes desde 1984.
-            {esc.referencia && (<>
-              <br />
-              <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', marginTop: 4 }}>
-                <input type="checkbox" checked={verReferencia} onChange={e => setVerReferencia(e.target.checked)} />
-                <span><b style={{ color: '#ff9800' }}>Naranja:</b> el agua del {esc.referencia.titulo}, con el río en {f2(esc.referencia.alturaM!)} m</span>
-              </label>
-              <br /><span style={{ color: '#8f8f8f' }}>{esc.referencia.sensor} · {esc.referencia.criterio}.
-                {esc.referencia.nota ? ` ${esc.referencia.nota}` : ''}</span>
-            </>)}
-            {esc.parcial && verReferencia && (<>
-              <br />
-              <span style={{ display: 'inline-block', marginTop: 6 }}>
-                <b style={{ color: '#ff5722' }}>Rojizo:</b> el agua del {esc.parcial.titulo}, con el río en {f2(esc.parcial.alturaM!)} m.{' '}
-                <b style={{ color: '#d0d0d0' }}>La imagen ve el {esc.parcial.vistoPct} % del recuadro</b>: lo que no ve queda encerrado por la línea a rayas, con su rótulo.
-                Ahí no hay agua dibujada y no es porque estuviera seco.
-              </span>
-              <br /><span style={{ color: '#8f8f8f' }}>{esc.parcial.sensor} · {esc.parcial.criterio}.
-                {esc.parcial.nota ? ` ${esc.parcial.nota}` : ''}</span>
-            </>)}
-          </div>
-
-          {esc.sobreObservado && (
-            <div style={aviso}><b>No hay ninguna imagen con el río tan alto.</b> Lo más alto que se vio es {f2(esc.referencia?.alturaM ?? 0)} m,
-              {' '}{f2(esc.faltaM ?? 0)} m menos. Lo que se dibuja es un piso: con {f2(h)} m habría más agua.</div>
-          )}
-          {!esc.sobreObservado && esc.sobreZonas && esc.referencia && (esc.faltaM ?? 0) >= 0.3 && (
-            <div style={aviso}>La imagen más cercana por debajo es de {f2((esc.parcial ?? esc.referencia).alturaM!)} m, {f2(esc.faltaM!)} m menos que lo pedido. Con {f2(h)} m habría más agua que la dibujada.</div>
-          )}
-          {informes.map(i => (
-            <div key={i.id} style={informe}>
-              <span style={{ color: '#a0a0a0', textTransform: 'uppercase', letterSpacing: 1, fontSize: 11 }}>
-                Informado, sin imagen · {f2(i.alturaM)} m, {fFecha(i.fecha)}
-              </span>
-              <br /><b style={{ color: '#e8e8e8' }}>{i.texto}</b>
-              <br />{i.contraste}
-              {nombreRef(i.referencia) && (
-                <><br /><span style={{ color: '#8f8f8f' }}>En el mapa, la línea blanca a rayas es la traza del {nombreRef(i.referencia)}: está para ubicarlo, no es agua.</span></>
-              )}
-            </div>
-          ))}
-          {esc.referencia?.epoca && (
-            <div style={aviso}><b>La imagen es de {esc.referencia.epoca}.</b> Muestra dónde llegó el agua con una ciudad de la mitad del tamaño y sin el anillo de defensas terminado.
-              Dentro del recinto no dice qué pasaría hoy; fuera, sí.</div>
-          )}
-          {h >= TECHO_ZONAS_M && !esc.referencia?.epoca && (
-            <div style={{ ...texto, fontSize: 11, color: '#8f8f8f', marginTop: 6 }}>
-              Sobre {TECHO_ZONAS_M} m hay una sola imagen limpia en cuarenta años: las crecidas llegan con nubes. La zona celeste es la de 6 a 7 m.
+          {frecuencia && frecuencia.cada !== null && frecuencia.cada >= 1.5 && (
+            <div style={{ ...texto, fontSize: 11, color: '#8f8f8f', marginTop: 4 }}>
+              La altura elegida ({f2(h)} m) se alcanza 1 año de cada {frecuencia.cada >= 20 ? Math.round(frecuencia.cada) : f1(frecuencia.cada)}, según el ajuste del registro desde 1906.
             </div>
           )}
         </div>
 
-        {/* ── Lluvia ── */}
-        <div style={seccion}>
-          <div style={rotulo}>Lluvia intensa y larga</div>
+        {/* ── Otros eventos: plegado ── */}
+        <details style={seccion}>
+          <summary style={plegado}>Otros eventos con imagen: lluvia y defensas</summary>
+          <div style={{ ...rotulo, marginTop: 12 }}>Lluvia intensa y larga</div>
           <label style={{ ...texto, display: 'flex', alignItems: 'flex-start', gap: 7, cursor: 'pointer', color: '#d0d0d0' }}>
             <input type="checkbox" checked={conLluvia} onChange={e => setConLluvia(e.target.checked)} style={{ marginTop: 3 }} />
             <span>Mostrar lo que dejó enero de 2019: 588 mm en 17 días, con el río en 4 m</span>
@@ -450,11 +552,8 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
             a 10 m. Sirve para ver dónde se junta fuera del casco, no qué barrios se anegan. Para eso está el mapa de
             amenaza por precipitaciones de la APA (Resolución 121/14).
           </div>
-        </div>
 
-        {/* ── Las dos ── */}
-        <div style={seccion}>
-          <div style={rotulo}>Las dos a la vez</div>
+          <div style={{ ...rotulo, marginTop: 14 }}>Río alto y lluvia a la vez</div>
           <div style={texto}>
             No se suman: se condicionan. Con el río alto el agua de una tormenta no sale por gravedad y depende del
             bombeo. Con imagen hay un solo caso claro: abril y mayo de 1998.
@@ -474,11 +573,12 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
               capacidad de las estaciones de bombeo.
             </div>
           )}
-        </div>
+        </details>
 
-        {/* ── Qué queda adentro ── */}
-        <div style={seccion}>
-          <div style={rotulo}>Qué queda adentro</div>
+        {/* ── Detalle por imagen: plegado ── */}
+        <details style={seccion}>
+          <summary style={plegado}>Detalle: de qué imagen sale cada cosa</summary>
+          <div style={{ height: 10 }} />
           <table style={{ ...mono, fontSize: 12, width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ color: '#8f8f8f', fontSize: 11 }}>
@@ -500,54 +600,24 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
             <span>Dibujar lo construido hoy (gris)</span>
           </label>
 
-          <div style={{ ...rotulo, marginTop: 14 }}>Rutas y caminos dentro de la mancha</div>
-          {cruce.resumen.map(r => (
-            <div key={r.clase} style={{ ...texto, marginBottom: 6 }}>
-              <span style={{ display: 'inline-block', width: 14, height: 3, background: COLOR_VIA[r.clase].color, marginRight: 7, verticalAlign: 'middle' }} />
-              <span style={{ color: '#d0d0d0' }}>{ROTULO_VIA[r.clase]}:</span>{' '}
-              <b style={{ color: r.kmDentro >= 0.05 ? '#E57373' : '#fff' }}>{f1(r.kmDentro)} km</b> de {f1(r.km)}
-              {r.rutas.length > 0 && (
-                <div style={{ color: '#a0a0a0', paddingLeft: 21 }}>
-                  {r.rutas.slice(0, 8).map(x => `${x.nombre} ${f1(x.kmDentro)} km`).join(' · ')}
-                  {r.rutas.length > 8 && ` · y ${r.rutas.length - 8} más`}
-                </div>
-              )}
+          {imagenes.length > 0 && (
+            <div style={{ ...texto, fontSize: 11, color: '#8f8f8f', marginTop: 8 }}>
+              {imagenes.map(c => `${c.titulo}: ${c.sensor}${c.nota ? `. ${c.nota}` : ''}`).join(' · ')}
             </div>
-          ))}
-          <div style={{ ...texto, fontSize: 11, color: '#8f8f8f' }}>
-            Que un tramo caiga adentro no quiere decir que se corte: la mancha no ve terraplenes, y una ruta en
-            terraplén cruza una zona inundada y sigue transitable. Es la lista de dónde mirar.
-            {tramos.length === 0 && ' Los caminos de consorcio todavía están cargando.'}
-          </div>
-
-          <div style={{ ...rotulo, marginTop: 14 }}>Obras de arte relevadas</div>
-          <div style={texto}>
-            {obras === null ? 'No se pudieron leer las obras relevadas.'
-              : obrasAca.length === 0 ? 'No hay ninguna obra relevada dentro del recuadro.'
-              : (<>
-                <b style={{ color: obrasAca.some(o => o.dentro) ? '#E57373' : '#fff' }}>{obrasAca.filter(o => o.dentro).length}</b> de{' '}
-                {obrasAca.length} quedan dentro de la mancha.
-                {obrasAca.filter(o => o.dentro).slice(0, 6).map(o => (
-                  <div key={o.id} style={{ color: '#a0a0a0' }}>{o.tipo}{o.rutaTramo ? ` · ${o.rutaTramo}` : ''}</div>
-                ))}
-              </>)}
-          </div>
-          <div style={{ ...texto, fontSize: 11, color: '#8f8f8f', marginTop: 4 }}>
-            Son las relevadas con la app, no un inventario.
-          </div>
-        </div>
+          )}
+        </details>
 
         {/* ── Cómo leerlo ── */}
-        <div style={seccion}>
-          <div style={rotulo}>Cómo leerlo</div>
-          <div style={{ ...texto, fontSize: 11, color: '#8f8f8f' }}>
+        <details style={seccion}>
+          <summary style={plegado}>Cómo leerlo</summary>
+          <div style={{ ...texto, fontSize: 11, color: '#8f8f8f', marginTop: 10 }}>
             Toda el agua dibujada es agua que se vio desde un satélite, con su fecha. No hay modelo hidráulico ni cotas del
             terreno: no da profundidades ni sirve para un lote. No ve agua debajo de monte ni de nubes, así que cada
             mancha es un piso; la línea a rayas encierra lo que una imagen no llegó a ver. Lo «informado» es lo que se sabe que
             pasó y no tiene imagen: no se pinta. La zonificación que vale para un certificado de riesgo hídrico es la de la APA.
             {error && <><br /><span style={{ color: '#E8A87C' }}>{error}</span></>}
           </div>
-        </div>
+        </details>
       </div>
     </div>
   )

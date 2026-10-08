@@ -882,7 +882,54 @@ Cosas que no son obvias:
 `lib/inundaciones.ts` + `components/inundaciones/` + `public/geo/inundaciones/`.
 Pestaña «Gran Resistencia» de Hidrología (`?vista=inundables`): qué se moja
 con una crecida del Paraná, con una lluvia larga, o con las dos. El mapa es la
-pantalla y a la derecha va el panel de escenarios.
+pantalla, **debajo va el deslizador de la altura del río, que es el control**,
+y a la derecha un panel con lo que queda adentro.
+
+**La pantalla se rehízo el 07/10/2026 porque no se entendía.** La primera
+versión pintaba cada imagen de un color —celeste la zona, naranja la mancha
+más cercana, rojizo la que ve una parte— y explicaba cada uno en el panel, con
+el deslizador chico ahí mismo entre diez botones de atajo. Era correcta y
+había que leer tres párrafos para mirar un mapa. Lo que se pidió fue una
+imagen que, al subir la altura del río, vaya mostrando lo que se inunda:
+
+- **Una sola mancha celeste.** Para una altura se dibujan la zona de esa
+  altura y **todas** las imágenes de un río igual o más bajo (`aguaDelRio` en
+  `lib/inundaciones.ts`), del mismo color. De qué imagen sale cada cosa lo
+  dice la lectura bajo el cursor —«agua con el río en 7,23 m · imagen del
+  14/01/2016», que es la más baja que tiene agua ahí— y el detalle plegado,
+  no el color.
+- **Es acumulado para que subir el deslizador nunca saque agua.** Las manchas
+  de un día no son monótonas, y mostrando sólo la más cercana el mapa se
+  secaba en partes al pasar de 8,25 a 8,30 m. Sigue siendo sólo lo observado y
+  nunca de un río más alto que el pedido; el test afirma las dos cosas de 2 a
+  9,5 m.
+- **Las capas del río van en un panel aparte, llenas, y la transparencia es
+  del panel** (`union` en `CapaDibujo`, panel `inuUnion`). Con transparencia
+  por capa, donde dos imágenes se pisan queda más oscuro y siete capas se leen
+  como siete manchas. **No se juntan en un solo polígono**: el lienzo de
+  Leaflet rellena con regla par-impar y lo pisado saldría como hueco.
+- **El título de esas capas no lleva la altura** («Agua con el río a la altura
+  elegida»): con la altura adentro, cada paso del deslizador redibujaba todo.
+  Medido: un paso dentro de la misma imagen cuesta ~15 ms; cruzar una imagen,
+  200 a 350 ms, y son siete cruces en todo el recorrido. **Medido con saltos de
+  `MessageChannel`, no con `setTimeout`**: con la pestaña en segundo plano los
+  temporizadores van a uno por segundo y todo «tardaba» un segundo.
+- **Las marcas del deslizador reemplazan a los atajos**: arriba Hoy y el techo
+  del pronóstico del INA (si no queda pegado a lo de hoy), abajo alerta,
+  evacuación y los picos de 2023, 1998 y 1983. Se alinean con el cursor
+  descontando su ancho (`enRiel`). **Los atajos de recurrencia de 10, 50 y 100
+  años se sacaron**; queda la frase de en cuántos años el río llegó a esa
+  altura y, en «Situación de hoy», la recurrencia ajustada.
+- **Arriba del panel van tres cifras**: km² bajo agua, en el área urbana y
+  sobre lo construido hoy. Son el mayor de cada columna entre las capas
+  dibujadas —se pisan y no se suman—, así que es «como mínimo», y se dice.
+- **Lluvia, río con lluvia y defensa rota siguen, plegados** (`<details>`), lo
+  mismo que la tabla por imagen y «Cómo leerlo».
+- **El límite de una imagen parcial se rotula por lo que significa**: «Sin
+  imagen de 8,02 m · acá, agua hasta 7,80 m». Decía «Sin imagen el
+  07/03/1983», y con el deslizador en 1998 nadie entendía qué hacía ahí una
+  fecha de 1983. Corto y en dos renglones: en uno medía media ciudad. Sólo lo
+  marca la parcial vigente; con una imagen más alta que ve todo, desaparece.
 
 **Toda el agua que se dibuja es agua que se vio desde un satélite, con su fecha
 y la altura que tenía el río ese día. No hay ninguna mancha calculada.** No hay
@@ -894,8 +941,8 @@ cada capa está en `docs/inundaciones-gran-resistencia.md`.
 
 | | Qué es | Hasta dónde |
 |---|---|---|
-| **Zona** (celeste) | lo que se moja con el río hasta cierta altura, de la serie de 337 escenas Landsat | **7 m** |
-| **Mancha observada** (naranja) | el agua de un día | 8,53 m, el 20/06/1983 |
+| **Zona** | lo que se moja con el río hasta cierta altura, de la serie de 337 escenas Landsat | **7 m** |
+| **Mancha observada** | el agua de un día | 8,53 m, el 20/06/1983 |
 
 - **Sobre 7 m hay una sola escena limpia en cuarenta años que vea todo el
   recuadro**: las crecidas llegan con nubes. Por encima sólo hay manchas
@@ -905,23 +952,21 @@ cada capa está en `docs/inundaciones-gran-resistencia.md`.
   suma a la referencia, no la reemplaza** (`parcial` en `escenarioRio`). Es la
   del 07/03/1983: río en 8,02 m, sin nubes, de la órbita 227/079, que ve la
   ciudad entera y no el valle del Paraná (64 % del recuadro). Con la altura de
-  1998 se dibujan las dos: la del 28/02/1983 (7,80 m, naranja) y ésa (rojizo).
+  1998 entran las dos, la del 28/02/1983 (7,80 m) y ésa.
   Lo que una imagen no ve va con la capa (`sinImagen`) y se encierra con
   una línea a rayas y su rótulo, sin relleno: sin eso, «sin agua» y «sin
   imagen» se leen igual. También lo lleva la
   del 20/05/1998, por las nubes.
 - **Nunca se muestra una mancha de un río más alto que el pedido**
-  (`escenarioRio`): sería dibujar más agua de la que esa altura trajo. Se usa
-  la más alta que no lo supere, y si queda a más de 30 cm se dice cuánto falta.
+  (`escenarioRio`, `aguaDelRio`): sería dibujar más agua de la que esa altura
+  trajo. Si la más alta que no lo supera queda a más de 30 cm, se dice cuánto
+  falta.
   El test lo afirma de 2 a 9,5 m.
 - **La lluvia es un solo evento** (enero de 2019) y **la combinación, otro**
   (mayo de 1998, con nubes). Van como lo que son: una observación cada uno. No
   se suman con las zonas del río ni se calcula nada con ellas. También se puede
   prender la mancha del 14/08/1982, tres semanas después de la rotura del
   dique del río Negro: es lo único que hay de una falla de defensa.
-- **Los atajos de altura** son hoy, el techo de la banda del INA, alerta,
-  evacuación, los picos de 2023, 1998 y 1983, y las recurrencias de 10, 50 y
-  100 años del mismo ajuste de «Recurrencia y permanencia en Barranqueras».
 - **La lluvia pronosticada** es la del pronóstico por conjuntos de Cuencas,
   sobre los nodos que caen en el recuadro o a medio paso de grilla (cinco).
 
@@ -986,8 +1031,7 @@ detalle está en «Tercera pasada» de `docs/inundaciones-gran-resistencia.md`.
   hablara de él; y lo no visto era una placa gris que tapaba el agua que otras
   imágenes sí vieron en el valle y se confundía con lo construido, que
   también es gris. Ahora el canal aparece con su informe, en blanco y sin
-  cartel, y lo no visto es sólo un contorno a rayas con el rótulo «Sin imagen
-  el…». **Una línea de referencia sin el texto que la explica es ruido.**
+  cartel, y lo no visto es sólo un contorno a rayas con su rótulo. **Una línea de referencia sin el texto que la explica es ruido.**
 
 Cosas que no son obvias:
 

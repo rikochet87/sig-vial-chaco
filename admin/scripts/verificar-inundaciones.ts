@@ -14,7 +14,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
-  escenarioRio, informesHasta, VISTO_MINIMO_PCT, IndicePoligonos, recortar, viaContra, resumirVias, rutasDelRecuadro,
+  escenarioRio, aguaDelRio, informesHasta, VISTO_MINIMO_PCT, IndicePoligonos, recortar, viaContra, resumirVias, rutasDelRecuadro,
   nodosDelRecuadro, cotaMop, distKm, TECHO_ZONAS_M,
   type IndiceInundaciones, type MultiPoligono, type Via,
 } from '../src/lib/inundaciones'
@@ -143,6 +143,23 @@ for (let m = 2; m <= 9.5; m += 0.05) {
   if (e.parcial && e.parcial.alturaM! > m + 1e-9) rotas++
 }
 ok('de 2 a 9,5 m, ninguna mancha es de un río más alto', rotas, 0)
+// Lo que se dibuja es acumulado: subir el río nunca saca una mancha
+{
+  let sacadas = 0, altas = 0, previas = new Set<string>()
+  for (let m = 2; m <= 9.5; m += 0.05) {
+    const capas = aguaDelRio(indice.capas, m)
+    const ids = new Set(capas.filter(c => c.grupo === 'observada').map(c => c.id))
+    for (const id of previas) if (!ids.has(id)) sacadas++
+    if (capas.some(c => c.grupo === 'observada' && c.alturaM! > m + 1e-9)) altas++
+    previas = ids
+  }
+  ok('de 2 a 9,5 m, subir el río nunca saca una mancha del dibujo', sacadas, 0)
+  ok('y ninguna de las dibujadas es de un río más alto', altas, 0)
+}
+ok('con 8,30 m se dibujan la zona y las seis manchas hasta esa altura', aguaDelRio(indice.capas, 8.3).map(c => c.id).join(' '),
+  'rio-7 obs-2018-01-27 obs-2023-11-12 obs-2016-01-14 obs-1983-02-28 obs-1983-03-07 obs-1983-07-22')
+ok('con el río de hoy, sólo la zona', aguaDelRio(indice.capas, 4.36).map(c => c.id).join(' '), 'rio-5')
+ok('la lluvia, la defensa rota y la combinada no entran: no son el río', aguaDelRio(indice.capas, 9.5).every(c => c.grupo === 'rio' || c.grupo === 'observada'))
 ok('el techo de las zonas es el de la última', TECHO_ZONAS_M, Math.max(...indice.capas.filter(c => c.grupo === 'rio').map(c => c.alturaM!)))
 cerca('8,17 m en la escala es cota MOP 49,97, como dice la Res. 1111/98', cotaMop(8.17), 49.97, 0.001)
 

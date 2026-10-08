@@ -102,6 +102,12 @@ html                             { scrollbar-width: thin; scrollbar-color: #2a2a
   width: 7px; height: 15px;
   background: var(--accent); border: none; border-radius: 0;
 }
+/* El deslizador que es el control principal de una pantalla: más alto y con riel visible */
+.sv-range.sv-range-grande { height: 26px; }
+.sv-range.sv-range-grande::-webkit-slider-runnable-track { height: 3px; background: #5a5a5a; }
+.sv-range.sv-range-grande::-moz-range-track              { height: 3px; background: #5a5a5a; }
+.sv-range.sv-range-grande::-webkit-slider-thumb { width: 11px; height: 25px; margin-top: -11px; box-shadow: 0 0 0 2px #0e0e0e; }
+.sv-range.sv-range-grande::-moz-range-thumb     { width: 11px; height: 25px; box-shadow: 0 0 0 2px #0e0e0e; }
 .sv-range:disabled { cursor: default; }
 .sv-range:disabled::-webkit-slider-thumb { background: #444; }
 .sv-range:disabled::-moz-range-thumb     { background: #444; }

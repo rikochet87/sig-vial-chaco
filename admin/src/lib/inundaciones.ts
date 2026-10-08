@@ -189,6 +189,27 @@ export function escenarioRio(capas: CapaInundacion[], h: number): EscenarioRio {
   }
 }
 
+/**
+ * Todo lo que se dibuja como agua para «el río en `h` metros»: la zona de esa
+ * altura y **todas** las manchas observadas con el río a esa altura o menos.
+ *
+ * Es acumulado a propósito, para que subir el deslizador nunca saque agua. Las
+ * manchas de un día no son monótonas —el 22/07/1983, con 8,26 m, hay menos
+ * agua junto al Canal 16 que el 07/03/1983 con 8,02— y mostrando sólo la más
+ * cercana, al pasar de 8,25 a 8,30 m el mapa se secaba en partes. Lo que se
+ * lee es «acá se vio agua con el río en `h` o menos», que sigue siendo sólo
+ * lo observado y nunca de un río más alto que el pedido.
+ *
+ * Van de la más baja a la más alta: la primera que contiene un punto dice
+ * desde qué altura se vio agua ahí.
+ */
+export function aguaDelRio(capas: CapaInundacion[], h: number): CapaInundacion[] {
+  const zona = escenarioRio(capas, h).zona
+  const obs = capas.filter(c => c.grupo === 'observada' && c.alturaM !== undefined && c.alturaM <= h + 1e-9)
+    .sort((a, b) => a.alturaM! - b.alturaM!)
+  return zona ? [zona, ...obs] : obs
+}
+
 // ── Punto en polígono ────────────────────────────────────────────────────────
 
 /**
