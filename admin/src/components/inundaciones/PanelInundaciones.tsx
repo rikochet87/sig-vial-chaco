@@ -31,11 +31,12 @@ import { extremosAnuales, ajustarGumbel, alturaDeRecurrencia, recurrenciaDe, ani
 import type { Pronostico } from '@/lib/pronostico'
 import { laminaPorCorrida, ventana, probSuperar } from '@/lib/pronostico'
 import {
-  BARRANQUERAS, cotaMop, escenarioRio, aguaDelRio, informesHasta, IndicePoligonos,
+  BARRANQUERAS, cotaMop, escenarioRio, aguaDelRio, informesHasta, IndicePoligonos, ladoDeDefensa,
   rutasDelRecuadro, caminosDelRecuadro, viaContra, resumirVias, nodosDelRecuadro,
   type IndiceInundaciones, type CapaInundacion, type MultiPoligono, type ClaseVia,
 } from '@/lib/inundaciones'
 import type { CapaDibujo, LineaDibujo, PuntoDibujo } from './MapaInundaciones'
+import RioArriba from './RioArriba'
 
 const MapaInundaciones = dynamic(() => import('./MapaInundaciones'), {
   ssr: false,
@@ -143,6 +144,7 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
   const [conCombinada, setConCombinada] = useState(false)
   const [conDefensa, setConDefensa] = useState(false)
   const [verUrbano, setVerUrbano] = useState(true)
+  const [verDefensa, setVerDefensa] = useState(true)
 
   // ── Lo que se carga una vez ──
   useEffect(() => {
@@ -270,6 +272,11 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
   const puntos: PuntoDibujo[] = useMemo(
     () => obrasAca.map(o => ({ lat: o.lat, lng: o.lng, dentro: o.dentro, titulo: o.tipo })), [obrasAca])
 
+  /** Las defensas, en el formato del mapa. Vacío si se apagaron */
+  const defensas = useMemo(
+    () => (verDefensa ? indice?.defensas ?? [] : []).map(d => ({ nombre: d.nombre, lineas: d.lineas })),
+    [indice, verDefensa])
+
   const urbanoIdx = geo['urbano-hoy']?.indice
   const ciegoParcial = idParcial ? geo[idParcial]?.ciego : undefined
   const leer = useCallback((lat: number, lng: number) => {
@@ -284,8 +291,13 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
     }
     for (const a of agua) if (!esDelRio(a.capa) && a.indice.contiene(lat, lng)) out.push(`agua del ${a.capa.titulo}`)
     if (urbanoIdx?.contiene(lat, lng)) out.push('construido hoy')
+    // Cerca de la traza, de qué lado: lejos el tramo más cercano puede ser el de la otra punta
+    for (const d of defensas) {
+      const l = ladoDeDefensa(d.lineas, lat, lng)
+      if (l) out.push(`${l.lado === 'rio' ? 'del lado del río' : 'del lado de la ciudad'} de la defensa, a ${l.km < 1 ? `${Math.round(l.km * 1000)} m` : `${f1(l.km)} km`}`)
+    }
     return out
-  }, [delRio, geo, agua, urbanoIdx, ciegoParcial, parcialM, completaM])
+  }, [delRio, geo, agua, urbanoIdx, ciegoParcial, parcialM, completaM, defensas])
 
   // ── Qué tan seguido llega el río a esa altura ──
   const registro = useMemo(() => {
@@ -385,7 +397,7 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', background: '#191919', border: '1px solid #1e1e1e' }}>
         <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
           <MapaInundaciones recuadro={indice.recuadro} urbano={indice.urbano}
-            capas={dibujo} vias={lineas} afectadas={cruce.partes} obras={puntos} referencias={referencias} leer={leer} />
+            capas={dibujo} vias={lineas} afectadas={cruce.partes} obras={puntos} referencias={referencias} defensas={defensas} leer={leer} />
         </div>
 
         {/* ── El control: la altura del río ── */}
@@ -436,6 +448,14 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
             </>)}
           </div>
 
+          {(indice.defensas ?? []).map(d => (
+            <label key={d.id} style={{ ...texto, display: 'flex', alignItems: 'flex-start', gap: 7, cursor: 'pointer', marginTop: 6 }}>
+              <input type="checkbox" checked={verDefensa} onChange={e => setVerDefensa(e.target.checked)} style={{ marginTop: 3 }} />
+              <span><b style={{ color: '#c9955a' }}>Color tierra:</b> la {d.nombre.charAt(0).toLowerCase() + d.nombre.slice(1)}, {f1(d.km)} km.
+                {' '}Pasando el cursor cerca dice de qué lado queda cada punto.</span>
+            </label>
+          ))}
+
           {esc.sobreObservado && (
             <div style={aviso}><b>No hay ninguna imagen con el río tan alto.</b> Lo más alto que se vio es {f2(masAlta?.alturaM ?? 0)} m,
               {' '}{f2(esc.faltaM ?? 0)} m menos. Lo dibujado es un piso: con {f2(h)} m habría más agua.</div>
@@ -452,7 +472,9 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
           )}
           {masAlta?.epoca && (
             <div style={aviso}><b>Sobre 7,3 m las imágenes son de {masAlta.epoca}.</b> Muestran dónde llegó el agua con una ciudad de la mitad del tamaño y sin el anillo de defensas terminado.
-              Dentro del recinto no dicen qué pasaría hoy; fuera, sí.</div>
+              {(indice.defensas?.length ?? 0) > 0
+                ? <> Del lado de la ciudad de la defensa (color tierra) no dicen qué pasaría hoy; del lado del río, sí.</>
+                : <> Dentro del recinto no dicen qué pasaría hoy; fuera, sí.</>}</div>
           )}
           {informes.map(i => (
             <div key={i.id} style={informe}>
@@ -466,6 +488,12 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
               )}
             </div>
           ))}
+        </div>
+
+        {/* ── Qué viene río arriba ── */}
+        <div style={seccion}>
+          <div style={rotulo}>Qué viene río arriba</div>
+          <RioArriba />
         </div>
 
         {/* ── Rutas ── */}

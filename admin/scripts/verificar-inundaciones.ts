@@ -14,6 +14,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
+  ladoDeDefensa, LADO_DEFENSA_KM,
   escenarioRio, aguaDelRio, informesHasta, VISTO_MINIMO_PCT, IndicePoligonos, recortar, viaContra, resumirVias, rutasDelRecuadro,
   nodosDelRecuadro, cotaMop, distKm, TECHO_ZONAS_M,
   type IndiceInundaciones, type MultiPoligono, type Via,
@@ -329,6 +330,40 @@ const ms = performance.now() - t0
 // recuadro son unas diez mil consultas por capa.
 ok('medio millón de consultas en menos de dos segundos', ms < 2000)
 info(`${ms.toFixed(0)} ms, ${n} adentro`)
+
+titulo('La defensa')
+
+// Una norteSur de norte a sur: el río a la izquierda del sentido de dibujo es el este
+const norteSur: [number, number][][] = [[[-59, -27.3], [-59, -27.5]]]
+ok('a 1 km al este, del lado del río', ladoDeDefensa(norteSur, -27.4, -58.99)?.lado, 'rio')
+ok('a 1 km al oeste, del lado de la ciudad', ladoDeDefensa(norteSur, -27.4, -59.01)?.lado, 'ciudad')
+cerca('y a 1 km', ladoDeDefensa(norteSur, -27.4, -58.99)!.km, 0.99, 0.02)
+ok(`a más de ${LADO_DEFENSA_KM} km no dice nada`, ladoDeDefensa(norteSur, -27.4, -58.95), null)
+// Más allá de la punta, la distancia es a la punta y no a la norteSur prolongada
+cerca('pasando la punta sur, la distancia es a la punta y no a la recta prolongada', ladoDeDefensa(norteSur, -27.51, -59.005)!.km, 1.21, 0.01)
+
+const defensa = indice.defensas?.find(d => d.id === 'defensa-amgr')
+ok('la defensa del área metropolitana está en el índice', !!defensa)
+if (defensa) {
+  ok('una sola línea', defensa.lineas.length, 1)
+  ok('de unos 31 km', defensa.km > 30 && defensa.km < 33)
+  ok('adentro del recuadro', defensa.lineas.every(l => l.every(([x, y]) =>
+    x >= indice.recuadro.oeste && x <= indice.recuadro.este && y >= indice.recuadro.sur && y <= indice.recuadro.norte)))
+  // El sentido de dibujo decide qué es «el río». Se afirma con algo que no
+  // depende de la traza: el agua permanente cerca de la defensa está casi
+  // toda del lado del Paraná. Del otro lado quedan las lagunas de la ciudad.
+  const perm = JSON.parse(readFileSync(join(DIR, 'permanente.json'), 'utf8')).coordinates as [number, number][][][]
+  let rio = 0, ciudad = 0
+  for (const pol of perm) for (const an of pol) for (const [x, y] of an) {
+    const l = ladoDeDefensa(defensa.lineas, y, x)
+    if (l) l.lado === 'rio' ? rio++ : ciudad++
+  }
+  ok('el agua permanente cerca de la traza está sobre todo del lado del río', rio > 2 * ciudad)
+  info(`vértices de agua permanente a menos de ${LADO_DEFENSA_KM} km: ${rio} del lado del río, ${ciudad} del de la ciudad`)
+  ok('Barranqueras, al oeste de la traza, del lado de la ciudad', ladoDeDefensa(defensa.lineas, -27.45, -58.91)?.lado, 'ciudad')
+  ok('el riacho, al este, del lado del río', ladoDeDefensa(defensa.lineas, -27.45, -58.88)?.lado, 'rio')
+  ok('la plaza 25 de Mayo está lejos: no se dice', ladoDeDefensa(defensa.lineas, -27.4513, -58.9867), null)
+}
 
 titulo('Rutas y pronóstico')
 

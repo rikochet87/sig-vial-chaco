@@ -91,6 +91,20 @@ export interface ReferenciaInundacion {
   lineas: [number, number][][]
 }
 
+/**
+ * Una obra de defensa contra el río: un terraplén. No es agua ni referencia:
+ * es lo que separa el agua del río de la ciudad.
+ */
+export interface DefensaInundacion {
+  id: string
+  nombre: string
+  fuente: string
+  /** Largo de la traza, en km */
+  km: number
+  /** `[línea][vértice]` en `[lng, lat]`, dibujada de norte a sur con el río a la izquierda */
+  lineas: [number, number][][]
+}
+
 /** Algo que se informó y ninguna imagen muestra */
 export interface InformeInundacion {
   id: string
@@ -112,6 +126,7 @@ export interface IndiceInundaciones {
   construidoHoyKm2: number
   capas: CapaInundacion[]
   referencias?: ReferenciaInundacion[]
+  defensas?: DefensaInundacion[]
   informes?: InformeInundacion[]
 }
 
@@ -465,4 +480,42 @@ export function nodosDelRecuadro(puntos: { lat: number; lng: number }[], caja: C
       && p.lng >= caja.oeste - margen && p.lng <= caja.este + margen) out.push(i)
   })
   return out
+}
+
+// ── De qué lado de la defensa ────────────────────────────────────────────────
+
+/**
+ * Hasta qué distancia de la defensa se dice de qué lado está un punto. La
+ * traza no es un anillo cerrado —corre por el este y el sur, y al oeste el
+ * recinto lo cierran terrenos altos y rutas—, así que el lado se toma del
+ * tramo más cercano, y eso sólo vale cerca de la traza: a 5 km el tramo más
+ * cercano puede ser el de la otra punta.
+ */
+export const LADO_DEFENSA_KM = 2
+
+/**
+ * De qué lado de la defensa cae un punto: `rio` o `ciudad`, y a cuántos km.
+ * `null` si está a más de `maxKm`. La traza tiene que venir con el río a la
+ * izquierda del sentido en que se dibujó, como la de `defensa-amgr.kml` (de
+ * norte a sur, con el Paraná al este): el test lo afirma con el agua
+ * permanente.
+ */
+export function ladoDeDefensa(
+  lineas: [number, number][][], lat: number, lng: number, maxKm = LADO_DEFENSA_KM,
+): { lado: 'rio' | 'ciudad'; km: number } | null {
+  const kx = 111.32 * Math.cos(lat * Math.PI / 180), ky = 110.57
+  let mejor = Infinity, cruz = 0
+  for (const l of lineas) {
+    for (let i = 1; i < l.length; i++) {
+      const ax = (l[i - 1][0] - lng) * kx, ay = (l[i - 1][1] - lat) * ky
+      const dx = (l[i][0] - l[i - 1][0]) * kx, dy = (l[i][1] - l[i - 1][1]) * ky
+      const n = dx * dx + dy * dy
+      const t = n ? Math.max(0, Math.min(1, -(ax * dx + ay * dy) / n)) : 0
+      const d = Math.hypot(ax + t * dx, ay + t * dy)
+      // El punto está en el origen: el signo de (b − a) × (p − a) dice el lado
+      if (d < mejor) { mejor = d; cruz = dx * -ay - dy * -ax }
+    }
+  }
+  if (mejor > maxKm) return null
+  return { lado: cruz > 0 ? 'rio' : 'ciudad', km: mejor }
 }

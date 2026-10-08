@@ -50,6 +50,13 @@ const ACENTO = '#F5C300'
 const OPACIDAD_UNION = 0.6
 /** Las líneas de referencia: blanco, como el filo de la caja de lo informado. No es un color de agua */
 const C_REFERENCIA = '#f2f2f2'
+/**
+ * Las defensas: color tierra, como el terraplén que son. No es amarillo —las
+ * rutas nacionales lo son en este mapa—, ni blanco como las referencias, ni
+ * un color de agua. Trazo lleno y más grueso que una ruta: es lo que separa
+ * el río de la ciudad.
+ */
+const C_DEFENSA = '#c9955a'
 
 /** Centro de gravedad de un anillo en `[lng, lat]`, y su área en grados² */
 function centroDe(an: [number, number][]) {
@@ -61,7 +68,7 @@ function centroDe(an: [number, number][]) {
   return a ? { lng: x / (3 * a), lat: y / (3 * a), area: Math.abs(a / 2) } : null
 }
 
-export default function MapaInundaciones({ recuadro, urbano, capas, vias, afectadas, obras, referencias, leer }: {
+export default function MapaInundaciones({ recuadro, urbano, capas, vias, afectadas, obras, referencias, defensas, leer }: {
   recuadro: Caja
   urbano: Caja
   capas: CapaDibujo[]
@@ -70,6 +77,8 @@ export default function MapaInundaciones({ recuadro, urbano, capas, vias, afecta
   afectadas: [number, number][][]
   obras: PuntoDibujo[]
   referencias: ReferenciaDibujo[]
+  /** Las defensas contra el río, en `[lng, lat]` */
+  defensas: ReferenciaDibujo[]
   /** Qué capas del escenario hay en un punto. Lo contesta el panel */
   leer: (lat: number, lng: number) => string[]
 }) {
@@ -191,6 +200,12 @@ export default function MapaInundaciones({ recuadro, urbano, capas, vias, afecta
         dibujadas.push(L.polyline(g.lineas, { pane: 'inuVias', renderer: lienzo, color: '#111', weight: g.grosor + 2, opacity: 0.55, interactive: false }).addTo(map))
         dibujadas.push(L.polyline(g.lineas, { pane: 'inuVias', renderer: lienzo, color: g.color, weight: g.grosor, opacity: 0.95, interactive: false }).addTo(map))
       }
+      // Encima de las rutas: donde una corre sobre el terraplén, lo que se tiene que ver es la defensa
+      for (const d of defensas) {
+        const ll = d.lineas.map(l => l.map(([x, y]) => [y, x] as [number, number]))
+        dibujadas.push(L.polyline(ll, { pane: 'inuVias', renderer: lienzo, color: '#111', weight: 8, opacity: 0.8, interactive: false }).addTo(map))
+        dibujadas.push(L.polyline(ll, { pane: 'inuVias', renderer: lienzo, color: C_DEFENSA, weight: 4.5, opacity: 1, interactive: false }).addTo(map))
+      }
       if (afectadas.length) {
         dibujadas.push(L.polyline(afectadas, { pane: 'inuAfectadas', renderer: lienzoAf, color: '#fff', weight: 6, opacity: 0.9, interactive: false }).addTo(map))
         dibujadas.push(L.polyline(afectadas, { pane: 'inuAfectadas', renderer: lienzoAf, color: '#E53935', weight: 3.5, opacity: 1, interactive: false }).addTo(map))
@@ -209,7 +224,7 @@ export default function MapaInundaciones({ recuadro, urbano, capas, vias, afecta
       }
     })
     return () => { vivo = false; dibujadas.forEach(d => d.remove()) }
-  }, [mapaListo, vias, afectadas, obras, referencias])
+  }, [mapaListo, vias, afectadas, obras, referencias, defensas])
 
   return (
     <div style={{ position: 'relative', height: '100%', minHeight: 360, background: '#0e0e0e' }}>
@@ -253,6 +268,12 @@ export default function MapaInundaciones({ recuadro, urbano, capas, vias, afecta
             <span>Camino dentro del agua</span>
           </div>
         )}
+        {defensas.map(d => (
+          <div key={d.nombre} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+            <span style={{ width: 14, height: 4, flexShrink: 0, background: C_DEFENSA, outline: '1px solid #111' }} />
+            <span>{d.nombre}</span>
+          </div>
+        ))}
         {referencias.map(ref => (
           <div key={ref.nombre} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
             <span style={{ width: 14, height: 0, flexShrink: 0, borderTop: `2px dashed ${C_REFERENCIA}` }} />

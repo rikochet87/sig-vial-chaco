@@ -194,8 +194,10 @@ más; naranja, 6 a 9; amarillo, 3 a 5. El recuadro amarillo es el urbano.
 - **El umbral es propio de cada escena**: dos fechas no se comparan al km².
 - **MSS tiene 60 m y está georreferenciada con menos precisión** (nivel T2).
   Sirve para la mancha, no para decir si una manzana se mojó.
-- **El recuadro urbano es un rectángulo**, no el recinto defendido. Falta la
-  traza de las defensas para decir qué quedó adentro y qué afuera.
+- **El recuadro urbano es un rectángulo**, no el recinto defendido. Desde el
+  08/10/2026 está la traza de la defensa del Área Metropolitana
+  (`defensa-amgr.kml`, 31,5 km), pero es una línea abierta: dice de qué lado
+  queda un punto cercano, no qué superficie quedó adentro.
 
 ## Segunda pasada: toda la serie, Sentinel-2 y el control externo
 
@@ -674,8 +676,9 @@ paso que más rinde, y es un pedido a la APA.
 
 ## Qué falta
 
-1. **Los polígonos de las Resoluciones 303/17 y 121/14 y la traza de las
-   defensas**, de la APA. Con eso las manchas se pueden leer por zona y por
+1. **Los polígonos de las Resoluciones 303/17 y 121/14**, de la APA. La traza
+   de la defensa ya está (`defensa-amgr.kml`); falta saber de qué fuente
+   viene y si incluye el cierre oeste del recinto. Con eso las manchas se pueden leer por zona y por
    adentro y afuera del recinto.
 2. **La serie diaria de lluvia del SMN en Resistencia Aero.** Sin ella la
    inundación por lluvia no se puede correlacionar con nada.

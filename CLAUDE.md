@@ -931,6 +931,34 @@ imagen que, al subir la altura del río, vaya mostrando lo que se inunda:
   fecha de 1983. Corto y en dos renglones: en uno medía media ciudad. Sólo lo
   marca la parcial vigente; con una imagen más alta que ve todo, desaparece.
 
+### La defensa y lo que viene río arriba
+
+Desde el 08/10/2026.
+
+- **La traza de la defensa del Área Metropolitana** (`docs/geo/inundaciones/defensa-amgr.kml`,
+  del KMZ «Defensa AMGR» que aportó el usuario; 31,5 km, una sola línea) va en
+  `defensas` del índice y se dibuja en color tierra, encima de las rutas. La
+  arma `build_inundaciones.mjs` (`DEFENSAS`). **No es un anillo cerrado**:
+  corre por el este y el sur, y al oeste el recinto lo cierran terrenos
+  altos. Por eso no se calcula «adentro del recinto» como polígono.
+- **`ladoDeDefensa()` dice de qué lado está un punto, sólo a menos de 2 km de
+  la traza** (`LADO_DEFENSA_KM`): toma el tramo más cercano, y lejos ése
+  puede ser el de la otra punta. Depende del sentido de dibujo —de norte a
+  sur, con el río a la izquierda—, y el test lo afirma con algo que no sale
+  de la traza: de los vértices de agua permanente a menos de 2 km, 963 caen
+  del lado del río y 256 del de la ciudad (las lagunas). **Si se cambia el
+  KML por uno dibujado al revés, ese test falla**, y hay que invertirlo.
+- Con la traza a la vista, el aviso de las imágenes de 1983 dice «del lado de
+  la ciudad de la defensa» en vez de «dentro del recinto».
+- **«Qué viene río arriba»** (`components/inundaciones/RioArriba.tsx`): las
+  nueve escalas de `/api/rio/arriba`, con el cambio en siete días y cuántos
+  días antes que por Barranqueras pasa el pico (`anticipaciones()`), y una
+  línea arriba: cuántas escalas del Paraná suben y cuánto antes avisa la más
+  lejana. Sube o baja es con **10 cm en la semana** (`SEMANA_M`), no con el
+  `QUIETO_M` diario del panel del río. **No mueve el deslizador ni traslada
+  alturas**: dice que viene agua y cuándo, no a cuánto. A cuánto lo dice el
+  pronóstico del INA, que ya está en el deslizador.
+
 **Toda el agua que se dibuja es agua que se vio desde un satélite, con su fecha
 y la altura que tenía el río ese día. No hay ninguna mancha calculada.** No hay
 modelo hidráulico ni cotas: no da profundidades ni sirve para un lote. La

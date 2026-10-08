@@ -120,6 +120,26 @@ const REFERENCIAS = [
 ]
 
 /**
+ * Las defensas contra el río, de un KML con una sola línea. Va con el río a la
+ * izquierda del sentido de dibujo (de norte a sur, el Paraná al este):
+ * `ladoDeDefensa()` depende de eso y el test lo afirma con el agua
+ * permanente. Cinco decimales: es una obra de 30 m de ancho, no una mancha.
+ */
+const desdeKml = archivo => {
+  const kml = readFileSync(join(ORIGEN, archivo), 'utf8')
+  return [...kml.matchAll(/<coordinates>([\s\S]*?)<\/coordinates>/g)].map(m =>
+    m[1].trim().split(/\s+/).map(t => t.split(',').slice(0, 2).map(v => Math.round(Number(v) * 1e5) / 1e5)))
+}
+const largoKm = lineas => lineas.reduce((s, l) => s + l.slice(1).reduce((a, p, i) => {
+  const q = l[i], k = Math.cos(p[1] * Math.PI / 180)
+  return a + Math.hypot((p[0] - q[0]) * 111.32 * k, (p[1] - q[1]) * 110.57)
+}, 0), 0)
+const DEFENSAS = [
+  { id: 'defensa-amgr', nombre: 'Defensa del Área Metropolitana', fuente: 'Defensa AMGR.kmz, aportado al proyecto el 08/10/2026',
+    lineas: desdeKml('defensa-amgr.kml') },
+].map(d => ({ ...d, km: Math.round(largoKm(d.lineas) * 10) / 10 }))
+
+/**
  * Lo que se sabe que pasó y ninguna imagen muestra.
  *
  * **No es agua vista y no se dibuja como agua**: va como texto, al lado de lo
@@ -155,6 +175,7 @@ writeFileSync(join(DESTINO, 'indice.json'), JSON.stringify({
   construidoHoyKm2: resumen._recuadro.construidoHoyKm2,
   capas: indice,
   referencias: REFERENCIAS,
+  defensas: DEFENSAS,
   informes: INFORMES,
 }, null, 1))
 console.log('capas', indice.length, '· total', (total / 1048576).toFixed(1), 'MB')
