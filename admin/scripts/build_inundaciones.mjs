@@ -157,6 +157,77 @@ const INFORMES = [
     contraste: 'No hay imagen de ese pico. En las de 1998 que hay —el 09/04, con el río en 7,22 m y subiendo, y el 20/05, dieciséis días después y en 7,07 m— no se ve agua abierta sobre el canal. En 1983, con 7,80 m casi no hay agua junto a su tramo final; una semana después, con 8,02 m, la hay a menos de 300 m en más de la mitad de ese tramo, del lado del Paraná. Las imágenes no muestran el canal desbordado a lo largo: a 60 m por píxel un canal no se ve.' },
 ]
 
+/**
+ * El recinto defendido: la defensa, la RN 11 y una recta supuesta entre las
+ * dos. Lo arma `scripts/inundaciones/recinto-amgr.mjs`.
+ */
+const recintoGeo = leer('recinto-amgr.geojson')
+const RECINTO = {
+  id: 'recinto-amgr', nombre: recintoGeo.properties.nombre, defensa: 'defensa-amgr',
+  areaKm2: recintoGeo.properties.areaKm2, cierreKm: recintoGeo.properties.cierreKm,
+  anillo: recintoGeo.geometry.coordinates[0], cierre: recintoGeo.cierre,
+}
+
+/**
+ * Una grilla de ~30 m sobre la caja del recinto, rellena por líneas de barrido
+ * con la regla par-impar: la misma idea que `IndicePoligonos` en
+ * `lib/inundaciones.ts`, acá para medir y no para consultar.
+ */
+const PASO = 0.0003
+const cajaR = RECINTO.anillo.reduce((c, [x, y]) => ({ x0: Math.min(c.x0, x), x1: Math.max(c.x1, x), y0: Math.min(c.y0, y), y1: Math.max(c.y1, y) }),
+  { x0: Infinity, x1: -Infinity, y0: Infinity, y1: -Infinity })
+const ANCHO = Math.ceil((cajaR.x1 - cajaR.x0) / PASO), ALTO = Math.ceil((cajaR.y1 - cajaR.y0) / PASO)
+const CELDA_KM2 = (PASO * 111.32 * Math.cos(((cajaR.y0 + cajaR.y1) / 2) * Math.PI / 180)) * (PASO * 110.57)
+function rasterizar(anillos) {
+  const m = new Uint8Array(ANCHO * ALTO)
+  const cruces = Array.from({ length: ALTO }, () => [])
+  for (const an of anillos) for (let i = 0, j = an.length - 1; i < an.length; j = i++) {
+    const [xa, ya] = an[j], [xb, yb] = an[i]
+    if (ya === yb) continue
+    const f0 = Math.max(0, Math.ceil((Math.min(ya, yb) - cajaR.y0) / PASO - 0.5))
+    const f1 = Math.min(ALTO - 1, Math.ceil((Math.max(ya, yb) - cajaR.y0) / PASO - 0.5) - 1)
+    for (let f = f0; f <= f1; f++) {
+      const yc = cajaR.y0 + (f + 0.5) * PASO
+      cruces[f].push(xa + (xb - xa) * (yc - ya) / (yb - ya))
+    }
+  }
+  for (let f = 0; f < ALTO; f++) {
+    const xs = cruces[f].sort((a, b) => a - b)
+    for (let k = 0; k + 1 < xs.length; k += 2) {
+      const c0 = Math.max(0, Math.ceil((xs[k] - cajaR.x0) / PASO - 0.5))
+      const c1 = Math.min(ANCHO - 1, Math.ceil((xs[k + 1] - cajaR.x0) / PASO - 0.5) - 1)
+      if (c1 >= c0) m.fill(1, f * ANCHO + c0, f * ANCHO + c1 + 1)
+    }
+  }
+  return m
+}
+const anillosDe = mp => mp.flatMap(pol => pol)
+const fuenteDe = id => CAPAS.find(c => c.id === id).fuente.geometry.coordinates
+const mRecinto = rasterizar([RECINTO.anillo])
+const mPermanente = rasterizar(anillosDe(fuenteDe('permanente')))
+const mConstruido = rasterizar(anillosDe(fuenteDe('urbano-hoy')))
+const urb = resumen._recuadro.urbano
+const enUrbano = i => {
+  const x = cajaR.x0 + ((i % ANCHO) + 0.5) * PASO, y = cajaR.y0 + (Math.floor(i / ANCHO) + 0.5) * PASO
+  return x >= urb.oeste && x <= urb.este && y >= urb.sur && y <= urb.norte
+}
+/**
+ * Cuánto del agua del río de una capa cae dentro del recinto, medido igual que
+ * las cifras del índice: fuera del agua permanente. La pantalla lo resta,
+ * porque con la defensa en pie ese agua no entra.
+ */
+function enRecinto(mp) {
+  const m = rasterizar(anillosDe(mp))
+  let n = 0, u = 0, c = 0
+  for (let i = 0; i < m.length; i++) {
+    if (!m[i] || !mRecinto[i] || mPermanente[i]) continue
+    n++
+    if (enUrbano(i)) { u++; if (mConstruido[i]) c++ }
+  }
+  const r2 = v => Math.round(v * CELDA_KM2 * 100) / 100
+  return { km2: r2(n), urbanoKm2: r2(u), construidoKm2: r2(c) }
+}
+
 const indice = []
 let total = 0
 for (const c of CAPAS) {
@@ -168,7 +239,9 @@ for (const c of CAPAS) {
   const cuerpo = JSON.stringify({ id: c.id, coordinates: coords, ...(ciega ? { sinImagen: red(ciega.geometry.coordinates) } : {}) })
   writeFileSync(join(DESTINO, `${c.id}.json`), cuerpo)
   total += cuerpo.length
-  indice.push({ ...resto, ...(resumen[c.id] ?? {}), ...(ciega ? { vistoPct: ciega.properties.validoPct } : {}), poligonos: coords.length, bytes: cuerpo.length })
+  const delRio = c.grupo === 'rio' || c.grupo === 'observada'
+  indice.push({ ...resto, ...(resumen[c.id] ?? {}), ...(ciega ? { vistoPct: ciega.properties.validoPct } : {}),
+    ...(delRio ? { enRecinto: enRecinto(fuente.geometry.coordinates) } : {}), poligonos: coords.length, bytes: cuerpo.length })
   console.log(c.id.padEnd(20), String(coords.length).padStart(4), 'polígonos', (cuerpo.length / 1024).toFixed(0).padStart(6), 'KB')
 }
 
@@ -181,6 +254,7 @@ writeFileSync(join(DESTINO, 'indice.json'), JSON.stringify({
   capas: indice,
   referencias: REFERENCIAS,
   defensas: DEFENSAS,
+  recintos: [RECINTO],
   informes: INFORMES,
 }, null, 1))
 console.log('capas', indice.length, '· total', (total / 1048576).toFixed(1), 'MB')

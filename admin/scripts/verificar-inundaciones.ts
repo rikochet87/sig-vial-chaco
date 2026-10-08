@@ -14,7 +14,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
-  ladoDeDefensa, LADO_DEFENSA_KM, enEscala,
+  ladoDeDefensa, LADO_DEFENSA_KM, enEscala, fueraDe, techoDelRecinto,
   escenarioRio, aguaDelRio, informesHasta, VISTO_MINIMO_PCT, IndicePoligonos, recortar, viaContra, resumirVias, rutasDelRecuadro,
   nodosDelRecuadro, cotaMop, distKm, TECHO_ZONAS_M,
   type IndiceInundaciones, type MultiPoligono, type Via,
@@ -368,6 +368,50 @@ if (defensa) {
   ok('Barranqueras, al oeste de la traza, del lado de la ciudad', ladoDeDefensa(defensa.lineas, -27.45, -58.91)?.lado, 'ciudad')
   ok('el riacho, al este, del lado del río', ladoDeDefensa(defensa.lineas, -27.45, -58.88)?.lado, 'rio')
   ok('la plaza 25 de Mayo está lejos: no se dice', ladoDeDefensa(defensa.lineas, -27.4513, -58.9867), null)
+}
+
+titulo('El recinto defendido')
+
+const recinto = indice.recintos?.find(r => r.id === 'recinto-amgr')
+ok('el recinto está en el índice', !!recinto)
+if (recinto && defensa) {
+  const an = recinto.anillo
+  ok('el contorno está cerrado', an[0][0] === an[an.length - 1][0] && an[0][1] === an[an.length - 1][1])
+  // La defensa entera es parte del contorno, en el mismo orden
+  ok('la defensa es el contorno este y sur, vértice por vértice',
+    defensa.lineas[0].every((p, i) => p[0] === an[i][0] && p[1] === an[i][1]))
+  ok('el cierre supuesto arranca en la punta sur de la defensa',
+    recinto.cierre[0][0] === defensa.lineas[0].at(-1)![0] && recinto.cierre[0][1] === defensa.lineas[0].at(-1)![1])
+  ok('y mide menos de 10 km', recinto.cierreKm > 0 && recinto.cierreKm < 10)
+  ok('entre 80 y 170 km² (el plan de defensas hablaba de 171)', recinto.areaKm2 > 80 && recinto.areaKm2 < 170)
+  const r = new IndicePoligonos([[an]])
+  ok('la plaza 25 de Mayo queda adentro', r.contiene(-27.4513, -58.9867))
+  ok('Barranqueras queda adentro', r.contiene(-27.483, -58.935))
+  ok('Fontana, al oeste de la RN 11, afuera', r.contiene(-27.42, -59.03), false)
+  ok('el Paraná, afuera', r.contiene(-27.47, -58.86), false)
+  cerca('el techo es el coronamiento: 11,70 m', techoDelRecinto(recinto, indice.defensas)!, 11.7, 1e-9)
+
+  // La mancha del 20/06/1983 tiene agua adentro: con la defensa en pie no cuenta
+  const m83 = new IndicePoligonos(capa('obs-1983-06-20'))
+  let adentro = 0, sigue = 0
+  const f83 = fueraDe(m83, r)
+  for (let k = 0; k < 40_000; k++) {
+    const lat = -27.53 + (k % 200) * 0.001, lng = -59.03 + Math.floor(k / 200) * 0.00075
+    if (r.contiene(lat, lng) && m83.contiene(lat, lng)) { adentro++; if (f83.contiene(lat, lng)) sigue++ }
+  }
+  ok('la mancha de 1983 tiene agua dentro del recinto', adentro > 100)
+  ok('y con la defensa en pie no queda nada de ella adentro', sigue, 0)
+  info(`${adentro} puntos de la grilla con agua de 1983 dentro del recinto`)
+
+  const delRio = indice.capas.filter(c => c.grupo === 'rio' || c.grupo === 'observada')
+  ok('cada capa del río dice cuánto tiene dentro del recinto', delRio.every(c => !!c.enRecinto))
+  ok('y nunca más que lo que tiene en total', delRio.every(c => !c.enRecinto || (
+    c.enRecinto.km2 <= (c.km2 ?? 0) + 0.05 && c.enRecinto.urbanoKm2 <= (c.urbanoKm2 ?? 0) + 0.05
+    && c.enRecinto.construidoKm2 <= (c.construidoKm2 ?? 0) + 0.05)))
+  ok('las de 1983 son las que más tienen adentro: era otra ciudad, sin el anillo',
+    Math.max(...delRio.filter(c => c.id.startsWith('obs-1983')).map(c => c.enRecinto!.km2))
+      > 5 * Math.max(...delRio.filter(c => !c.id.startsWith('obs-1983')).map(c => c.enRecinto!.km2)))
+  ok('las otras capas no se recortan', indice.capas.filter(c => !delRio.includes(c)).every(c => !c.enRecinto))
 }
 
 titulo('Rutas y pronóstico')

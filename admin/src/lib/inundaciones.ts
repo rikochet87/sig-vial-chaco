@@ -76,6 +76,11 @@ export interface CapaInundacion {
   urbanoKm2?: number
   /** Ídem, sobre lo construido hoy */
   construidoKm2?: number
+  /**
+   * De esas tres cifras, cuánto cae dentro del recinto defendido. Sólo en las
+   * capas del río: la pantalla lo resta mientras el río no pase el coronamiento
+   */
+  enRecinto?: { km2: number; urbanoKm2: number; construidoKm2: number }
   poligonos: number
   bytes: number
 }
@@ -109,6 +114,24 @@ export interface DefensaInundacion {
   lineas: [number, number][][]
 }
 
+/**
+ * Lo que encierran una defensa y lo que la completa: el recinto donde el agua
+ * del río no entra mientras no pase el coronamiento.
+ */
+export interface RecintoInundacion {
+  id: string
+  nombre: string
+  /** La defensa de `defensas` que lo cierra por el este y el sur */
+  defensa: string
+  areaKm2: number
+  /** Cuánto del contorno es una recta supuesta, en km */
+  cierreKm: number
+  /** El contorno, cerrado, en `[lng, lat]` */
+  anillo: [number, number][]
+  /** La parte supuesta del contorno, para dibujarla a rayas */
+  cierre: [number, number][]
+}
+
 /** Algo que se informó y ninguna imagen muestra */
 export interface InformeInundacion {
   id: string
@@ -131,6 +154,7 @@ export interface IndiceInundaciones {
   capas: CapaInundacion[]
   referencias?: ReferenciaInundacion[]
   defensas?: DefensaInundacion[]
+  recintos?: RecintoInundacion[]
   informes?: InformeInundacion[]
 }
 
@@ -250,6 +274,27 @@ export function aguaDelRio(capas: CapaInundacion[], h: number): CapaInundacion[]
  * pantalla con la pestaña del navegador en segundo plano. Quedó ésta porque es
  * más simple y el test la compara contra la prueba exacta.
  */
+/** Lo único que se le pregunta a una capa: si un punto cae adentro */
+export interface Contenedor { contiene(lat: number, lng: number): boolean }
+
+/**
+ * Una capa del río vista con la defensa en pie: lo que cae dentro del recinto
+ * no cuenta. Para los cruces con caminos, las obras y la lectura bajo el cursor
+ * —todo lo que pregunta punto por punto—, así dicen lo mismo que el mapa.
+ */
+export const fueraDe = (capa: Contenedor, recinto: Contenedor): Contenedor => ({
+  contiene: (lat, lng) => capa.contiene(lat, lng) && !recinto.contiene(lat, lng),
+})
+
+/**
+ * El coronamiento en la escala de Barranqueras, si el recinto tiene una
+ * defensa con cota. Hasta esa altura el agua del río no entra.
+ */
+export function techoDelRecinto(r: RecintoInundacion, defensas: DefensaInundacion[] | undefined): number | null {
+  const d = defensas?.find(x => x.id === r.defensa)
+  return d?.coronamientoMop === undefined ? null : enEscala(d.coronamientoMop)
+}
+
 export class IndicePoligonos {
   private x0 = 0
   private y0 = 0
@@ -417,7 +462,7 @@ export interface ViaAfectada {
  * vio en la pantalla, no en el test. Un camino sobre agua de siempre es un
  * puente.
  */
-export function viaContra(via: Via, capas: IndicePoligonos[], salvo: IndicePoligonos[] = []): ViaAfectada {
+export function viaContra(via: Via, capas: Contenedor[], salvo: Contenedor[] = []): ViaAfectada {
   let km = 0, kmDentro = 0
   const partes: [number, number][][] = []
   let actual: [number, number][] = []

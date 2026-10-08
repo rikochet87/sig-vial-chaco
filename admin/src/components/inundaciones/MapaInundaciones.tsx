@@ -68,7 +68,7 @@ function centroDe(an: [number, number][]) {
   return a ? { lng: x / (3 * a), lat: y / (3 * a), area: Math.abs(a / 2) } : null
 }
 
-export default function MapaInundaciones({ recuadro, urbano, capas, vias, afectadas, obras, referencias, defensas, leer }: {
+export default function MapaInundaciones({ recuadro, urbano, capas, vias, afectadas, obras, referencias, defensas, recorte, cierre, leer }: {
   recuadro: Caja
   urbano: Caja
   capas: CapaDibujo[]
@@ -79,6 +79,13 @@ export default function MapaInundaciones({ recuadro, urbano, capas, vias, afecta
   referencias: ReferenciaDibujo[]
   /** Las defensas contra el río, en `[lng, lat]` */
   defensas: ReferenciaDibujo[]
+  /**
+   * Un contorno `[lng, lat]` donde no se dibuja el agua del río (las capas
+   * `union`): el recinto defendido. `null`, sin recorte
+   */
+  recorte: [number, number][] | null
+  /** La parte supuesta del contorno del recinto, a rayas. `[lng, lat]` */
+  cierre: [number, number][] | null
   /** Qué capas del escenario hay en un punto. Lo contesta el panel */
   leer: (lat: number, lng: number) => string[]
 }) {
@@ -152,10 +159,12 @@ export default function MapaInundaciones({ recuadro, urbano, capas, vias, afecta
     let vivo = true
     import('leaflet').then(({ default: L }) => {
       if (!vivo) return
+      // Las capas del río comparten un lienzo, para que el recorte del recinto las borre a todas
+      const lienzoUnion = L.canvas({ pane: 'inuUnion' })
       for (const c of [...capas].sort((a, b) => a.orden - b.orden)) {
         // GeoJSON viene en [lng, lat] y Leaflet quiere [lat, lng]
         const ll = c.coords.map(pol => pol.map(an => an.map(([x, y]) => [y, x] as [number, number])))
-        const pane = c.union ? 'inuUnion' : c.orden < 10 ? 'inuBase' : 'inuAgua', renderer = L.canvas({ pane })
+        const pane = c.union ? 'inuUnion' : c.orden < 10 ? 'inuBase' : 'inuAgua', renderer = c.union ? lienzoUnion : L.canvas({ pane })
         // Debajo de un borde a rayas va uno claro y lleno: las rayas oscuras solas se pierden sobre el satélite
         if (c.rayas) dibujadas.push(L.polygon(ll, { pane, renderer, color: '#fff', weight: c.trazo + 2, opacity: 0.75, fill: false, interactive: false, smoothFactor: 1.5 }).addTo(map))
         dibujadas.push(L.polygon(ll, {
@@ -172,9 +181,27 @@ export default function MapaInundaciones({ recuadro, urbano, capas, vias, afecta
           }
         }
       }
+      // El recorte va último en el lienzo del río y borra lo que quedó debajo.
+      // Leaflet redibuja en el orden en que se agregaron las capas, y este
+      // efecto las vuelve a agregar todas cuando algo cambia: sigue último.
+      if (recorte && capas.some(c => c.union)) {
+        const Borrador = L.Polygon.extend({
+          _updatePath(this: { _renderer: { _ctx?: CanvasRenderingContext2D; _updatePoly(capa: unknown, cerrado: boolean): void } }) {
+            const ctx = this._renderer._ctx
+            if (!ctx) return
+            ctx.save()
+            ctx.globalCompositeOperation = 'destination-out'
+            this._renderer._updatePoly(this, true)
+            ctx.restore()
+          },
+        }) as unknown as new (ll: [number, number][], o: import('leaflet').PolylineOptions) => import('leaflet').Polygon
+        dibujadas.push(new Borrador(recorte.map(([x, y]) => [y, x] as [number, number]), {
+          pane: 'inuUnion', renderer: lienzoUnion, stroke: false, fill: true, fillColor: '#000', fillOpacity: 1, interactive: false,
+        }).addTo(map))
+      }
     })
     return () => { vivo = false; dibujadas.forEach(d => d.remove()) }
-  }, [mapaListo, capas])
+  }, [mapaListo, capas, recorte])
 
   // ── Caminos, pedazos afectados y obras ──
   useEffect(() => {
@@ -206,6 +233,12 @@ export default function MapaInundaciones({ recuadro, urbano, capas, vias, afecta
         dibujadas.push(L.polyline(ll, { pane: 'inuVias', renderer: lienzo, color: '#111', weight: 8, opacity: 0.8, interactive: false }).addTo(map))
         dibujadas.push(L.polyline(ll, { pane: 'inuVias', renderer: lienzo, color: C_DEFENSA, weight: 4.5, opacity: 1, interactive: false }).addTo(map))
       }
+      // El tramo supuesto del recinto: mismo color, a rayas y más fino
+      if (cierre) {
+        const ll = cierre.map(([x, y]) => [y, x] as [number, number])
+        dibujadas.push(L.polyline(ll, { pane: 'inuVias', renderer: lienzo, color: '#111', weight: 5, opacity: 0.6, interactive: false }).addTo(map))
+        dibujadas.push(L.polyline(ll, { pane: 'inuVias', renderer: lienzo, color: C_DEFENSA, weight: 2.5, opacity: 1, dashArray: '8 6', interactive: false }).addTo(map))
+      }
       if (afectadas.length) {
         dibujadas.push(L.polyline(afectadas, { pane: 'inuAfectadas', renderer: lienzoAf, color: '#fff', weight: 6, opacity: 0.9, interactive: false }).addTo(map))
         dibujadas.push(L.polyline(afectadas, { pane: 'inuAfectadas', renderer: lienzoAf, color: '#E53935', weight: 3.5, opacity: 1, interactive: false }).addTo(map))
@@ -224,7 +257,7 @@ export default function MapaInundaciones({ recuadro, urbano, capas, vias, afecta
       }
     })
     return () => { vivo = false; dibujadas.forEach(d => d.remove()) }
-  }, [mapaListo, vias, afectadas, obras, referencias, defensas])
+  }, [mapaListo, vias, afectadas, obras, referencias, defensas, cierre])
 
   return (
     <div style={{ position: 'relative', height: '100%', minHeight: 360, background: '#0e0e0e' }}>
@@ -274,6 +307,12 @@ export default function MapaInundaciones({ recuadro, urbano, capas, vias, afecta
             <span>{d.nombre}</span>
           </div>
         ))}
+        {cierre && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+            <span style={{ width: 14, height: 0, flexShrink: 0, borderTop: `2px dashed ${C_DEFENSA}` }} />
+            <span>Cierre supuesto hasta la RN 11</span>
+          </div>
+        )}
         {referencias.map(ref => (
           <div key={ref.nombre} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
             <span style={{ width: 14, height: 0, flexShrink: 0, borderTop: `2px dashed ${C_REFERENCIA}` }} />

@@ -32,6 +32,7 @@ import type { Pronostico } from '@/lib/pronostico'
 import { laminaPorCorrida, ventana, probSuperar } from '@/lib/pronostico'
 import {
   BARRANQUERAS, cotaMop, enEscala, escenarioRio, aguaDelRio, informesHasta, IndicePoligonos, ladoDeDefensa,
+  fueraDe, techoDelRecinto,
   rutasDelRecuadro, caminosDelRecuadro, viaContra, resumirVias, nodosDelRecuadro,
   type IndiceInundaciones, type CapaInundacion, type MultiPoligono, type ClaseVia,
 } from '@/lib/inundaciones'
@@ -243,10 +244,23 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
     return [capa, { id: `${c.id}-sin-imagen`, coords: ciego, ...ESTILO_CIEGO, titulo: `Sin imagen el ${c.titulo.slice(0, 10)}`, rotulo: `Sin imagen el ${c.titulo.slice(0, 10)}` }]
   }), [activas, geo, idParcial, parcialM, completaM])
 
+  // ── El recinto defendido ──
+  // Con la defensa en pie, el agua del río no entra al recinto hasta que el río
+  // pasa el coronamiento. Las otras capas —lluvia, río con lluvia, defensa
+  // rota— sí van adentro: son agua que no vino por arriba del terraplén.
+  const recinto = indice?.recintos?.[0]
+  const recintoIdx = useMemo(() => recinto ? new IndicePoligonos([[recinto.anillo]]) : null, [recinto])
+  const techo = recinto ? techoDelRecinto(recinto, indice?.defensas) : null
+  /** El recinto recorta el agua del río. Sin cota conocida se lo toma en pie */
+  const defendido = !!recintoIdx && (techo === null || h < techo)
+
   /** Las capas de agua del escenario (sin el fondo), con su índice ya armado */
   const agua = useMemo(
-    () => activas.filter(c => c.grupo !== 'base' && geo[c.id]).map(c => ({ capa: c, indice: geo[c.id].indice })),
-    [activas, geo])
+    () => activas.filter(c => c.grupo !== 'base' && geo[c.id]).map(c => ({
+      capa: c,
+      indice: defendido && recintoIdx && esDelRio(c) ? fueraDe(geo[c.id].indice, recintoIdx) : geo[c.id].indice,
+    })),
+    [activas, geo, defendido, recintoIdx])
 
   const vias = useMemo(
     () => indice ? [...rutas, ...caminosDelRecuadro(tramos, indice.recuadro)] : [],
@@ -282,8 +296,13 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
   const leer = useCallback((lat: number, lng: number) => {
     const out: string[] = []
     // Del río, la imagen más baja que tiene agua ahí: desde qué altura se la vio
-    const primera = delRio.find(c => geo[c.id]?.indice.contiene(lat, lng))
-    if (primera) {
+    const adentro = defendido && !!recintoIdx?.contiene(lat, lng)
+    const primera = adentro ? undefined : delRio.find(c => geo[c.id]?.indice.contiene(lat, lng))
+    if (adentro && techo !== null) {
+      out.push(`dentro del recinto defendido: el río no entra hasta ${f2(techo)} m`)
+    } else if (adentro) {
+      out.push('dentro del recinto defendido')
+    } else if (primera) {
       out.push(primera.grupo === 'rio' ? `agua con el río hasta ${primera.alturaM} m`
         : `agua con el río en ${f2(primera.alturaM!)} m · imagen del ${primera.titulo}`)
     } else if (ciegoParcial?.contiene(lat, lng) && parcialM !== undefined) {
@@ -297,7 +316,7 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
       if (l) out.push(`${l.lado === 'rio' ? 'del lado del río' : 'del lado de la ciudad'} de la defensa, a ${l.km < 1 ? `${Math.round(l.km * 1000)} m` : `${f1(l.km)} km`}`)
     }
     return out
-  }, [delRio, geo, agua, urbanoIdx, ciegoParcial, parcialM, completaM, defensas])
+  }, [delRio, geo, agua, urbanoIdx, ciegoParcial, parcialM, completaM, defensas, defendido, recintoIdx, techo])
 
   // ── Qué tan seguido llega el río a esa altura ──
   const registro = useMemo(() => {
@@ -350,9 +369,11 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
 
   /** Lo que queda bajo agua: el mayor de cada columna entre las capas dibujadas. Se pisan, así que no se suman */
   const bajoAgua = useMemo(() => {
-    const mayor = (k: 'km2' | 'urbanoKm2' | 'construidoKm2') => delRio.reduce((a, c) => Math.max(a, c[k] ?? 0), 0)
+    // Con la defensa en pie, lo que la capa tiene dentro del recinto no cuenta
+    const mayor = (k: 'km2' | 'urbanoKm2' | 'construidoKm2') => delRio.reduce((a, c) =>
+      Math.max(a, Math.max(0, (c[k] ?? 0) - (defendido ? c.enRecinto?.[k] ?? 0 : 0))), 0)
     return { km2: mayor('km2'), urbano: mayor('urbanoKm2'), construido: mayor('construidoKm2') }
-  }, [delRio])
+  }, [delRio, defendido])
   const imagenes = delRio.filter(c => c.grupo === 'observada')
   const masAlta = imagenes[imagenes.length - 1]
 
@@ -397,7 +418,8 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', background: '#191919', border: '1px solid #1e1e1e' }}>
         <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
           <MapaInundaciones recuadro={indice.recuadro} urbano={indice.urbano}
-            capas={dibujo} vias={lineas} afectadas={cruce.partes} obras={puntos} referencias={referencias} defensas={defensas} leer={leer} />
+            capas={dibujo} vias={lineas} afectadas={cruce.partes} obras={puntos} referencias={referencias} defensas={defensas}
+            recorte={defendido && recinto ? recinto.anillo : null} cierre={recinto && verDefensa ? recinto.cierre : null} leer={leer} />
         </div>
 
         {/* ── El control: la altura del río ── */}
@@ -440,6 +462,7 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
 
           <div style={{ ...texto, marginTop: 10 }}>
             <b style={{ color: C_RIO }}>Celeste:</b>{' '}
+            {defendido && <>fuera del recinto defendido, </>}
             {masAlta ? (<>
               donde se vio agua desde un satélite con el río a esta altura o más bajo. Son {imagenes.length}{' '}
               {imagenes.length === 1 ? 'imagen' : 'imágenes'} de crecidas; la más alta, del {masAlta.titulo}, con el río en {f2(masAlta.alturaM!)} m.
@@ -457,6 +480,11 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
                   <br />Coronamiento en cota MOP {f2(d.coronamientoMop)}, que es <b style={{ color: '#fff' }}>{f2(enEscala(d.coronamientoMop))} m</b> en
                   la escala de Barranqueras: con el río en {f2(h)} m le quedan <b style={{ color: '#fff' }}>{f2(enEscala(d.coronamientoMop) - h)} m</b>.
                   <span style={{ color: '#8f8f8f' }}> Es la cota de Puerto Vilelas tomada para toda la traza: un punto bajo del terraplén tendría menos. Con viento hay ola, y con el río alto el terraplén puede fallar sin desbordar.</span>
+                </>)}
+                {recinto && d.id === recinto.defensa && (<>
+                  <br />Con la RN 11 al oeste encierra el recinto defendido ({Math.round(recinto.areaKm2)} km²): adentro no se dibuja el agua del río.
+                  <span style={{ color: '#8f8f8f' }}> Entre la punta sur de la defensa y la RN 11 no hay traza: los {f1(recinto.cierreKm)} km a rayas son una recta supuesta.
+                  El agua que se ve adentro es de lluvia o de una defensa rota, en «Otros eventos».</span>
                 </>)}</span>
             </label>
           ))}
@@ -477,8 +505,8 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
           )}
           {masAlta?.epoca && (
             <div style={aviso}><b>Sobre 7,3 m las imágenes son de {masAlta.epoca}.</b> Muestran dónde llegó el agua con una ciudad de la mitad del tamaño y sin el anillo de defensas terminado.
-              {(indice.defensas?.length ?? 0) > 0
-                ? <> Del lado de la ciudad de la defensa (color tierra) no dicen qué pasaría hoy; del lado del río, sí.</>
+              {defendido
+                ? <> Lo que vieron dentro del recinto no se dibuja: con la defensa en pie el río no entra. Para ver qué pasa si una defensa falla, está la mancha de 1982 en «Otros eventos».</>
                 : <> Dentro del recinto no dicen qué pasaría hoy; fuera, sí.</>}</div>
           )}
           {informes.map(i => (

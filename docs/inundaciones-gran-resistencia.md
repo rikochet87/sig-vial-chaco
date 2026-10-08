@@ -196,8 +196,10 @@ más; naranja, 6 a 9; amarillo, 3 a 5. El recuadro amarillo es el urbano.
   Sirve para la mancha, no para decir si una manzana se mojó.
 - **El recuadro urbano es un rectángulo**, no el recinto defendido. Desde el
   08/10/2026 está la traza de la defensa del Área Metropolitana
-  (`defensa-amgr.kml`, 31,5 km), pero es una línea abierta: dice de qué lado
-  queda un punto cercano, no qué superficie quedó adentro.
+  (`defensa-amgr.kml`, 31,5 km), y con la RN 11 como cierre oeste y una
+  recta supuesta de 7,9 km al sur arma el recinto (`recinto-amgr.geojson`,
+  113 km²). La pantalla no dibuja el agua del río adentro mientras el río no
+  pase el coronamiento.
 
 ## Segunda pasada: toda la serie, Sentinel-2 y el control externo
 

@@ -955,8 +955,28 @@ Desde el 08/10/2026.
   cuánto le queda al río a la altura elegida. Un punto bajo del terraplén
   tendría menos: si aparece un relevamiento del coronamiento, va en
   `DEFENSAS` del script.
-- Con la traza a la vista, el aviso de las imágenes de 1983 dice «del lado de
-  la ciudad de la defensa» en vez de «dentro del recinto».
+- **El recinto defendido** (`docs/geo/inundaciones/recinto-amgr.geojson`,
+  113 km²): la defensa por el este y el sur, **la RN 11 por el oeste** —que
+  actúa como defensa, por indicación del usuario— y **7,9 km de recta
+  supuesta** entre la punta sur de la defensa y la RN 11, en la dirección en
+  que viene el último tramo. La arma `scripts/inundaciones/recinto-amgr.mjs`
+  (Node puro) desde el KML y `geo_rn.json`; el cierre va aparte (`cierre`) y
+  se dibuja a rayas. Si aparece la traza real del sur, va en el KML y se
+  vuelve a correr.
+- **Con el río bajo el coronamiento, dentro del recinto no se dibuja el agua
+  del río**, de ninguna imagen, 1983 incluida. Es lo que pidió el usuario: el
+  agua no debería aparecer adentro. **Las otras capas sí** —lluvia, río con
+  lluvia, la defensa rota de 1982—: no entraron por arriba del terraplén.
+  Tres lugares lo aplican y tienen que coincidir:
+  - el dibujo: un polígono «borrador» (`destination-out`) último en el lienzo
+    compartido de las capas `union`. Leaflet redibuja en orden de alta y el
+    efecto vuelve a dar de alta todo cuando cambia algo, así que sigue último;
+  - lo que pregunta punto por punto —cruces con caminos, obras, lectura bajo
+    el cursor— con `fueraDe(capa, recinto)`;
+  - las tres cifras de arriba, restando `enRecinto` de cada capa, que el build
+    mide sobre una grilla de 30 m fuera del agua permanente.
+  **La mancha de 1983 tiene 23,5 km² adentro**; las demás, menos de 2.
+
 - **«Qué viene río arriba»** (`components/inundaciones/RioArriba.tsx`): las
   nueve escalas de `/api/rio/arriba`, con el cambio en siete días y cuántos
   días antes que por Barranqueras pasa el pico (`anticipaciones()`), y una
