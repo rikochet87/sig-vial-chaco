@@ -35,6 +35,7 @@ const ciegas = new Map(todasLandsat.filter(f => f.properties.capa === 'sin image
 const canal16 = leer('canal-16.geojson')
 const s2 = leer('manchas-sentinel2.geojson').features
 const resumen = leer('capas-resumen.json')
+const aoiR = resumen._recuadro.aoi
 
 const buscar = (lista, cond, que) => {
   const f = lista.find(x => Object.entries(cond).every(([k, v]) => x.properties[k] === v))
@@ -143,6 +144,46 @@ const DEFENSAS = [
     coronamientoMop: 53.5, coronamientoNota: 'Cota MOP medida en Puerto Vilelas, tomada para toda la traza',
     lineas: desdeKml('defensa-amgr.kml') },
 ].map(d => ({ ...d, km: Math.round(largoKm(d.lineas) * 10) / 10 }))
+
+/**
+ * Tramos de ruta que van elevados y el agua no corta: el puente General
+ * Belgrano y su acceso, la RN 16 desde donde cruza la defensa hasta el final
+ * del archivo, del lado de Corrientes. Lo pidió el usuario el 08/10/2026: el
+ * acceso va en terraplén alto y el puente, sobre pilas. Sin esto, cada mancha
+ * de las islas lo pintaba cortado.
+ *
+ * La caja sale del cruce de la RN 16 con la traza de la defensa, no está
+ * escrita a mano. Se aplica sólo a la ruta nombrada: otro camino que pase por
+ * la misma caja se sigue midiendo.
+ */
+const cruceSeg = (a, b, c, d) => {
+  const den = (a[0] - b[0]) * (c[1] - d[1]) - (a[1] - b[1]) * (c[0] - d[0])
+  if (!den) return null
+  const t = ((a[0] - c[0]) * (c[1] - d[1]) - (a[1] - c[1]) * (c[0] - d[0])) / den
+  const u = -((a[0] - b[0]) * (a[1] - c[1]) - (a[1] - b[1]) * (a[0] - c[0])) / den
+  return t >= 0 && t <= 1 && u >= 0 && u <= 1 ? [a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])] : null
+}
+const rnTodas = JSON.parse(readFileSync(join(AQUI, '..', 'public', 'geo', 'geo_rn.json'), 'utf8'))
+const lineasRn16 = rnTodas.features.filter(f => String(f.properties.Numero) === '16').flatMap(f =>
+  f.geometry.type === 'MultiLineString' ? f.geometry.coordinates : [f.geometry.coordinates])
+const cruces16 = []
+for (const l of lineasRn16) for (let i = 0; i + 1 < l.length; i++) for (const d of DEFENSAS[0].lineas) for (let j = 0; j + 1 < d.length; j++) {
+  const q = cruceSeg(l[i], l[i + 1], d[j], d[j + 1])
+  if (q) cruces16.push(q)
+}
+if (!cruces16.length) throw new Error('La RN 16 no cruza la defensa: no se puede ubicar el acceso al puente')
+// Las dos calzadas cruzan a pocos metros; desde la más al oeste hacia el río
+const oeste16 = Math.min(...cruces16.map(q => q[0])) - 0.0005
+const delRio16 = lineasRn16.flat().filter(p => p[0] >= oeste16 && p[1] <= aoiR.norte && p[1] >= aoiR.sur)
+const ELEVADAS = [{
+  id: 'puente-belgrano', nombre: 'Puente General Belgrano y su acceso', via: 'RN 16',
+  nota: 'Del cruce con la defensa hacia Corrientes: terraplén alto y puente. El agua no lo corta.',
+  caja: {
+    oeste: Math.round(oeste16 * 1e5) / 1e5, este: aoiR.este,
+    sur: Math.round((Math.min(...delRio16.map(p => p[1])) - 0.002) * 1e5) / 1e5,
+    norte: Math.round((Math.max(...delRio16.map(p => p[1])) + 0.002) * 1e5) / 1e5,
+  },
+}]
 
 /**
  * Lo que se sabe que pasó y ninguna imagen muestra.
@@ -307,6 +348,7 @@ writeFileSync(join(DESTINO, 'indice.json'), JSON.stringify({
   defensas: DEFENSAS,
   recintos: [RECINTO],
   valle: VALLE,
+  elevadas: ELEVADAS,
   informes: INFORMES,
 }, null, 1))
 console.log('capas', indice.length, '· total', (total / 1048576).toFixed(1), 'MB')

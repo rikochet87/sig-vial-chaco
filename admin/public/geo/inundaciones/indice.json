@@ -6580,6 +6580,20 @@
   ],
   "enRecuadroKm2": 87.74
  },
+ "elevadas": [
+  {
+   "id": "puente-belgrano",
+   "nombre": "Puente General Belgrano y su acceso",
+   "via": "RN 16",
+   "nota": "Del cruce con la defensa hacia Corrientes: terraplén alto y puente. El agua no lo corta.",
+   "caja": {
+    "oeste": -58.89384,
+    "este": -58.78,
+    "sur": -27.47688,
+    "norte": -27.43823
+   }
+  }
+ ],
  "informes": [
   {
    "id": "canal-16-1998",

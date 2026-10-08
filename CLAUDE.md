@@ -1130,6 +1130,14 @@ Cosas que no son obvias:
   puente a Corrientes salía en rojo porque cruza el Paraná, que está en todas
   las manchas. `viaContra` toma el agua permanente como excepción. Se vio en
   la pantalla, no en el test.
+- **El puente General Belgrano y su acceso no se cortan** (`elevadas` del
+  índice, `elevadosDe()`): la RN 16 desde donde cruza la defensa hasta
+  Corrientes va en terraplén alto y sobre pilas, por indicación del usuario
+  (08/10/2026). Con sólo la excepción del agua permanente, cada mancha de las
+  islas lo pintaba cortado. La caja la calcula el build desde el cruce de la
+  RN 16 con la traza de la defensa, y se aplica sólo a la RN 16: otro camino
+  en la misma caja se sigue midiendo. El test lo afirma con la mancha de 1983,
+  que sin la excepción mete 5 km del acceso adentro.
 - **Que un tramo caiga adentro no quiere decir que se corte.** La mancha no ve
   terraplenes. La pantalla lo dice: es la lista de dónde mirar.
 - **`IndicePoligonos` es una grilla de 30 m, no punto en polígono.** Se pinta

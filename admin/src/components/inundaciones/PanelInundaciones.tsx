@@ -32,7 +32,7 @@ import type { Pronostico } from '@/lib/pronostico'
 import { laminaPorCorrida, ventana, probSuperar } from '@/lib/pronostico'
 import {
   BARRANQUERAS, cotaMop, enEscala, escenarioRio, aguaDelRio, informesHasta, IndicePoligonos, ladoDeDefensa,
-  fueraDe, techoDelRecinto, alSurDe,
+  fueraDe, techoDelRecinto, alSurDe, elevadosDe,
   rutasDelRecuadro, caminosDelRecuadro, viaContra, resumirVias, nodosDelRecuadro,
   type IndiceInundaciones, type CapaInundacion, type MultiPoligono, type ClaseVia,
 } from '@/lib/inundaciones'
@@ -275,9 +275,11 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
   const cruce = useMemo(() => {
     const idx = agua.map(a => a.indice)
     // Lo que va sobre agua permanente es un puente, no un camino inundado
-    const afectadas = vias.map(v => viaContra(v, idx, permanente ? [permanente] : []))
+    // Ni lo que va sobre el puente o su acceso elevado
+    const elevadas = indice?.elevadas
+    const afectadas = vias.map(v => viaContra(v, idx, [...(permanente ? [permanente] : []), ...elevadosDe(v, elevadas)]))
     return { resumen: resumirVias(afectadas), partes: afectadas.flatMap(a => a.partes) }
-  }, [vias, agua, permanente])
+  }, [vias, agua, permanente, indice])
 
   const lineas: LineaDibujo[] = useMemo(
     () => vias.map(v => ({ puntos: v.puntos, ...COLOR_VIA[v.clase] })), [vias])
@@ -639,6 +641,7 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
           <div style={{ ...texto, fontSize: 11, color: '#8f8f8f' }}>
             En rojo en el mapa. Que un tramo caiga adentro no quiere decir que se corte: la mancha no ve terraplenes.
             Es la lista de dónde mirar.
+            {(indice.elevadas ?? []).map(e => <> No cuenta el {e.nombre.charAt(0).toLowerCase() + e.nombre.slice(1)} ({e.via}): va elevado y el agua no lo corta.</>)}
             {tramos.length === 0 && ' Los caminos de consorcio todavía están cargando.'}
           </div>
           {obras !== null && obrasAca.length > 0 && (

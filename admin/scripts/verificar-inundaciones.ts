@@ -15,7 +15,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   ladoDeDefensa, LADO_DEFENSA_KM, enEscala, fueraDe, techoDelRecinto, alSurDe,
-  escenarioRio, aguaDelRio, informesHasta, VISTO_MINIMO_PCT, IndicePoligonos, recortar, viaContra, resumirVias, rutasDelRecuadro,
+  elevadosDe, escenarioRio, aguaDelRio, informesHasta, VISTO_MINIMO_PCT, IndicePoligonos, recortar, viaContra, resumirVias, rutasDelRecuadro,
   nodosDelRecuadro, cotaMop, distKm, TECHO_ZONAS_M,
   type IndiceInundaciones, type MultiPoligono, type Via,
 } from '../src/lib/inundaciones'
@@ -467,6 +467,27 @@ ok('los nombres van sin ceros a la izquierda', [...nombres].every(n => !/ 0\d/.t
 ok('ninguna traza sale del recuadro', rutas.every(v => v.puntos.every(p =>
   p[0] >= indice.recuadro.sur && p[0] <= indice.recuadro.norte && p[1] >= indice.recuadro.oeste && p[1] <= indice.recuadro.este)))
 info(`${rutas.length} pedazos · ${[...nombres].sort().join(', ')}`)
+
+// El puente General Belgrano y su acceso no se cortan, ni con la mancha más alta
+const puente = indice.elevadas?.find(e => e.id === 'puente-belgrano')
+ok('el puente y su acceso están en el índice', !!puente && puente.via === 'RN 16')
+if (puente) {
+  const m83 = new IndicePoligonos(capa('obs-1983-06-20'))
+  const rn16 = rutas.filter(v => v.nombre === 'RN 16')
+  // Sólo lo que cae en la caja: del lado de la ciudad la RN 16 se sigue midiendo
+  const delRio = rn16.flatMap(v => recortar(v.puntos, puente.caja).map(puntos => ({ ...v, puntos })))
+  const sinExcepcion = delRio.reduce((s, v) => s + viaContra(v, [m83]).kmDentro, 0)
+  const conExcepcion = delRio.reduce((s, v) => s + viaContra(v, [m83], elevadosDe(v, indice.elevadas)).kmDentro, 0)
+  ok('con la mancha de 1983 el acceso al puente caía adentro', sinExcepcion > 1)
+  ok('y con la excepción, nada', conExcepcion, 0)
+  info(`RN 16 del lado del río: ${sinExcepcion.toFixed(1)} km dentro de la mancha de 1983 sin la excepción`)
+  // El borde oeste es el cruce con la defensa: del lado de la ciudad la RN 16 se sigue midiendo
+  ok('el borde oeste está a menos de 200 m de la traza de la defensa', !!defensa && defensa.lineas[0].some(([x, y]) =>
+    Math.hypot((x - puente.caja.oeste) * 98.8, (y - (puente.caja.sur + puente.caja.norte) / 2) * 110.57) < 3)
+    && ladoDeDefensa(defensa!.lineas, (puente.caja.sur + puente.caja.norte) / 2, puente.caja.oeste - 0.01) !== null)
+  const otra = { ...rn16[0], nombre: 'RP 1' }
+  ok('a otra ruta no se le aplica', elevadosDe(otra, indice.elevadas).length, 0)
+}
 
 // La grilla del pronóstico, de 0,25°: sobre el recuadro caen dos o tres nodos
 const grilla: { lat: number; lng: number }[] = []

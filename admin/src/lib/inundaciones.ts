@@ -160,6 +160,26 @@ export interface ValleInundacion {
   poligonos: MultiPoligono
 }
 
+/**
+ * Un tramo de ruta que va elevado y el agua no corta, como el puente General
+ * Belgrano y su acceso. Se aplica sólo a la ruta `via` dentro de `caja`.
+ */
+export interface TramoElevado {
+  id: string
+  nombre: string
+  /** El nombre de la vía como lo arma `rutasDelRecuadro`, p. ej. «RN 16» */
+  via: string
+  nota: string
+  caja: Caja
+}
+
+/** Lo que no cuenta como camino inundado para una vía: lo elevado de esa ruta */
+export function elevadosDe(via: Via, elevadas: TramoElevado[] | undefined): Contenedor[] {
+  return (elevadas ?? []).filter(e => e.via === via.nombre).map(({ caja: c }) => ({
+    contiene: (lat: number, lng: number) => lat >= c.sur && lat <= c.norte && lng >= c.oeste && lng <= c.este,
+  }))
+}
+
 /** Algo que se informó y ninguna imagen muestra */
 export interface InformeInundacion {
   id: string
@@ -184,6 +204,7 @@ export interface IndiceInundaciones {
   defensas?: DefensaInundacion[]
   recintos?: RecintoInundacion[]
   valle?: ValleInundacion
+  elevadas?: TramoElevado[]
   informes?: InformeInundacion[]
 }
 
