@@ -57,6 +57,14 @@ const C_REFERENCIA = '#f2f2f2'
  * el río de la ciudad.
  */
 const C_DEFENSA = '#c9955a'
+/**
+ * El corte del área defendida donde no hay defensa (la Av. Soberanía
+ * Nacional): gris claro a rayas cortas. No va en color tierra porque no es un
+ * terraplén, ni en blanco como las referencias.
+ */
+const C_CORTE = '#b0b0b0'
+/** El valle de inundación del Paraná: el violeta de las cuencas en el mapa de lluvia */
+const C_VALLE = '#9C4DCC'
 
 /** Centro de gravedad de un anillo en `[lng, lat]`, y su área en grados² */
 function centroDe(an: [number, number][]) {
@@ -68,7 +76,7 @@ function centroDe(an: [number, number][]) {
   return a ? { lng: x / (3 * a), lat: y / (3 * a), area: Math.abs(a / 2) } : null
 }
 
-export default function MapaInundaciones({ recuadro, urbano, capas, vias, afectadas, obras, referencias, defensas, recorte, cierre, leer }: {
+export default function MapaInundaciones({ recuadro, urbano, capas, vias, afectadas, obras, referencias, defensas, recorte, corte, valle, leer }: {
   recuadro: Caja
   urbano: Caja
   capas: CapaDibujo[]
@@ -84,8 +92,10 @@ export default function MapaInundaciones({ recuadro, urbano, capas, vias, afecta
    * `union`): el recinto defendido. `null`, sin recorte
    */
   recorte: [number, number][] | null
-  /** La parte supuesta del contorno del recinto, a rayas. `[lng, lat]` */
-  cierre: [number, number][] | null
+  /** La parte del contorno del área defendida que no es defensa, a rayas. `[lng, lat]` */
+  corte: { nombre: string; linea: [number, number][] } | null
+  /** El valle de inundación del Paraná, como contorno. `null`, apagado */
+  valle: { nombre: string; poligonos: [number, number][][][] } | null
   /** Qué capas del escenario hay en un punto. Lo contesta el panel */
   leer: (lat: number, lng: number) => string[]
 }) {
@@ -222,6 +232,13 @@ export default function MapaInundaciones({ recuadro, urbano, capas, vias, afecta
         g.lineas.push(v.puntos)
         porEstilo.set(k, g)
       }
+      // El valle de inundación: sólo el contorno, encima del agua y debajo de
+      // los caminos. Un relleno taparía el agua, que es lo que se mira adentro
+      if (valle) {
+        const ll = valle.poligonos.map(pol => pol.map(an => an.map(([x, y]) => [y, x] as [number, number])))
+        dibujadas.push(L.polygon(ll, { pane: 'inuVias', renderer: lienzo, color: '#fff', weight: 4, opacity: 0.6, fill: false, interactive: false }).addTo(map))
+        dibujadas.push(L.polygon(ll, { pane: 'inuVias', renderer: lienzo, color: C_VALLE, weight: 2, opacity: 1, fill: false, interactive: false }).addTo(map))
+      }
       // Doble trazo, como la red de fondo: una línea de un solo color se pierde contra uno de los dos mapas base
       for (const g of porEstilo.values()) {
         dibujadas.push(L.polyline(g.lineas, { pane: 'inuVias', renderer: lienzo, color: '#111', weight: g.grosor + 2, opacity: 0.55, interactive: false }).addTo(map))
@@ -233,11 +250,11 @@ export default function MapaInundaciones({ recuadro, urbano, capas, vias, afecta
         dibujadas.push(L.polyline(ll, { pane: 'inuVias', renderer: lienzo, color: '#111', weight: 8, opacity: 0.8, interactive: false }).addTo(map))
         dibujadas.push(L.polyline(ll, { pane: 'inuVias', renderer: lienzo, color: C_DEFENSA, weight: 4.5, opacity: 1, interactive: false }).addTo(map))
       }
-      // El tramo supuesto del recinto: mismo color, a rayas y más fino
-      if (cierre) {
-        const ll = cierre.map(([x, y]) => [y, x] as [number, number])
+      // Donde el área defendida no tiene defensa: a rayas cortas, no en color tierra
+      if (corte) {
+        const ll = corte.linea.map(([x, y]) => [y, x] as [number, number])
         dibujadas.push(L.polyline(ll, { pane: 'inuVias', renderer: lienzo, color: '#111', weight: 5, opacity: 0.6, interactive: false }).addTo(map))
-        dibujadas.push(L.polyline(ll, { pane: 'inuVias', renderer: lienzo, color: C_DEFENSA, weight: 2.5, opacity: 1, dashArray: '8 6', interactive: false }).addTo(map))
+        dibujadas.push(L.polyline(ll, { pane: 'inuVias', renderer: lienzo, color: C_CORTE, weight: 2.5, opacity: 1, dashArray: '4 5', interactive: false }).addTo(map))
       }
       if (afectadas.length) {
         dibujadas.push(L.polyline(afectadas, { pane: 'inuAfectadas', renderer: lienzoAf, color: '#fff', weight: 6, opacity: 0.9, interactive: false }).addTo(map))
@@ -257,7 +274,7 @@ export default function MapaInundaciones({ recuadro, urbano, capas, vias, afecta
       }
     })
     return () => { vivo = false; dibujadas.forEach(d => d.remove()) }
-  }, [mapaListo, vias, afectadas, obras, referencias, defensas, cierre])
+  }, [mapaListo, vias, afectadas, obras, referencias, defensas, corte, valle])
 
   return (
     <div style={{ position: 'relative', height: '100%', minHeight: 360, background: '#0e0e0e' }}>
@@ -307,10 +324,16 @@ export default function MapaInundaciones({ recuadro, urbano, capas, vias, afecta
             <span>{d.nombre}</span>
           </div>
         ))}
-        {cierre && (
+        {corte && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-            <span style={{ width: 14, height: 0, flexShrink: 0, borderTop: `2px dashed ${C_DEFENSA}` }} />
-            <span>Cierre supuesto hasta la RN 11</span>
+            <span style={{ width: 14, height: 0, flexShrink: 0, borderTop: `2px dashed ${C_CORTE}` }} />
+            <span>{corte.nombre}: sin defensa</span>
+          </div>
+        )}
+        {valle && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+            <span style={{ width: 14, height: 10, flexShrink: 0, boxSizing: 'border-box', border: `2px solid ${C_VALLE}` }} />
+            <span>{valle.nombre}</span>
           </div>
         )}
         {referencias.map(ref => (

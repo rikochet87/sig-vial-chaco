@@ -14,7 +14,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
-  ladoDeDefensa, LADO_DEFENSA_KM, enEscala, fueraDe, techoDelRecinto,
+  ladoDeDefensa, LADO_DEFENSA_KM, enEscala, fueraDe, techoDelRecinto, alSurDe,
   escenarioRio, aguaDelRio, informesHasta, VISTO_MINIMO_PCT, IndicePoligonos, recortar, viaContra, resumirVias, rutasDelRecuadro,
   nodosDelRecuadro, cotaMop, distKm, TECHO_ZONAS_M,
   type IndiceInundaciones, type MultiPoligono, type Via,
@@ -380,9 +380,23 @@ if (recinto && defensa) {
   // La defensa entera es parte del contorno, en el mismo orden
   ok('la defensa es el contorno este y sur, vértice por vértice',
     defensa.lineas[0].every((p, i) => p[0] === an[i][0] && p[1] === an[i][1]))
-  ok('el cierre supuesto arranca en la punta sur de la defensa',
-    recinto.cierre[0][0] === defensa.lineas[0].at(-1)![0] && recinto.cierre[0][1] === defensa.lineas[0].at(-1)![1])
-  ok('y mide menos de 10 km', recinto.cierreKm > 0 && recinto.cierreKm < 10)
+  // El anillo no cierra: por el sur se corta en la Av. Soberanía Nacional
+  const kmEntre = (p: [number, number], q: [number, number]) =>
+    Math.hypot((p[0] - q[0]) * 111.32 * Math.cos(27.45 * Math.PI / 180), (p[1] - q[1]) * 110.57)
+  const sur = defensa.lineas[0].at(-1)!
+  ok('el corte arranca a menos de 100 m de la punta sur de la defensa', kmEntre(recinto.corte[0], sur) < 0.1)
+  ok('y va hacia el oeste, hasta la RN 11', recinto.corte.at(-1)![0] < recinto.corte[0][0] - 0.04)
+  ok('mide entre 5 y 10 km', recinto.corteKm > 5 && recinto.corteKm < 10)
+  ok('se llama como la avenida', recinto.corteNombre, 'Av. Soberanía Nacional')
+  ok('el corte es parte del contorno', recinto.corte.slice(1, -1).every(p => an.some(q => q[0] === p[0] && q[1] === p[1])))
+  // El Canal 16 corre al sur de la avenida: es la parte expuesta, y no sale del corte sino de otro trazado de OSM
+  const c16 = indice.referencias?.find(x => x.id === 'canal-16')
+  const r0 = new IndicePoligonos([[an]])
+  ok('ningún punto del Canal 16 cae dentro del recinto', !!c16 && c16.lineas.every(l => l.every(([x, y]) => !r0.contiene(y, x))))
+  ok('y los que están bajo la avenida quedan al sur de ella', !!c16 && c16.lineas.flat()
+    .filter(([x]) => x > recinto.corte.at(-1)![0] && x < recinto.corte[0][0]).every(([x, y]) => alSurDe(recinto.corte, y, x)))
+  ok('la plaza 25 de Mayo no está al sur de la avenida', alSurDe(recinto.corte, -27.4513, -58.9867), false)
+  ok('fuera del tramo que cubre la avenida no se afirma nada', alSurDe(recinto.corte, -27.6, -58.8), false)
   ok('entre 80 y 170 km² (el plan de defensas hablaba de 171)', recinto.areaKm2 > 80 && recinto.areaKm2 < 170)
   const r = new IndicePoligonos([[an]])
   ok('la plaza 25 de Mayo queda adentro', r.contiene(-27.4513, -58.9867))
@@ -412,6 +426,33 @@ if (recinto && defensa) {
     Math.max(...delRio.filter(c => c.id.startsWith('obs-1983')).map(c => c.enRecinto!.km2))
       > 5 * Math.max(...delRio.filter(c => !c.id.startsWith('obs-1983')).map(c => c.enRecinto!.km2)))
   ok('las otras capas no se recortan', indice.capas.filter(c => !delRio.includes(c)).every(c => !c.enRecinto))
+}
+
+titulo('El valle de inundación del Paraná')
+
+const valle = indice.valle
+ok('el valle está en el índice', !!valle)
+if (valle && recinto) {
+  const v = new IndicePoligonos(valle.poligonos)
+  ok('el centro de Resistencia no está en el valle', v.contiene(-27.4513, -58.9867), false)
+  // Su borde norte llega a la punta sur de la defensa: el lugar por donde el anillo no cierra
+  const sur = recinto.corte[0]
+  const cerca1 = valle.poligonos.flat(2).some(([x, y]) => Math.hypot((x - sur[0]) * 98.8, (y - sur[1]) * 110.57) < 2.5)
+  ok('el valle llega a menos de 2,5 km de la punta sur de la defensa', cerca1)
+  ok('mide en el recuadro entre 50 y 150 km²', valle.enRecuadroKm2 > 50 && valle.enRecuadroKm2 < 150)
+
+  const delRio = indice.capas.filter(c => c.grupo === 'rio' || c.grupo === 'observada')
+  ok('cada capa del río dice dónde cae su agua', delRio.every(c => !!c.porZona))
+  ok('lo que cae en el recinto es lo mismo medido en las dos grillas', delRio.every(c =>
+    Math.abs(c.porZona!.recintoKm2 - c.enRecinto!.km2) < 0.1))
+  ok('ninguna capa moja más valle del que hay', delRio.every(c => c.porZona!.valleKm2 <= valle.enRecuadroKm2 + 0.01))
+  // Lo que dice el panel con palabras
+  const pct = (c: typeof delRio[number]) => 100 * c.porZona!.valleKm2 / valle.enRecuadroKm2
+  const enteras = delRio.filter(c => c.vistoPct === undefined || c.vistoPct >= 90)
+  ok('hasta 6 m el río moja menos de una décima parte del valle', enteras.filter(c => c.alturaM! <= 6.6).every(c => pct(c) < 11))
+  ok('en las crecidas vistas con 6,9 m o más, entre la mitad y cuatro quintos', enteras
+    .filter(c => c.grupo === 'observada' && c.alturaM! >= 6.9).every(c => pct(c) >= 45 && pct(c) <= 90))
+  for (const c of enteras) info(`${c.id.padEnd(16)} ${String(c.alturaM).padEnd(5)} valle ${pct(c).toFixed(0).padStart(3)} %  margen ${c.porZona!.chacoKm2.toFixed(0).padStart(4)} km²`)
 }
 
 titulo('Rutas y pronóstico')

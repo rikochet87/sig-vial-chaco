@@ -957,12 +957,26 @@ Desde el 08/10/2026.
   `DEFENSAS` del script.
 - **El recinto defendido** (`docs/geo/inundaciones/recinto-amgr.geojson`,
   113 km²): la defensa por el este y el sur, **la RN 11 por el oeste** —que
-  actúa como defensa, por indicación del usuario— y **7,9 km de recta
-  supuesta** entre la punta sur de la defensa y la RN 11, en la dirección en
-  que viene el último tramo. La arma `scripts/inundaciones/recinto-amgr.mjs`
-  (Node puro) desde el KML y `geo_rn.json`; el cierre va aparte (`cierre`) y
-  se dibuja a rayas. Si aparece la traza real del sur, va en el KML y se
-  vuelve a correr.
+  actúa como defensa, por indicación del usuario— y **la Av. Soberanía
+  Nacional por el sur** (7,5 km, el canal que corre junto a ella, de
+  `soberania-nacional.geojson`, OpenStreetMap), más 0,5 km hasta la RN 11.
+  La arma `scripts/inundaciones/recinto-amgr.mjs` (Node puro). **El anillo no
+  cierra**: la avenida no es una defensa, es el corte que eligió el usuario el
+  08/10/2026 (hasta ese día era una recta supuesta). Va aparte en `corte` y
+  se dibuja en gris a rayas, no en color tierra. **Al sur de la avenida el río
+  entra**: es la parte más expuesta del Gran Resistencia, y la lectura bajo el
+  cursor lo dice (`alSurDe`). El test lo afirma con el Canal 16, que es otro
+  trazado de OSM: ningún punto suyo cae adentro.
+- **El valle de inundación del Paraná** (la cuenca 12 de `geo_cuencas.json`,
+  en `valle` del índice) va como contorno violeta, el de las cuencas en el
+  mapa de lluvia. Su borde norte llega a la punta sur de la defensa. El build
+  mide, por capa del río, dónde cae el agua (`porZona`): en el recinto, en el
+  valle, en el resto de la margen chaqueña (límite provincial del IGN sin
+  simplificar) y del otro lado del cauce. La sección «Por dónde entra el río»
+  muestra qué parte del valle se moja: hasta 6 m menos de una décima; en las
+  crecidas vistas con 6,9 m o más, entre la mitad y cuatro quintos. Esos dos
+  rangos están escritos en la pantalla y el test los afirma. `porZona` suma
+  algo distinto de `km2`: se mide sobre los polígonos, no sobre las grillas.
 - **Con el río bajo el coronamiento, dentro del recinto no se dibuja el agua
   del río**, de ninguna imagen, 1983 incluida. Es lo que pidió el usuario: el
   agua no debería aparecer adentro. **Las otras capas sí** —lluvia, río con

@@ -32,7 +32,7 @@ import type { Pronostico } from '@/lib/pronostico'
 import { laminaPorCorrida, ventana, probSuperar } from '@/lib/pronostico'
 import {
   BARRANQUERAS, cotaMop, enEscala, escenarioRio, aguaDelRio, informesHasta, IndicePoligonos, ladoDeDefensa,
-  fueraDe, techoDelRecinto,
+  fueraDe, techoDelRecinto, alSurDe,
   rutasDelRecuadro, caminosDelRecuadro, viaContra, resumirVias, nodosDelRecuadro,
   type IndiceInundaciones, type CapaInundacion, type MultiPoligono, type ClaseVia,
 } from '@/lib/inundaciones'
@@ -145,6 +145,7 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
   const [conCombinada, setConCombinada] = useState(false)
   const [verUrbano, setVerUrbano] = useState(true)
   const [verDefensa, setVerDefensa] = useState(true)
+  const [verValle, setVerValle] = useState(true)
 
   // ── Lo que se carga una vez ──
   useEffect(() => {
@@ -245,13 +246,18 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
 
   // ── El recinto defendido ──
   // Con la defensa en pie, el agua del río no entra al recinto hasta que el río
-  // pasa el coronamiento. Las otras capas —lluvia, río con lluvia, defensa
+  // pasa el coronamiento. El anillo no cierra: por el sur el recinto se corta
+  // en la Av. Soberanía Nacional, y al sur de ella el río sí entra. Las otras capas —lluvia, río con lluvia, defensa
   // rota— sí van adentro: son agua que no vino por arriba del terraplén.
   const recinto = indice?.recintos?.[0]
   const recintoIdx = useMemo(() => recinto ? new IndicePoligonos([[recinto.anillo]]) : null, [recinto])
   const techo = recinto ? techoDelRecinto(recinto, indice?.defensas) : null
   /** El recinto recorta el agua del río. Sin cota conocida se lo toma en pie */
   const defendido = !!recintoIdx && (techo === null || h < techo)
+
+  // ── El valle de inundación del Paraná ──
+  const valle = indice?.valle
+  const valleIdx = useMemo(() => valle ? new IndicePoligonos(valle.poligonos) : null, [valle])
 
   /** Las capas de agua del escenario (sin el fondo), con su índice ya armado */
   const agua = useMemo(
@@ -307,6 +313,10 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
     } else if (ciegoParcial?.contiene(lat, lng) && parcialM !== undefined) {
       out.push(`sin agua hasta ${f2(completaM ?? 0)} m · la imagen de ${f2(parcialM)} m no cubre este punto`)
     }
+    if (valleIdx?.contiene(lat, lng)) out.push('en el valle de inundación del Paraná')
+    else if (recinto && !recintoIdx?.contiene(lat, lng) && alSurDe(recinto.corte, lat, lng)) {
+      out.push(`al sur de la ${recinto.corteNombre}: sin defensa contra el río`)
+    }
     for (const a of agua) if (!esDelRio(a.capa) && a.indice.contiene(lat, lng)) out.push(`agua del ${a.capa.titulo}`)
     if (urbanoIdx?.contiene(lat, lng)) out.push('construido hoy')
     // Cerca de la traza, de qué lado: lejos el tramo más cercano puede ser el de la otra punta
@@ -315,7 +325,7 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
       if (l) out.push(`${l.lado === 'rio' ? 'del lado del río' : 'del lado de la ciudad'} de la defensa, a ${l.km < 1 ? `${Math.round(l.km * 1000)} m` : `${f1(l.km)} km`}`)
     }
     return out
-  }, [delRio, geo, agua, urbanoIdx, ciegoParcial, parcialM, completaM, defensas, defendido, recintoIdx, techo])
+  }, [delRio, geo, agua, urbanoIdx, ciegoParcial, parcialM, completaM, defensas, defendido, recintoIdx, techo, valleIdx, recinto])
 
   // ── Qué tan seguido llega el río a esa altura ──
   const registro = useMemo(() => {
@@ -374,6 +384,23 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
     return { km2: mayor('km2'), urbano: mayor('urbanoKm2'), construido: mayor('construidoKm2') }
   }, [delRio, defendido])
   const imagenes = delRio.filter(c => c.grupo === 'observada')
+
+  /** Las capas del río que ven todo el recuadro, de la más baja a la más alta, con qué parte del valle mojan */
+  const porAltura = useMemo(() => {
+    const total = indice?.valle?.enRecuadroKm2
+    if (!total || !indice) return []
+    return indice.capas.filter(c => c.porZona && c.alturaM !== undefined && (c.vistoPct === undefined || c.vistoPct >= 90))
+      .sort((a, b) => a.alturaM! - b.alturaM!)
+      .map(c => ({ ...c, pct: 100 * c.porZona!.valleKm2 / total }))
+  }, [indice])
+  /** Con lo dibujado: el mayor de cada columna, como las cifras de arriba */
+  const valleAhora = useMemo(() => {
+    const total = indice?.valle?.enRecuadroKm2
+    const con = delRio.filter(c => c.porZona)
+    if (!total || !con.length) return null
+    const v = Math.max(...con.map(c => c.porZona!.valleKm2)), ch = Math.max(...con.map(c => c.porZona!.chacoKm2))
+    return { valle: v, pct: 100 * v / total, chaco: ch }
+  }, [indice, delRio])
   const masAlta = imagenes[imagenes.length - 1]
 
   if (error && !indice) {
@@ -418,7 +445,9 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
         <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
           <MapaInundaciones recuadro={indice.recuadro} urbano={indice.urbano}
             capas={dibujo} vias={lineas} afectadas={cruce.partes} obras={puntos} referencias={referencias} defensas={defensas}
-            recorte={defendido && recinto ? recinto.anillo : null} cierre={recinto && verDefensa ? recinto.cierre : null} leer={leer} />
+            recorte={defendido && recinto ? recinto.anillo : null}
+            corte={recinto && verDefensa ? { nombre: recinto.corteNombre, linea: recinto.corte } : null}
+            valle={valle && verValle ? { nombre: 'Valle de inundación del Paraná', poligonos: valle.poligonos } : null} leer={leer} />
         </div>
 
         {/* ── El control: la altura del río ── */}
@@ -482,8 +511,10 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
                 </>)}
                 {recinto && d.id === recinto.defensa && (<>
                   <br />Con la RN 11 al oeste encierra el recinto defendido ({Math.round(recinto.areaKm2)} km²): adentro no se dibuja el agua del río.
-                  <span style={{ color: '#8f8f8f' }}> Entre la punta sur de la defensa y la RN 11 no hay traza: los {f1(recinto.cierreKm)} km a rayas son una recta supuesta.
-                  El agua que se ve adentro es de lluvia, en «Otros eventos».</span>
+                  <br /><b style={{ color: '#fff' }}>El anillo no cierra.</b> Entre la punta sur de la defensa y la RN 11 no hay terraplén: el
+                  recinto se corta en la {recinto.corteNombre} (gris a rayas, {f1(recinto.corteKm)} km), que no es una defensa.
+                  Al sur de la avenida el río entra, y es la parte más expuesta del Gran Resistencia.
+                  <span style={{ color: '#8f8f8f' }}> El agua que se ve dentro del recinto es de lluvia, en «Otros eventos».</span>
                 </>)}</span>
             </label>
           ))}
@@ -521,6 +552,67 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
             </div>
           ))}
         </div>
+
+        {/* ── El valle del Paraná ── */}
+        {valle && (
+          <div style={seccion}>
+            <div style={rotulo}>Por dónde entra el río</div>
+            <label style={{ ...texto, display: 'flex', alignItems: 'flex-start', gap: 7, cursor: 'pointer' }}>
+              <input type="checkbox" checked={verValle} onChange={e => setVerValle(e.target.checked)} style={{ marginTop: 3 }} />
+              <span><b style={{ color: '#9C4DCC' }}>Violeta:</b> el valle de inundación del Paraná, la franja baja entre el cauce y la
+                tierra alta, como está en las cuencas de la provincia. Su borde norte llega a la punta sur de la defensa: por el
+                sur de Resistencia, donde el anillo no cierra, no hay terraplén entre el valle y los barrios.</span>
+            </label>
+            {valleAhora && (
+              <div style={{ display: 'flex', gap: 14, marginTop: 8 }}>
+                <div style={{ flex: 1 }}>
+                  <div style={cifra}>{Math.round(valleAhora.pct)} %</div>
+                  <div style={{ ...texto, fontSize: 11 }}>del valle con agua ({Math.round(valleAhora.valle)} de {Math.round(valle.enRecuadroKm2)} km²)</div>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={cifra}>{Math.round(valleAhora.chaco)}</div>
+                  <div style={{ ...texto, fontSize: 11 }}>km² más en la margen chaqueña, fuera del valle y del recinto</div>
+                </div>
+              </div>
+            )}
+            <table style={{ ...mono, fontSize: 11, width: '100%', borderCollapse: 'collapse', marginTop: 8 }}>
+              <thead>
+                <tr style={{ color: '#8f8f8f' }}>
+                  <th style={{ textAlign: 'left', fontWeight: 400, padding: '0 6px 3px 0' }}>Río</th>
+                  <th style={{ textAlign: 'right', fontWeight: 400, padding: '0 0 3px 6px' }}>valle</th>
+                  <th style={{ textAlign: 'right', fontWeight: 400, padding: '0 0 3px 6px' }}>margen, km²</th>
+                </tr>
+              </thead>
+              <tbody>
+                {porAltura.map(c => {
+                  const dibujada = delRio.some(d => d.id === c.id)
+                  return (
+                    <tr key={c.id} style={{ color: dibujada ? '#e0e0e0' : '#8f8f8f' }}>
+                      <td style={{ padding: '2px 6px 2px 0' }}>
+                        <span style={{ color: dibujada ? C_RIO : 'transparent' }}>■ </span>
+                        {c.grupo === 'rio' ? `hasta ${c.alturaM} m` : `${f2(c.alturaM!)} m · ${c.titulo.slice(0, 10)}`}
+                      </td>
+                      <td style={{ textAlign: 'right', padding: '2px 0 2px 6px' }}>
+                        <span style={{ display: 'inline-block', width: 40, height: 6, background: '#2a2a2a', marginRight: 5, verticalAlign: 'middle' }}>
+                          <span style={{ display: 'block', height: 6, width: `${Math.min(100, c.pct)}%`, background: '#9C4DCC' }} />
+                        </span>
+                        {Math.round(c.pct)} %
+                      </td>
+                      <td style={{ textAlign: 'right', padding: '2px 0 2px 6px' }}>{Math.round(c.porZona!.chacoKm2)}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+            <div style={{ ...texto, fontSize: 11, color: '#8f8f8f', marginTop: 6 }}>
+              Qué parte del valle tuvo agua en cada capa del río, y cuánta más hubo en el resto de la margen chaqueña.
+              Hasta 6 m el río casi no sale al valle: menos de una décima parte. En los días de crecida que se vieron con
+              6,9 m o más, el agua cubrió entre la mitad y cuatro quintos del valle. Fuera de él también se moja la margen
+              chaqueña, y más cuanto más alto viene el río. Medido dentro del recuadro y sin el agua de siempre; no entran
+              las imágenes que no ven todo el recuadro, ni lo que queda del otro lado del cauce (islas y Corrientes).
+            </div>
+          </div>
+        )}
 
         {/* ── Qué viene río arriba ── */}
         <div style={seccion}>

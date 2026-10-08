@@ -158,74 +158,125 @@ const INFORMES = [
 ]
 
 /**
- * El recinto defendido: la defensa, la RN 11 y una recta supuesta entre las
- * dos. Lo arma `scripts/inundaciones/recinto-amgr.mjs`.
+ * El área defendida: la defensa, la RN 11 y la Av. Soberanía Nacional, que no
+ * es una defensa sino el corte que se toma (el anillo no cierra). Lo arma
+ * `scripts/inundaciones/recinto-amgr.mjs`.
  */
 const recintoGeo = leer('recinto-amgr.geojson')
 const RECINTO = {
   id: 'recinto-amgr', nombre: recintoGeo.properties.nombre, defensa: 'defensa-amgr',
-  areaKm2: recintoGeo.properties.areaKm2, cierreKm: recintoGeo.properties.cierreKm,
-  anillo: recintoGeo.geometry.coordinates[0], cierre: recintoGeo.cierre,
+  areaKm2: recintoGeo.properties.areaKm2, corteKm: recintoGeo.properties.corteKm,
+  corteNombre: 'Av. Soberanía Nacional',
+  anillo: recintoGeo.geometry.coordinates[0], corte: recintoGeo.corte,
 }
 
 /**
- * Una grilla de ~30 m sobre la caja del recinto, rellena por líneas de barrido
- * con la regla par-impar: la misma idea que `IndicePoligonos` en
- * `lib/inundaciones.ts`, acá para medir y no para consultar.
+ * El valle de inundación del Paraná: la cuenca 12 de `geo_cuencas.json`, sólo
+ * las partes que tocan el recuadro. Es por donde se extiende el río cuando
+ * sale de su cauce, y su borde norte llega a la punta sur de la defensa.
+ */
+const aoi = resumen._recuadro.aoi
+const cuencas = JSON.parse(readFileSync(join(AQUI, '..', 'public', 'geo', 'geo_cuencas.json'), 'utf8'))
+const cuencaValle = cuencas.features.find(f => f.properties.cod === 12)
+if (!cuencaValle) throw new Error('no está la cuenca 12 en geo_cuencas.json')
+const VALLE = {
+  id: 'valle-parana', nombre: cuencaValle.properties.nombre, fuente: 'Cuencas hídricas de la provincia (cuenca 12)',
+  poligonos: cuencaValle.geometry.coordinates.filter(pol => pol[0].some(([x, y]) => x >= aoi.oeste - 0.02 && x <= aoi.este + 0.02 && y >= aoi.sur - 0.02 && y <= aoi.norte + 0.02))
+    .map(pol => pol.map(an => an.map(([x, y]) => [Math.round(x * 1e4) / 1e4, Math.round(y * 1e4) / 1e4]))),
+}
+
+/**
+ * Grillas de ~30 m rellenas por líneas de barrido con la regla par-impar: la
+ * misma idea que `IndicePoligonos` en `lib/inundaciones.ts`, acá para medir y
+ * no para consultar. Una sobre la caja del recinto y otra sobre el recuadro.
  */
 const PASO = 0.0003
-const cajaR = RECINTO.anillo.reduce((c, [x, y]) => ({ x0: Math.min(c.x0, x), x1: Math.max(c.x1, x), y0: Math.min(c.y0, y), y1: Math.max(c.y1, y) }),
-  { x0: Infinity, x1: -Infinity, y0: Infinity, y1: -Infinity })
-const ANCHO = Math.ceil((cajaR.x1 - cajaR.x0) / PASO), ALTO = Math.ceil((cajaR.y1 - cajaR.y0) / PASO)
-const CELDA_KM2 = (PASO * 111.32 * Math.cos(((cajaR.y0 + cajaR.y1) / 2) * Math.PI / 180)) * (PASO * 110.57)
-function rasterizar(anillos) {
-  const m = new Uint8Array(ANCHO * ALTO)
-  const cruces = Array.from({ length: ALTO }, () => [])
-  for (const an of anillos) for (let i = 0, j = an.length - 1; i < an.length; j = i++) {
-    const [xa, ya] = an[j], [xb, yb] = an[i]
-    if (ya === yb) continue
-    const f0 = Math.max(0, Math.ceil((Math.min(ya, yb) - cajaR.y0) / PASO - 0.5))
-    const f1 = Math.min(ALTO - 1, Math.ceil((Math.max(ya, yb) - cajaR.y0) / PASO - 0.5) - 1)
-    for (let f = f0; f <= f1; f++) {
-      const yc = cajaR.y0 + (f + 0.5) * PASO
-      cruces[f].push(xa + (xb - xa) * (yc - ya) / (yb - ya))
+function grilla(caja) {
+  const ancho = Math.ceil((caja.x1 - caja.x0) / PASO), alto = Math.ceil((caja.y1 - caja.y0) / PASO)
+  const celdaKm2 = (PASO * 111.32 * Math.cos(((caja.y0 + caja.y1) / 2) * Math.PI / 180)) * (PASO * 110.57)
+  const rasterizar = anillos => {
+    const m = new Uint8Array(ancho * alto)
+    const cruces = Array.from({ length: alto }, () => [])
+    for (const an of anillos) for (let i = 0, j = an.length - 1; i < an.length; j = i++) {
+      const [xa, ya] = an[j], [xb, yb] = an[i]
+      if (ya === yb) continue
+      const f0 = Math.max(0, Math.ceil((Math.min(ya, yb) - caja.y0) / PASO - 0.5))
+      const f1 = Math.min(alto - 1, Math.ceil((Math.max(ya, yb) - caja.y0) / PASO - 0.5) - 1)
+      for (let f = f0; f <= f1; f++) {
+        const yc = caja.y0 + (f + 0.5) * PASO
+        cruces[f].push(xa + (xb - xa) * (yc - ya) / (yb - ya))
+      }
     }
-  }
-  for (let f = 0; f < ALTO; f++) {
-    const xs = cruces[f].sort((a, b) => a - b)
-    for (let k = 0; k + 1 < xs.length; k += 2) {
-      const c0 = Math.max(0, Math.ceil((xs[k] - cajaR.x0) / PASO - 0.5))
-      const c1 = Math.min(ANCHO - 1, Math.ceil((xs[k + 1] - cajaR.x0) / PASO - 0.5) - 1)
-      if (c1 >= c0) m.fill(1, f * ANCHO + c0, f * ANCHO + c1 + 1)
+    for (let f = 0; f < alto; f++) {
+      const xs = cruces[f].sort((a, b) => a - b)
+      for (let k = 0; k + 1 < xs.length; k += 2) {
+        const c0 = Math.max(0, Math.ceil((xs[k] - caja.x0) / PASO - 0.5))
+        const c1 = Math.min(ancho - 1, Math.ceil((xs[k + 1] - caja.x0) / PASO - 0.5) - 1)
+        if (c1 >= c0) m.fill(1, f * ancho + c0, f * ancho + c1 + 1)
+      }
     }
+    return m
   }
-  return m
+  const centro = i => [caja.x0 + ((i % ancho) + 0.5) * PASO, caja.y0 + (Math.floor(i / ancho) + 0.5) * PASO]
+  return { rasterizar, centro, celdaKm2 }
 }
 const anillosDe = mp => mp.flatMap(pol => pol)
 const fuenteDe = id => CAPAS.find(c => c.id === id).fuente.geometry.coordinates
-const mRecinto = rasterizar([RECINTO.anillo])
-const mPermanente = rasterizar(anillosDe(fuenteDe('permanente')))
-const mConstruido = rasterizar(anillosDe(fuenteDe('urbano-hoy')))
+const r2 = v => Math.round(v * 100) / 100
 const urb = resumen._recuadro.urbano
-const enUrbano = i => {
-  const x = cajaR.x0 + ((i % ANCHO) + 0.5) * PASO, y = cajaR.y0 + (Math.floor(i / ANCHO) + 0.5) * PASO
-  return x >= urb.oeste && x <= urb.este && y >= urb.sur && y <= urb.norte
-}
+const enUrbano = ([x, y]) => x >= urb.oeste && x <= urb.este && y >= urb.sur && y <= urb.norte
+
+const gR = grilla(RECINTO.anillo.reduce((c, [x, y]) => ({ x0: Math.min(c.x0, x), x1: Math.max(c.x1, x), y0: Math.min(c.y0, y), y1: Math.max(c.y1, y) }),
+  { x0: Infinity, x1: -Infinity, y0: Infinity, y1: -Infinity }))
+const mRecinto = gR.rasterizar([RECINTO.anillo])
+const mPermanenteR = gR.rasterizar(anillosDe(fuenteDe('permanente')))
+const mConstruidoR = gR.rasterizar(anillosDe(fuenteDe('urbano-hoy')))
 /**
- * Cuánto del agua del río de una capa cae dentro del recinto, medido igual que
- * las cifras del índice: fuera del agua permanente. La pantalla lo resta,
- * porque con la defensa en pie ese agua no entra.
+ * Cuánto del agua del río de una capa cae dentro del área defendida, medido
+ * igual que las cifras del índice: fuera del agua permanente. La pantalla lo
+ * resta, porque con la defensa en pie ese agua no entra.
  */
 function enRecinto(mp) {
-  const m = rasterizar(anillosDe(mp))
+  const m = gR.rasterizar(anillosDe(mp))
   let n = 0, u = 0, c = 0
   for (let i = 0; i < m.length; i++) {
-    if (!m[i] || !mRecinto[i] || mPermanente[i]) continue
+    if (!m[i] || !mRecinto[i] || mPermanenteR[i]) continue
     n++
-    if (enUrbano(i)) { u++; if (mConstruido[i]) c++ }
+    if (enUrbano(gR.centro(i))) { u++; if (mConstruidoR[i]) c++ }
   }
-  const r2 = v => Math.round(v * CELDA_KM2 * 100) / 100
-  return { km2: r2(n), urbanoKm2: r2(u), construidoKm2: r2(c) }
+  return { km2: r2(n * gR.celdaKm2), urbanoKm2: r2(u * gR.celdaKm2), construidoKm2: r2(c * gR.celdaKm2) }
+}
+
+/**
+ * Dónde cae el agua del río de una capa, sobre el recuadro y fuera del agua
+ * permanente: dentro del área defendida, en el valle de inundación, en el resto
+ * de la margen chaqueña, o del otro lado del límite provincial (islas y
+ * Corrientes). Las cuatro suman el total de la capa en el recuadro, que no es
+ * exactamente el `km2` del índice: aquél se midió sobre las grillas originales.
+ */
+const gA = grilla({ x0: aoi.oeste, x1: aoi.este, y0: aoi.sur, y1: aoi.norte })
+const mValleA = gA.rasterizar(anillosDe(VALLE.poligonos))
+const mRecintoA = gA.rasterizar([RECINTO.anillo])
+const mPermanenteA = gA.rasterizar(anillosDe(fuenteDe('permanente')))
+// La margen chaqueña: el límite provincial del IGN, sin simplificar. Corre por
+// el cauce del Paraná; lo que queda del otro lado son islas y Corrientes.
+const bundle = JSON.parse(readFileSync(join(AQUI, '..', 'public', 'geo', 'geo_bundle.json'), 'utf8'))
+const mChacoA = gA.rasterizar(anillosDe(bundle.limite_provincial.features[0].geometry.coordinates))
+let valleKm2 = 0
+for (let i = 0; i < mValleA.length; i++) if (mValleA[i] && !mPermanenteA[i] && !mRecintoA[i]) valleKm2++
+VALLE.enRecuadroKm2 = r2(valleKm2 * gA.celdaKm2)
+function porZona(mp) {
+  const m = gA.rasterizar(anillosDe(mp))
+  let v = 0, d = 0, o = 0, f = 0
+  for (let i = 0; i < m.length; i++) {
+    if (!m[i] || mPermanenteA[i]) continue
+    if (mRecintoA[i]) d++
+    else if (mValleA[i]) v++
+    else if (mChacoA[i]) o++
+    else f++
+  }
+  const k = n => r2(n * gA.celdaKm2)
+  return { recintoKm2: k(d), valleKm2: k(v), chacoKm2: k(o), fueraKm2: k(f) }
 }
 
 const indice = []
@@ -241,7 +292,7 @@ for (const c of CAPAS) {
   total += cuerpo.length
   const delRio = c.grupo === 'rio' || c.grupo === 'observada'
   indice.push({ ...resto, ...(resumen[c.id] ?? {}), ...(ciega ? { vistoPct: ciega.properties.validoPct } : {}),
-    ...(delRio ? { enRecinto: enRecinto(fuente.geometry.coordinates) } : {}), poligonos: coords.length, bytes: cuerpo.length })
+    ...(delRio ? { enRecinto: enRecinto(fuente.geometry.coordinates), porZona: porZona(fuente.geometry.coordinates) } : {}), poligonos: coords.length, bytes: cuerpo.length })
   console.log(c.id.padEnd(20), String(coords.length).padStart(4), 'polígonos', (cuerpo.length / 1024).toFixed(0).padStart(6), 'KB')
 }
 
@@ -255,6 +306,7 @@ writeFileSync(join(DESTINO, 'indice.json'), JSON.stringify({
   referencias: REFERENCIAS,
   defensas: DEFENSAS,
   recintos: [RECINTO],
+  valle: VALLE,
   informes: INFORMES,
 }, null, 1))
 console.log('capas', indice.length, '· total', (total / 1048576).toFixed(1), 'MB')

@@ -196,10 +196,40 @@ más; naranja, 6 a 9; amarillo, 3 a 5. El recuadro amarillo es el urbano.
   Sirve para la mancha, no para decir si una manzana se mojó.
 - **El recuadro urbano es un rectángulo**, no el recinto defendido. Desde el
   08/10/2026 está la traza de la defensa del Área Metropolitana
-  (`defensa-amgr.kml`, 31,5 km), y con la RN 11 como cierre oeste y una
-  recta supuesta de 7,9 km al sur arma el recinto (`recinto-amgr.geojson`,
-  113 km²). La pantalla no dibuja el agua del río adentro mientras el río no
-  pase el coronamiento.
+  (`defensa-amgr.kml`, 31,5 km), y con la RN 11 como cierre oeste arma el
+  recinto (`recinto-amgr.geojson`, 113 km²). **El anillo no cierra**: entre
+  la punta sur de la defensa y la RN 11 no hay terraplén. El recinto se corta
+  en la Av. Soberanía Nacional (7,5 km, el canal que corre junto a ella, de
+  OpenStreetMap), por decisión del usuario: al norte no se dibuja el agua del
+  río mientras no pase el coronamiento; al sur sí. El sur de Resistencia es la
+  parte más expuesta a una crecida extraordinaria.
+
+### El valle de inundación del Paraná
+
+La cuenca 12 de `geo_cuencas.json` es el valle de inundación del Paraná. Su
+borde norte llega a la punta sur de la defensa, justo donde el anillo no
+cierra. Dentro del recuadro mide 88 km² fuera del agua de siempre y del
+recinto. Cuánto de él tiene agua en cada capa (lo mide
+`build_inundaciones.mjs`, `porZona`):
+
+| Capa | Río | Valle con agua | Resto de la margen chaqueña |
+|---|---|---|---|
+| zona hasta 5 m | 5 | 6 % | 16 km² |
+| zona hasta 6 m | 6 | 9 % | 20 km² |
+| 27/01/2018 | 6,53 | 10 % | 26 km² |
+| zona hasta 7 m | 7 | 22 % | 33 km² |
+| 12/11/2023 | 6,94 | 54 % | 49 km² |
+| 14/01/2016 | 7,23 | 62 % | 91 km² |
+| 28/02/1983 | 7,80 | 70 % | 90 km² |
+| 22/07/1983 | 8,26 | 84 % | 161 km² |
+| 20/06/1983 | 8,53 | 50 % | 334 km² |
+
+Hasta 6 m el río casi no sale al valle. En los días de crecida que se vieron
+con 6,9 m o más cubre entre la mitad y cuatro quintos. La zona de 7 m da menos
+que las imágenes de esa altura porque es «mojado en la mitad de las escenas»,
+no un día. El 20/06/1983 da menos valle que el 22/07 con más margen: las
+manchas de un día no son monótonas. Lo que queda del otro lado del límite
+provincial (islas y Corrientes) no se cuenta.
 
 ## Segunda pasada: toda la serie, Sentinel-2 y el control externo
 
@@ -681,7 +711,8 @@ paso que más rinde, y es un pedido a la APA.
 
 1. **Los polígonos de las Resoluciones 303/17 y 121/14**, de la APA. La traza
    de la defensa ya está (`defensa-amgr.kml`); falta saber de qué fuente
-   viene y si incluye el cierre oeste del recinto. Con eso las manchas se pueden leer por zona y por
+   viene y si incluye el cierre oeste del recinto, y si hay alguna obra al sur
+   de la Av. Soberanía Nacional. Con eso las manchas se pueden leer por zona y por
    adentro y afuera del recinto.
 2. **La serie diaria de lluvia del SMN en Resistencia Aero.** Sin ella la
    inundación por lluvia no se puede correlacionar con nada.

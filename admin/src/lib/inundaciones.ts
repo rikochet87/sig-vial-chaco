@@ -81,6 +81,14 @@ export interface CapaInundacion {
    * capas del río: la pantalla lo resta mientras el río no pase el coronamiento
    */
   enRecinto?: { km2: number; urbanoKm2: number; construidoKm2: number }
+  /**
+   * Dónde cae el agua de la capa en el recuadro, fuera del agua de siempre:
+   * dentro del área defendida, en el valle de inundación del Paraná, en el
+   * resto de la margen chaqueña y del otro lado del límite provincial. Sólo en
+   * las capas del río. Suman el total en el recuadro medido sobre los
+   * polígonos, que no es exactamente `km2`: aquél se midió sobre las grillas
+   */
+  porZona?: { recintoKm2: number; valleKm2: number; chacoKm2: number; fueraKm2: number }
   poligonos: number
   bytes: number
 }
@@ -115,8 +123,12 @@ export interface DefensaInundacion {
 }
 
 /**
- * Lo que encierran una defensa y lo que la completa: el recinto donde el agua
- * del río no entra mientras no pase el coronamiento.
+ * Lo que encierran una defensa y lo que la completa: el área donde el agua
+ * del río no se dibuja mientras no pase el coronamiento.
+ *
+ * En el Gran Resistencia el anillo no cierra: por el sur el contorno es la Av.
+ * Soberanía Nacional, que no es una defensa sino el corte que se tomó. Al sur
+ * de ella el río entra.
  */
 export interface RecintoInundacion {
   id: string
@@ -124,12 +136,28 @@ export interface RecintoInundacion {
   /** La defensa de `defensas` que lo cierra por el este y el sur */
   defensa: string
   areaKm2: number
-  /** Cuánto del contorno es una recta supuesta, en km */
-  cierreKm: number
+  /** Cuánto del contorno no es defensa ni RN 11, en km */
+  corteKm: number
+  /** Qué es esa parte del contorno */
+  corteNombre: string
   /** El contorno, cerrado, en `[lng, lat]` */
   anillo: [number, number][]
-  /** La parte supuesta del contorno, para dibujarla a rayas */
-  cierre: [number, number][]
+  /** La parte del contorno que no es defensa, para dibujarla a rayas */
+  corte: [number, number][]
+}
+
+/**
+ * El valle de inundación del Paraná: la cuenca 12 de `geo_cuencas.json`, en
+ * las partes que tocan el recuadro. Por ahí se extiende el río al salir del
+ * cauce, y su borde norte llega a la punta sur de la defensa.
+ */
+export interface ValleInundacion {
+  id: string
+  nombre: string
+  fuente: string
+  /** Del valle, lo que cae en el recuadro, fuera del agua de siempre y del área defendida */
+  enRecuadroKm2: number
+  poligonos: MultiPoligono
 }
 
 /** Algo que se informó y ninguna imagen muestra */
@@ -155,6 +183,7 @@ export interface IndiceInundaciones {
   referencias?: ReferenciaInundacion[]
   defensas?: DefensaInundacion[]
   recintos?: RecintoInundacion[]
+  valle?: ValleInundacion
   informes?: InformeInundacion[]
 }
 
@@ -285,6 +314,23 @@ export interface Contenedor { contiene(lat: number, lng: number): boolean }
 export const fueraDe = (capa: Contenedor, recinto: Contenedor): Contenedor => ({
   contiene: (lat, lng) => capa.contiene(lat, lng) && !recinto.contiene(lat, lng),
 })
+
+/**
+ * Si un punto queda al sur de una línea que corre de oeste a este (o al revés),
+ * mirando sólo el tramo de longitudes que la línea cubre. Fuera de ese tramo,
+ * `false`: no se sabe.
+ *
+ * Es para la Av. Soberanía Nacional, el corte sur del área defendida: al sur
+ * de ella no hay defensa.
+ */
+export function alSurDe(linea: [number, number][], lat: number, lng: number): boolean {
+  for (let i = 0; i + 1 < linea.length; i++) {
+    const [xa, ya] = linea[i], [xb, yb] = linea[i + 1]
+    if (xa === xb || lng < Math.min(xa, xb) || lng > Math.max(xa, xb)) continue
+    return lat < ya + (yb - ya) * (lng - xa) / (xb - xa)
+  }
+  return false
+}
 
 /**
  * El coronamiento en la escala de Barranqueras, si el recinto tiene una
