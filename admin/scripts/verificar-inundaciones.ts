@@ -530,23 +530,21 @@ const nodos = nodosDelRecuadro(grilla, indice.recuadro)
 ok('entre dos y seis nodos del pronóstico representan al recuadro', nodos.length >= 2 && nodos.length <= 6)
 ok('el de 27,5° S 59,0° O está', nodos.some(i => grilla[i].lat === -27.5 && grilla[i].lng === -59))
 
-titulo('La RN 11 como terraplén')
+titulo('La RN 11 y la RN 16 como terraplén')
 
-{
-  const t = indice.terraplenes?.find(x => x.id === 'rn11')
-  ok('la RN 11 está entre los terraplenes', !!t && t.lineas.length > 0)
-  if (t && recinto) {
-    const franjaRn = franjaDeDefensa(t.lineas)
-    const m83 = new IndicePoligonos(capa('obs-1983-06-20'))
-    const rec = new IndicePoligonos([[recinto.anillo]])
-    const protegido = { contiene: (la: number, ln: number) => rec.contiene(la, ln) || franjaRn.contiene(la, ln) }
-    const rn11 = rutas.filter(v => v.nombre === 'RN 11')
-    const sin = rn11.reduce((a, v) => a + viaContra(v, [m83]).kmDentro, 0)
-    const con = rn11.reduce((a, v) => a + viaContra(v, [fueraDe(m83, protegido)]).kmDentro, 0)
-    ok('con la mancha de 1983 la RN 11 caía cortada', sin > 1)
-    ok('y tratada como terraplén, nada', con, 0)
-    info(`RN 11 en el recuadro: ${sin.toFixed(1)} km dentro de la mancha de 1983 sin la franja`)
-  }
+// Valen a cualquier altura del río: se prueban sin el recinto, sólo con su franja
+for (const [id, nombre] of [['rn11', 'RN 11'], ['rn16', 'RN 16']] as const) {
+  const t = indice.terraplenes?.find(x => x.id === id)
+  ok(`la ${nombre} está entre los terraplenes`, !!t && t.lineas.length > 0)
+  if (!t) continue
+  const franjaRn = franjaDeDefensa(t.lineas)
+  const m83 = new IndicePoligonos(capa('obs-1983-06-20'))
+  const vias = rutas.filter(v => v.nombre === nombre)
+  const sin = vias.reduce((a, v) => a + viaContra(v, [m83]).kmDentro, 0)
+  const con = vias.reduce((a, v) => a + viaContra(v, [fueraDe(m83, franjaRn)]).kmDentro, 0)
+  ok(`con la mancha de 1983 la ${nombre} caía cortada`, sin > 1)
+  ok('y tratada como terraplén, nada', con, 0)
+  info(`${nombre} en el recuadro: ${sin.toFixed(1)} km dentro de la mancha de 1983 sin la franja`)
 }
 
 console.log(fallos ? `\n${fallos} fallo(s)` : '\nTodo bien')

@@ -1001,17 +1001,19 @@ Desde el 08/10/2026.
   en un solo polígono lo que se pisa saldría hueco. Las tres cifras de arriba
   no lo restan: son menos de 4 km² en toda la traza. El test afirma que, con
   la mancha de 1983, sobre la traza no queda agua.
-- **La RN 11 recibe el mismo trato** (`terraplenes` del índice, pedido del
-  usuario el 08/10/2026: «es incompatible que el agua esté por arriba del
-  terraplén de la RN 11»). Es el cierre oeste del recinto y va en terraplén:
-  el build toma su traza de `geo_rn.json` dentro del recuadro, y el panel le
-  arma su propia franja de 60 m, que se borra del dibujo y entra en el
-  «protegido». La lectura dice sobre qué terraplén está el cursor. Con la
-  mancha de 1983 la RN 11 tenía 6,9 km «cortados»; ahora ninguno.
-- **La línea blanca a rayas al sur de la ciudad es el Canal 16**, y aparece
-  sólo con el río en 8,17 m o más, junto con su informe. Su rótulo en la
-  leyenda dice por qué está («informado con agua, 8,17 m en 1998, no es una
-  mancha»): decía «Canal 16, la traza» y el usuario no entendía qué era.
+- **La RN 11 y la RN 16 no se cortan nunca** (`terraplenes` del índice,
+  pedido del usuario el 08/10/2026: «no deben ser cortadas por el agua en
+  ningún momento, es un terraplén alto»). El build toma sus trazas de
+  `geo_rn.json` dentro del recuadro y el panel le arma a cada una su franja de
+  60 m, que se borra del dibujo y entra en el «protegido». **A diferencia de
+  la defensa, valen a cualquier altura del río**, también sobre el
+  coronamiento (`siempre` en el panel). La lectura dice sobre qué terraplén
+  está el cursor. Con la mancha de 1983 la RN 11 tenía 6,9 km «cortados» y la
+  RN 16 21,7; ahora ninguno. La caja de `elevadas` del puente quedó cubierta
+  por esto, y sigue por si un día la RN 16 sale de `terraplenes`.
+- **El Canal 16 no se dibuja nunca** (pedido del usuario, 08/10/2026). La
+  traza sigue en `referencias` del índice y el informe de 1998 sigue como
+  texto, pero ninguna línea aparece en el mapa.
 - **La pantalla es un escenario hacia adelante, con la defensa de hoy; el
   pasado es referencia** (pedido del usuario, 08/10/2026). Por eso:
   - **La mancha del 14/08/1982 —la rotura del dique del río Negro— se sacó
@@ -1103,9 +1105,8 @@ detalle está en «Tercera pasada» de `docs/inundaciones-gran-resistencia.md`.
   muestra como texto —«Informado, sin imagen»— con lo que muestran
   las imágenes más cercanas, al llegar a esa altura (`informesHasta`). La caja
   es gris con filo blanco: ni el naranja de los avisos ni el color de una
-  capa. La traza del canal va en `referencias`, de OpenStreetMap, como línea
-  blanca a rayas, **y se dibuja sólo mientras está a la vista el informe que
-  la cita**. **Un informe nuevo se agrega en `INFORMES` de
+  capa. La traza del canal va en `referencias`, de OpenStreetMap, **pero no se
+  dibuja** (ver más arriba). **Un informe nuevo se agrega en `INFORMES` de
   `build_inundaciones.mjs`**. **No lleva quién lo informó**: se pidió
   expresamente que la pantalla no lo diga.
 - **Las manchas de un día pasaron de 90 a 60 m y de 8 a 1,5 ha.** A 90 m se

@@ -203,12 +203,16 @@ const tramosEnAoi = lineas => lineas.flatMap(l => {
   if (actual.length > 1) out.push(actual)
   return out
 })
-const TERRAPLENES = [{
-  id: 'rn11', nombre: 'RN 11', nota: 'Ruta en terraplén; cierra el recinto por el oeste',
-  lineas: tramosEnAoi(rnTodas.features.filter(f => String(f.properties.Numero) === '11').flatMap(f =>
-    f.geometry.type === 'MultiLineString' ? f.geometry.coordinates : [f.geometry.coordinates]).map(l => l.map(p => [p[0], p[1]]))),
-}]
-if (!TERRAPLENES[0].lineas.length) throw new Error('La RN 11 no pasa por el recuadro')
+// La RN 16 se sumó el mismo día: «las rutas nacionales 16 y 11 no deben ser
+// cortadas por el agua en ningún momento, es un terraplén alto». Valen a
+// cualquier altura del río, no sólo bajo el coronamiento de la defensa
+const lineasDeRuta = n => rnTodas.features.filter(f => String(f.properties.Numero) === n).flatMap(f =>
+  f.geometry.type === 'MultiLineString' ? f.geometry.coordinates : [f.geometry.coordinates]).map(l => l.map(p => [p[0], p[1]]))
+const TERRAPLENES = [
+  { id: 'rn11', nombre: 'RN 11', nota: 'Ruta en terraplén alto; cierra el recinto por el oeste', lineas: tramosEnAoi(lineasDeRuta('11')) },
+  { id: 'rn16', nombre: 'RN 16', nota: 'Ruta en terraplén alto, con el acceso al puente General Belgrano', lineas: tramosEnAoi(lineasDeRuta('16')) },
+]
+for (const t of TERRAPLENES) if (!t.lineas.length) throw new Error(`La ${t.nombre} no pasa por el recuadro`)
 
 /**
  * Lo que se sabe que pasó y ninguna imagen muestra.

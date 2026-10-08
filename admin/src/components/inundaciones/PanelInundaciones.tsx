@@ -261,27 +261,29 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
   /** Los terraplenes: la defensa y las rutas que hacen de defensa (la RN 11), cada uno con su franja */
   const terraplenes = useMemo(() => {
     const defensa = indice?.defensas?.find(d => d.id === recinto?.defensa)
+    // La defensa protege mientras el río no pase su coronamiento; las rutas
+    // nacionales en terraplén alto no se cortan nunca (indicación del usuario)
     const todos = [
-      ...(defensa ? [{ nombre: 'la defensa', lineas: defensa.lineas }] : []),
-      ...(indice?.terraplenes ?? []).map(t => ({ nombre: `la ${t.nombre}`, lineas: t.lineas })),
+      ...(defensa ? [{ nombre: 'la defensa', lineas: defensa.lineas, siempre: false }] : []),
+      ...(indice?.terraplenes ?? []).map(t => ({ nombre: `la ${t.nombre}`, lineas: t.lineas, siempre: true })),
     ]
     return todos.map(t => ({ ...t, franja: franjaDeDefensa(t.lineas) }))
   }, [indice, recinto])
-  const terraplen = useMemo(() => terraplenes.length ? {
-    contiene: (lat: number, lng: number) => terraplenes.some(t => t.franja.contiene(lat, lng)),
-  } : null, [terraplenes])
-  const recorteDibujo = useMemo(() => recinto && defendido
-    ? [recinto.anillo, ...terraplenes.flatMap(t => franjaParaDibujar(t.lineas))]
-    : null, [recinto, defendido, terraplenes])
+  /** Los terraplenes que valen a esta altura del río */
+  const vigentes = useMemo(() => terraplenes.filter(t => t.siempre || defendido), [terraplenes, defendido])
+  const recorteDibujo = useMemo(() => {
+    const out = [...(recinto && defendido ? [recinto.anillo] : []), ...vigentes.flatMap(t => franjaParaDibujar(t.lineas))]
+    return out.length ? out : null
+  }, [recinto, defendido, vigentes])
 
   // ── El valle de inundación del Paraná ──
   const valle = indice?.valle
   const valleIdx = useMemo(() => valle ? new IndicePoligonos(valle.poligonos) : null, [valle])
 
   /** Lo que la defensa protege mientras el río no la pase: el recinto y el terraplén mismo */
-  const protegido = useMemo(() => defendido && recintoIdx ? {
-    contiene: (lat: number, lng: number) => recintoIdx.contiene(lat, lng) || !!terraplen?.contiene(lat, lng),
-  } : null, [defendido, recintoIdx, terraplen])
+  const protegido = useMemo(() => (defendido && recintoIdx) || vigentes.length ? {
+    contiene: (lat: number, lng: number) => (defendido && !!recintoIdx?.contiene(lat, lng)) || vigentes.some(t => t.franja.contiene(lat, lng)),
+  } : null, [defendido, recintoIdx, vigentes])
 
   /** Las capas de agua del escenario (sin el fondo), con su índice ya armado */
   const agua = useMemo(
@@ -328,11 +330,11 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
     const out: string[] = []
     // Del río, la imagen más baja que tiene agua ahí: desde qué altura se la vio
     const adentro = defendido && !!recintoIdx?.contiene(lat, lng)
-    const sobre = defendido && !adentro ? terraplenes.find(t => t.franja.contiene(lat, lng)) : undefined
+    const sobre = !adentro ? vigentes.find(t => t.franja.contiene(lat, lng)) : undefined
     const enTerraplen = !!sobre
     const primera = adentro || enTerraplen ? undefined : delRio.find(c => geo[c.id]?.indice.contiene(lat, lng))
     if (enTerraplen) {
-      out.push(`sobre el terraplén de ${sobre!.nombre}${techo !== null ? `: el río no lo pasa hasta ${f2(techo)} m` : ''}`)
+      out.push(`sobre el terraplén de ${sobre!.nombre}${sobre!.siempre ? '' : techo !== null ? `: el río no lo pasa hasta ${f2(techo)} m` : ''}`)
     } else if (adentro && techo !== null) {
       out.push(`dentro del recinto defendido: el río no entra hasta ${f2(techo)} m`)
     } else if (adentro) {
@@ -355,7 +357,7 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
       if (l) out.push(`${l.lado === 'rio' ? 'del lado del río' : 'del lado de la ciudad'} de la defensa, a ${l.km < 1 ? `${Math.round(l.km * 1000)} m` : `${f1(l.km)} km`}`)
     }
     return out
-  }, [delRio, geo, agua, urbanoIdx, ciegoParcial, parcialM, completaM, defensas, defendido, recintoIdx, techo, valleIdx, recinto, terraplenes])
+  }, [delRio, geo, agua, urbanoIdx, ciegoParcial, parcialM, completaM, defensas, defendido, recintoIdx, techo, valleIdx, recinto, vigentes])
 
   // ── Qué tan seguido llega el río a esa altura ──
   const registro = useMemo(() => {
@@ -382,16 +384,9 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
   const informes = useMemo(() => informesHasta(indice?.informes, h), [indice, h])
   // Una línea de referencia se dibuja sólo mientras está a la vista el informe
   // que habla de ella: suelta, es una raya con nombre que no se refiere a nada
-  const referencias = useMemo(() => {
-    const citadas = new Set(informes.map(i => i.referencia))
-    // El rótulo dice por qué está la línea: sin eso, una traza a rayas se lee como un límite
-    return (indice?.referencias ?? []).filter(x => citadas.has(x.id)).map(x => {
-      const inf = informes.find(i => i.referencia === x.id)
-      return { nombre: x.nombre, lineas: x.lineas,
-        rotulo: inf ? `${x.nombre}: informado con agua, ${f2(inf.alturaM)} m en ${inf.fecha.slice(0, 4)} (no es una mancha)` : undefined }
-    })
-  }, [indice, informes])
-  const nombreRef = (id?: string) => indice?.referencias?.find(x => x.id === id)?.nombre
+  // El Canal 16 no se dibuja nunca (indicación del usuario, 08/10/2026): de lo
+  // informado queda sólo el texto. Las referencias siguen en el índice
+  const referencias = useMemo(() => [] as { nombre: string; lineas: [number, number][][] }[], [])
 
   /** Las marcas del deslizador. Arriba, lo de hoy; abajo, los niveles del INA y los picos del registro */
   const marcas = useMemo(() => {
@@ -581,9 +576,6 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
               </span>
               <br /><b style={{ color: '#e8e8e8' }}>{i.texto}</b>
               <br />{i.contraste}
-              {nombreRef(i.referencia) && (
-                <><br /><span style={{ color: '#8f8f8f' }}>En el mapa, la línea blanca a rayas es la traza del {nombreRef(i.referencia)}: está para ubicarlo, no es agua.</span></>
-              )}
             </div>
           ))}
         </div>
