@@ -2,107 +2,129 @@
 
 **Sistema de Información Geográfica para Gestión de Infraestructura Vial Rural — Provincia del Chaco, Argentina**
 
-Sistema completo de relevamiento y gestión de infraestructura vial rural compuesto por una **aplicación móvil Android** para trabajo de campo y un **panel de administración web** para supervisión y análisis. Permite registrar, sincronizar y visualizar información geoespacial sobre puentes, alcantarillas, tubos, ripio y otras obras viales sobre un mapa SIG con capas GeoJSON de elaboración propia.
+Sistema de relevamiento y gestión de infraestructura vial rural compuesto por una **aplicación móvil Android** para trabajo de campo y un **panel web** para la oficina: proyectistas y administración. Permite registrar, sincronizar y visualizar información geoespacial sobre puentes, alcantarillas, tubos, ripio y otras obras viales sobre un mapa SIG con capas GeoJSON de elaboración propia, calcular y presupuestar obras, y seguir el impacto de la lluvia y del río sobre la red vial.
 
 ---
 
 ## Sistema
 
-| Componente | Descripción |
-|---|---|
-| **App móvil** | Relevamiento en campo — funciona offline, sincroniza al conectarse |
-| **Panel admin web** | Visualización, análisis y gestión de usuarios y relevamientos |
-| **Backend (Supabase)** | Autenticación, base de datos PostgreSQL y almacenamiento de fotos |
+| Componente | Ubicación | Quién la usa | Descripción |
+|---|---|---|---|
+| **App móvil** | raíz del repo | Técnicos en campo | Relevamiento en campo; funciona sin señal y sincroniza al conectarse |
+| **Panel web** | `admin/` | Oficina | Mapa, relevamientos, obras y calculadoras, hidrología y gestión de usuarios |
+| **Backend** | Supabase | — | Autenticación, PostgreSQL y almacenamiento de fotos |
+
+Las dos aplicaciones trabajan contra la misma base Supabase.
 
 ---
 
-## App Móvil
+## App móvil
 
 ### Características
 
-- **Mapa SIG offline** basado en OpenStreetMap + Leaflet.js (sin API key, funciona sin internet)
-- **103 consorcios viales** con geometrías GeoJSON propias organizados en 5 zonas (ZI–ZV)
+- **Mapa SIG** con Leaflet dentro de una WebView. Leaflet va incluido en la app, así que el mapa abre sin señal; los tiles de OpenStreetMap necesitan conexión, y sin ella las capas GeoJSON se dibujan igual sobre fondo gris
+- **103 consorcios camineros** con geometrías GeoJSON propias, organizados en 5 zonas (ZI–ZV)
 - **Capas de red vial**:
   - Rutas Nacionales (RN 11, 16, 89, 95)
-  - Rutas Provinciales — pavimentada, mejorada, en obra y de tierra
-  - Red CC — vías bajo convenio de cada consorcio, con filtro individual por consorcio
-- **GPS en tiempo real** con punto animado y posicionamiento continuo
-- **Brújula** por magnetómetro con compensación portrait/landscape
-- **Sistema de relevamientos** con formularios especializados por tipo de obra:
-  - **Puente** — palizadas, vanos, altura, estructura, guiarruedas, barandas
-  - **Alcantarilla** — dimensiones, materiales, tablero, losa de fondo, situación hidráulica, estado estructural
-  - **Tubos** — diámetro, cabezales, tapada, cantidad
-  - **Ripio** (linestring) con dos modos de captura:
-    - **Dibujar en mapa** — trazado interactivo sobre OSM
-    - **GPS Track** — grabación automática del recorrido cada 10 m
-    - Cálculo automático de toneladas (2,1 t/m³), empresa y fecha
-  - **Otro** — descripción libre
-- **Auto-detección** del consorcio más cercano por distancia euclidiana
-- **Fotografías** adjuntas desde cámara del dispositivo, subidas a Supabase Storage
-- **Sincronización** con Supabase — fotos a Storage, datos a PostgreSQL
-- **Persistencia local** — relevamientos guardados en el dispositivo mientras no hay conexión
-- **Autenticación** por email/contraseña con roles (técnico, usuario, admin)
+  - Rutas Provinciales: pavimentada, mejorada, en obra y de tierra
+  - Red CC: caminos bajo convenio de cada consorcio, con filtro individual por consorcio
+- **GPS en tiempo real** y **brújula** por magnetómetro
+- **Relevamientos** con formularios especializados por tipo de obra:
+  - **Puente**: vanos, palcos, altura, estructura, barandas
+  - **Alcantarilla**: dimensiones, materiales, tablero, drenaje, estado estructural
+  - **Tubos**: diámetro, cabezales, profundidad, cantidad
+  - **Ripio** (línea), con dos modos de captura:
+    - **Dibujar en mapa**
+    - **GPS Track**: graba el recorrido en segundo plano, aun con la pantalla apagada
+    - Ancho, espesor y longitud; **densidad editable por tramo**
+  - **Otro**: descripción libre
+- **Auto-detección** del consorcio más cercano
+- **Fotos** desde la cámara o la galería, hasta 10 por relevamiento, que se resguardan en el teléfono hasta subirse a Supabase Storage
+- **Trabajo sin señal**: los relevamientos se guardan en el dispositivo y se sincronizan solos al recuperar conexión. Un indicador muestra el estado de red y cuántos faltan subir
+- **Arranque sin conexión**: con sesión previa, la app entra de inmediato y valida la sesión en segundo plano
+- **Obras asignadas** al técnico
+- **Autenticación** por email y contraseña, con roles
 
 ### Stack
 
 | | |
 |---|---|
-| Framework | React Native + Expo SDK 54 |
-| Lenguaje | TypeScript (strict mode) |
+| Framework | React Native 0.85 + Expo SDK 56 |
+| Lenguaje | TypeScript (strict) |
 | Navegación | expo-router v6 |
-| Mapa | Leaflet.js 1.9 via WebView |
-| GPS | expo-location |
-| Brújula | expo-sensors (Magnetometer) |
+| Mapa | Leaflet 1.9.4 en `react-native-webview` |
+| GPS | expo-location + expo-task-manager (segundo plano) |
+| Brújula | expo-sensors (magnetómetro) |
 | Almacenamiento local | expo-file-system/legacy |
-| Cámara | expo-image-picker |
+| Cámara y galería | expo-image-picker |
 | Auth + DB + Storage | Supabase |
-| Build | EAS Build (APK/AAB) |
+| Build | EAS Build (APK / AAB) |
 
 ---
 
-## Panel de Administración Web
+## Panel web
 
-### Características
+### Secciones
 
-- **Dashboard** con mapa interactivo Leaflet y panel de capas:
-  - Límite provincial, zonas y departamentos
-  - RN Nacional (RN 11, 16, 89, 95)
-  - RP Pavimentada, Mejorada, En Obra, Tierra
-  - Red CC por zona con filtrado individual por consorcio
-  - Puntos de interés: sedes, campamentos, salud
-  - Sub-capas de relevamientos por tipo (Puente, Alcantarilla, Tubos, Ripio, Otro)
-- **Listado de relevamientos** con filtros por tipo, tipo de usuario, zona y fechas
-- **Detalle de relevamiento** — datos completos, mapa individual, fotos con descarga
-- **Edición de relevamientos** desde la web
-- **Gestión de usuarios** — crear técnicos, usuarios y administradores con o sin zona asignada
-- **Exportación GeoJSON** por relevamiento
+- **Dashboard**: mapa interactivo con panel de capas (límites, zonas y departamentos, rutas nacionales y provinciales, red CC por consorcio, sedes, campamentos y relevamientos por tipo), resumen del tiempo e **imágenes satelitales históricas** del lugar que se está mirando (Esri Wayback)
+- **Consorcios**: ficha y edición de cada consorcio
+- **Relevamientos**:
+  - Lista con filtros, ficha con mapa y fotos, edición y exportación GeoJSON
+  - **Revisión de campo**
+  - **Nuevo de gabinete**: carga de un relevamiento desde la computadora, dibujando sobre imagen satelital
+- **Obras**: lista de obras y **calculadoras**:
+  - **Terraplén**
+  - **Excavación**: lineal, canal (con caudal por Manning) y área
+  - **Ripio**: cómputo sobre el mapa → análisis de precios → presupuesto → composición en A4
+  - **Limpieza vial**: desmalezado y desbosque
+- **Hidrología**:
+  - Lluvia por consorcio y por cuenca, con media areal, isohietas y la lluvia bajada a cada camino
+  - Cuencas hídricas y cursos de agua
+  - Río Paraná con datos del INA: alturas, recurrencia y traslado de la crecida
+  - **Gran Resistencia**: áreas inundables según la altura del río
+  - **Tiempo**: alertas del SMN y pronóstico de 7 días por consorcio
+  - Lluvia histórica por cuenca desde 1981 (CHIRPS)
+- **Herramientas**: medición sobre el mapa
+- **Usuarios**: alta y gestión de técnicos y usuarios de oficina, con permisos por sección
+
+El panel incluye un control de tamaño de texto (A / A+ / A++) para usuarios con visión reducida.
 
 ### Stack
 
 | | |
 |---|---|
-| Framework | Next.js 14 (App Router) |
+| Framework | Next.js 16 (App Router) + React 19 |
 | Lenguaje | TypeScript |
-| Mapa | Leaflet.js via React (SSR desactivado) |
-| Auth + DB | Supabase (service role para admin) |
-| Deploy | Vercel |
+| Mapa | Leaflet 1.9.4 / react-leaflet |
+| Exportación | jsPDF + jspdf-autotable, html2canvas |
+| Auth + DB | Supabase (`service_role` en las rutas de API, con autorización propia por permiso) |
+| Deploy | Vercel, con cron diario para la ingesta de lluvia |
 
 ---
 
 ## Backend (Supabase)
 
-### Tablas
+### Tablas principales
 
 | Tabla | Descripción |
 |---|---|
-| `profiles` | Usuarios: nombre, zona, rol (`tecnico` / `usuario` / `admin`) |
-| `relevamientos` | Datos geoespaciales con coords, fotos y datos específicos en JSONB |
+| `profiles` | Usuarios: nombre, zona, rol y permisos |
+| `relevamientos` | Relevamientos con coordenadas, fotos y datos específicos en JSONB |
+| `obras`, `obra_destinatarios` | Obras y a quién se asignan |
+| `consorcios` | Datos de los 103 consorcios |
+| `proyectos_ripio`, `ripios` | Proyectos de ripio con su análisis de precios |
+| `equipos`, `precios_base` | Equipos y plantillas de precios |
+| `precipitaciones`, `mediciones_lluvia`, `pronostico_lluvia` | Lluvia medida y pronosticada |
+
+**Roles:** `admin` (acceso total), `panel` (oficina, según permisos), `tecnico` y `usuario` (app móvil).
 
 ### Storage
 
 | Bucket | Descripción |
 |---|---|
-| `relevamiento-fotos` | Fotos subidas desde la app (lectura pública, escritura autenticada) |
+| `relevamiento-fotos` | Fotos de los relevamientos, de la app y del panel |
+
+No hay migraciones versionadas: el SQL se aplica en el editor de Supabase y los scripts quedan como referencia en `docs/sql/`.
 
 ---
 
@@ -110,63 +132,26 @@ Sistema completo de relevamiento y gestión de infraestructura vial rural compue
 
 ```
 sig-vial-chaco/
-├── app/
-│   ├── (tabs)/
-│   │   ├── index.tsx          # Dashboard / Inicio
-│   │   ├── mapa.tsx           # Mapa SIG + relevamientos
-│   │   ├── consorcios.tsx     # Lista de consorcios
-│   │   └── reportes.tsx       # Lista de relevamientos locales
-│   ├── login.tsx              # Pantalla de login
-│   ├── red-vial.tsx           # Red vial por zona
-│   ├── distribucion.tsx       # Distribución territorial
-│   └── autoridades.tsx        # Autoridades de consorcios
-├── components/
-│   └── RelevamientoModal.tsx  # Formulario de relevamiento
-├── hooks/
-│   ├── useRelevamientos.ts    # Persistencia local
-│   └── useSupabaseSync.ts     # Sincronización + upload de fotos
-├── lib/
-│   └── supabase.ts            # Cliente Supabase
-├── types/
-│   └── relevamiento.ts        # Tipos e interfaces
-├── constants/
-│   ├── Colors.ts              # Paleta (#2C2C2C / #F5C300)
-│   ├── realData.ts            # Datos de 103 consorcios
-│   ├── geoBundle.ts           # GeoJSON offline: límites, sedes, campamentos
-│   ├── geoBundleCC.ts         # GeoJSON red CC por consorcio/zona
-│   └── geoBundleRP.ts         # GeoJSON rutas provinciales
-├── context/
-│   ├── AuthContext.tsx        # Sesión Supabase
-│   └── ThemeContext.tsx       # Tema claro/oscuro
-├── scripts/
-│   ├── build_geo_bundle.py    # Genera geoBundle.ts desde QGIS
-│   └── build_geo_bundle_cc.py # Genera geoBundleCC.ts desde QGIS
-├── assets/
-│   └── geojson/               # Capas GeoJSON originales (QGIS)
-│       ├── Limites/
-│       ├── Rutas Nacionales/
-│       ├── Rutas Provinciales/
-│       ├── Red bajo convenio Consorcios Camineros/
-│       └── Puntos de Interes/
-└── admin/                     # Panel de administración (Next.js)
-    ├── src/
-    │   ├── app/
-    │   │   ├── dashboard/
-    │   │   │   ├── page.tsx              # Dashboard con mapa
-    │   │   │   ├── relevamientos/        # Lista y detalle
-    │   │   │   ├── tecnicos/             # Gestión de usuarios
-    │   │   │   └── consorcios/           # Gestión de consorcios
-    │   │   └── api/                      # API Routes
-    │   └── components/
-    │       ├── MapInner.tsx              # Mapa Leaflet interactivo
-    │       ├── RelevamientoEditForm.tsx  # Edición de relevamientos
-    │       └── RelevamientoActions.tsx   # Exportar / eliminar
-    └── public/
-        └── geo/                          # GeoJSON para el mapa web
-            ├── geo_bundle.json
-            ├── geo_rp.json
-            ├── geo_cc.json
-            └── geo_rn.json
+├── app/                       # Pantallas de la app (expo-router)
+│   ├── (tabs)/                # Inicio, Mapa, Consorcios, Obras, Reportes
+│   ├── consorcio/[id].tsx
+│   ├── reporte/[id].tsx
+│   ├── login.tsx, red-vial.tsx, distribucion.tsx, autoridades.tsx
+├── components/                # RelevamientoModal, ConexionBadge
+├── hooks/                     # Persistencia local, sincronización, auto-sync
+├── lib/                       # GPS en segundo plano, fotos, sincronización, Supabase
+├── constants/                 # Colores, datos de consorcios y GeoJSON incluidos en la app
+├── context/                   # Sesión y tema
+├── scripts/                   # Generación de los GeoJSON desde QGIS
+├── assets/geojson/            # Capas originales de QGIS
+├── docs/                      # Metodología, investigaciones y SQL
+└── admin/                     # Panel web (Next.js)
+    ├── src/app/dashboard/     # Secciones del panel
+    ├── src/app/api/           # Rutas de API
+    ├── src/components/        # Mapas, calculadoras, hidrología
+    ├── src/lib/               # Motores de cálculo y permisos
+    ├── scripts/               # Generación de datos y verificaciones
+    └── public/geo/            # GeoJSON del mapa web
 ```
 
 ---
@@ -187,14 +172,16 @@ npm install
 npm start
 ```
 
-#### Build APK
+Para agregar paquetes usar siempre `npx expo install <paquete>`, que elige la versión compatible con el SDK.
+
+#### Build
 
 ```bash
-eas build --platform android --profile preview --non-interactive   # APK
+eas build --platform android --profile preview --non-interactive    # APK
 eas build --platform android --profile production --non-interactive # AAB
 ```
 
-### Panel admin
+### Panel web
 
 ```bash
 cd admin
@@ -204,28 +191,46 @@ npm install
 # NEXT_PUBLIC_SUPABASE_URL=...
 # NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 # SUPABASE_SERVICE_ROLE_KEY=...
+# CRON_SECRET=...              # protege la ingesta diaria de lluvia
 
 npm run dev
 ```
+
+### Verificación
+
+```bash
+cd admin
+npm run verificar
+```
+
+Corre el chequeo de tipos, la barrera de lint, la sintaxis de los SQL y los scripts `verificar-*.ts`.
 
 ---
 
 ## Notas de desarrollo
 
-- **Git**: nunca hacer `git commit` desde el sandbox Linux (WSL/virtiofs). Usar siempre Windows PowerShell.
-- **EAS Build**: lee el código desde GitHub — TypeScript errors del entorno local no afectan el build.
-- **GeoJSON bundles**: regenerar con los scripts Python al actualizar capas en QGIS.
-- **`kotlinVersion`**: debe ser `2.1.20` (compatibilidad react-native-async-storage + KSP).
+- **Git y npm en Windows**: en la copia local, hacer commits e instalar paquetes desde PowerShell, no desde WSL; en virtiofs el índice de Git y las instalaciones de npm se corrompen.
+- **`android.versionCode`** en `app.json` se sube en cada APK que se reparte: es lo que distingue una versión de otra.
+- **`RECEIVE_BOOT_COMPLETED`** tiene que estar en `app.json`; sin ese permiso, el GPS Track cierra la app.
+- **Cambios de permisos o plugins** en `app.json`: correr `npx expo prebuild --clean` antes del build.
+- **`kotlinVersion`**: `2.1.20` (compatibilidad de async-storage con KSP).
+- **GeoJSON incluidos en la app**: regenerar con los scripts Python al actualizar capas en QGIS.
+- **Documentación técnica**: `CLAUDE.md` (arquitectura y decisiones) y `docs/metodologia-lluvia.md` (método de la sección Hidrología).
 
 ---
 
 ## Roadmap
 
-- [x] Autenticación con roles (técnico / usuario / admin)
-- [x] Sincronización con Supabase (datos + fotos)
-- [x] Panel web de administración con mapa interactivo
-- [x] Sub-capas de relevamientos en el mapa
-- [x] Rutas Nacionales y Provinciales en el mapa
+- [x] Autenticación con roles y permisos por sección
+- [x] Sincronización con Supabase (datos + fotos), con reintentos y trabajo sin señal
+- [x] Panel web con mapa interactivo y sub-capas de relevamientos
+- [x] Rutas nacionales y provinciales en el mapa
+- [x] GPS Track en segundo plano
+- [x] Relevamientos de gabinete desde el panel
+- [x] Calculadoras de obra y presupuesto de ripio
+- [x] Hidrología: lluvia, cuencas, río Paraná, áreas inundables y pronóstico
+- [x] Imágenes satelitales históricas
+- [ ] Subida de fotos directo desde el disco, sin pasar por memoria
 - [ ] Exportación a PDF de informes de relevamiento
 - [ ] Modo offline total con caché de tiles OSM
 - [ ] Dashboard de estadísticas (km relevados, tipos, zonas)
