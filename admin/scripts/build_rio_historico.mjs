@@ -2,8 +2,9 @@
  * Genera el archivo congelado del tramo del río Paraná, tal como lo publica el
  * Alerta Hidrológico del INA:
  *
- *   public/rio/tramo_diario.json        las seis estaciones del tramo, desde 1970,
- *                                       y dos del río Paraguay
+ *   public/rio/tramo_diario.json        las diez escalas del Paraná de Posadas a
+ *                                       Goya, desde 1970, tres del río Paraguay
+ *                                       y una del Bermejo
  *
  *   node scripts/build_rio_historico.mjs
  *
@@ -62,11 +63,33 @@ const DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'public', 'rio')
 const FUENTE = 'Alerta Hidrológico — Instituto Nacional del Agua'
 const DIA = 86_400_000
 
-/** Estación → serie de altura media diaria. De aguas arriba hacia abajo */
-const SERIES = { 16: 26258, 19: 26261, 20: 26262, 21: 26263, 22: 26264, 23: 26265 }
+/**
+ * Estación → serie de altura media diaria. De aguas arriba hacia abajo.
+ *
+ * Desde el 08/10/2026 entran también las cuatro escalas del Paraná aguas
+ * arriba de Itá Ibaté —Posadas, Ituzaingó, Itatí y Paso de la Patria—, para
+ * medir cuánto antes que en Barranqueras pasa la crecida por cada una.
+ */
+const SERIES = {
+  14: 26256, 15: 26257, 16: 26258, 17: 26259, 18: 26260,
+  19: 26261, 20: 26262, 21: 26263, 22: 26264, 23: 26265,
+}
 
-/** Las del río Paraguay: Puerto Pilcomayo y Puerto Bermejo */
-const SERIES_PARAGUAY = { 55: 26297, 58: 26300 }
+/**
+ * Las del río Paraguay: Puerto Pilcomayo, Puerto Formosa y Puerto Bermejo.
+ * Formosa tiene media diaria recién desde 2006.
+ */
+const SERIES_PARAGUAY = { 55: 26297, 57: 26299, 58: 26300 }
+
+/**
+ * El río Bermejo en El Colorado (Formosa), antes de desembocar en el Paraguay.
+ * Media diaria desde 2001, y **se carga con meses de atraso**: no entra en la
+ * cuenta de hasta dónde llega el archivo, o lo recortaría entero.
+ */
+const SERIES_BERMEJO = { 2046: 29684 }
+
+/** Las que tienen menos historia que el resto, con el mínimo de filas que se les pide */
+const MINIMO_FILAS = { 26299: 5_000, 29684: 5_000 }
 
 const hoy = new Date().toISOString().slice(0, 10)
 const pausa = ms => new Promise(r => setTimeout(r, ms))
@@ -78,7 +101,7 @@ async function bajar(serie) {
   const res = await fetch(url, { headers: { accept: 'application/json' }, signal: AbortSignal.timeout(240_000) })
   if (!res.ok) throw new Error(`el INA respondió ${res.status} para la serie ${serie}`)
   const filas = await res.json()
-  if (!Array.isArray(filas) || filas.length < 15_000) {
+  if (!Array.isArray(filas) || filas.length < (MINIMO_FILAS[serie] ?? 15_000)) {
     throw new Error(`respuesta inesperada para la serie ${serie}: `
       + (Array.isArray(filas) ? `${filas.length} filas` : typeof filas))
   }
@@ -119,8 +142,8 @@ try {
   mkdirSync(DIR, { recursive: true })
   const bajadas = {}
 
-  // De a una y con pausa: son ocho pedidos de 5 a 11 MB a un organismo público
-  for (const [estacion, serie] of Object.entries({ ...SERIES, ...SERIES_PARAGUAY })) {
+  // De a una y con pausa: son catorce pedidos de 2 a 11 MB a un organismo público
+  for (const [estacion, serie] of Object.entries({ ...SERIES, ...SERIES_PARAGUAY, ...SERIES_BERMEJO })) {
     console.log(`Pidiendo la serie ${serie} (estación ${estacion})…`)
     bajadas[estacion] = await bajar(serie)
     await pausa(1500)
@@ -129,8 +152,10 @@ try {
   // ── El tramo, desde 1970 ────────────────────────────────────────────────
   {
     const desde = '1970-01-01'
-    // Hasta la fecha más vieja entre las últimas: que ninguna termine en hueco
-    const hasta = Object.values(bajadas).map(ultima).sort()[0]
+    // Hasta la fecha más vieja entre las últimas del Paraná y el Paraguay: que
+    // ninguna termine en hueco. El Bermejo queda afuera de esta cuenta.
+    const hasta = Object.keys({ ...SERIES, ...SERIES_PARAGUAY })
+      .map(e => ultima(bajadas[e])).sort()[0]
     const estaciones = {}
     for (const estacion of Object.keys(SERIES)) {
       estaciones[estacion] = aCentimetros(bajadas[estacion], desde, hasta)
@@ -139,15 +164,19 @@ try {
     for (const estacion of Object.keys(SERIES_PARAGUAY)) {
       paraguay[estacion] = aCentimetros(bajadas[estacion], desde, hasta)
     }
+    const bermejo = {}
+    for (const estacion of Object.keys(SERIES_BERMEJO)) {
+      bermejo[estacion] = aCentimetros(bajadas[estacion], desde, hasta)
+    }
     const salida = join(DIR, 'tramo_diario.json')
     writeFileSync(salida, JSON.stringify({
       fuente: FUENTE,
       variable: 'Altura hidrométrica media diaria, en cm sobre el cero de cada escala',
       generado: hoy, desde, hasta,
-      series: { ...SERIES, ...SERIES_PARAGUAY }, estaciones, paraguay,
+      series: { ...SERIES, ...SERIES_PARAGUAY, ...SERIES_BERMEJO }, estaciones, paraguay, bermejo,
     }))
     console.log(`✓ ${salida}`)
-    for (const [e, cm] of Object.entries({ ...estaciones, ...paraguay })) {
+    for (const [e, cm] of Object.entries({ ...estaciones, ...paraguay, ...bermejo })) {
       console.log(`  estación ${e}: ${cm.filter(v => v !== null).length} días con dato de ${cm.length}`)
     }
   }
