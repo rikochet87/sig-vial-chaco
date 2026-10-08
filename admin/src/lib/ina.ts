@@ -116,15 +116,44 @@ export type EstacionIna = (typeof ESTACIONES)[number]
  */
 export const ESTACIONES_PARAGUAY = [
   { id: 55, nombre: 'Puerto Pilcomayo', rio: 'Paraguay', alerta: 5.35, evacuacion: 6 },
+  { id: 57, nombre: 'Puerto Formosa',   rio: 'Paraguay', alerta: 7.8,  evacuacion: 8.3 },
   { id: 58, nombre: 'Puerto Bermejo',   rio: 'Paraguay', alerta: 6.5,  evacuacion: 7 },
 ] as const
+
+/**
+ * El río Bermejo en El Colorado (Formosa), unos 100 km antes de desembocar en
+ * el Paraguay. Es la escala del INA más cercana a la boca que publica altura:
+ * Puerto Velaz y Puerto Lavalle no tienen observaciones.
+ *
+ * **No tiene umbrales publicados**, así que no se le calcula estado ni margen.
+ * Y **se carga con meses de atraso**: al 08/10/2026 la última lectura era del
+ * 30/06/2026. La pantalla lo muestra como atrasada, que es lo que es.
+ */
+export const ESTACION_BERMEJO = { id: 2046, nombre: 'El Colorado', rio: 'Bermejo' } as const
+
+/**
+ * Las diez escalas del Paraná, de Posadas a Goya, en el orden en que pasa el
+ * agua. Es el orden de las filas del traslado; los nombres salen de acá.
+ */
+export const ESCALAS_PARANA: readonly { id: number; nombre: string }[] = [
+  { id: 14, nombre: 'Posadas' },
+  { id: 15, nombre: 'Ituzaingó' },
+  { id: 16, nombre: 'Itá Ibaté' },
+  { id: 17, nombre: 'Itatí' },
+  { id: 18, nombre: 'Paso de la Patria' },
+  { id: 19, nombre: 'Corrientes' },
+  { id: 20, nombre: 'Barranqueras' },
+  { id: 21, nombre: 'Empedrado' },
+  { id: 22, nombre: 'Bella Vista' },
+  { id: 23, nombre: 'Goya' },
+]
 
 /**
  * Las escalas **aguas arriba de Resistencia**, para el bloque «Aguas arriba» del
  * panel del río (`/api/rio/arriba`).
  *
  * Son por donde viene el agua que después pasa por Barranqueras: el Paraná desde
- * Misiones y el Paraguay desde Asunción. Ver qué está subiendo allá es ver lo
+ * Misiones, el Paraguay desde Asunción y el Bermejo antes de entrar al Paraguay. Ver qué está subiendo allá es ver lo
  * que llega acá, y eso no depende de ningún pronóstico.
  *
  * Van de aguas arriba hacia abajo dentro de cada río. Itá Ibaté también está en
@@ -139,18 +168,23 @@ export const ESTACIONES_PARAGUAY = [
  * **Las estaciones del Paraguay no anuncian a Barranqueras como Itá Ibaté**: el
  * Paraguay crece en invierno y el Paraná en verano, y en la mitad de los años
  * el máximo de cada uno es otra crecida (ver `trasladoDelParaguay()` en
- * `lib/rioTraslado.ts`). Lo que aportan es caudal —un 18 % del de Corrientes,
- * hasta un 23 % en julio—, así que se miran para saber cuánta agua entra por
- * ahí, no cuántos días faltan.
+ * `lib/rioTraslado.ts`). Lo que aportan es caudal —un 18 % del que pasa frente
+ * a Barranqueras, hasta un 22 % en julio (`lib/rioCaudales.ts`)—, así que se
+ * miran para saber cuánta agua entra por ahí. El Bermejo aporta un 2,4 %, hasta
+ * un 6 % en marzo, y en la altura de Barranqueras no se distingue.
+ *
+ * Cuántos días antes que en Barranqueras pasa la crecida por cada una está
+ * medido sobre 1970 a hoy: `anticipaciones()` en `lib/rioArriba.ts`.
  *
  * `scripts/relevar-ina.ts` las compara contra el catálogo del INA.
  */
 export interface EstacionArriba {
   id: number
   nombre: string
-  rio: 'Paraná' | 'Paraguay'
-  alerta: number
-  evacuacion: number
+  rio: 'Paraná' | 'Paraguay' | 'Bermejo'
+  /** `null` donde el INA no publica umbral: El Colorado */
+  alerta: number | null
+  evacuacion: number | null
 }
 
 export const ESTACIONES_ARRIBA: readonly EstacionArriba[] = [
@@ -162,6 +196,7 @@ export const ESTACIONES_ARRIBA: readonly EstacionArriba[] = [
   { id: 55, nombre: 'Puerto Pilcomayo',  rio: 'Paraguay', alerta: 5.35, evacuacion: 6 },
   { id: 57, nombre: 'Puerto Formosa',    rio: 'Paraguay', alerta: 7.8,  evacuacion: 8.3 },
   { id: 58, nombre: 'Puerto Bermejo',    rio: 'Paraguay', alerta: 6.5,  evacuacion: 7 },
+  { id: ESTACION_BERMEJO.id, nombre: ESTACION_BERMEJO.nombre, rio: 'Bermejo', alerta: null, evacuacion: null },
 ]
 
 /**
@@ -412,7 +447,7 @@ async function pronosticoDeSerie(serie: FilaSerie | null): Promise<Pronostico | 
 }
 
 /** Cómo está una altura respecto de los umbrales que publica el INA */
-export type EstadoRio = 'aguas_bajas' | 'normal' | 'alerta' | 'evacuacion'
+export type EstadoRio = 'aguas_bajas' | 'normal' | 'alerta' | 'evacuacion' | 'sin_umbral'
 
 /**
  * Clasifica una altura contra los umbrales **de esa estación**.
@@ -432,6 +467,7 @@ export const ETIQUETA_ESTADO: Record<EstadoRio, string> = {
   normal: 'Normal',
   alerta: 'Sobre nivel de alerta',
   evacuacion: 'Sobre nivel de evacuación',
+  sin_umbral: 'Sin umbral publicado',
 }
 
 export const COLOR_ESTADO: Record<EstadoRio, string> = {
@@ -439,6 +475,7 @@ export const COLOR_ESTADO: Record<EstadoRio, string> = {
   normal: '#5DCAA5',
   alerta: '#EF9F27',
   evacuacion: '#C0392B',
+  sin_umbral: '#a0a0a0',
 }
 
 /**

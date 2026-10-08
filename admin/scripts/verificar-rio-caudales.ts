@@ -6,7 +6,9 @@
  * cero** y las partes se saben sin calcular. La segunda corre sobre la serie
  * real congelada en `public/rio/confluencia_caudal.json`, sin salir a la red.
  *
- * Nadie publicó el reparto del caudal de Corrientes con estas series, así que
+ * El total es Barranqueras desde el 08/10/2026, con Corrientes de control.
+ *
+ * Nadie publicó el reparto del caudal de Barranqueras con estas series, así que
  * no hay un valor oficial contra el cual comparar. Lo que sí hay es física:
  * tres caudales medidos por separado tienen que sumar el cuarto, y el mismo río
  * medido en dos lugares tiene que dar la misma parte. Con las fechas corridas,
@@ -57,8 +59,8 @@ function armar(dA: number, dB: number, extra = 0): CaudalConfluencia {
   const serie = { estacion: 0, serie: 0 }
   return {
     fuente: 'prueba', variable: 'prueba', generado: '2000-01-01', desde: '2000-01-01', hasta: '2008-03-18',
-    series: { corrientes: serie, yacyreta: serie, paraguay: serie, formosa: serie, bermejo: serie },
-    m3s: { corrientes: suma, yacyreta: rioA, paraguay: rioB, formosa: rioB, bermejo: rioC },
+    series: { barranqueras: serie, corrientes: serie, yacyreta: serie, paraguay: serie, formosa: serie, bermejo: serie },
+    m3s: { barranqueras: suma, corrientes: suma, yacyreta: rioA, paraguay: rioB, formosa: rioB, bermejo: rioC },
   }
 }
 
@@ -73,7 +75,7 @@ cerca('con esas demoras el resto es cero', bEx.medias.resto, 0, 1e-6)
 cerca('y no varía', bEx.desvioResto, 0, 1e-3)
 cerca('la suma explica todo', bEx.r2, 1, 1e-9)
 cerca('las partes suman el total',
-  bEx.medias.yacyreta + bEx.medias.paraguay + bEx.medias.bermejo + bEx.medias.resto, bEx.medias.corrientes, 1e-6)
+  bEx.medias.yacyreta + bEx.medias.paraguay + bEx.medias.bermejo + bEx.medias.resto, bEx.medias.total, 1e-6)
 ok('cada parte es su río: el primero, unos 12.000', Math.abs(bEx.medias.yacyreta - 12000) < 300)
 ok('el segundo, unos 3.000', Math.abs(bEx.medias.paraguay - 3000) < 100)
 ok('están los doce meses', bEx.porMes.length, 12)
@@ -107,7 +109,7 @@ const vacio = armar(4, 9)
 vacio.m3s.bermejo = rioC.map(() => null)
 ok('sin una de las series no hay balance', balanceDeLaConfluencia(vacio), null)
 const corto = armar(4, 9)
-corto.m3s.corrientes = corto.m3s.corrientes.map((v, t) => (t < DIAS_MINIMOS_BALANCE - 20 ? v : null))
+corto.m3s.barranqueras = corto.m3s.barranqueras.map((v, t) => (t < DIAS_MINIMOS_BALANCE - 20 ? v : null))
 ok('con menos de un año tampoco', balance(corto, dEx), null)
 ok('una demora fuera del rango probado no da número',
   desfasesQueCierran(armar(DESFASE_YACYRETA_MAX + 6, 9)), null)
@@ -124,7 +126,7 @@ titulo('El archivo congelado')
 
 const c: CaudalConfluencia = JSON.parse(
   readFileSync(join(__dirname, '..', 'public', 'rio', 'confluencia_caudal.json'), 'utf8'))
-const claves: ClaveCaudal[] = ['corrientes', 'yacyreta', 'paraguay', 'formosa', 'bermejo']
+const claves: ClaveCaudal[] = ['barranqueras', 'corrientes', 'yacyreta', 'paraguay', 'formosa', 'bermejo']
 
 info(`${c.desde} a ${c.hasta}`)
 ok('están las cinco series', claves.every(k => Array.isArray(c.m3s[k])))
@@ -143,25 +145,41 @@ const mediana = (s: (number | null)[]) => {
   return v[v.length >> 1]
 }
 ok('Corrientes anda por los 16 a 18 mil m³/s', mediana(c.m3s.corrientes) > 14000 && mediana(c.m3s.corrientes) < 20000)
+ok('Barranqueras también', mediana(c.m3s.barranqueras) > 14000 && mediana(c.m3s.barranqueras) < 20000)
+{
+  /*
+   * Son la misma sección del río medida con dos curvas de gasto. Si
+   * difirieran mucho, una de las dos series no sería lo que dice ser.
+   */
+  let n = 0, sb = 0, sc = 0, sd = 0
+  c.m3s.barranqueras.forEach((v, t) => {
+    const w = c.m3s.corrientes[t]
+    if (v === null || w === null) return
+    n++; sb += v; sc += w; sd += Math.abs(v - w)
+  })
+  info(`Barranqueras y Corrientes, ${n} días en común: medias ${(sb / n).toFixed(0)} y ${(sc / n).toFixed(0)} m³/s, diferencia diaria ${(100 * sd / sc).toFixed(1)} %`)
+  ok('Barranqueras y Corrientes: los promedios difieren menos del 2 %', Math.abs(sb - sc) / sc < 0.02)
+  ok('y día por día, menos del 5 %', sd / sc < 0.05)
+}
 ok('el Paraguay, por los 3 mil', mediana(c.m3s.paraguay) > 2000 && mediana(c.m3s.paraguay) < 4500)
 ok('el Bermejo, unos cientos', mediana(c.m3s.bermejo) > 100 && mediana(c.m3s.bermejo) < 500)
 
 titulo('El balance')
 
 const b = balanceDeLaConfluencia(c)!
-const pc = (v: number) => `${(100 * v / b.medias.corrientes).toFixed(1)} %`
+const pc = (v: number) => `${(100 * v / b.medias.total).toFixed(1)} %`
 info(`${b.desde} a ${b.hasta}, ${b.dias} días · demoras: Yacyretá ${b.desfases.yacyreta} d, Paraguay ${b.desfases.paraguay} d`)
-info(`Corrientes ${b.medias.corrientes.toFixed(0)} = Yacyretá ${b.medias.yacyreta.toFixed(0)} (${pc(b.medias.yacyreta)})`
+info(`Barranqueras ${b.medias.total.toFixed(0)} = Yacyretá ${b.medias.yacyreta.toFixed(0)} (${pc(b.medias.yacyreta)})`
   + ` + Paraguay ${b.medias.paraguay.toFixed(0)} (${pc(b.medias.paraguay)})`
   + ` + Bermejo ${b.medias.bermejo.toFixed(0)} (${pc(b.medias.bermejo)})`
   + ` + resto ${b.medias.resto.toFixed(0)} (${pc(b.medias.resto)})`)
 info(`R² ${b.r2.toFixed(3)} · desvío del resto ${b.desvioResto.toFixed(0)} m³/s`)
 for (const m of b.porMes) {
-  info(`mes ${String(m.mes).padStart(2)}  ${m.corrientes.toFixed(0).padStart(6)} m³/s`
-    + `  Yacyretá ${(100 * m.yacyreta / m.corrientes).toFixed(1).padStart(5)} %`
-    + `  Paraguay ${(100 * m.paraguay / m.corrientes).toFixed(1).padStart(5)} %`
-    + `  Bermejo ${(100 * m.bermejo / m.corrientes).toFixed(1).padStart(4)} %`
-    + `  resto ${(100 * m.resto / m.corrientes).toFixed(1).padStart(5)} %  (${m.dias} d)`)
+  info(`mes ${String(m.mes).padStart(2)}  ${m.total.toFixed(0).padStart(6)} m³/s`
+    + `  Yacyretá ${(100 * m.yacyreta / m.total).toFixed(1).padStart(5)} %`
+    + `  Paraguay ${(100 * m.paraguay / m.total).toFixed(1).padStart(5)} %`
+    + `  Bermejo ${(100 * m.bermejo / m.total).toFixed(1).padStart(4)} %`
+    + `  resto ${(100 * m.resto / m.total).toFixed(1).padStart(5)} %  (${m.dias} d)`)
 }
 info(`por el Paraguay, día por día: p5 ${(100 * b.porElParaguay.p5).toFixed(0)} %, mediana ${(100 * b.porElParaguay.mediana).toFixed(0)} %,`
   + ` p95 ${(100 * b.porElParaguay.p95).toFixed(0)} %, máximo ${(100 * b.porElParaguay.max).toFixed(0)} % el ${b.porElParaguay.fechaMax}`)
@@ -170,16 +188,16 @@ info(`por el Paraguay, día por día: p5 ${(100 * b.porElParaguay.p5).toFixed(0)
  * La verificación de fondo: tres caudales medidos por separado suman el cuarto.
  * Nada en el cálculo lo fuerza — el resto es una resta, no un ajuste.
  */
-ok('tres ríos medidos por separado suman Corrientes: resto bajo el 5 %',
-  Math.abs(b.medias.resto) < 0.05 * b.medias.corrientes)
-ok('y día por día la suma sigue a Corrientes', b.r2 > 0.85)
+ok('tres ríos medidos por separado suman Barranqueras: resto bajo el 5 %',
+  Math.abs(b.medias.resto) < 0.05 * b.medias.total)
+ok('y día por día la suma sigue a Barranqueras', b.r2 > 0.85)
 ok('entran más de diez años de días', b.dias > 3650)
 
 ok('la demora de Yacyretá, entre tres y cinco días', b.desfases.yacyreta >= 3 && b.desfases.yacyreta <= 5)
 ok('ninguna demora cae en el borde del rango',
   b.desfases.paraguay > 0 && b.desfases.paraguay < DESFASE_PARAGUAY_MAX)
 
-const parte = (v: number) => v / b.medias.corrientes
+const parte = (v: number) => v / b.medias.total
 ok('el Paraná por Yacyretá es la mayor parte: tres cuartos', parte(b.medias.yacyreta) > 0.7 && parte(b.medias.yacyreta) < 0.85)
 ok('el Paraguay, entre el 15 y el 22 %', parte(b.medias.paraguay) > 0.15 && parte(b.medias.paraguay) < 0.22)
 ok('el Bermejo, menos del 5 %', parte(b.medias.bermejo) > 0.01 && parte(b.medias.bermejo) < 0.05)
@@ -191,10 +209,25 @@ ok('el Bermejo, menos del 5 %', parte(b.medias.bermejo) > 0.01 && parte(b.medias
  */
 const mes = (n: number) => b.porMes.find(m => m.mes === n)!
 ok('el Paraguay pesa más en julio que en febrero',
-  mes(7).paraguay / mes(7).corrientes > mes(2).paraguay / mes(2).corrientes + 0.04)
+  mes(7).paraguay / mes(7).total > mes(2).paraguay / mes(2).total + 0.04)
 const mesBermejo = b.porMes.reduce((a, m) => (m.bermejo > a.bermejo ? m : a)).mes
 ok('el Bermejo trae más agua entre febrero y abril', mesBermejo >= 2 && mesBermejo <= 4)
 ok('y casi nada en la primavera', mes(10).bermejo < mes(3).bermejo / 5)
+
+titulo('El control: Corrientes como total')
+
+/*
+ * Corrientes está enfrente, con otra escala y otra curva de gasto. El balance
+ * tiene que cerrar igual y repartir igual: si dependiera de cuál de las dos se
+ * toma como total, sería una propiedad de una curva y no del río.
+ */
+const bc = balanceDeLaConfluencia(c, 'paraguay', 'corrientes')!
+info(`Corrientes: Paraguay ${(100 * bc.medias.paraguay / bc.medias.total).toFixed(1)} % · resto ${(100 * bc.medias.resto / bc.medias.total).toFixed(1)} % · R² ${bc.r2.toFixed(3)}`)
+ok('el total se pidió como Corrientes', bc.destino, 'corrientes')
+ok('el de Barranqueras es el de omisión', b.destino, 'barranqueras')
+ok('con Corrientes el resto también queda bajo el 5 %', Math.abs(bc.medias.resto) < 0.05 * bc.medias.total)
+ok('y la parte del Paraguay difiere menos de un punto',
+  Math.abs(bc.medias.paraguay / bc.medias.total - parte(b.medias.paraguay)) < 0.01)
 
 titulo('El control: el Paraguay medido en Formosa')
 
@@ -205,11 +238,11 @@ titulo('El control: el Paraguay medido en Formosa')
  */
 const bf = balanceDeLaConfluencia(c, 'formosa')!
 info(`${bf.desde} a ${bf.hasta}, ${bf.dias} días · demoras: Yacyretá ${bf.desfases.yacyreta} d, Paraguay ${bf.desfases.paraguay} d`)
-info(`Paraguay ${(100 * bf.medias.paraguay / bf.medias.corrientes).toFixed(1)} % · resto ${(100 * bf.medias.resto / bf.medias.corrientes).toFixed(1)} % · R² ${bf.r2.toFixed(3)}`)
+info(`Paraguay ${(100 * bf.medias.paraguay / bf.medias.total).toFixed(1)} % · resto ${(100 * bf.medias.resto / bf.medias.total).toFixed(1)} % · R² ${bf.r2.toFixed(3)}`)
 
 ok('la parte del Paraguay difiere menos de dos puntos',
-  Math.abs(bf.medias.paraguay / bf.medias.corrientes - parte(b.medias.paraguay)) < 0.02)
-ok('el resto también queda bajo el 5 %', Math.abs(bf.medias.resto) < 0.05 * bf.medias.corrientes)
+  Math.abs(bf.medias.paraguay / bf.medias.total - parte(b.medias.paraguay)) < 0.02)
+ok('el resto también queda bajo el 5 %', Math.abs(bf.medias.resto) < 0.05 * bf.medias.total)
 ok('la demora de Yacyretá es la misma', bf.desfases.yacyreta, b.desfases.yacyreta)
 ok('Formosa está más cerca: su demora no es mayor que la de Pilcomayo',
   bf.desfases.paraguay <= b.desfases.paraguay)
@@ -221,17 +254,17 @@ const cortar = (desde: number, hasta: number): CaudalConfluencia => ({
   ...c,
   m3s: Object.fromEntries(claves.map(k => [k, c.m3s[k].map((v, t) => (t >= desde && t < hasta ? v : null))])) as CaudalConfluencia['m3s'],
 })
-const dias = c.m3s.corrientes.map((_, t) => t).filter(t =>
-  c.m3s.corrientes[t] !== null && c.m3s.yacyreta[t] !== null && c.m3s.paraguay[t] !== null && c.m3s.bermejo[t] !== null)
+const dias = c.m3s.barranqueras.map((_, t) => t).filter(t =>
+  c.m3s.barranqueras[t] !== null && c.m3s.yacyreta[t] !== null && c.m3s.paraguay[t] !== null && c.m3s.bermejo[t] !== null)
 const corte = dias[dias.length >> 1]
 const b1 = balance(cortar(0, corte), b.desfases)!
 const b2 = balance(cortar(corte, c.m3s.corrientes.length), b.desfases)!
-info(`primera mitad (${b1.desde} a ${b1.hasta}): Paraguay ${(100 * b1.medias.paraguay / b1.medias.corrientes).toFixed(1)} %, resto ${(100 * b1.medias.resto / b1.medias.corrientes).toFixed(1)} %`)
-info(`segunda mitad (${b2.desde} a ${b2.hasta}): Paraguay ${(100 * b2.medias.paraguay / b2.medias.corrientes).toFixed(1)} %, resto ${(100 * b2.medias.resto / b2.medias.corrientes).toFixed(1)} %`)
+info(`primera mitad (${b1.desde} a ${b1.hasta}): Paraguay ${(100 * b1.medias.paraguay / b1.medias.total).toFixed(1)} %, resto ${(100 * b1.medias.resto / b1.medias.total).toFixed(1)} %`)
+info(`segunda mitad (${b2.desde} a ${b2.hasta}): Paraguay ${(100 * b2.medias.paraguay / b2.medias.total).toFixed(1)} %, resto ${(100 * b2.medias.resto / b2.medias.total).toFixed(1)} %`)
 ok('las dos mitades cierran bajo el 5 %',
-  Math.abs(b1.medias.resto) < 0.05 * b1.medias.corrientes && Math.abs(b2.medias.resto) < 0.05 * b2.medias.corrientes)
+  Math.abs(b1.medias.resto) < 0.05 * b1.medias.total && Math.abs(b2.medias.resto) < 0.05 * b2.medias.total)
 ok('y la parte del Paraguay difiere menos de cinco puntos',
-  Math.abs(b1.medias.paraguay / b1.medias.corrientes - b2.medias.paraguay / b2.medias.corrientes) < 0.05)
+  Math.abs(b1.medias.paraguay / b1.medias.total - b2.medias.paraguay / b2.medias.total) < 0.05)
 
 console.log(fallos === 0 ? '\n✓ Todo bien.' : `\n✗ ${fallos} fallo(s).`)
 process.exit(fallos === 0 ? 0 : 1)

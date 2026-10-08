@@ -6,7 +6,7 @@ Paraná.
 Describe **de dónde sale cada número, cómo se procesa y por qué se eligió ese
 método** sobre las alternativas.
 
-Actualizado al 02/10/2026. La implementación vive en `admin/src/lib/`; los
+Actualizado al 08/10/2026. La implementación vive en `admin/src/lib/`; los
 scripts de verificación citados están en `admin/scripts/`.
 
 ---
@@ -863,116 +863,175 @@ hidrómetro de Puerto Barranqueras el 04/05/1998, y la media diaria de
 Corrientes, cuyos máximos anuales correlacionan 0,995 con los de Barranqueras
 en los 54 años en común.
 
-### 8.6 Tiempo de traslado de la crecida en el tramo
+### 8.6 Tiempo de traslado de la crecida hasta Barranqueras
 
-`lib/rioTraslado.ts`. Cuántos días antes o después que en Corrientes se mueve el
-río en las otras cinco estaciones, de aguas arriba hacia abajo.
+`lib/rioTraslado.ts`. Cuántos días antes o después que en **Barranqueras** se
+mueve el río en las otras nueve escalas del Paraná, de Posadas a Goya.
 
-**Serie.** Altura media diaria de las seis estaciones, del 01/01/1970 al
-01/10/2026 (`public/rio/tramo_diario.json`). Se usa el período común: Barranqueras
-y Bella Vista no tienen media diaria anterior. Empedrado no tiene datos entre
-1970 y 1989.
+**La referencia es Barranqueras.** Hasta el 08/10/2026 se medía contra
+Corrientes, que tiene la media diaria más larga. Se cambió porque la escala que
+decide en el Gran Resistencia es la de Barranqueras —la de sus umbrales y la del
+registro histórico de 8.5—, y la pregunta es cuántos días antes que acá.
+Corrientes, enfrente, queda como control.
+
+**Serie.** Altura media diaria de las diez escalas, del 01/01/1970 al
+07/10/2026 (`public/rio/tramo_diario.json`). Se usa el período común:
+Barranqueras y Bella Vista no tienen media diaria anterior. Empedrado no tiene
+datos entre 1970 y 1989.
 
 **Dos métodos independientes.**
 
-1. *Pico anual.* Para cada año hidrológico completo en las dos estaciones, la
+1. *Pico anual.* Para cada año hidrológico completo en las dos escalas, la
    diferencia entre las fechas del máximo. Se informa la mediana y los cuartiles.
    Se excluyen los años en que los picos difieren más de 15 días, porque
    corresponden a crecidas distintas.
 2. *Variaciones diarias.* Correlación de Pearson entre el cambio diario de
-   altura en Corrientes y el de la otra estación desplazado de −6 a +10 días. El
-   desfase es el de máxima correlación, afinado con el vértice de la parábola
+   altura en Barranqueras y el de la otra escala desplazado de −12 a +10 días.
+   El desfase es el de máxima correlación, afinado con el vértice de la parábola
    por los tres puntos de la cima. Se correlacionan cambios y no alturas porque
    las alturas, por su persistencia, correlacionan por encima de 0,9 con
    cualquier desfase y no definen un máximo.
 
-| Estación | Pico anual | Cuartiles | Años | Variaciones diarias | r |
+| Escala | Pico anual | Cuartiles | Años | Variaciones diarias | r |
 |---|---|---|---|---|---|
-| Itá Ibaté | 3 días antes | −4 a −2 | 46 de 52 | −1,8 d | 0,65 |
-| Barranqueras | el mismo día | −1 a 0 | 49 de 54 | 0,0 d | 0,82 |
-| Empedrado | 1 día después | 0 a +1 | 28 de 31 | +0,5 d | 0,57 |
-| Bella Vista | 2 días después | +1 a +3 | 47 de 53 | +1,3 d | 0,68 |
-| Goya | 4 días después | +2 a +5 | 49 de 56 | +1,9 d | 0,65 |
+| Posadas | 6 días antes | −7 a −5 | 31 de 54 | −4,0 d | 0,24 |
+| Ituzaingó | 4 días antes | −5 a −3 | 37 de 53 | −2,3 d | 0,43 |
+| Itá Ibaté | 3 días antes | −4 a −2 | 40 de 50 | −1,9 d | 0,60 |
+| Itatí | 2 días antes | −2 a −1 | 41 de 50 | −0,8 d | 0,73 |
+| Paso de la Patria | 1 día antes | −1 a 0 | 46 de 53 | −0,4 d | 0,67 |
+| Corrientes | el mismo día | 0 a +1 | 49 de 54 | 0,0 d | 0,82 |
+| Empedrado | 1 día después | 0 a +1 | 28 de 31 | +0,5 d | 0,66 |
+| Bella Vista | 2 días después | +1 a +3 | 46 de 52 | +1,3 d | 0,63 |
+| Goya | 3 días después | +2 a +6 | 47 de 54 | +1,9 d | 0,60 |
 
-**Lectura.** El máximo de una crecida pasa por Itá Ibaté unos tres días antes
-que por Corrientes y Barranqueras, y llega a Goya unos cuatro días después. El
-pico tarda más que una variación común —en Goya, el doble— porque la cresta es
-chata. Para una crecida vale el del pico.
+**Lectura.** El máximo de una crecida pasa por Posadas unos seis días antes que
+por Barranqueras, por Itá Ibaté unos tres, y llega a Goya unos tres días
+después. El pico tarda más que una variación común porque la cresta es chata.
+Para una crecida vale el del pico. Cuanto más lejos, más baja la correlación de
+las variaciones diarias: Posadas anticipa el pico, pero sus variaciones de un
+día casi no se parecen a las de Barranqueras.
 
-**Controles.** Barranqueras está enfrente de Corrientes y da cero por los dos
-métodos. Partida la serie en dos mitades, el desfase por variaciones de cada
-estación cambia menos de medio día. Los dos métodos coinciden en signo y en
-orden.
+**Controles.** Corrientes está enfrente de Barranqueras y da cero por los dos
+métodos. Partida la serie en dos mitades, el desfase por variaciones cambia
+menos de medio día en Itá Ibaté, Corrientes, Bella Vista y Goya, y menos de un
+día en Posadas e Ituzaingó: Yacyretá, que se llenó entre 1994 y 2011, regula lo
+que pasa por ahí. Los dos métodos coinciden en signo y en orden.
 
 **Límites.** La serie es diaria: el desfase se conoce al medio día. Entre Itá
-Ibaté y Corrientes entra el río Paraguay, así que Itá Ibaté no anuncia una
-crecida que venga por el Paraguay (ver 8.7). Es el traslado típico: dice cuándo
-llega, no a qué altura. Con el río alto el método de variaciones no da un
-resultado consistente en Goya; no se investigó la causa.
+Ibaté y Barranqueras entra el río Paraguay, así que las escalas del Paraná no
+anuncian una crecida que venga por el Paraguay (ver 8.7). Ituzaingó está al pie
+de la represa y su altura depende de la operación. Es el traslado típico: dice
+cuándo llega, no a qué altura.
 
 Verificación: `scripts/verificar-rio-traslado.ts`.
 
-### 8.7 El aporte del río Paraguay
+### 8.7 El aporte del río Paraguay y del Bermejo
 
-El Paraguay entra al Paraná entre Itá Ibaté y Corrientes. Se sumaron dos de sus
-estaciones al registro —**Puerto Pilcomayo**, frente a Asunción, unos 390 km
-aguas arriba de la confluencia, y **Puerto Bermejo**, en Chaco, a unos 60 km—,
-las dos con altura media diaria desde 1970 (series 26297 y 26300 del Alerta
-Hidrológico). Puerto Formosa e Isla del Cerrito tienen media diaria recién desde
-2006 y quedaron afuera.
+El Paraguay entra al Paraná entre Itá Ibaté y Barranqueras, y el Bermejo entra
+al Paraguay aguas abajo de Puerto Formosa. Están en el registro **Puerto
+Pilcomayo**, frente a Asunción, unos 390 km aguas arriba de la confluencia;
+**Puerto Formosa**; **Puerto Bermejo**, en Chaco, a unos 60 km; y **El
+Colorado**, sobre el Bermejo en Formosa. Pilcomayo y Puerto Bermejo tienen
+altura media diaria desde 1970; Formosa, desde 2006; El Colorado, desde 2001
+y cargada con meses de atraso.
 
-**No se comportan como una estación más del tramo.** Con los dos métodos de 8.6:
+**No se comportan como una escala más del tramo.** Con los dos métodos de 8.6:
 
-| Estación | Variaciones diarias | Mismo pico anual que Corrientes |
+| Escala | Variaciones diarias | Mismo pico anual que Barranqueras |
 |---|---|---|
-| Puerto Pilcomayo | r 0,16 | 21 de 52 años |
-| Puerto Bermejo | r 0,31 | 17 de 33 años |
+| Puerto Pilcomayo | r 0,15 | 22 de 50 años |
+| Puerto Formosa | r 0,22 | menos de diez años usables |
+| Puerto Bermejo | r 0,29 | 19 de 33 años |
+| El Colorado (Bermejo) | r 0,01 | menos de diez años usables |
 
-De un día para el otro el Paraguay casi no se mueve con Corrientes, y en la
+De un día para el otro el Paraguay casi no se mueve con Barranqueras, y en la
 mitad de los años o más su máximo anual es otra crecida, a meses de la del
 Paraná: el Paraguay crece en invierno, con el agua del Pantanal. No hay un
 traslado que informar.
 
-**Lo que sí se mide es el aporte**: cuánto de lo que Corrientes hace, y que Itá
-Ibaté no explica, se parece a lo que hizo el Paraguay. Sobre cambios de altura
-en 15 días:
+**Lo que sí se mide es el aporte**: cuánto de lo que Barranqueras hace, y que
+Itá Ibaté no explica, se parece a lo que hizo el afluente. Sobre cambios de
+altura en 15 días:
 
-1. Se ajusta por mínimos cuadrados el cambio de Corrientes contra el de Itá
+1. Se ajusta por mínimos cuadrados el cambio de Barranqueras contra el de Itá
    Ibaté 1, 2, 3, 4, 6 y 8 días antes.
 2. Lo que el ajuste no explica es el resto.
-3. Se correlaciona el resto con el cambio de la estación del Paraguay, con
+3. Se correlaciona el resto con el cambio de la escala del afluente, con
    desfases de −25 a +10 días.
 
-| Estación | Máxima correlación | Desfase | Rango | R² sin → con |
+| Escala | Máxima correlación | Desfase | Rango | R² sin → con |
 |---|---|---|---|---|
-| Puerto Pilcomayo | 0,54 | 4 días antes | de 10 antes al mismo día | 0,922 → 0,946 |
-| Puerto Bermejo | 0,48 | el mismo día | de 4 antes a 4 después | 0,925 → 0,964 |
+| Puerto Pilcomayo | 0,51 | 5 días antes | de 10 antes al mismo día | 0,915 → 0,939 |
+| Puerto Formosa | 0,68 | el mismo día | de 4 antes a 4 después | 0,899 → 0,949 |
+| Puerto Bermejo | 0,48 | el mismo día | de 4 antes a 3 después | 0,919 → 0,958 |
+| El Colorado (Bermejo) | 0,11 | — | — | 0,907 → 0,908 |
 
 El rango es el de desfases cuya correlación queda a menos de un décimo de la
-máxima. El R² es el del ajuste de Corrientes con Itá Ibaté sola y sumando la
-estación en su mejor desfase, sobre los mismos días.
+máxima. El R² es el del ajuste de Barranqueras con Itá Ibaté sola y sumando la
+escala en su mejor desfase, sobre los mismos días.
 
-**Lectura.** Puerto Pilcomayo explica alrededor de un tercio de lo que Itá Ibaté
-deja sin explicar, y lo hace con días de adelanto, pero **la cima es ancha: dice
-alrededor de cuándo, no qué día**. Puerto Bermejo explica más y no adelanta: se
-mueve a la vez que Corrientes.
+**Lectura.** Puerto Pilcomayo explica parte de lo que Itá Ibaté deja sin
+explicar, y lo hace con días de adelanto, pero **la cima es ancha: dice
+alrededor de cuándo, no qué día**. Puerto Formosa y Puerto Bermejo explican más
+y no adelantan: se mueven a la vez que Barranqueras. **El Bermejo en El Colorado
+no se distingue en la altura de Barranqueras**: su agua llega mezclada con la
+del Paraguay, que pesa siete veces más (ver 8.8), y la escala mide un río de
+cauce móvil.
 
 **Por qué quince días y seis desfases.** Con cambios de un día el Paraguay no se
-distingue del ruido; la correlación crece con la ventana (0,39 con siete días,
-0,54 con quince) sin que el desfase se corra. Y con Itá Ibaté en un solo
-desfase el resto correlaciona 0,42 con la propia Itá Ibaté de diez días antes
-—la onda se aplasta al viajar—, lo que le atribuía a Puerto Bermejo cuatro días
-de adelanto que no tiene. Con los seis desfases esa correlación baja a 0,07.
+distingue del ruido; la correlación crece con la ventana sin que el desfase se
+corra. Y con Itá Ibaté en un solo desfase el resto correlaciona con la propia
+Itá Ibaté de diez días antes —la onda se aplasta al viajar—, lo que le
+atribuía a Puerto Bermejo días de adelanto que no tiene. Se midió con
+Corrientes de referencia, antes del cambio; los controles dan lo mismo con
+Barranqueras.
 
-**Controles.** Barranqueras, enfrente de Corrientes, medida con el mismo
+**Controles.** Corrientes, enfrente de Barranqueras, medida con el mismo
 procedimiento da desfase cero; Goya, aguas abajo, da después. Partida la serie
-en dos mitades, el desfase de cada estación del Paraguay cambia un día.
+en dos mitades, el desfase de Pilcomayo y de Puerto Bermejo cambia un día o
+menos.
 
-**Límites.** Es una descripción de cómo se movieron los dos ríos, no un modelo:
-no dice cuántos centímetros sube Corrientes por una crecida del Paraguay. Las
+**Límites.** Es una descripción de cómo se movieron los ríos, no un modelo: no
+dice cuántos centímetros sube Barranqueras por una crecida del Paraguay. Las
 ventanas de quince días se superponen, así que los días que entran no son
-observaciones independientes. No se usaron caudales, que es como se plantearía
-un balance en la confluencia.
+observaciones independientes.
+
+### 8.8 De dónde viene el agua que pasa frente a Barranqueras
+
+`lib/rioCaudales.ts`. Una altura no se suma; un caudal sí:
+
+    Barranqueras(t) = Yacyretá(t − a) + Paraguay(t − b) + Bermejo(t − c) + resto
+
+Caudal medio diario del Alerta Hidrológico: Barranqueras (serie 26617, curva de
+gasto, desde 1985), el efluente de Yacyretá, Puerto Pilcomayo y El Colorado.
+Sobre 6.612 días entre 2001 y 2025:
+
+| | m³/s | Parte |
+|---|---|---|
+| Barranqueras | 17.953 | |
+| Paraná, efluente de Yacyretá (4 días antes) | 13.904 | 77,4 % |
+| Paraguay, en Puerto Pilcomayo (11 días antes) | 3.248 | 18,1 % |
+| Bermejo, en El Colorado (3 días antes, supuesto) | 428 | 2,4 % |
+| Resto | 374 | 2,1 % |
+
+**Que cierre es la verificación**: son lo que larga una represa y tres curvas de
+gasto, y nada obliga a que tres sumen la cuarta. R² 0,91 día por día. El
+Paraguay pesa 14,5 % en febrero y 22,3 % en julio; el Bermejo llega al 6 % en marzo
+y no es nada en primavera.
+
+**Dos controles independientes.** Con el total medido en **Corrientes**, enfrente
+y con otra curva de gasto, la parte del Paraguay da 18,2 % y el resto 1,5 %:
+las dos escalas miden la misma sección (sobre 9.721 días en común sus caudales
+medios difieren 0,4 %). Con el Paraguay medido en **Puerto Formosa**, más abajo y
+con otra escala, su parte da 18,9 %.
+
+**Límites.** Son caudales de curva de gasto y no aforos, salvo Yacyretá: los
+promedios son firmes, un día suelto con el río fuera de cauce no tanto. La
+demora del Paraguay es la que mejor cierra la cuenta, no una medida de cuánto
+tarda. La del Bermejo es supuesta. Es de dónde vino el agua, no a cuánto va a
+llegar el río.
+
+Verificación: `scripts/verificar-rio-caudales.ts`.
 
 ---
 

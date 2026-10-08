@@ -293,7 +293,11 @@ export default function PanelRio({ dias = 90, desde, hasta, abiertoInicial = fal
             cuando llega; las franjas de arriba no lo esperan.
           */}
           <AguasArriba dias={dias} alCargar={setIdsArriba} franja={e => (
-            <Franja est={e} desde={desde} hasta={hasta} alDato={alDato} promovida />
+            // Sólo llegan acá las que tienen umbral: sin alerta no hay franja
+            e.alerta === null || e.evacuacion === null ? null : (
+              <Franja est={{ ...e, alerta: e.alerta, evacuacion: e.evacuacion }}
+                desde={desde} hasta={hasta} alDato={alDato} promovida />
+            )
           )} />
 
           {(chicas.length > 0 || datos.sinRespuesta.length > 0) && (

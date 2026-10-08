@@ -3,10 +3,12 @@
 /**
  * Cuánto tarda la crecida en recorrer el tramo.
  *
- * Una fila por estación, de aguas arriba hacia abajo, con el desfase respecto
- * de Corrientes medido de las dos maneras de `lib/rioTraslado.ts`. Corrientes
- * va en la tabla como referencia, en cero, para que se lea el recorrido entero
- * de un vistazo.
+ * Una fila por escala del Paraná, de Posadas a Goya, con el desfase respecto
+ * de **Barranqueras** medido de las dos maneras de `lib/rioTraslado.ts`.
+ * Barranqueras va en la tabla como referencia, en cero, para que se lea el
+ * recorrido entero de un vistazo; Corrientes, enfrente, va como control.
+ * Debajo, los afluentes: el Paraguay y el Bermejo, a los que se les mide el
+ * aporte y no el traslado.
  *
  * ── La columna de barras ──────────────────────────────────────────────────────
  *
@@ -16,13 +18,15 @@
  * cinco comparten escala, así que se ve también cuál correlaciona menos.
  */
 
-import { useEffect, useMemo, useState } from 'react'
-import { ESTACIONES, ESTACIONES_PARAGUAY } from '@/lib/ina'
+import { useMemo, useState } from 'react'
+import { ESCALAS_PARANA, ESTACIONES_PARAGUAY, ESTACION_BERMEJO } from '@/lib/ina'
 import {
-  trasladoDelTramo, trasladoDelParaguay, ESTACION_REFERENCIA, DESFASE_MIN, DESFASE_MAX,
+  trasladoDelTramo, trasladoDelParaguay, trasladoDelBermejo,
+  ESTACION_REFERENCIA, ESTACION_CONTROL, ESTACION_ARRIBA, DESFASE_MIN, DESFASE_MAX,
   VENTANA_PICO_DIAS, VENTANA_APORTE_DIAS,
-  type TramoDiario, type TrasladoEstacion, type TrasladoParaguay,
+  type TrasladoEstacion, type TrasladoParaguay,
 } from '@/lib/rioTraslado'
+import { useTramoDiario } from '@/hooks/useTramoDiario'
 import { mono, boton, th, thD, td, tdD } from '@/components/cuencas/piezas'
 
 const n1 = (v: number) => v.toFixed(1).replace('.', ',')
@@ -44,29 +48,14 @@ const conSigno = (v: number) =>
   Math.abs(v) < 0.05 ? '0,0' : `${v < 0 ? '−' : '+'}${n1(Math.abs(v))}`
 
 export default function TrasladoCrecida() {
-  const [tramo, setTramo] = useState<TramoDiario | null>(null)
-  const [error, setError] = useState<string | null>(null)
   const [intento, setIntento] = useState(0)
-
-  useEffect(() => {
-    let vivo = true
-    fetch('/rio/tramo_diario.json')
-      .then(r => {
-        if (!r.ok) throw new Error(`el servidor respondió ${r.status}`)
-        return r.json() as Promise<TramoDiario>
-      })
-      .then(j => {
-        if (!vivo) return
-        if (!j?.estaciones || typeof j.desde !== 'string') throw new Error('el archivo no tiene la forma esperada')
-        setTramo(j)
-        setError(null)
-      })
-      .catch(e => { if (vivo) setError(e instanceof Error ? e.message : 'no se pudo leer') })
-    return () => { vivo = false }
-  }, [intento])
+  const { tramo, error } = useTramoDiario(intento)
 
   const traslado = useMemo(() => (tramo ? trasladoDelTramo(tramo) : []), [tramo])
-  const paraguay = useMemo(() => (tramo ? trasladoDelParaguay(tramo) : []), [tramo])
+  const afluentes = useMemo(
+    () => (tramo ? [...trasladoDelParaguay(tramo), ...trasladoDelBermejo(tramo)] : []),
+    [tramo],
+  )
 
   if (error) {
     return (
@@ -90,10 +79,13 @@ export default function TrasladoCrecida() {
   }
 
   const de = (id: number) => traslado.find(t => t.estacion === id)
-  const arriba = ESTACIONES[0]
-  const abajo = ESTACIONES[ESTACIONES.length - 1]
-  const tArriba = de(arriba.id)?.picos
-  const tAbajo = de(abajo.id)?.picos
+  const nombre = (id: number) => ESCALAS_PARANA.find(e => e.id === id)?.nombre ?? String(id)
+  const primera = ESCALAS_PARANA[0]
+  const ultima = ESCALAS_PARANA[ESCALAS_PARANA.length - 1]
+  const itaIbate = nombre(ESTACION_ARRIBA)
+  const tPrimera = de(primera.id)?.picos
+  const tIta = de(ESTACION_ARRIBA)?.picos
+  const tUltima = de(ultima.id)?.picos
   const rMax = Math.max(0.01, ...traslado.map(t => t.cambios?.r ?? 0))
 
   return (
@@ -104,15 +96,16 @@ export default function TrasladoCrecida() {
         Traslado de la crecida en el tramo
       </div>
       <div style={{ fontSize: 11, color: '#8f8f8f', lineHeight: 1.5, marginTop: 4 }}>
-        Cuánto antes o después que en Corrientes se mueve el río en cada estación. Altura media
-        diaria, {fLarga(tramo.desde)} a {fLarga(tramo.hasta)}.
+        Cuánto antes o después que en <b style={{ color: '#a0a0a0' }}>Barranqueras</b> se mueve el
+        río en cada escala. Altura media diaria, {fLarga(tramo.desde)} a {fLarga(tramo.hasta)}.
       </div>
 
-      {tArriba && tAbajo && (
+      {tPrimera && tIta && tUltima && (
         <div style={{ fontSize: 12, color: '#c4c4c4', lineHeight: 1.6, marginTop: 10,
           borderLeft: '3px solid #85B7EB', paddingLeft: 9 }}>
-          El máximo de una crecida pasa por <b>{arriba.nombre}</b> {enPalabras(tArriba.mediana)} que
-          por Corrientes y Barranqueras, y por <b>{abajo.nombre}</b> {enPalabras(tAbajo.mediana)}.
+          El máximo de una crecida pasa por <b>{primera.nombre}</b> {enPalabras(tPrimera.mediana)} que
+          por Barranqueras, por <b>{itaIbate}</b> {enPalabras(tIta.mediana)}, y por{' '}
+          <b>{ultima.nombre}</b> {enPalabras(tUltima.mediana)}.
         </div>
       )}
 
@@ -131,11 +124,11 @@ export default function TrasladoCrecida() {
           </tr>
         </thead>
         <tbody>
-          {ESTACIONES.map(e => {
+          {ESCALAS_PARANA.map(e => {
             if (e.id === ESTACION_REFERENCIA) {
               return (
-                <tr key={e.id} style={{ borderTop: '1px solid #232323', color: '#8f8f8f' }}>
-                  <td style={td}>{e.nombre}</td>
+                <tr key={e.id} style={{ borderTop: '1px solid #232323', color: '#c4c4c4' }}>
+                  <td style={{ ...td, color: '#F5C300' }}>{e.nombre}</td>
                   <td style={tdD}>referencia</td>
                   <td style={tdD} /><td style={tdD} /><td style={tdD} /><td style={tdD} />
                   <td />
@@ -146,7 +139,12 @@ export default function TrasladoCrecida() {
             if (!t) return null
             return (
               <tr key={e.id} style={{ borderTop: '1px solid #232323' }}>
-                <td style={td}>{e.nombre}</td>
+                <td style={td}>
+                  {e.nombre}
+                  {e.id === ESTACION_CONTROL && (
+                    <span style={{ color: '#8f8f8f', marginLeft: 6 }}>enfrente · control</span>
+                  )}
+                </td>
                 <td style={{ ...tdD, color: '#fff' }}>{t.picos ? enPalabras(t.picos.mediana) : '—'}</td>
                 <td style={{ ...tdD, color: '#a0a0a0' }}>
                   {t.picos ? `${entero(t.picos.p25)} y ${entero(t.picos.p75)}` : ''}
@@ -175,38 +173,43 @@ export default function TrasladoCrecida() {
         que mejor alinea lo que el río sube o baja cada día en las dos estaciones; describe un
         cambio cualquiera, y da menos porque la cresta de una crecida es chata y se demora más.
         Se dejan afuera los años en que los dos picos caen a más de {VENTANA_PICO_DIAS} días: son
-        crecidas distintas. <b style={{ color: '#a0a0a0' }}>Entre {arriba.nombre} y Corrientes entra
-        el río Paraguay</b>, así que una crecida que venga por el Paraguay no se anuncia en{' '}
-        {arriba.nombre}: va medido aparte, más abajo. La serie es diaria: el desfase se conoce al medio día, no más. Es cuándo
+        crecidas distintas. <b style={{ color: '#a0a0a0' }}>Corrientes está enfrente</b>: su
+        desfase tiene que dar cero, y si no da, alguna serie tiene las fechas corridas.{' '}
+        <b style={{ color: '#a0a0a0' }}>Ituzaingó está al pie de Yacyretá</b>, que regula su
+        altura. <b style={{ color: '#a0a0a0' }}>Entre {itaIbate} y Barranqueras entra el río
+        Paraguay</b>, así que una crecida que venga por el Paraguay no se anuncia en las escalas
+        del Paraná: va medido aparte, más abajo. La serie es diaria: el desfase se conoce al medio día, no más. Es cuándo
         llega, no a cuánto. Fuente: {tramo.fuente}.
       </div>
 
-      {paraguay.length > 0 && <Paraguay filas={paraguay} arriba={arriba.nombre} />}
+      {afluentes.length > 0 && <Afluentes filas={afluentes} arriba={itaIbate} />}
     </div>
   )
 }
 
 /**
- * Las dos estaciones del río Paraguay.
+ * Los afluentes: las tres escalas del río Paraguay y la del Bermejo.
  *
  * Van en tabla aparte y con otras columnas porque **no son del tramo y no se
  * les mide lo mismo**: no hay un traslado que informar. Las dos primeras
  * columnas están para que se vea por qué —sus variaciones casi no se parecen a
- * las de Corrientes y su pico anual suele ser otra crecida—, y las otras son lo
- * que sí se puede decir: cuánto de lo que Itá Ibaté no explica viene por ahí.
+ * las de Barranqueras y su pico anual suele ser otra crecida—, y las otras son
+ * lo que sí se puede decir: cuánto de lo que Itá Ibaté no explica viene por
+ * ahí. El Bermejo desemboca en el Paraguay y se le mide lo mismo.
  */
-function Paraguay({ filas, arriba }: { filas: TrasladoParaguay[]; arriba: string }) {
+function Afluentes({ filas, arriba }: { filas: TrasladoParaguay[]; arriba: string }) {
   const pct = (v: number) => `${n1(v * 100)} %`
   const r2 = (v: number) => v.toFixed(2).replace('.', ',')
 
   return (
     <div style={{ marginTop: 14, borderTop: '1px solid #232323', paddingTop: 11 }}>
       <div style={{ fontSize: 11, color: '#a0a0a0', textTransform: 'uppercase', letterSpacing: 1.2 }}>
-        Río Paraguay
+        Afluentes: río Paraguay y río Bermejo
       </div>
       <div style={{ fontSize: 11, color: '#8f8f8f', lineHeight: 1.5, marginTop: 4 }}>
-        Entra al Paraná entre {arriba} y Corrientes. No es una estación más del tramo: crece en
-        otra época, y lo que se le mide es cuánto de lo que {arriba} no explica viene por ahí.
+        El Paraguay entra al Paraná entre {arriba} y Barranqueras, y el Bermejo entra al Paraguay
+        antes de Puerto Bermejo. No son escalas del tramo: crecen en otra época, y lo que se les
+        mide es cuánto de lo que {arriba} no explica viene por ahí.
       </div>
 
       <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse', color: '#c4c4c4', marginTop: 10 }}>
@@ -222,13 +225,16 @@ function Paraguay({ filas, arriba }: { filas: TrasladoParaguay[]; arriba: string
           </tr>
         </thead>
         <tbody>
-          {ESTACIONES_PARAGUAY.map(e => {
+          {[...ESTACIONES_PARAGUAY, ESTACION_BERMEJO].map(e => {
             const t = filas.find(f => f.estacion === e.id)
             if (!t) return null
             const a = t.aporte
             return (
               <tr key={e.id} style={{ borderTop: '1px solid #232323' }}>
-                <td style={td}>{e.nombre}</td>
+                <td style={td}>
+                  {e.nombre}
+                  <span style={{ color: '#8f8f8f', marginLeft: 6 }}>{e.rio}</span>
+                </td>
                 <td style={{ ...tdD, color: '#a0a0a0' }}>{t.cambios ? `r ${r2(t.cambios.r)}` : '—'}</td>
                 <td style={{ ...tdD, color: '#a0a0a0' }}>
                   {t.picos ? `${t.picos.usados} de ${t.picos.anios} años` : '—'}
@@ -249,16 +255,19 @@ function Paraguay({ filas, arriba }: { filas: TrasladoParaguay[]; arriba: string
         <b style={{ color: '#a0a0a0' }}>Variaciones diarias</b> y{' '}
         <b style={{ color: '#a0a0a0' }}>mismo pico anual</b> son los dos métodos de la tabla de
         arriba, y acá no dan un traslado: de un día para el otro el Paraguay casi no se mueve con
-        Corrientes, y en buena parte de los años su máximo es otra crecida, a meses de la del
+        Barranqueras, y en buena parte de los años su máximo es otra crecida, a meses de la del
         Paraná. Lo demás se mide sobre <b style={{ color: '#a0a0a0' }}>cambios
-        de {VENTANA_APORTE_DIAS} días</b>: se descuenta de Corrientes lo que explica {arriba} y se
-        busca con qué desfase el resto se parece a lo que hizo el Paraguay.{' '}
+        de {VENTANA_APORTE_DIAS} días</b>: se descuenta de Barranqueras lo que explica {arriba} y se
+        busca con qué desfase el resto se parece a lo que hizo el afluente.{' '}
         <b style={{ color: '#a0a0a0' }}>Entre</b> es el rango de días en que la correlación queda a
         menos de un décimo de la máxima: la cima es ancha, así que dice alrededor de cuándo, no qué
-        día. <b style={{ color: '#a0a0a0' }}>Explicado</b> es qué parte del cambio de Corrientes se
-        explica con {arriba} sola y sumando esa estación. Puerto Bermejo está a unos 60 km de la
-        confluencia y se mueve a la vez que Corrientes: explica, pero no adelanta. Es cuánto se
-        parecen, no cuántos centímetros aporta.
+        día. <b style={{ color: '#a0a0a0' }}>Explicado</b> es qué parte del cambio de Barranqueras
+        se explica con {arriba} sola y sumando esa escala. Puerto Formosa y Puerto Bermejo se
+        mueven a la vez que Barranqueras: explican, pero no adelantan; Puerto Pilcomayo, frente a
+        Asunción, unos días antes. <b style={{ color: '#a0a0a0' }}>El Bermejo en El Colorado no se
+        distingue</b> en la altura de Barranqueras: su agua llega mezclada con la del Paraguay, que
+        pesa siete veces más, y la escala mide un río de cauce móvil. Puerto Formosa y El Colorado
+        tienen registro desde 2006 y 2001. Es cuánto se parecen, no cuántos centímetros aporta.
       </div>
     </div>
   )
@@ -279,7 +288,7 @@ function Curva({ t, rMax, nombre }: { t: TrasladoEstacion; rMax: number; nombre:
 
   return (
     <svg viewBox={`0 0 100 ${ALTO}`} preserveAspectRatio="none" role="img"
-      aria-label={`Correlación por desfase entre Corrientes y ${nombre}: máxima a ${t.cambios!.k} días`}
+      aria-label={`Correlación por desfase entre Barranqueras y ${nombre}: máxima a ${t.cambios!.k} días`}
       style={{ width: '100%', height: 22, display: 'block' }}>
       <line x1={cero} x2={cero} y1={0} y2={ALTO} stroke="#3a3a3a" strokeWidth={1}
         vectorEffect="non-scaling-stroke" />

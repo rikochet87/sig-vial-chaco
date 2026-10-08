@@ -1,14 +1,24 @@
 /**
- * De dónde viene el caudal que pasa por Corrientes: el balance en la
+ * De dónde viene el caudal que pasa frente a **Barranqueras**: el balance en la
  * confluencia del Paraná con el Paraguay.
+ *
+ * ── El total es Barranqueras, con Corrientes de control ───────────────────────
+ *
+ * Hasta el 08/10/2026 el total era Corrientes. Se cambió porque la escala que
+ * decide en el Gran Resistencia es la de Barranqueras, y el INA también publica
+ * su caudal medio diario (serie 26617, desde 1985), con su propia curva de
+ * gasto. Son la misma sección del río: sobre 9.721 días en común los promedios
+ * difieren un 0,4 % y día por día un 1,7 %. **Corrientes queda como control**:
+ * el balance tiene que cerrar igual con cualquiera de los dos totales, y son
+ * dos curvas que no se conocen entre sí.
  *
  * ── Qué agrega a lo que ya había ──────────────────────────────────────────────
  *
  * `rioTraslado.ts` mide el aporte del Paraguay con alturas, y por eso sólo puede
- * decir cuánto *se parece* lo que hace Corrientes a lo que hizo el Paraguay.
+ * decir cuánto *se parece* lo que hace Barranqueras a lo que hizo el Paraguay.
  * Una altura no se suma. Un caudal sí:
  *
- *     Corrientes(t) = Yacyretá(t − a) + Paraguay(t − b) + Bermejo(t − c) + resto
+ *     Barranqueras(t) = Yacyretá(t − a) + Paraguay(t − b) + Bermejo(t − c) + resto
  *
  * Con eso se puede decir **qué parte del agua viene por cada río**, en m³/s.
  *
@@ -36,13 +46,19 @@
  * valen menos. Los promedios son firmes; un día suelto, no tanto.
  *
  * Y es de dónde vino el agua, no un pronóstico: no dice a cuánto va a llegar
- * Corrientes.
+ * Barranqueras.
  */
 
 type Serie = (number | null)[]
 
 /** Las series del archivo que genera `scripts/build_rio_caudales.mjs` */
-export type ClaveCaudal = 'corrientes' | 'yacyreta' | 'paraguay' | 'formosa' | 'bermejo'
+export type ClaveCaudal = 'barranqueras' | 'corrientes' | 'yacyreta' | 'paraguay' | 'formosa' | 'bermejo'
+
+/** Contra qué caudal se hace el balance: Barranqueras, o Corrientes como control */
+export type Destino = 'barranqueras' | 'corrientes'
+
+/** El total por omisión */
+export const DESTINO: Destino = 'barranqueras'
 
 export interface CaudalConfluencia {
   fuente: string
@@ -58,7 +74,7 @@ export interface CaudalConfluencia {
 /** Dónde se toma el Paraguay: Puerto Pilcomayo, o Puerto Formosa como control */
 export type ParaguayEn = 'paraguay' | 'formosa'
 
-/** Cuántos días antes que en Corrientes se toma cada río */
+/** Cuántos días antes que en el total se toma cada río */
 export interface Desfases {
   yacyreta: number
   paraguay: number
@@ -69,7 +85,7 @@ export interface Desfases {
  * El desfase del Bermejo, fijo.
  *
  * No se ajusta como los otros dos porque no hay con qué: el Bermejo es el 2 %
- * del caudal de Corrientes, y moverlo de un día a una semana no cambia el resto
+ * del caudal del tramo, y moverlo de un día a una semana no cambia el resto
  * de forma que se pueda medir. Tres días es un valor supuesto, no medido, para
  * el agua que va de El Colorado a la confluencia.
  */
@@ -86,11 +102,12 @@ const DIA_MS = 86_400_000
 
 /** Las partes de un caudal, en m³/s */
 export interface Partes {
-  corrientes: number
+  /** Lo que pasa por el total: Barranqueras, salvo que se pida Corrientes */
+  total: number
   yacyreta: number
   paraguay: number
   bermejo: number
-  /** Corrientes menos los otros tres. Puede ser negativo */
+  /** El total menos los otros tres. Puede ser negativo */
   resto: number
 }
 
@@ -109,7 +126,9 @@ export interface Balance {
   hasta: string
   /** El promedio de cada parte sobre esos días */
   medias: Partes
-  /** Qué parte de la variación diaria de Corrientes explica la suma (R²) */
+  /** Contra qué caudal se hizo */
+  destino: Destino
+  /** Qué parte de la variación diaria del total explica la suma (R²) */
   r2: number
   /** Desvío del resto diario alrededor de su media, en m³/s */
   desvioResto: number
@@ -117,14 +136,16 @@ export interface Balance {
   porMes: BalanceMes[]
   /**
    * Lo que entra por el Paraguay —con el Bermejo, que desemboca en él— como
-   * parte del caudal de Corrientes, día por día.
+   * parte del total, día por día.
    */
   porElParaguay: { p5: number; mediana: number; p95: number; max: number; fechaMax: string }
 }
 
 /** Los cuatro caudales de cada día en que están todos, con su índice */
-function filas(c: CaudalConfluencia, d: Desfases, en: ParaguayEn): { t: number; q: [number, number, number, number] }[] {
-  const C = c.m3s.corrientes, Y = c.m3s.yacyreta, P = c.m3s[en], B = c.m3s.bermejo
+function filas(
+  c: CaudalConfluencia, d: Desfases, en: ParaguayEn, destino: Destino,
+): { t: number; q: [number, number, number, number] }[] {
+  const C = c.m3s[destino] ?? [], Y = c.m3s.yacyreta, P = c.m3s[en], B = c.m3s.bermejo
   const out: { t: number; q: [number, number, number, number] }[] = []
   for (let t = 0; t < C.length; t++) {
     const qc = C[t], qy = Y[t - d.yacyreta], qp = P[t - d.paraguay], qb = B[t - d.bermejo]
@@ -140,8 +161,8 @@ const fechaDe = (desde: string, t: number) =>
 function promediar(fs: { q: [number, number, number, number] }[]): Partes {
   const s = [0, 0, 0, 0]
   for (const f of fs) for (let i = 0; i < 4; i++) s[i] += f.q[i]
-  const [corrientes, yacyreta, paraguay, bermejo] = s.map(v => v / fs.length)
-  return { corrientes, yacyreta, paraguay, bermejo, resto: corrientes - yacyreta - paraguay - bermejo }
+  const [total, yacyreta, paraguay, bermejo] = s.map(v => v / fs.length)
+  return { total, yacyreta, paraguay, bermejo, resto: total - yacyreta - paraguay - bermejo }
 }
 
 /**
@@ -151,8 +172,10 @@ function promediar(fs: { q: [number, number, number, number] }[]): Partes {
  * `DIAS_MINIMOS_BALANCE`: un promedio de pocos días no es de dónde viene el
  * agua, es qué pasó esa semana.
  */
-export function balance(c: CaudalConfluencia, desfases: Desfases, en: ParaguayEn = 'paraguay'): Balance | null {
-  const fs = filas(c, desfases, en)
+export function balance(
+  c: CaudalConfluencia, desfases: Desfases, en: ParaguayEn = 'paraguay', destino: Destino = DESTINO,
+): Balance | null {
+  const fs = filas(c, desfases, en, destino)
   if (fs.length < DIAS_MINIMOS_BALANCE) return null
 
   const medias = promediar(fs)
@@ -161,7 +184,7 @@ export function balance(c: CaudalConfluencia, desfases: Desfases, en: ParaguayEn
   for (const { q } of fs) {
     const r = q[0] - q[1] - q[2] - q[3]
     sse += r * r
-    sst += (q[0] - medias.corrientes) ** 2
+    sst += (q[0] - medias.total) ** 2
   }
   const varResto = sse / fs.length - medias.resto ** 2
 
@@ -176,6 +199,7 @@ export function balance(c: CaudalConfluencia, desfases: Desfases, en: ParaguayEn
   const ultimo = fr[fr.length - 1]
 
   return {
+    destino,
     desfases,
     dias: fs.length,
     desde: fechaDe(c.desde, fs[0].t),
@@ -189,8 +213,8 @@ export function balance(c: CaudalConfluencia, desfases: Desfases, en: ParaguayEn
 }
 
 /**
- * Los desfases de Yacyretá y del Paraguay con los que la suma mejor sigue a
- * Corrientes: los que dejan el resto con menos variación.
+ * Los desfases de Yacyretá y del Paraguay con los que la suma mejor sigue al
+ * total: los que dejan el resto con menos variación.
  *
  * Se mira la variación del resto y no su tamaño a propósito. El tamaño medio
  * casi no depende del desfase —correr una serie unos días no le cambia el
@@ -204,12 +228,14 @@ export function balance(c: CaudalConfluencia, desfases: Desfases, en: ParaguayEn
  *
  * Devuelve `null` si el mínimo cae en el borde del rango probado.
  */
-export function desfasesQueCierran(c: CaudalConfluencia, en: ParaguayEn = 'paraguay'): Desfases | null {
+export function desfasesQueCierran(
+  c: CaudalConfluencia, en: ParaguayEn = 'paraguay', destino: Destino = DESTINO,
+): Desfases | null {
   let mejor: { d: Desfases; v: number } | null = null
   for (let a = 0; a <= DESFASE_YACYRETA_MAX; a++) {
     for (let b = 0; b <= DESFASE_PARAGUAY_MAX; b++) {
       const d: Desfases = { yacyreta: a, paraguay: b, bermejo: DESFASE_BERMEJO }
-      const fs = filas(c, d, en)
+      const fs = filas(c, d, en, destino)
       if (fs.length < DIAS_MINIMOS_BALANCE) continue
       let s = 0, ss = 0
       for (const { q } of fs) {
@@ -228,7 +254,9 @@ export function desfasesQueCierran(c: CaudalConfluencia, en: ParaguayEn = 'parag
 }
 
 /** El balance con los desfases que mejor cierran */
-export function balanceDeLaConfluencia(c: CaudalConfluencia, en: ParaguayEn = 'paraguay'): Balance | null {
-  const d = desfasesQueCierran(c, en)
-  return d ? balance(c, d, en) : null
+export function balanceDeLaConfluencia(
+  c: CaudalConfluencia, en: ParaguayEn = 'paraguay', destino: Destino = DESTINO,
+): Balance | null {
+  const d = desfasesQueCierran(c, en, destino)
+  return d ? balance(c, d, en, destino) : null
 }

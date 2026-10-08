@@ -1,11 +1,21 @@
 /**
  * Cuánto tarda la crecida en recorrer el tramo: el desfase, en días, entre cada
- * estación y Corrientes.
+ * estación y **Barranqueras**.
+ *
+ * ── La referencia es Barranqueras ─────────────────────────────────────────────
+ *
+ * Hasta el 08/10/2026 todo se medía contra Corrientes, que tiene la media
+ * diaria más larga del tramo. Se cambió porque **la escala que decide en el
+ * Gran Resistencia es la de Barranqueras**: es la de los umbrales de este lado
+ * y la del registro histórico, y la pregunta que se hace es «cuántos días antes
+ * que acá». Corrientes, que está enfrente, queda en la tabla como control: su
+ * desfase tiene que dar cero, y si no da cero alguna serie tiene las fechas
+ * corridas. Las dos series arrancan en 1970, así que no se pierde período.
  *
  * ── Para qué sirve ────────────────────────────────────────────────────────────
  *
- * Las seis estaciones van de aguas arriba hacia abajo, y lo que hoy se ve en la
- * primera llega después a las otras. Saber **cuánto después** es anticipación
+ * Las diez escalas del Paraná van de aguas arriba hacia abajo, de Posadas a
+ * Goya, y lo que hoy se ve en las primeras llega después a las otras. Saber **cuánto después** es anticipación
  * que no depende de ningún pronóstico: sale de mirar cómo se movió el río en
  * medio siglo.
  *
@@ -37,8 +47,8 @@
  *
  * ── Qué no afirma ─────────────────────────────────────────────────────────────
  *
- * **Itá Ibaté no ve todo lo que llega a Corrientes.** Entre las dos entra el
- * río Paraguay, así que Corrientes recibe dos ríos e Itá Ibaté mide uno. El
+ * **Itá Ibaté no ve todo lo que llega a Barranqueras.** Entre las dos entra el
+ * río Paraguay, así que Barranqueras recibe dos ríos e Itá Ibaté mide uno. El
  * desfase se mide bien, pero la correlación es más baja y una crecida que venga
  * por el Paraguay no se anuncia ahí.
  *
@@ -48,15 +58,16 @@
  * ── El río Paraguay no es una estación más del tramo ──────────────────────────
  *
  * Se sumaron Puerto Pilcomayo y Puerto Bermejo esperando que anunciaran a
- * Corrientes como lo hace Itá Ibaté, y **no lo hacen**. Medido con los dos
+ * Barranqueras como lo hace Itá Ibaté, y **no lo hacen**. Medido con los dos
  * métodos de arriba, sus variaciones diarias casi no correlacionan con las de
- * Corrientes y en más de la mitad de los años su máximo anual es otra crecida,
- * a meses de distancia: el Paraguay crece en invierno, con el agua del
- * Pantanal, y el Paraná en verano.
+ * Barranqueras y en más de la mitad de los años su máximo anual es otra
+ * crecida, a meses de distancia: el Paraguay crece en invierno, con el agua
+ * del Pantanal, y el Paraná en verano. Puerto Formosa, que se sumó el
+ * 08/10/2026, dice lo mismo.
  *
- * Lo que sí se le puede medir es **el aporte**: qué parte de lo que Corrientes
- * hace *y que Itá Ibaté no explica* se parece a lo que hizo el Paraguay unos
- * días antes. Es `aporteNoExplicado()`, más abajo, y se mide sobre cambios de
+ * Lo que sí se le puede medir es **el aporte**: qué parte de lo que
+ * Barranqueras hace *y que Itá Ibaté no explica* se parece a lo que hizo el
+ * Paraguay unos días antes. Es `aporteNoExplicado()`, más abajo, y se mide sobre cambios de
  * quince días porque el Paraguay es un río lento: de un día para el otro se
  * mueve un par de centímetros y eso se pierde en el ruido.
  */
@@ -75,16 +86,26 @@ export interface TramoDiario {
   estaciones: Record<string, (number | null)[]>
   /** Lo mismo para las del río Paraguay, que no son del tramo */
   paraguay?: Record<string, (number | null)[]>
+  /** Y para el Bermejo en El Colorado, que desemboca en el Paraguay */
+  bermejo?: Record<string, (number | null)[]>
 }
 
-/** La estación contra la que se mide todo */
-export const ESTACION_REFERENCIA = 19
+/** La estación contra la que se mide todo: Barranqueras */
+export const ESTACION_REFERENCIA = 20
+
+/** La que está enfrente: su desfase tiene que dar cero */
+export const ESTACION_CONTROL = 19
 
 /** La del Paraná aguas arriba de la confluencia con el Paraguay */
 export const ESTACION_ARRIBA = 16
 
-/** Desfases que se prueban, en días. Negativo = antes que la referencia */
-export const DESFASE_MIN = -6
+/**
+ * Desfases que se prueban, en días. Negativo = antes que la referencia.
+ *
+ * Hacia atrás llega a doce desde que entraron Posadas e Ituzaingó: con −6, una
+ * escala que se adelantara siete días quedaría en el borde y sin número.
+ */
+export const DESFASE_MIN = -12
 export const DESFASE_MAX = 10
 
 /**
@@ -280,8 +301,10 @@ const corrida = (s: Serie, k: number): Serie => s.map((_, t) => s[t + k] ?? null
 /**
  * Con qué desfases entra la estación de aguas arriba en el ajuste.
  *
- * **Con uno solo no alcanza, y se midió.** Ajustando Corrientes contra Itá
- * Ibaté dos días antes —su desfase— el resto correlaciona 0,42 con la propia
+ * **Con uno solo no alcanza, y se midió** (con Corrientes de referencia, antes
+ * del cambio a Barranqueras; los controles del test siguen dando lo mismo con
+ * Barranqueras). Ajustando Corrientes contra Itá Ibaté dos días antes —su
+ * desfase— el resto correlaciona 0,42 con la propia
  * Itá Ibaté de diez días antes: la onda se aplasta al viajar, y lo que entró
  * en dos días por una punta sale repartido en más por la otra. Ese resto se
  * parecía a cualquier cosa que se moviera despacio, y le daba a Puerto Bermejo
@@ -370,7 +393,7 @@ export interface Aporte {
  * los `n` días que entran no son `n` observaciones independientes.
  *
  * Es una descripción de cómo se movieron los dos ríos, no un modelo: no dice
- * cuántos centímetros va a subir Corrientes por una crecida del Paraguay.
+ * cuántos centímetros va a subir Barranqueras por una crecida del Paraguay.
  */
 export function aporteNoExplicado(ref: Serie, arriba: Serie, otra: Serie): Aporte | null {
   const dRef = cambioEn(ref, VENTANA_APORTE_DIAS)
@@ -413,16 +436,15 @@ export interface TrasladoParaguay extends TrasladoEstacion {
 }
 
 /**
- * Las estaciones del Paraguay contra Corrientes: los dos métodos del tramo, que
- * acá sirven para mostrar que **no** es un traslado, y el aporte.
+ * Las escalas de un afluente contra Barranqueras: los dos métodos del tramo,
+ * que acá sirven para mostrar que **no** es un traslado, y el aporte.
  */
-export function trasladoDelParaguay(t: TramoDiario): TrasladoParaguay[] {
+function aportesDe(t: TramoDiario, grupo: Record<string, Serie> | undefined): TrasladoParaguay[] {
   const ref = t.estaciones[String(ESTACION_REFERENCIA)]
   const arriba = t.estaciones[String(ESTACION_ARRIBA)]
-  const paraguay = t.paraguay
-  if (!ref || !arriba || !paraguay) return []
-  return Object.keys(paraguay).map(Number).map(e => {
-    const s = paraguay[String(e)]
+  if (!ref || !arriba || !grupo) return []
+  return Object.keys(grupo).map(Number).map(e => {
+    const s = grupo[String(e)]
     return {
       estacion: e,
       cambios: desfasePorCambios(ref, s),
@@ -431,4 +453,29 @@ export function trasladoDelParaguay(t: TramoDiario): TrasladoParaguay[] {
       dias: s.filter(v => v !== null).length,
     }
   })
+}
+
+/** Las del río Paraguay: Puerto Pilcomayo, Puerto Formosa y Puerto Bermejo */
+export function trasladoDelParaguay(t: TramoDiario): TrasladoParaguay[] {
+  return aportesDe(t, t.paraguay)
+}
+
+/**
+ * El Bermejo en El Colorado, antes de desembocar en el Paraguay.
+ *
+ * Se le mide lo mismo que al Paraguay —por el que pasa su agua antes de llegar
+ * a la confluencia—, sobre lo que Itá Ibaté no explica. Es un río de otro
+ * régimen —crece con las lluvias de verano en la alta cuenca, en Salta y
+ * Bolivia— y pesa poco en caudal: un 2,4 % del que pasa frente a Barranqueras,
+ * hasta un 6 % en marzo (`lib/rioCaudales.ts`). Tiene media diaria desde 2001 y
+ * se carga con meses de atraso.
+ *
+ * **Medido el 08/10/2026, en la altura de Barranqueras no se distingue**: la
+ * correlación sobre lo que Itá Ibaté no explica es 0,11, y sumarlo no mueve lo
+ * explicado (0,91 → 0,91). Su agua llega mezclada con la del Paraguay, que
+ * pesa siete veces más, y la escala de El Colorado mide un río de cauce móvil.
+ * Se muestra igual, con el número, para que se vea que se miró.
+ */
+export function trasladoDelBermejo(t: TramoDiario): TrasladoParaguay[] {
+  return aportesDe(t, t.bermejo)
 }

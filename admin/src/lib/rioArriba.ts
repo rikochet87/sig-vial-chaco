@@ -21,6 +21,9 @@
  */
 import type { LecturaRio } from './ina'
 import { serieDeAlturas } from './riosInternos'
+import {
+  trasladoDelTramo, trasladoDelParaguay, trasladoDelBermejo, type TramoDiario,
+} from './rioTraslado'
 
 const DIA_MS = 86_400_000
 
@@ -90,4 +93,66 @@ export function sentidoDe(cambio1: number | null): Sentido {
   if (cambio1 >= QUIETO_M) return 'sube'
   if (cambio1 <= -QUIETO_M) return 'baja'
   return 'quieto'
+}
+
+// ── Cuánto antes que en Barranqueras ─────────────────────────────────────────
+
+/**
+ * Debajo de esta correlación, el aporte de un afluente no se distingue en la
+ * altura de Barranqueras. Pilcomayo, Formosa y Puerto Bermejo dan de 0,48 a
+ * 0,68; El Colorado, sobre el Bermejo, 0,11.
+ */
+export const APORTE_MIN_R = 0.3
+
+/**
+ * Lo que se sabe, medido, de cómo llega a Barranqueras lo que pasa por una
+ * escala. Hay tres respuestas distintas y la pantalla no las mezcla:
+ *
+ * - **traslado**: es el mismo río. El máximo de una crecida pasa por acá
+ *   `mediana` días antes (negativo) que por Barranqueras, con la mitad de los
+ *   años entre `p25` y `p75`. Es lo que vale para el Paraná.
+ * - **aporte**: es un afluente. No anuncia la crecida —crece en otra época—,
+ *   pero sus cambios de quince días se parecen a lo que Barranqueras hace y
+ *   Itá Ibaté no explica, con la mejor coincidencia `k` días antes (negativo),
+ *   en una cima ancha entre `desde` y `hasta`.
+ * - **no_se_distingue**: se miró y en la altura de Barranqueras no se ve.
+ */
+export type Anticipacion =
+  | { tipo: 'traslado'; mediana: number; p25: number; p75: number; usados: number; anios: number }
+  | { tipo: 'aporte'; k: number; desde: number; hasta: number; r: number }
+  | { tipo: 'no_se_distingue'; r: number }
+
+/**
+ * Lo ya calculado, por archivo. Son ~0,5 s sobre veinte mil días y catorce
+ * escalas, y el bloque se vuelve a montar cada vez que se abre el panel.
+ */
+const calculadas = new WeakMap<TramoDiario, Map<number, Anticipacion>>()
+
+/**
+ * La anticipación de cada escala, por id, a partir del registro del tramo.
+ * Sale de las mismas funciones que la tabla «Traslado de la crecida»
+ * (`lib/rioTraslado.ts`): dos lugares de la misma pantalla no pueden dar dos
+ * números distintos para lo mismo.
+ */
+export function anticipaciones(t: TramoDiario): Map<number, Anticipacion> {
+  const hecho = calculadas.get(t)
+  if (hecho) return hecho
+  const m = new Map<number, Anticipacion>()
+  calculadas.set(t, m)
+  for (const e of trasladoDelTramo(t)) {
+    if (e.picos) {
+      m.set(e.estacion, {
+        tipo: 'traslado', mediana: e.picos.mediana, p25: e.picos.p25, p75: e.picos.p75,
+        usados: e.picos.usados, anios: e.picos.anios,
+      })
+    }
+  }
+  for (const e of [...trasladoDelParaguay(t), ...trasladoDelBermejo(t)]) {
+    const a = e.aporte
+    if (!a) continue
+    m.set(e.estacion, a.r >= APORTE_MIN_R
+      ? { tipo: 'aporte', k: a.k, desde: a.desde, hasta: a.hasta, r: a.r }
+      : { tipo: 'no_se_distingue', r: a.r })
+  }
+  return m
 }

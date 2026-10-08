@@ -1,12 +1,13 @@
 'use client'
 
 /**
- * De dónde viene el caudal que pasa por Corrientes.
+ * De dónde viene el agua que pasa frente a Barranqueras.
  *
- * Una fila por mes del año con el caudal medio de Corrientes y qué parte trajo
- * cada río, según `lib/rioCaudales.ts`. Va debajo del traslado porque contesta
- * la pregunta que aquél deja abierta: el Paraguay no anuncia a Corrientes como
- * Itá Ibaté, pero sí se puede decir cuánta del agua viene por ahí.
+ * Una fila por mes del año con el caudal medio de Barranqueras y qué parte
+ * trajo cada río, según `lib/rioCaudales.ts`. Va debajo del traslado porque
+ * contesta la pregunta que aquél deja abierta: el Paraguay no anuncia a
+ * Barranqueras como Itá Ibaté, pero sí se puede decir cuánta del agua viene
+ * por ahí. Corrientes, enfrente y con otra curva de gasto, es el control.
  *
  * ── La barra ──────────────────────────────────────────────────────────────────
  *
@@ -54,7 +55,7 @@ export default function BalanceConfluencia() {
       })
       .then(j => {
         if (!vivo) return
-        if (!j?.m3s?.corrientes || typeof j.desde !== 'string') throw new Error('el archivo no tiene la forma esperada')
+        if (!j?.m3s?.barranqueras || typeof j.desde !== 'string') throw new Error('el archivo no tiene la forma esperada')
         setDatos(j)
         setError(null)
       })
@@ -65,6 +66,9 @@ export default function BalanceConfluencia() {
   const b = useMemo(() => (datos ? balanceDeLaConfluencia(datos) : null), [datos])
   // El mismo río medido más abajo: el control
   const control = useMemo(() => (datos ? balanceDeLaConfluencia(datos, 'formosa') : null), [datos])
+  // La misma sección, enfrente y con otra curva: el otro control
+  const enCorrientes = useMemo(
+    () => (datos ? balanceDeLaConfluencia(datos, 'paraguay', 'corrientes') : null), [datos])
 
   if (error) {
     return (
@@ -96,8 +100,8 @@ export default function BalanceConfluencia() {
   }
 
   const m = b.medias
-  const mesMax = b.porMes.reduce((a, x) => (x.paraguay / x.corrientes > a.paraguay / a.corrientes ? x : a))
-  const mesMin = b.porMes.reduce((a, x) => (x.paraguay / x.corrientes < a.paraguay / a.corrientes ? x : a))
+  const mesMax = b.porMes.reduce((a, x) => (x.paraguay / x.total > a.paraguay / a.total ? x : a))
+  const mesMin = b.porMes.reduce((a, x) => (x.paraguay / x.total < a.paraguay / a.total ? x : a))
   const p = b.porElParaguay
 
   return (
@@ -105,7 +109,7 @@ export default function BalanceConfluencia() {
       borderLeft: '3px solid #F5C300', marginTop: 8, padding: '10px 12px 12px' }}>
 
       <div style={{ fontSize: 12, color: '#ddd', textTransform: 'uppercase', letterSpacing: 1.2 }}>
-        De dónde viene el caudal de Corrientes
+        De dónde viene el agua que pasa frente a Barranqueras
       </div>
       <div style={{ fontSize: 11, color: '#8f8f8f', lineHeight: 1.5, marginTop: 4 }}>
         Balance en la confluencia del Paraná con el Paraguay. Caudal medio diario,{' '}
@@ -115,18 +119,18 @@ export default function BalanceConfluencia() {
 
       <div style={{ fontSize: 12, color: '#c4c4c4', lineHeight: 1.6, marginTop: 10,
         borderLeft: '3px solid #85B7EB', paddingLeft: 9 }}>
-        De cada 100 m³ que pasan por Corrientes, <b>{pct(m.yacyreta, m.corrientes)}</b> vienen por
-        el Paraná desde Yacyretá, <b>{pct(m.paraguay, m.corrientes)}</b> por el Paraguay
-        y <b>{pct(m.bermejo, m.corrientes)}</b> por el Bermejo. El Paraguay pesa más
-        en {MESES_LARGOS[mesMax.mes - 1]} ({pct(mesMax.paraguay, mesMax.corrientes)} %) y menos
-        en {MESES_LARGOS[mesMin.mes - 1]} ({pct(mesMin.paraguay, mesMin.corrientes)} %).
+        De cada 100 m³ que pasan frente a Barranqueras, <b>{pct(m.yacyreta, m.total)}</b> vienen por
+        el Paraná desde Yacyretá, <b>{pct(m.paraguay, m.total)}</b> por el Paraguay
+        y <b>{pct(m.bermejo, m.total)}</b> por el Bermejo. El Paraguay pesa más
+        en {MESES_LARGOS[mesMax.mes - 1]} ({pct(mesMax.paraguay, mesMax.total)} %) y menos
+        en {MESES_LARGOS[mesMin.mes - 1]} ({pct(mesMin.paraguay, mesMin.total)} %).
       </div>
 
       <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse', color: '#c4c4c4', marginTop: 12 }}>
         <thead>
           <tr style={{ color: '#8f8f8f', fontSize: 11 }}>
             <th style={th}>Mes</th>
-            <th style={thD}>Corrientes, m³/s</th>
+            <th style={thD}>Barranqueras, m³/s</th>
             <th style={thD}><Marca color={COLOR.yacyreta} />Paraná, %</th>
             <th style={thD}><Marca color={COLOR.paraguay} />Paraguay, %</th>
             <th style={thD}><Marca color={COLOR.bermejo} />Bermejo, %</th>
@@ -147,14 +151,19 @@ export default function BalanceConfluencia() {
         Puerto Pilcomayo, frente a Asunción, {b.desfases.paraguay} días antes;{' '}
         <b style={{ color: '#a0a0a0' }}>Bermejo</b>, el de El Colorado, {b.desfases.bermejo} días
         antes: desemboca en el Paraguay aguas abajo de Puerto Pilcomayo, así que no está contado dos
-        veces. <b style={{ color: '#a0a0a0' }}>Resto</b> es Corrientes menos los otros tres: el
+        veces. <b style={{ color: '#a0a0a0' }}>Resto</b> es Barranqueras menos los otros tres: el
         Tebicuary y los demás afluentes que nadie mide, más el error de las curvas. No se reparte.
         {' '}<b style={{ color: '#a0a0a0' }}>Las cuatro series se miden por separado y nada las obliga
-        a sumar</b>: que el resto sea el {pct(m.resto, m.corrientes)} % del caudal medio es lo que
+        a sumar</b>: que el resto sea el {pct(m.resto, m.total)} % del caudal medio es lo que
         dice que el balance está bien armado.
         {control && (
           <> Con el Paraguay medido en Puerto Formosa, más abajo y con otra escala, su parte
-          da {pct(control.medias.paraguay, control.medias.corrientes)} %.</>
+          da {pct(control.medias.paraguay, control.medias.total)} %.</>
+        )}
+        {enCorrientes && (
+          <> Con el total medido en Corrientes, enfrente y con otra curva de gasto, la parte del
+          Paraguay da {pct(enCorrientes.medias.paraguay, enCorrientes.medias.total)} % y el
+          resto {pct(enCorrientes.medias.resto, enCorrientes.medias.total)} %.</>
         )}
         {' '}Día por día, lo que entra por el Paraguay con el Bermejo va del {Math.round(p.p5 * 100)} al{' '}
         {Math.round(p.p95 * 100)} % en nueve de cada diez días, y llegó al {Math.round(p.max * 100)} %
@@ -177,7 +186,7 @@ function Marca({ color, borde }: { color: string; borde?: boolean }) {
 }
 
 function Fila({ rotulo, partes, destacada }: { rotulo: string; partes: Partes; destacada?: boolean }) {
-  const c = partes.corrientes
+  const c = partes.total
   return (
     <tr style={{ borderTop: '1px solid #232323', background: destacada ? '#141414' : undefined }}>
       <td style={{ ...td, color: destacada ? '#fff' : undefined }}>{rotulo}</td>
@@ -194,7 +203,7 @@ function Fila({ rotulo, partes, destacada }: { rotulo: string; partes: Partes; d
 /**
  * El reparto como una barra partida en cuatro.
  *
- * Un resto negativo —los tres ríos suman algo más que Corrientes— no se
+ * Un resto negativo —los tres ríos suman algo más que el total— no se
  * dibuja: no hay un tramo de ancho negativo, y el número de la columna ya lo
  * dice. En ese caso los otros tres se reparten el ancho entero.
  */
@@ -208,7 +217,7 @@ function Barra({ partes, rotulo }: { partes: Partes; rotulo: string }) {
   const total = tramos.reduce((s, t) => s + t.v, 0)
   return (
     <div role="img"
-      aria-label={`${rotulo}: Paraná ${pct(partes.yacyreta, partes.corrientes)} %, Paraguay ${pct(partes.paraguay, partes.corrientes)} %, Bermejo ${pct(partes.bermejo, partes.corrientes)} %`}
+      aria-label={`${rotulo}: Paraná ${pct(partes.yacyreta, partes.total)} %, Paraguay ${pct(partes.paraguay, partes.total)} %, Bermejo ${pct(partes.bermejo, partes.total)} %`}
       style={{ display: 'flex', height: 10, width: '100%', gap: 1 }}>
       {tramos.map(t => (
         <div key={t.clave} style={{ width: `${(100 * t.v) / total}%`, background: t.color }} />

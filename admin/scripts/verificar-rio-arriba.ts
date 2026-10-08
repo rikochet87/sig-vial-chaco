@@ -1,6 +1,6 @@
 /**
- * Verifica el bloque «Aguas arriba» del panel del río: la lista de escalas y
- * el cálculo de la tendencia.
+ * Verifica el bloque «Aguas arriba» del panel del río: la lista de escalas, el
+ * cálculo de la tendencia y la anticipación medida hacia Barranqueras.
  *
  * No sale a la red. Que el INA cambie un umbral o deje de publicar una escala
  * lo releva `scripts/relevar-ina.ts`, a mano; acá se afirma lo que este sistema
@@ -13,8 +13,13 @@
  *
  *   npx tsx scripts/verificar-rio-arriba.ts
  */
-import { ESTACIONES, ESTACIONES_ARRIBA, ESTACIONES_PARAGUAY, estadoDe } from '../src/lib/ina'
-import { tendenciaDe, sentidoDe, QUIETO_M } from '../src/lib/rioArriba'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import {
+  ESTACIONES, ESTACIONES_ARRIBA, ESTACIONES_PARAGUAY, ESTACION_BERMEJO, estadoDe,
+} from '../src/lib/ina'
+import { tendenciaDe, sentidoDe, anticipaciones, QUIETO_M, APORTE_MIN_R } from '../src/lib/rioArriba'
+import type { TramoDiario } from '../src/lib/rioTraslado'
 
 let fallos = 0
 const fmt = (v: unknown) =>
@@ -32,12 +37,16 @@ const titulo = (s: string) => console.log(`\n— ${s} —`)
 titulo('Las escalas')
 
 const ids = ESTACIONES_ARRIBA.map(e => e.id)
-ok('ocho escalas', ESTACIONES_ARRIBA.length, 8)
+ok('nueve escalas', ESTACIONES_ARRIBA.length, 9)
 ok('sin ids repetidos', new Set(ids).size, ids.length)
 ok('cinco del Paraná', ESTACIONES_ARRIBA.filter(e => e.rio === 'Paraná').length, 5)
 ok('tres del Paraguay', ESTACIONES_ARRIBA.filter(e => e.rio === 'Paraguay').length, 3)
-ok('en todas, la evacuación está sobre el alerta',
-  ESTACIONES_ARRIBA.every(e => e.evacuacion > e.alerta))
+ok('una del Bermejo, El Colorado', ESTACIONES_ARRIBA.filter(e => e.rio === 'Bermejo').map(e => e.id).join(),
+  String(ESTACION_BERMEJO.id))
+ok('El Colorado no tiene umbral: no se le inventa uno',
+  ESTACIONES_ARRIBA.find(e => e.id === ESTACION_BERMEJO.id)!.alerta, null)
+ok('en las que tienen umbral, la evacuación está sobre el alerta',
+  ESTACIONES_ARRIBA.every(e => e.alerta === null || (e.evacuacion !== null && e.evacuacion > e.alerta)))
 
 // Ninguna es de aguas abajo: Corrientes, Barranqueras y las que siguen no van acá
 const abajo = [19, 20, 21, 22, 23]
@@ -53,10 +62,12 @@ for (const otra of [...ESTACIONES, ...ESTACIONES_PARAGUAY]) {
 }
 
 // `estadoDe` toma los umbrales de la escala, no uno general
-const posadas = ESTACIONES_ARRIBA.find(e => e.id === 14)!
-const ituzaingo = ESTACIONES_ARRIBA.find(e => e.id === 15)!
-ok('5 m en Posadas es normal', estadoDe(posadas, 5), 'normal')
-ok('5 m en Ituzaingó es evacuación (está al pie de la represa)', estadoDe(ituzaingo, 5), 'evacuacion')
+const umbrales = (id: number) => {
+  const e = ESTACIONES_ARRIBA.find(x => x.id === id)!
+  return { alerta: e.alerta!, evacuacion: e.evacuacion! }
+}
+ok('5 m en Posadas es normal', estadoDe(umbrales(14), 5), 'normal')
+ok('5 m en Ituzaingó es evacuación (está al pie de la represa)', estadoDe(umbrales(15), 5), 'evacuacion')
 
 // ── La tendencia ────────────────────────────────────────────────────────────
 titulo('La tendencia')
@@ -114,6 +125,33 @@ ok('dos centímetros ya es subir', sentidoDe(0.02), 'sube')
 
 // Sin lecturas no hay tendencia, y no es un río quieto
 ok('sin lecturas, null', tendenciaDe([], '2026-09-08'), null)
+
+// ── Cuánto antes que en Barranqueras, sobre el registro real ───────────────
+titulo('Llega a Barranqueras')
+
+const tramo: TramoDiario = JSON.parse(
+  readFileSync(join(__dirname, '..', 'public', 'rio', 'tramo_diario.json'), 'utf8'))
+const an = anticipaciones(tramo)
+const a = (id: number) => an.get(id)
+
+ok('las cinco del Paraná tienen traslado medido',
+  [14, 15, 16, 17, 18].every(id => a(id)?.tipo === 'traslado'))
+const dias = (id: number) => { const x = a(id); return x?.tipo === 'traslado' ? x.mediana : NaN }
+ok('todas pasan antes que por Barranqueras', [14, 15, 16, 17, 18].every(id => dias(id) < 0))
+ok('y cuanto más arriba, antes: Posadas ≤ Ituzaingó ≤ Itá Ibaté ≤ Itatí ≤ Paso de la Patria',
+  [14, 15, 16, 17, 18].every((id, i, l) => i === 0 || dias(id) >= dias(l[i - 1])))
+ok('Posadas, a menos de diez días', dias(14) > -10)
+ok('Corrientes, enfrente, el mismo día', dias(19), 0)
+ok('la referencia no figura', an.has(20), false)
+
+ok('las tres del Paraguay aportan',
+  ESTACIONES_PARAGUAY.every(e => a(e.id)?.tipo === 'aporte'))
+ok('El Colorado no se distingue en Barranqueras', a(ESTACION_BERMEJO.id)?.tipo, 'no_se_distingue')
+{
+  const b = a(ESTACION_BERMEJO.id)
+  ok(`y su correlación está bajo el corte (${APORTE_MIN_R})`, !!b && 'r' in b && b.r < APORTE_MIN_R)
+}
+ok('el cálculo se guarda: dos llamadas, el mismo resultado', anticipaciones(tramo) === an)
 
 console.log(fallos ? `\n${fallos} fallo(s)` : '\nTodo en orden')
 process.exit(fallos ? 1 : 0)

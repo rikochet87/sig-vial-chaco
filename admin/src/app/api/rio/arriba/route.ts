@@ -21,9 +21,11 @@
  * contra el día exacto, y cuántos días lleva sin informar. Aguas arriba lo que
  * importa es hacia dónde va el río, no sólo cuánto le falta al alerta.
  *
- * No calcula cuántos días tarda el agua en llegar. Eso está medido sólo para
- * Itá Ibaté (`lib/rioTraslado.ts`); para el resto no hay medición y no se
- * inventa.
+ * No calcula cuántos días tarda el agua en llegar: eso es historia, no el dato
+ * del día, y sale del registro congelado (`anticipaciones()` en
+ * `lib/rioArriba.ts`, sobre `public/rio/tramo_diario.json`), que el navegador
+ * ya tiene. Pedírselo al INA en cada visita sería bajar medio siglo para
+ * recalcular siempre lo mismo.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -36,7 +38,7 @@ import { tendenciaDe, type Tendencia } from '@/lib/rioArriba'
 
 export const dynamic = 'force-dynamic'
 
-/** Ocho estaciones en serie, contra un organismo que a veces tarda */
+/** Nueve estaciones en serie, contra un organismo que a veces tarda */
 export const maxDuration = 60
 
 /** Media hora, como `/api/rio` */
@@ -48,9 +50,10 @@ const MAX_DIAS = 400
 export interface EstacionArribaConRio {
   id: number
   nombre: string
-  rio: 'Paraná' | 'Paraguay'
-  alerta: number
-  evacuacion: number
+  rio: 'Paraná' | 'Paraguay' | 'Bermejo'
+  /** `null` donde el INA no publica umbral */
+  alerta: number | null
+  evacuacion: number | null
   observado: LecturaRio[]
   /** `null` cuando la estación no tiene corrida diaria publicada — varias no la tienen */
   pronostico: { emitido: string; puntos: PuntoPronostico[] } | null
@@ -93,8 +96,16 @@ export async function GET(req: NextRequest) {
         evacuacion: e.evacuacion,
         observado,
         pronostico,
-        ultima: u ? { fecha: u.fecha, m: u.m, estado: estadoDe(e, u.m) } : null,
-        margen: u ? Math.round((e.alerta - u.m) * 100) / 100 : null,
+        ultima: u
+          ? {
+              fecha: u.fecha, m: u.m,
+              estado: e.alerta !== null && e.evacuacion !== null
+                ? estadoDe({ alerta: e.alerta, evacuacion: e.evacuacion }, u.m)
+                : 'sin_umbral',
+            }
+          : null,
+        // Sin umbral publicado no hay margen: no se inventa uno
+        margen: u && e.alerta !== null ? Math.round((e.alerta - u.m) * 100) / 100 : null,
         tendencia: tendenciaDe(observado, h),
         descartadas,
       })

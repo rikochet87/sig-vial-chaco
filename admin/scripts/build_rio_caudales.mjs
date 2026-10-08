@@ -20,7 +20,8 @@
  *
  * | Clave | Estación | Qué mide |
  * |---|---|---|
- * | `corrientes` | Corrientes (19) | la suma, aguas abajo de la confluencia |
+ * | `barranqueras` | Barranqueras (20) | la suma, aguas abajo de la confluencia: el total del balance |
+ * | `corrientes` | Corrientes (19) | lo mismo, enfrente y con otra curva de gasto: el control |
  * | `yacyreta` | Yacyretá efluente (88) | el Paraná, lo que sale de la represa |
  * | `paraguay` | Puerto Pilcomayo (55) | el Paraguay, frente a Asunción |
  * | `formosa` | Puerto Formosa (57) | el mismo río más abajo: es el control |
@@ -56,6 +57,7 @@ const DIA = 86_400_000
 
 /** Clave → estación y serie de caudal medio diario del INA */
 const SERIES = {
+  barranqueras: { estacion: 20, serie: 26617 },
   corrientes: { estacion: 19,   serie: 26616 },
   yacyreta:   { estacion: 88,   serie: 26685 },
   paraguay:   { estacion: 55,   serie: 26652 },
