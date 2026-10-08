@@ -28,6 +28,8 @@ export interface CapaDibujo {
   orden: number
   /** Borde a rayas: para lo que no es agua sino falta de imagen */
   rayas?: boolean
+  /** Un rótulo fijo adentro del polígono más grande de la capa */
+  rotulo?: string
 }
 
 /** Una línea para ubicarse, con su nombre: no es agua */
@@ -38,6 +40,18 @@ export interface PuntoDibujo { lat: number; lng: number; dentro: boolean; titulo
 
 const mono = { fontFamily: 'monospace' as const }
 const ACENTO = '#F5C300'
+/** Las líneas de referencia: blanco, como el filo de la caja de lo informado. No es un color de agua */
+const C_REFERENCIA = '#f2f2f2'
+
+/** Centro de gravedad de un anillo en `[lng, lat]`, y su área en grados² */
+function centroDe(an: [number, number][]) {
+  let a = 0, x = 0, y = 0
+  for (let i = 0, j = an.length - 1; i < an.length; j = i++) {
+    const f = an[j][0] * an[i][1] - an[i][0] * an[j][1]
+    a += f; x += (an[j][0] + an[i][0]) * f; y += (an[j][1] + an[i][1]) * f
+  }
+  return a ? { lng: x / (3 * a), lat: y / (3 * a), area: Math.abs(a / 2) } : null
+}
 
 export default function MapaInundaciones({ recuadro, urbano, capas, vias, afectadas, obras, referencias, leer }: {
   recuadro: Caja
@@ -123,11 +137,22 @@ export default function MapaInundaciones({ recuadro, urbano, capas, vias, afecta
       for (const c of [...capas].sort((a, b) => a.orden - b.orden)) {
         // GeoJSON viene en [lng, lat] y Leaflet quiere [lat, lng]
         const ll = c.coords.map(pol => pol.map(an => an.map(([x, y]) => [y, x] as [number, number])))
+        const pane = c.orden < 10 ? 'inuBase' : 'inuAgua', renderer = L.canvas({ pane })
+        // Debajo de un borde a rayas va uno claro y lleno: las rayas oscuras solas se pierden sobre el satélite
+        if (c.rayas) dibujadas.push(L.polygon(ll, { pane, renderer, color: '#fff', weight: c.trazo + 2, opacity: 0.75, fill: false, interactive: false, smoothFactor: 1.5 }).addTo(map))
         dibujadas.push(L.polygon(ll, {
-          pane: c.orden < 10 ? 'inuBase' : 'inuAgua', renderer: L.canvas({ pane: c.orden < 10 ? 'inuBase' : 'inuAgua' }),
-          color: c.color, weight: c.trazo, opacity: c.trazo ? 0.9 : 0, stroke: c.trazo > 0, dashArray: c.rayas ? '5 4' : undefined,
-          fillColor: c.color, fillOpacity: c.relleno, interactive: false, smoothFactor: 1.5,
+          pane, renderer,
+          color: c.color, weight: c.trazo, opacity: c.trazo ? 0.9 : 0, stroke: c.trazo > 0, dashArray: c.rayas ? '7 5' : undefined,
+          fill: c.relleno > 0, fillColor: c.color, fillOpacity: c.relleno, interactive: false, smoothFactor: 1.5,
         }).addTo(map))
+        if (c.rotulo) {
+          let mayor: { lng: number; lat: number; area: number } | null = null
+          for (const pol of c.coords) { const m = centroDe(pol[0]); if (m && (!mayor || m.area > mayor.area)) mayor = m }
+          if (mayor) {
+            dibujadas.push(L.tooltip({ permanent: true, direction: 'center', className: 'sv-tt', interactive: false })
+              .setLatLng([mayor.lat, mayor.lng]).setContent(c.rotulo).addTo(map))
+          }
+        }
       }
     })
     return () => { vivo = false; dibujadas.forEach(d => d.remove()) }
@@ -161,16 +186,11 @@ export default function MapaInundaciones({ recuadro, urbano, capas, vias, afecta
         dibujadas.push(L.polyline(afectadas, { pane: 'inuAfectadas', renderer: lienzoAf, color: '#fff', weight: 6, opacity: 0.9, interactive: false }).addTo(map))
         dibujadas.push(L.polyline(afectadas, { pane: 'inuAfectadas', renderer: lienzoAf, color: '#E53935', weight: 3.5, opacity: 1, interactive: false }).addTo(map))
       }
-      // Las líneas de referencia: finas y a rayas, con el nombre fijo. En [lng, lat] como las manchas
+      // Las líneas de referencia: a rayas y sin cartel, el nombre va en la leyenda. En [lng, lat] como las manchas
       for (const ref of referencias) {
         const ll = ref.lineas.map(l => l.map(([x, y]) => [y, x] as [number, number]))
         dibujadas.push(L.polyline(ll, { pane: 'inuVias', renderer: lienzo, color: '#111', weight: 6, opacity: 0.85, interactive: false }).addTo(map))
-        dibujadas.push(L.polyline(ll, { pane: 'inuVias', renderer: lienzo, color: '#00e5ff', weight: 2.5, opacity: 1, dashArray: '9 5', interactive: false }).addTo(map))
-        const larga = ll.reduce((a, l) => (l.length > a.length ? l : a), ll[0])
-        if (larga?.length) {
-          dibujadas.push(L.tooltip({ permanent: true, direction: 'top', className: 'sv-tt', offset: [0, -4], interactive: false })
-            .setLatLng(larga[Math.floor(larga.length / 2)]).setContent(ref.nombre).addTo(map))
-        }
+        dibujadas.push(L.polyline(ll, { pane: 'inuVias', renderer: lienzo, color: C_REFERENCIA, weight: 2.5, opacity: 1, dashArray: '9 5', interactive: false }).addTo(map))
       }
       for (const o of obras) {
         dibujadas.push(L.circleMarker([o.lat, o.lng], {
@@ -207,10 +227,14 @@ export default function MapaInundaciones({ recuadro, urbano, capas, vias, afecta
       }}>
         {[...capas].sort((a, b) => b.orden - a.orden).map(c => (
           <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-            <span style={{
-              width: 14, height: 10, flexShrink: 0, background: c.color,
-              opacity: Math.min(1, c.relleno + 0.35), border: c.trazo ? `1px ${c.rayas ? 'dashed' : 'solid'} ${c.color}` : 'none',
-            }} />
+            {c.relleno > 0 ? (
+              <span style={{
+                width: 14, height: 10, flexShrink: 0, background: c.color,
+                opacity: Math.min(1, c.relleno + 0.35), border: c.trazo ? `1px ${c.rayas ? 'dashed' : 'solid'} ${c.color}` : 'none',
+              }} />
+            ) : (
+              <span style={{ width: 14, height: 10, flexShrink: 0, boxSizing: 'border-box', border: `1px dashed #c8c8c8` }} />
+            )}
             <span>{c.titulo}</span>
           </div>
         ))}
@@ -222,8 +246,8 @@ export default function MapaInundaciones({ recuadro, urbano, capas, vias, afecta
         )}
         {referencias.map(ref => (
           <div key={ref.nombre} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-            <span style={{ width: 14, height: 0, flexShrink: 0, borderTop: '2px dashed #00e5ff' }} />
-            <span>{ref.nombre}</span>
+            <span style={{ width: 14, height: 0, flexShrink: 0, borderTop: `2px dashed ${C_REFERENCIA}` }} />
+            <span>{ref.nombre}, la traza</span>
           </div>
         ))}
         {capas.length === 0 && <span style={{ color: '#8f8f8f' }}>Cargando capas…</span>}

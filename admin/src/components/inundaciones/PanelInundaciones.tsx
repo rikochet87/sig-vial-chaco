@@ -10,7 +10,7 @@
  * **Toda el agua que se dibuja es agua que se vio**, con su fecha y la altura
  * que tenía el río ese día. No hay ninguna mancha calculada. Por eso el panel
  * dice de cada capa de qué imagen sale, avisa cuando la altura pedida pasa lo
- * que hay observado, y dibuja en gris rayado lo que una imagen no llegó a ver.
+ * que hay observado, y encierra con una línea a rayas lo que una imagen no llegó a ver.
  *
  * Lo que se sabe que pasó y ninguna imagen muestra va aparte, como texto: no se
  * pinta como agua. Ver `lib/inundaciones.ts`.
@@ -55,8 +55,12 @@ const ESTILO: Record<string, { color: string; relleno: number; trazo: number; or
   defensa:       { color: '#ffee58', relleno: 0.22, trazo: 1.2, orden: 36 },
 }
 const estiloDe = (c: CapaInundacion, parcial = false) => (parcial ? ESTILO.parcial : ESTILO[c.id] ?? ESTILO[c.grupo] ?? ESTILO.rio)
-/** Lo que una imagen no ve: gris, rayado, por debajo del agua */
-const ESTILO_CIEGO = { color: '#424242', relleno: 0.38, trazo: 1.5, orden: 12, rayas: true }
+/**
+ * Lo que una imagen no ve: sólo el contorno, a rayas y con su rótulo. Sin
+ * relleno: una placa gris tapaba el agua que otras imágenes sí vieron ahí y
+ * se confundía con lo construido, que también es gris.
+ */
+const ESTILO_CIEGO = { color: '#1a1a1a', relleno: 0, trazo: 1.5, orden: 12, rayas: true }
 
 const COLOR_VIA: Record<ClaseVia, { color: string; grosor: number }> = {
   nacional:   { color: '#F5C300', grosor: 3 },
@@ -204,7 +208,7 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
         : c.grupo === 'base' ? c.titulo : `Agua del ${c.titulo}`,
     }
     const ciego = geo[c.id].sinImagen
-    return ciego ? [capa, { id: `${c.id}-sin-imagen`, coords: ciego, ...ESTILO_CIEGO, titulo: `Sin imagen el ${c.titulo.slice(0, 10)}` }] : [capa]
+    return ciego ? [capa, { id: `${c.id}-sin-imagen`, coords: ciego, ...ESTILO_CIEGO, titulo: `Sin imagen el ${c.titulo.slice(0, 10)}`, rotulo: `Sin imagen el ${c.titulo.slice(0, 10)}` }] : [capa]
   }), [activas, geo, idParcial])
 
   /** Las capas de agua del escenario (sin el fondo), con su índice ya armado */
@@ -267,7 +271,13 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
   }, [prono, indice])
 
   const informes = useMemo(() => informesHasta(indice?.informes, h), [indice, h])
-  const referencias = useMemo(() => (indice?.referencias ?? []).map(x => ({ nombre: x.nombre, lineas: x.lineas })), [indice])
+  // Una línea de referencia se dibuja sólo mientras está a la vista el informe
+  // que habla de ella: suelta, es una raya con nombre que no se refiere a nada
+  const referencias = useMemo(() => {
+    const citadas = new Set(informes.map(i => i.referencia))
+    return (indice?.referencias ?? []).filter(x => citadas.has(x.id)).map(x => ({ nombre: x.nombre, lineas: x.lineas }))
+  }, [indice, informes])
+  const nombreRef = (id?: string) => indice?.referencias?.find(x => x.id === id)?.nombre
 
   const atajos = useMemo(() => {
     const a: { t: string; m: number; d?: string }[] = []
@@ -384,7 +394,7 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
               <br />
               <span style={{ display: 'inline-block', marginTop: 6 }}>
                 <b style={{ color: '#ff5722' }}>Rojizo:</b> el agua del {esc.parcial.titulo}, con el río en {f2(esc.parcial.alturaM!)} m.{' '}
-                <b style={{ color: '#d0d0d0' }}>La imagen ve el {esc.parcial.vistoPct} % del recuadro</b>: en gris rayado, lo que no ve.
+                <b style={{ color: '#d0d0d0' }}>La imagen ve el {esc.parcial.vistoPct} % del recuadro</b>: lo que no ve queda encerrado por la línea a rayas, con su rótulo.
                 Ahí no hay agua dibujada y no es porque estuviera seco.
               </span>
               <br /><span style={{ color: '#8f8f8f' }}>{esc.parcial.sensor} · {esc.parcial.criterio}.
@@ -406,6 +416,9 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
               </span>
               <br /><b style={{ color: '#e8e8e8' }}>{i.texto}</b>
               <br />{i.contraste}
+              {nombreRef(i.referencia) && (
+                <><br /><span style={{ color: '#8f8f8f' }}>En el mapa, la línea blanca a rayas es la traza del {nombreRef(i.referencia)}: está para ubicarlo, no es agua.</span></>
+              )}
             </div>
           ))}
           {esc.referencia?.epoca && (
@@ -530,7 +543,7 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
           <div style={{ ...texto, fontSize: 11, color: '#8f8f8f' }}>
             Toda el agua dibujada es agua que se vio desde un satélite, con su fecha. No hay modelo hidráulico ni cotas del
             terreno: no da profundidades ni sirve para un lote. No ve agua debajo de monte ni de nubes, así que cada
-            mancha es un piso; en gris rayado va lo que una imagen no llegó a ver. Lo «informado» es lo que se sabe que
+            mancha es un piso; la línea a rayas encierra lo que una imagen no llegó a ver. Lo «informado» es lo que se sabe que
             pasó y no tiene imagen: no se pinta. La zonificación que vale para un certificado de riesgo hídrico es la de la APA.
             {error && <><br /><span style={{ color: '#E8A87C' }}>{error}</span></>}
           </div>

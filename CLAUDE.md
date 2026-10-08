@@ -906,8 +906,9 @@ cada capa está en `docs/inundaciones-gran-resistencia.md`.
   del 07/03/1983: río en 8,02 m, sin nubes, de la órbita 227/079, que ve la
   ciudad entera y no el valle del Paraná (64 % del recuadro). Con la altura de
   1998 se dibujan las dos: la del 28/02/1983 (7,80 m, naranja) y ésa (rojizo).
-  Lo que una imagen no ve va con la capa (`sinImagen`) y se pinta en gris
-  rayado: sin eso, «sin agua» y «sin imagen» se leen igual. También lo lleva la
+  Lo que una imagen no ve va con la capa (`sinImagen`) y se encierra con
+  una línea a rayas y su rótulo, sin relleno: sin eso, «sin agua» y «sin
+  imagen» se leen igual. También lo lleva la
   del 20/05/1998, por las nubes.
 - **Nunca se muestra una mancha de un río más alto que el pedido**
   (`escenarioRio`): sería dibujar más agua de la que esa altura trajo. Se usa
@@ -953,8 +954,9 @@ detalle está en «Tercera pasada» de `docs/inundaciones-gran-resistencia.md`.
   muestra como texto —«Informado, sin imagen»— con lo que muestran
   las imágenes más cercanas, al llegar a esa altura (`informesHasta`). La caja
   es gris con filo blanco: ni el naranja de los avisos ni el color de una
-  capa. La traza del canal va en `referencias`, de OpenStreetMap, como línea a
-  rayas con su nombre. **Un informe nuevo se agrega en `INFORMES` de
+  capa. La traza del canal va en `referencias`, de OpenStreetMap, como línea
+  blanca a rayas, **y se dibuja sólo mientras está a la vista el informe que
+  la cita**. **Un informe nuevo se agrega en `INFORMES` de
   `build_inundaciones.mjs`**. **No lleva quién lo informó**: se pidió
   expresamente que la pantalla no lo diga.
 - **Las manchas de un día pasaron de 90 a 60 m y de 8 a 1,5 ha.** A 90 m se
@@ -977,9 +979,15 @@ detalle está en «Tercera pasada» de `docs/inundaciones-gran-resistencia.md`.
   (`wms.ign.gob.ar/geoserver/modelos-digitales-elevaciones`, capas `mde_5m`,
   `mdt_5m`, `mde_50cm`, `mdt_50cm`, `mde_v2_30m`). El de 30 m baja sin cuenta
   y viene en `.img`, que se convierte con el `gdalwarp` de QGIS.
-- **Mirándolo en pantalla**: la línea del canal en celeste fino no se veía
-  contra el mapa claro, y lo no visto en gris tenue tampoco. Quedaron con
-  borde oscuro la primera y más opaco lo segundo.
+- **Mirándolo en pantalla, dos veces.** Primero la línea del canal en celeste
+  fino no se veía y lo no visto en gris tenue tampoco, y se los hizo más
+  fuertes. Así tampoco se entendían (07/10/2026): el canal salía siempre, con
+  cartel fijo y en color de agua, aunque el río estuviera en 4 m y nada
+  hablara de él; y lo no visto era una placa gris que tapaba el agua que otras
+  imágenes sí vieron en el valle y se confundía con lo construido, que
+  también es gris. Ahora el canal aparece con su informe, en blanco y sin
+  cartel, y lo no visto es sólo un contorno a rayas con el rótulo «Sin imagen
+  el…». **Una línea de referencia sin el texto que la explica es ruido.**
 
 Cosas que no son obvias:
 
