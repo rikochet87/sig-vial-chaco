@@ -100,6 +100,26 @@ El panel incluye un control de tamaño de texto (A / A+ / A++) para usuarios con
 | Auth + DB | Supabase (`service_role` en las rutas de API, con autorización propia por permiso) |
 | Deploy | Vercel, con cron diario para la ingesta de lluvia |
 
+### Hidrología: cómo funciona
+
+**Para qué.** La sección muestra cómo impacta la lluvia sobre la red vial para decidir en base a eso; quien mira decide, la herramienta muestra el dato y de dónde salió. Por eso **no calcula índices de estado ni de transitabilidad**: no existe ninguna observación registrada de cómo quedó un camino después de una lluvia, y sin eso cualquier índice sería una hipótesis presentada como resultado. El 98 % de la red de consorcios es de tierra, y los caminos se cortan por un evento, no por el acumulado de la temporada: por eso se mide la **lámina máxima diaria**, día por día.
+
+**De dónde sale cada número.** Las fuentes no significan lo mismo y se muestran separadas:
+
+| Fuente | Qué es | Qué aporta |
+|---|---|---|
+| **APA** (Administración Provincial del Agua) | pluviómetros, medición real | lluvia observada en ~70 estaciones, sólo las que informaron ese día; nunca se completan ceros |
+| **Open-Meteo** | modelo | lluvia estimada en toda la provincia y pronóstico de 7 días por consorcio |
+| **SMN** | aviso oficial | alertas meteorológicas vigentes |
+| **INA** (Instituto Nacional del Agua) | medición y pronóstico | altura del río Paraná y de los ríos internos |
+| **CHIRPS** | satélite + estaciones | lluvia histórica por cuenca desde 1981 |
+
+**Cómo se calcula.** La lluvia entre pluviómetros se interpola por **IDW** (inverso de la distancia al cuadrado, radio de 60 km) y se baja a la red vial **cada 2 km**, así cada tramo tiene su propio valor y una tormenta que moja sólo una punta del consorcio no se pierde en el promedio. La media por consorcio y por cuenca es **precipitación media areal por polígonos de Thiessen**, el método de manual. El río Paraná se trata como una amenaza aparte: la crecida viene de lluvias a miles de kilómetros, con días o semanas de retardo.
+
+**Detalle completo:**
+- [`docs/metodologia-lluvia.md`](docs/metodologia-lluvia.md): fuentes, métodos, validación y alternativas descartadas. Es el documento para un tercero o un expediente.
+- [`docs/inundaciones-gran-resistencia.md`](docs/inundaciones-gran-resistencia.md): investigación de las áreas inundables del Gran Resistencia con imágenes Landsat y Sentinel-2.
+
 ---
 
 ## Backend (Supabase)
