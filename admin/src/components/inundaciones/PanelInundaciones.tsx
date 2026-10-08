@@ -32,7 +32,7 @@ import type { Pronostico } from '@/lib/pronostico'
 import { laminaPorCorrida, ventana, probSuperar } from '@/lib/pronostico'
 import {
   BARRANQUERAS, cotaMop, enEscala, escenarioRio, aguaDelRio, informesHasta, IndicePoligonos, ladoDeDefensa,
-  fueraDe, techoDelRecinto, alSurDe, elevadosDe,
+  fueraDe, techoDelRecinto, alSurDe, elevadosDe, franjaDeDefensa, franjaParaDibujar,
   rutasDelRecuadro, caminosDelRecuadro, viaContra, resumirVias, nodosDelRecuadro,
   type IndiceInundaciones, type CapaInundacion, type MultiPoligono, type ClaseVia,
 } from '@/lib/inundaciones'
@@ -254,18 +254,32 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
   const techo = recinto ? techoDelRecinto(recinto, indice?.defensas) : null
   /** El recinto recorta el agua del río. Sin cota conocida se lo toma en pie */
   const defendido = !!recintoIdx && (techo === null || h < techo)
+  /**
+   * El terraplén mismo: sobre él no hay agua del río ni camino cortado
+   * mientras el río no pase el coronamiento. Se dibuja borrado igual que el recinto
+   */
+  const defensaRecinto = indice?.defensas?.find(d => d.id === recinto?.defensa)
+  const terraplen = useMemo(() => defensaRecinto ? franjaDeDefensa(defensaRecinto.lineas) : null, [defensaRecinto])
+  const recorteDibujo = useMemo(() => recinto && defendido
+    ? [recinto.anillo, ...(defensaRecinto ? franjaParaDibujar(defensaRecinto.lineas) : [])]
+    : null, [recinto, defendido, defensaRecinto])
 
   // ── El valle de inundación del Paraná ──
   const valle = indice?.valle
   const valleIdx = useMemo(() => valle ? new IndicePoligonos(valle.poligonos) : null, [valle])
 
+  /** Lo que la defensa protege mientras el río no la pase: el recinto y el terraplén mismo */
+  const protegido = useMemo(() => defendido && recintoIdx ? {
+    contiene: (lat: number, lng: number) => recintoIdx.contiene(lat, lng) || !!terraplen?.contiene(lat, lng),
+  } : null, [defendido, recintoIdx, terraplen])
+
   /** Las capas de agua del escenario (sin el fondo), con su índice ya armado */
   const agua = useMemo(
     () => activas.filter(c => c.grupo !== 'base' && geo[c.id]).map(c => ({
       capa: c,
-      indice: defendido && recintoIdx && esDelRio(c) ? fueraDe(geo[c.id].indice, recintoIdx) : geo[c.id].indice,
+      indice: protegido && esDelRio(c) ? fueraDe(geo[c.id].indice, protegido) : geo[c.id].indice,
     })),
-    [activas, geo, defendido, recintoIdx])
+    [activas, geo, protegido])
 
   const vias = useMemo(
     () => indice ? [...rutas, ...caminosDelRecuadro(tramos, indice.recuadro)] : [],
@@ -304,8 +318,11 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
     const out: string[] = []
     // Del río, la imagen más baja que tiene agua ahí: desde qué altura se la vio
     const adentro = defendido && !!recintoIdx?.contiene(lat, lng)
-    const primera = adentro ? undefined : delRio.find(c => geo[c.id]?.indice.contiene(lat, lng))
-    if (adentro && techo !== null) {
+    const enTerraplen = defendido && !adentro && !!terraplen?.contiene(lat, lng)
+    const primera = adentro || enTerraplen ? undefined : delRio.find(c => geo[c.id]?.indice.contiene(lat, lng))
+    if (enTerraplen) {
+      out.push(techo !== null ? `sobre el terraplén de la defensa: el río no lo pasa hasta ${f2(techo)} m` : 'sobre el terraplén de la defensa')
+    } else if (adentro && techo !== null) {
       out.push(`dentro del recinto defendido: el río no entra hasta ${f2(techo)} m`)
     } else if (adentro) {
       out.push('dentro del recinto defendido')
@@ -327,7 +344,7 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
       if (l) out.push(`${l.lado === 'rio' ? 'del lado del río' : 'del lado de la ciudad'} de la defensa, a ${l.km < 1 ? `${Math.round(l.km * 1000)} m` : `${f1(l.km)} km`}`)
     }
     return out
-  }, [delRio, geo, agua, urbanoIdx, ciegoParcial, parcialM, completaM, defensas, defendido, recintoIdx, techo, valleIdx, recinto])
+  }, [delRio, geo, agua, urbanoIdx, ciegoParcial, parcialM, completaM, defensas, defendido, recintoIdx, techo, valleIdx, recinto, terraplen])
 
   // ── Qué tan seguido llega el río a esa altura ──
   const registro = useMemo(() => {
@@ -447,7 +464,7 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
         <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
           <MapaInundaciones recuadro={indice.recuadro} urbano={indice.urbano}
             capas={dibujo} vias={lineas} afectadas={cruce.partes} obras={puntos} referencias={referencias} defensas={defensas}
-            recorte={defendido && recinto ? recinto.anillo : null}
+            recorte={recorteDibujo}
             corte={recinto && verDefensa ? { nombre: recinto.corteNombre, linea: recinto.corte } : null}
             valle={valle && verValle ? { nombre: 'Valle de inundación del Paraná', poligonos: valle.poligonos } : null} leer={leer} />
         </div>

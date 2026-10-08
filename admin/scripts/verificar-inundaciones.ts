@@ -14,7 +14,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
-  ladoDeDefensa, LADO_DEFENSA_KM, enEscala, fueraDe, techoDelRecinto, alSurDe,
+  ladoDeDefensa, LADO_DEFENSA_KM, franjaDeDefensa, franjaParaDibujar, TERRAPLEN_KM, enEscala, fueraDe, techoDelRecinto, alSurDe,
   elevadosDe, escenarioRio, aguaDelRio, informesHasta, VISTO_MINIMO_PCT, IndicePoligonos, recortar, viaContra, resumirVias, rutasDelRecuadro,
   nodosDelRecuadro, cotaMop, distKm, TECHO_ZONAS_M,
   type IndiceInundaciones, type MultiPoligono, type Via,
@@ -426,6 +426,40 @@ if (recinto && defensa) {
     Math.max(...delRio.filter(c => c.id.startsWith('obs-1983')).map(c => c.enRecinto!.km2))
       > 5 * Math.max(...delRio.filter(c => !c.id.startsWith('obs-1983')).map(c => c.enRecinto!.km2)))
   ok('las otras capas no se recortan', indice.capas.filter(c => !delRio.includes(c)).every(c => !c.enRecinto))
+}
+
+titulo('El terraplén de la defensa')
+
+if (defensa && recinto) {
+  const franja = franjaDeDefensa(defensa.lineas)
+  const l = defensa.lineas[0]
+  // Puntos sobre la traza, a mitad de cada segmento, y corridos 150 m a un costado
+  let sobre = 0, corridos = 0
+  for (let i = 1; i < l.length; i++) {
+    const mx = (l[i - 1][0] + l[i][0]) / 2, my = (l[i - 1][1] + l[i][1]) / 2
+    if (franja.contiene(my, mx)) sobre++
+    const kx = 111.32 * Math.cos(my * Math.PI / 180), dx = (l[i][0] - l[i - 1][0]) * kx, dy = (l[i][1] - l[i - 1][1]) * 110.57
+    const n = Math.hypot(dx, dy)
+    if (!n) continue
+    if (franja.contiene(my + (dx / n) * 0.15 / 110.57, mx - (dy / n) * 0.15 / kx)) corridos++
+  }
+  ok('todo punto sobre la traza está en la franja', sobre, l.length - 1)
+  ok('a 150 m de la traza ya no, salvo en los quiebres', corridos < (l.length - 1) * 0.1)
+  ok(`la franja mide ${TERRAPLEN_KM * 2000} m de ancho`, TERRAPLEN_KM, 0.06)
+  ok('el dibujo lleva un rectángulo por segmento', franjaParaDibujar(defensa.lineas).length <= l.length - 1
+    && franjaParaDibujar(defensa.lineas).length > (l.length - 1) * 0.9)
+  // Con la mancha más alta y la defensa en pie, sobre la traza no queda agua
+  const m83 = new IndicePoligonos(capa('obs-1983-06-20'))
+  const rec = new IndicePoligonos([[recinto.anillo]])
+  const protegido = { contiene: (la: number, ln: number) => rec.contiene(la, ln) || franja.contiene(la, ln) }
+  let conAgua = 0, quedan = 0
+  for (let i = 1; i < l.length; i++) for (const t of [0.25, 0.5, 0.75]) {
+    const x = l[i - 1][0] + (l[i][0] - l[i - 1][0]) * t, y = l[i - 1][1] + (l[i][1] - l[i - 1][1]) * t
+    if (m83.contiene(y, x)) { conAgua++; if (fueraDe(m83, protegido).contiene(y, x)) quedan++ }
+  }
+  ok('la mancha de 1983 tiene agua sobre la traza', conAgua > 10)
+  ok('y con el terraplén recortado no queda nada', quedan, 0)
+  info(`${conAgua} puntos de la traza con agua de 1983`)
 }
 
 titulo('El valle de inundación del Paraná')

@@ -990,6 +990,17 @@ Desde el 08/10/2026.
   - las tres cifras de arriba, restando `enRecinto` de cada capa, que el build
     mide sobre una grilla de 30 m fuera del agua permanente.
   **La mancha de 1983 tiene 23,5 km² adentro**; las demás, menos de 2.
+- **Sobre el terraplén tampoco hay agua del río ni caminos cortados**
+  (pedido del usuario, 08/10/2026: las manchas pintaban agua y caminos rojos
+  encima de la defensa). `franjaDeDefensa()` es una franja de 60 m a cada lado
+  de la traza (`TERRAPLEN_KM`: coronamiento y taludes, más el error de la
+  traza y de los píxeles), y entra en el mismo «protegido» que el recinto:
+  `fueraDe` para los cruces, las obras y la lectura bajo el cursor, que dice
+  «sobre el terraplén». En el dibujo, `franjaParaDibujar()` da un rectángulo
+  por segmento que se borra igual que el recinto, **cada uno por separado**:
+  en un solo polígono lo que se pisa saldría hueco. Las tres cifras de arriba
+  no lo restan: son menos de 4 km² en toda la traza. El test afirma que, con
+  la mancha de 1983, sobre la traza no queda agua.
 - **La pantalla es un escenario hacia adelante, con la defensa de hoy; el
   pasado es referencia** (pedido del usuario, 08/10/2026). Por eso:
   - **La mancha del 14/08/1982 —la rotura del dique del río Negro— se sacó

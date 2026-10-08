@@ -637,3 +637,62 @@ export function ladoDeDefensa(
   if (mejor > maxKm) return null
   return { lado: cruz > 0 ? 'rio' : 'ciudad', km: mejor }
 }
+
+/**
+ * Media franja del terraplén de una defensa, en km: el coronamiento más los
+ * taludes, y el error de posición de la traza y de las manchas (30 a 60 m por
+ * píxel). Sobre el terraplén no hay agua del río que dibujar ni camino que se
+ * corte mientras el río no pase el coronamiento (pedido del usuario,
+ * 08/10/2026: las manchas pintaban agua y caminos cortados encima de la
+ * defensa).
+ */
+export const TERRAPLEN_KM = 0.06
+
+/**
+ * La franja del terraplén como contenedor: un punto está adentro si queda a
+ * menos de `km` de la traza. Recorre los segmentos con una caja de descarte;
+ * la traza tiene un par de cientos de vértices.
+ */
+export function franjaDeDefensa(lineas: [number, number][][], km = TERRAPLEN_KM): Contenedor {
+  const segs: { x0: number; y0: number; x1: number; y1: number }[] = []
+  for (const l of lineas) for (let i = 1; i < l.length; i++) {
+    segs.push({ x0: l[i - 1][0], y0: l[i - 1][1], x1: l[i][0], y1: l[i][1] })
+  }
+  const margen = km / 95 // en grados, holgado para estas latitudes
+  return {
+    contiene(lat: number, lng: number) {
+      const kx = 111.32 * Math.cos(lat * Math.PI / 180), ky = 110.57
+      for (const s of segs) {
+        if (lng < Math.min(s.x0, s.x1) - margen || lng > Math.max(s.x0, s.x1) + margen
+          || lat < Math.min(s.y0, s.y1) - margen || lat > Math.max(s.y0, s.y1) + margen) continue
+        const ax = (s.x0 - lng) * kx, ay = (s.y0 - lat) * ky
+        const dx = (s.x1 - s.x0) * kx, dy = (s.y1 - s.y0) * ky
+        const n = dx * dx + dy * dy
+        const t = n ? Math.max(0, Math.min(1, -(ax * dx + ay * dy) / n)) : 0
+        if (Math.hypot(ax + t * dx, ay + t * dy) < km) return true
+      }
+      return false
+    },
+  }
+}
+
+/**
+ * La misma franja para dibujar: un rectángulo por segmento, alargado media
+ * franja en cada punta para cubrir los quiebres. Van sueltos y no en un solo
+ * polígono: el lienzo rellena con par-impar y lo que se pisa saldría hueco.
+ */
+export function franjaParaDibujar(lineas: [number, number][][], km = TERRAPLEN_KM): [number, number][][] {
+  const out: [number, number][][] = []
+  for (const l of lineas) for (let i = 1; i < l.length; i++) {
+    const [x0, y0] = l[i - 1], [x1, y1] = l[i]
+    const kx = 111.32 * Math.cos(((y0 + y1) / 2) * Math.PI / 180), ky = 110.57
+    const dx = (x1 - x0) * kx, dy = (y1 - y0) * ky, n = Math.hypot(dx, dy)
+    if (!n) continue
+    const ux = dx / n, uy = dy / n
+    const px = -uy * km / kx, py = ux * km / ky // perpendicular, en grados
+    const ex = ux * km / kx, ey = uy * km / ky   // alargue en las puntas
+    const a: [number, number] = [x0 - ex, y0 - ey], b: [number, number] = [x1 + ex, y1 + ey]
+    out.push([[a[0] + px, a[1] + py], [b[0] + px, b[1] + py], [b[0] - px, b[1] - py], [a[0] - px, a[1] - py]])
+  }
+  return out
+}

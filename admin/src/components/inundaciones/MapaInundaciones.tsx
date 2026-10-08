@@ -88,10 +88,10 @@ export default function MapaInundaciones({ recuadro, urbano, capas, vias, afecta
   /** Las defensas contra el río, en `[lng, lat]` */
   defensas: ReferenciaDibujo[]
   /**
-   * Un contorno `[lng, lat]` donde no se dibuja el agua del río (las capas
-   * `union`): el recinto defendido. `null`, sin recorte
+   * Contornos `[lng, lat]` donde no se dibuja el agua del río (las capas
+   * `union`): el recinto defendido y la franja del terraplén. `null`, sin recorte
    */
-  recorte: [number, number][] | null
+  recorte: [number, number][][] | null
   /** La parte del contorno del área defendida que no es defensa, a rayas. `[lng, lat]` */
   corte: { nombre: string; linea: [number, number][] } | null
   /** El valle de inundación del Paraná, como contorno. `null`, apagado */
@@ -205,9 +205,12 @@ export default function MapaInundaciones({ recuadro, urbano, capas, vias, afecta
             ctx.restore()
           },
         }) as unknown as new (ll: [number, number][], o: import('leaflet').PolylineOptions) => import('leaflet').Polygon
-        dibujadas.push(new Borrador(recorte.map(([x, y]) => [y, x] as [number, number]), {
-          pane: 'inuUnion', renderer: lienzoUnion, stroke: false, fill: true, fillColor: '#000', fillOpacity: 1, interactive: false,
-        }).addTo(map))
+        // Uno por contorno: juntos en un polígono, lo que se pisa saldría hueco
+        for (const an of recorte) {
+          dibujadas.push(new Borrador(an.map(([x, y]) => [y, x] as [number, number]), {
+            pane: 'inuUnion', renderer: lienzoUnion, stroke: false, fill: true, fillColor: '#000', fillOpacity: 1, interactive: false,
+          }).addTo(map))
+        }
       }
     })
     return () => { vivo = false; dibujadas.forEach(d => d.remove()) }
