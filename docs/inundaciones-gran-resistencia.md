@@ -527,6 +527,7 @@ El cero de la escala de Barranqueras está en cota MOP 41,80. Con eso:
 | 49 | 7,20 m | techo de la terraza baja del área urbana | 7 años, 1 de cada 17 |
 | 50 | 8,20 m | el casco fundacional está en 50 a 51 | 2 años: 1983 y 1992 |
 | 53 | 11,20 m | coronamiento proyectado de las defensas | nunca |
+| 53,50 | 11,70 m | coronamiento de la defensa en Puerto Vilelas (dato aportado el 08/10/2026) | nunca |
 
 - **La cota 49 se alcanzó el doble de veces de lo que se decía en 1985.** El
   estudio de Caputo, Hardoy y Herzer da «cada 30 años»; contado sobre la serie

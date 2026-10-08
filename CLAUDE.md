@@ -948,6 +948,13 @@ Desde el 08/10/2026.
   de la traza: de los vértices de agua permanente a menos de 2 km, 963 caen
   del lado del río y 256 del de la ciudad (las lagunas). **Si se cambia el
   KML por uno dibujado al revés, ese test falla**, y hay que invertirlo.
+- **El coronamiento es cota MOP 53,50 en toda la traza**, que es **11,70 m en
+  la escala de Barranqueras** (`enEscala()`, con el cero MOP 41,80). Es el
+  único dato de cota que hay, medido en Puerto Vilelas, y se toma para toda
+  la defensa por indicación del usuario; la pantalla lo dice, junto con
+  cuánto le queda al río a la altura elegida. Un punto bajo del terraplén
+  tendría menos: si aparece un relevamiento del coronamiento, va en
+  `DEFENSAS` del script.
 - Con la traza a la vista, el aviso de las imágenes de 1983 dice «del lado de
   la ciudad de la defensa» en vez de «dentro del recinto».
 - **«Qué viene río arriba»** (`components/inundaciones/RioArriba.tsx`): las

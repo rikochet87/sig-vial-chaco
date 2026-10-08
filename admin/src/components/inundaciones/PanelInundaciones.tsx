@@ -31,7 +31,7 @@ import { extremosAnuales, ajustarGumbel, alturaDeRecurrencia, recurrenciaDe, ani
 import type { Pronostico } from '@/lib/pronostico'
 import { laminaPorCorrida, ventana, probSuperar } from '@/lib/pronostico'
 import {
-  BARRANQUERAS, cotaMop, escenarioRio, aguaDelRio, informesHasta, IndicePoligonos, ladoDeDefensa,
+  BARRANQUERAS, cotaMop, enEscala, escenarioRio, aguaDelRio, informesHasta, IndicePoligonos, ladoDeDefensa,
   rutasDelRecuadro, caminosDelRecuadro, viaContra, resumirVias, nodosDelRecuadro,
   type IndiceInundaciones, type CapaInundacion, type MultiPoligono, type ClaseVia,
 } from '@/lib/inundaciones'
@@ -452,7 +452,12 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
             <label key={d.id} style={{ ...texto, display: 'flex', alignItems: 'flex-start', gap: 7, cursor: 'pointer', marginTop: 6 }}>
               <input type="checkbox" checked={verDefensa} onChange={e => setVerDefensa(e.target.checked)} style={{ marginTop: 3 }} />
               <span><b style={{ color: '#c9955a' }}>Color tierra:</b> la {d.nombre.charAt(0).toLowerCase() + d.nombre.slice(1)}, {f1(d.km)} km.
-                {' '}Pasando el cursor cerca dice de qué lado queda cada punto.</span>
+                {' '}Pasando el cursor cerca dice de qué lado queda cada punto.
+                {d.coronamientoMop !== undefined && (<>
+                  <br />Coronamiento en cota MOP {f2(d.coronamientoMop)}, que es <b style={{ color: '#fff' }}>{f2(enEscala(d.coronamientoMop))} m</b> en
+                  la escala de Barranqueras: con el río en {f2(h)} m le quedan <b style={{ color: '#fff' }}>{f2(enEscala(d.coronamientoMop) - h)} m</b>.
+                  <span style={{ color: '#8f8f8f' }}> Es la cota de Puerto Vilelas tomada para toda la traza: un punto bajo del terraplén tendría menos. Con viento hay ola, y con el río alto el terraplén puede fallar sin desbordar.</span>
+                </>)}</span>
             </label>
           ))}
 

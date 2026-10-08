@@ -135,7 +135,12 @@ const largoKm = lineas => lineas.reduce((s, l) => s + l.slice(1).reduce((a, p, i
   return a + Math.hypot((p[0] - q[0]) * 111.32 * k, (p[1] - q[1]) * 110.57)
 }, 0), 0)
 const DEFENSAS = [
+  // El coronamiento es el único dato de cota que hay: 53,50 m MOP en Puerto
+  // Vilelas, y se toma para toda la traza por indicación del usuario. No es
+  // un relevamiento del coronamiento a lo largo: un terraplén tiene puntos
+  // bajos, y ésos son los que importan.
   { id: 'defensa-amgr', nombre: 'Defensa del Área Metropolitana', fuente: 'Defensa AMGR.kmz, aportado al proyecto el 08/10/2026',
+    coronamientoMop: 53.5, coronamientoNota: 'Cota MOP medida en Puerto Vilelas, tomada para toda la traza',
     lineas: desdeKml('defensa-amgr.kml') },
 ].map(d => ({ ...d, km: Math.round(largoKm(d.lineas) * 10) / 10 }))
 

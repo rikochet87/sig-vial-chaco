@@ -14,7 +14,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
-  ladoDeDefensa, LADO_DEFENSA_KM,
+  ladoDeDefensa, LADO_DEFENSA_KM, enEscala,
   escenarioRio, aguaDelRio, informesHasta, VISTO_MINIMO_PCT, IndicePoligonos, recortar, viaContra, resumirVias, rutasDelRecuadro,
   nodosDelRecuadro, cotaMop, distKm, TECHO_ZONAS_M,
   type IndiceInundaciones, type MultiPoligono, type Via,
@@ -347,6 +347,11 @@ ok('la defensa del área metropolitana está en el índice', !!defensa)
 if (defensa) {
   ok('una sola línea', defensa.lineas.length, 1)
   ok('de unos 31 km', defensa.km > 30 && defensa.km < 33)
+  ok('coronamiento en cota MOP 53,50', defensa.coronamientoMop, 53.5)
+  // 53,50 − 41,80: la escala de Barranqueras con su cero MOP
+  cerca('que en la escala de Barranqueras es 11,70 m', enEscala(defensa.coronamientoMop!), 11.7, 1e-9)
+  ok('por encima del máximo del registro (8,59 m)', enEscala(defensa.coronamientoMop!) > 8.59)
+  ok('y la ida y vuelta con cotaMop da lo mismo', Math.abs(cotaMop(enEscala(53.5)) - 53.5) < 1e-9)
   ok('adentro del recuadro', defensa.lineas.every(l => l.every(([x, y]) =>
     x >= indice.recuadro.oeste && x <= indice.recuadro.este && y >= indice.recuadro.sur && y <= indice.recuadro.norte)))
   // El sentido de dibujo decide qué es «el río». Se afirma con algo que no

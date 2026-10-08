@@ -448,6 +448,8 @@
    "id": "defensa-amgr",
    "nombre": "Defensa del Área Metropolitana",
    "fuente": "Defensa AMGR.kmz, aportado al proyecto el 08/10/2026",
+   "coronamientoMop": 53.5,
+   "coronamientoNota": "Cota MOP medida en Puerto Vilelas, tomada para toda la traza",
    "lineas": [
     [
      [

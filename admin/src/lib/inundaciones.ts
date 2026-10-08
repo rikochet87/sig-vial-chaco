@@ -101,6 +101,10 @@ export interface DefensaInundacion {
   fuente: string
   /** Largo de la traza, en km */
   km: number
+  /** Cota MOP del coronamiento, si se conoce. Puede ser un dato de un solo punto */
+  coronamientoMop?: number
+  /** De dónde sale esa cota y hasta dónde vale */
+  coronamientoNota?: string
   /** `[línea][vértice]` en `[lng, lat]`, dibujada de norte a sur con el río a la izquierda */
   lineas: [number, number][][]
 }
@@ -150,6 +154,8 @@ export const informesHasta = (informes: InformeInundacion[] | undefined, h: numb
 
 /** La altura de la escala llevada a cota MOP, que es la de las obras locales */
 export const cotaMop = (m: number) => m + BARRANQUERAS.ceroMop
+/** La altura en la escala de Barranqueras que corresponde a una cota MOP */
+export const enEscala = (cota: number) => cota - BARRANQUERAS.ceroMop
 
 export interface EscenarioRio {
   /** La zona de la clase de esa altura. `null` sólo si el índice no trae zonas */
