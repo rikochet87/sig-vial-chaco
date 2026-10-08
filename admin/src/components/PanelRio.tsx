@@ -49,6 +49,7 @@ import { COLOR_ESTADO, ETIQUETA_ESTADO, type EstadoRio, type PuntoPronostico } f
 import HistoricoBarranqueras from '@/components/rio/HistoricoBarranqueras'
 import TrasladoCrecida from '@/components/rio/TrasladoCrecida'
 import BalanceConfluencia from '@/components/rio/BalanceConfluencia'
+import AguasArriba from '@/components/rio/AguasArriba'
 
 const mono: React.CSSProperties = { fontFamily: 'monospace' }
 
@@ -68,8 +69,9 @@ interface EstacionRio {
   rio: string
   alerta: number
   evacuacion: number
-  ceroMop: number
-  ceroIgn: number
+  /** Sólo las de `/api/rio`; las de aguas arriba no tienen cero vinculado */
+  ceroMop?: number
+  ceroIgn?: number
   observado: Lectura[]
   pronostico: { emitido: string; puntos: PuntoPronostico[] } | null
   ultima: { fecha: string; m: number; estado: EstadoRio } | null
@@ -127,6 +129,8 @@ export default function PanelRio({ dias = 90, desde, hasta, abiertoInicial = fal
   const [error, setError] = useState<string | null>(null)
   const [abierto, setAbierto] = useState(abiertoInicial)
   const [alDato, setAlDato] = useState(false)
+  /** Las que ya muestra el bloque «Aguas arriba», para no repetirlas abajo */
+  const [idsArriba, setIdsArriba] = useState<number[]>([])
 
   /*
    * El estado se toca sólo cuando llega la respuesta, no al empezar: un
@@ -174,7 +178,7 @@ export default function PanelRio({ dias = 90, desde, hasta, abiertoInicial = fal
       if (ia !== ib) return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib)
       return 0
     })
-    const c = est.filter(e => !g.includes(e))
+    const c = est.filter(e => !g.includes(e) && !idsArriba.includes(e.id))
     const conMargen = est.filter(e => e.margen !== null)
     return {
       grandes: g,
@@ -183,7 +187,7 @@ export default function PanelRio({ dias = 90, desde, hasta, abiertoInicial = fal
         ? conMargen.reduce((a, b) => (b.margen! < a.margen! ? b : a))
         : null,
     }
-  }, [datos])
+  }, [datos, idsArriba])
 
   if (error) {
     return (
@@ -283,11 +287,22 @@ export default function PanelRio({ dias = 90, desde, hasta, abiertoInicial = fal
               promovida={!DESTACADAS.includes(e.id)} />
           ))}
 
+          {/*
+            Aguas arriba va antes que el resto del tramo: es lo que viene, y para
+            Resistencia es lo que más importa. Tiene su propia ruta y llega
+            cuando llega; las franjas de arriba no lo esperan.
+          */}
+          <AguasArriba dias={dias} alCargar={setIdsArriba} franja={e => (
+            <Franja est={e} desde={desde} hasta={hasta} alDato={alDato} promovida />
+          )} />
+
           {(chicas.length > 0 || datos.sinRespuesta.length > 0) && (
             <>
               <div style={{ fontSize: 11, color: '#8f8f8f', borderTop: '1px solid #232323',
                 paddingTop: 9, margin: '12px 0 6px' }}>
-                Resto del tramo, de aguas arriba hacia abajo
+                {idsArriba.length > 0
+                  ? 'Aguas abajo de Barranqueras'
+                  : 'Resto del tramo, de aguas arriba hacia abajo'}
               </div>
               <table style={{ width: '100%', fontSize: 11, borderCollapse: 'collapse' }}>
                 <tbody>
@@ -350,7 +365,8 @@ export default function PanelRio({ dias = 90, desde, hasta, abiertoInicial = fal
             {datos.estaciones.filter(e => DESTACADAS.includes(e.id)).length > 0 && (
               <> Cero de escala en el sistema del IGN:{' '}
               {datos.estaciones.filter(e => DESTACADAS.includes(e.id))
-                .map(e => `${e.nombre} ${e.ceroIgn.toFixed(2).replace('.', ',')} m`).join(' y ')}
+                .filter(e => e.ceroIgn !== undefined)
+                .map(e => `${e.nombre} ${e.ceroIgn!.toFixed(2).replace('.', ',')} m`).join(' y ')}
               {' '}— cotas de 1999, valen al decímetro. La cota MOP, que es la de los planos de
               defensas, está 0,55 m más arriba.</>
             )}

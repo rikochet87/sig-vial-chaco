@@ -37,7 +37,7 @@ npx expo-doctor               # desde la raíz — detecta incompatibilidades de
 ```
 
 **Todo eso corre junto con `npm run verificar`** (desde `admin/`):
-`tsc --noEmit`, la barrera de lint, la sintaxis de los `.sql` y los veintinueve
+`tsc --noEmit`, la barrera de lint, la sintaxis de los `.sql` y los treinta
 `scripts/verificar-*.ts`. `next build` queda afuera a propósito: tarda minutos y
 usa el binario nativo de SWC, así que sólo corre donde se instalaron los
 paquetes. El orquestador es `scripts/verificar-todo.mjs`, en Node y no en un
@@ -2210,6 +2210,66 @@ Cuatro decisiones que no son obvias:
 episodio**, no un caso inventado, y afirma las dos puntas: que el lote se
 descarta y que una crecida de 25 cm diarios que cruza los dos umbrales pasa
 entera.
+
+### Aguas arriba de Resistencia
+
+`lib/rioArriba.ts` + `app/api/rio/arriba/route.ts` +
+`components/rio/AguasArriba.tsx`, un bloque dentro de `PanelRio`, entre las
+franjas grandes y el resto del tramo. Desde el 08/10/2026.
+
+Las franjas dicen cuánto le falta al alerta acá; este bloque dice **qué viene**.
+Ocho escalas de Prefectura, en `ESTACIONES_ARRIBA` de `lib/ina.ts`:
+
+| Río | Escala (id del INA) | Alerta · evacuación | Pronóstico diario |
+|---|---|---|---|
+| Paraná | Posadas (14) | 11 · 12 | no |
+| Paraná | Ituzaingó (15) | 3,5 · 4 | no |
+| Paraná | Itá Ibaté (16) | 7 · 7,5 | no |
+| Paraná | Itatí (17) | 6,8 · 7,5 | no |
+| Paraná | Paso de la Patria (18) | 6,5 · 7 | no |
+| Paraguay | Puerto Pilcomayo (55) | 5,35 · 6 | sí |
+| Paraguay | Puerto Formosa (57) | 7,8 · 8,3 | sí |
+| Paraguay | Puerto Bermejo (58) | 6,5 · 7 | no |
+
+Umbrales del catálogo del INA, leídos el 08/10/2026. Lo de «pronóstico diario»
+es lo que encontró `serieMedida()` ese día: sólo las dos del Paraguay lo tienen
+colgado de la serie medida (`cal_id` 312, una semana). Itatí, Paso de la Patria
+y Bermejo tienen el pronóstico **semanal** a tres meses (`cal_id` 499), colgado
+de la serie de altura media semanal, así que salen «sin corrida». Es otro
+producto —una altura por semana— y no se mezcla con el diario.
+
+- **Lo central es la tendencia**: cuánto cambió en un día y en siete, **contra el
+  día exacto**, igual que en «Ríos internos». Si ese día no tiene lectura, el
+  cambio es `null` y se muestra «—», no cero. Menos de 2 cm por día es
+  «estable» (`QUIETO_M`): es el orden de la lectura de una escala a ojo.
+- **No dice en cuántos días llega el agua.** Está medido sólo para Itá Ibaté
+  —el pico, unos 3 días antes que en Corrientes (ver «Traslado de la crecida
+  en el tramo»)— y se cita así. Para Posadas, Itatí o Paso de la Patria no hay
+  medición, y no se inventa.
+- **El Paraguay va en su propio grupo y lo dice**: no anuncia a Barranqueras
+  (ver «El aporte del río Paraguay»); lo que aporta es caudal.
+- **Ituzaingó está al pie de Yacyretá**: la altura la maneja la represa y sus
+  umbrales no se comparan con los de aguas abajo. La pantalla lo aclara.
+- **Ruta aparte de `/api/rio`, y de a una estación.** Sumar ocho escalas a la
+  ruta del panel duplicaba lo que tarda la franja de Barranqueras, que es lo
+  primero que se mira. Separadas, el panel aparece igual que antes y este
+  bloque llega cuando llega. Misma caché (media hora), mismo guard
+  (`requirePermiso('lluvia')`), misma `depurar()`, y `maxDuration = 60`.
+- **Itá Ibaté está en las dos listas** (`ESTACIONES` y `ESTACIONES_ARRIBA`) y
+  el test afirma que dicen los mismos umbrales; lo mismo para Pilcomayo y
+  Bermejo contra `ESTACIONES_PARAGUAY`. Cuando el bloque carga, `PanelRio` la
+  saca del «resto del tramo» para no mostrarla dos veces; si el bloque falla,
+  vuelve a aparecer ahí.
+- **Una escala que llega a su alerta —medida o pronosticada— se despliega en
+  franja grande**, con la misma `Franja` de `PanelRio`, que se le pasa por
+  prop para no tener dos dibujos del mismo gráfico.
+- **Una escala atrasada se ve atrasada**: desde dos días sin lectura
+  (`DIAS_ATRASO_ARRIBA`) va la fecha de la última en naranja. Las escalas de
+  Prefectura se leen todos los días, a las 03:00 UTC.
+
+`scripts/verificar-rio-arriba.ts` no sale a la red: afirma la lista contra las
+otras dos y la tendencia con casos que se saben sin calcular. `relevar-ina.ts`
+compara los umbrales contra el catálogo.
 
 ### El cero de cada escala: MOP no es IGN
 

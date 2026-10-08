@@ -120,6 +120,51 @@ export const ESTACIONES_PARAGUAY = [
 ] as const
 
 /**
+ * Las escalas **aguas arriba de Resistencia**, para el bloque «Aguas arriba» del
+ * panel del río (`/api/rio/arriba`).
+ *
+ * Son por donde viene el agua que después pasa por Barranqueras: el Paraná desde
+ * Misiones y el Paraguay desde Asunción. Ver qué está subiendo allá es ver lo
+ * que llega acá, y eso no depende de ningún pronóstico.
+ *
+ * Van de aguas arriba hacia abajo dentro de cada río. Itá Ibaté también está en
+ * `ESTACIONES`, que alimenta el resto del panel; acá se repite para que el
+ * bloque muestre el tramo entero sin depender de otra ruta.
+ *
+ * Los umbrales son los `nivel_alerta` y `nivel_evacuacion` del catálogo del INA,
+ * leídos el 08/10/2026. **Ituzaingó está al pie de Yacyretá**: su altura la
+ * maneja la represa y sus umbrales (3,5 y 4 m) no se comparan con los de
+ * aguas abajo. Puerto Formosa sólo tiene altura desde 2006.
+ *
+ * **Las estaciones del Paraguay no anuncian a Barranqueras como Itá Ibaté**: el
+ * Paraguay crece en invierno y el Paraná en verano, y en la mitad de los años
+ * el máximo de cada uno es otra crecida (ver `trasladoDelParaguay()` en
+ * `lib/rioTraslado.ts`). Lo que aportan es caudal —un 18 % del de Corrientes,
+ * hasta un 23 % en julio—, así que se miran para saber cuánta agua entra por
+ * ahí, no cuántos días faltan.
+ *
+ * `scripts/relevar-ina.ts` las compara contra el catálogo del INA.
+ */
+export interface EstacionArriba {
+  id: number
+  nombre: string
+  rio: 'Paraná' | 'Paraguay'
+  alerta: number
+  evacuacion: number
+}
+
+export const ESTACIONES_ARRIBA: readonly EstacionArriba[] = [
+  { id: 14, nombre: 'Posadas',           rio: 'Paraná',   alerta: 11,   evacuacion: 12 },
+  { id: 15, nombre: 'Ituzaingó',         rio: 'Paraná',   alerta: 3.5,  evacuacion: 4 },
+  { id: 16, nombre: 'Itá Ibaté',         rio: 'Paraná',   alerta: 7,    evacuacion: 7.5 },
+  { id: 17, nombre: 'Itatí',             rio: 'Paraná',   alerta: 6.8,  evacuacion: 7.5 },
+  { id: 18, nombre: 'Paso de la Patria', rio: 'Paraná',   alerta: 6.5,  evacuacion: 7 },
+  { id: 55, nombre: 'Puerto Pilcomayo',  rio: 'Paraguay', alerta: 5.35, evacuacion: 6 },
+  { id: 57, nombre: 'Puerto Formosa',    rio: 'Paraguay', alerta: 7.8,  evacuacion: 8.3 },
+  { id: 58, nombre: 'Puerto Bermejo',    rio: 'Paraguay', alerta: 6.5,  evacuacion: 7 },
+]
+
+/**
  * La estación de referencia para el área metropolitana.
  *
  * Para comparar su altura contra cotas del terreno hace falta el cero de escala
@@ -376,7 +421,7 @@ export type EstadoRio = 'aguas_bajas' | 'normal' | 'alerta' | 'evacuacion'
  * Corrientes a 7. Comparar una altura contra el umbral equivocado da un estado
  * equivocado, así que la función exige la estación y no acepta un número suelto.
  */
-export function estadoDe(est: EstacionIna, m: number): EstadoRio {
+export function estadoDe(est: { alerta: number; evacuacion: number }, m: number): EstadoRio {
   if (m >= est.evacuacion) return 'evacuacion'
   if (m >= est.alerta) return 'alerta'
   return 'normal'

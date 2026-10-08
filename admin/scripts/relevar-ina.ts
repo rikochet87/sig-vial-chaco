@@ -16,7 +16,7 @@
  * dominios permitidos y el del INA no está. Va desde PowerShell o desde Vercel.
  */
 import {
-  ESTACIONES, ESTACIONES_PARAGUAY, REFERENCIA, alturasObservadas, pronosticoDe, estadoDe, ETIQUETA_ESTADO,
+  ESTACIONES, ESTACIONES_PARAGUAY, ESTACIONES_ARRIBA, REFERENCIA, alturasObservadas, pronosticoDe, estadoDe, ETIQUETA_ESTADO,
 } from '../src/lib/ina'
 
 const BASE = 'https://alerta.ina.gob.ar/a5'
@@ -75,7 +75,10 @@ async function main() {
     }
   }
 
-  for (const nuestra of ESTACIONES_PARAGUAY) {
+  // Más las de aguas arriba que no están en las otras dos listas: Itá Ibaté y
+  // las del Paraguay ya se revisan con ellas
+  const yaRevisadas = new Set<number>([...ESTACIONES, ...ESTACIONES_PARAGUAY].map(e => e.id))
+  for (const nuestra of [...ESTACIONES_PARAGUAY, ...ESTACIONES_ARRIBA.filter(e => !yaRevisadas.has(e.id))]) {
     const enApi = est.find(e => e.id === nuestra.id)
     if (!enApi) { ok(`${nuestra.nombre} sigue existiendo`, false, 'no está en el catálogo'); continue }
     ok(`${nuestra.nombre} es pública y tiene observaciones`, enApi.public && enApi.has_obs)

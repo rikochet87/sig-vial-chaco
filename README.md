@@ -80,7 +80,7 @@ Las dos aplicaciones trabajan contra la misma base Supabase.
 - **Hidrología**:
   - Lluvia por consorcio y por cuenca, con media areal, isohietas y la lluvia bajada a cada camino
   - Cuencas hídricas y cursos de agua
-  - Río Paraná con datos del INA: alturas, recurrencia y traslado de la crecida
+  - Río Paraná con datos del INA: alturas y pronóstico en el tramo, **escalas aguas arriba de Resistencia** en el Paraná y el Paraguay con su tendencia, recurrencia y traslado de la crecida
   - **Gran Resistencia**: áreas inundables según la altura del río
   - **Tiempo**: alertas del SMN y pronóstico de 7 días por consorcio
   - Lluvia histórica por cuenca desde 1981 (CHIRPS)
@@ -111,7 +111,7 @@ El panel incluye un control de tamaño de texto (A / A+ / A++) para usuarios con
 | **APA** (Administración Provincial del Agua) | pluviómetros, medición real | lluvia observada en ~70 estaciones, sólo las que informaron ese día; nunca se completan ceros |
 | **Open-Meteo** | modelo | lluvia estimada en toda la provincia y pronóstico de 7 días por consorcio |
 | **SMN** | aviso oficial | alertas meteorológicas vigentes |
-| **INA** (Instituto Nacional del Agua) | medición y pronóstico | altura del río Paraná y de los ríos internos |
+| **INA** (Instituto Nacional del Agua) | medición y pronóstico | altura del Paraná y del Paraguay, aguas arriba y abajo de Resistencia, y de los ríos internos |
 | **CHIRPS** | satélite + estaciones | lluvia histórica por cuenca desde 1981 |
 
 **Cómo se calcula.** La lluvia entre pluviómetros se interpola por **IDW** (inverso de la distancia al cuadrado, radio de 60 km) y se baja a la red vial **cada 2 km**, así cada tramo tiene su propio valor y una tormenta que moja sólo una punta del consorcio no se pierde en el promedio. La media por consorcio y por cuenca es **precipitación media areal por polígonos de Thiessen**, el método de manual. El río Paraná se trata como una amenaza aparte: la crecida viene de lluvias a miles de kilómetros, con días o semanas de retardo.
