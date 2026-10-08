@@ -186,6 +186,31 @@ const ELEVADAS = [{
 }]
 
 /**
+ * Rutas en terraplén que hacen de defensa: la RN 11, el cierre oeste del
+ * recinto (por indicación del usuario, 08/10/2026: «es incompatible que el
+ * agua esté por arriba del terraplén de la RN 11»). Sobre su franja no se
+ * dibuja agua del río ni se cuenta un camino cortado, igual que sobre la
+ * defensa. Sólo lo que cae en el recuadro, partido donde sale.
+ */
+const enAoi = ([x, y]) => x >= aoiR.oeste - 0.01 && x <= aoiR.este + 0.01 && y >= aoiR.sur - 0.01 && y <= aoiR.norte + 0.01
+const tramosEnAoi = lineas => lineas.flatMap(l => {
+  const out = []
+  let actual = []
+  for (const p of l) {
+    if (enAoi(p)) actual.push([Math.round(p[0] * 1e5) / 1e5, Math.round(p[1] * 1e5) / 1e5])
+    else if (actual.length) { if (actual.length > 1) out.push(actual); actual = [] }
+  }
+  if (actual.length > 1) out.push(actual)
+  return out
+})
+const TERRAPLENES = [{
+  id: 'rn11', nombre: 'RN 11', nota: 'Ruta en terraplén; cierra el recinto por el oeste',
+  lineas: tramosEnAoi(rnTodas.features.filter(f => String(f.properties.Numero) === '11').flatMap(f =>
+    f.geometry.type === 'MultiLineString' ? f.geometry.coordinates : [f.geometry.coordinates]).map(l => l.map(p => [p[0], p[1]]))),
+}]
+if (!TERRAPLENES[0].lineas.length) throw new Error('La RN 11 no pasa por el recuadro')
+
+/**
  * Lo que se sabe que pasó y ninguna imagen muestra.
  *
  * **No es agua vista y no se dibuja como agua**: va como texto, al lado de lo
@@ -349,6 +374,7 @@ writeFileSync(join(DESTINO, 'indice.json'), JSON.stringify({
   recintos: [RECINTO],
   valle: VALLE,
   elevadas: ELEVADAS,
+  terraplenes: TERRAPLENES,
   informes: INFORMES,
 }, null, 1))
 console.log('capas', indice.length, '· total', (total / 1048576).toFixed(1), 'MB')

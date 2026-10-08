@@ -39,7 +39,7 @@ export interface CapaDibujo {
 }
 
 /** Una línea para ubicarse, con su nombre: no es agua */
-export interface ReferenciaDibujo { nombre: string; lineas: [number, number][][] }
+export interface ReferenciaDibujo { nombre: string; lineas: [number, number][][]; rotulo?: string }
 
 export interface LineaDibujo { puntos: [number, number][]; color: string; grosor: number }
 export interface PuntoDibujo { lat: number; lng: number; dentro: boolean; titulo: string }
@@ -342,7 +342,7 @@ export default function MapaInundaciones({ recuadro, urbano, capas, vias, afecta
         {referencias.map(ref => (
           <div key={ref.nombre} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
             <span style={{ width: 14, height: 0, flexShrink: 0, borderTop: `2px dashed ${C_REFERENCIA}` }} />
-            <span>{ref.nombre}, la traza</span>
+            <span>{ref.rotulo ?? `${ref.nombre}, la traza`}</span>
           </div>
         ))}
         {capas.length === 0 && <span style={{ color: '#8f8f8f' }}>Cargando capas…</span>}

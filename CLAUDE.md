@@ -1001,6 +1001,17 @@ Desde el 08/10/2026.
   en un solo polígono lo que se pisa saldría hueco. Las tres cifras de arriba
   no lo restan: son menos de 4 km² en toda la traza. El test afirma que, con
   la mancha de 1983, sobre la traza no queda agua.
+- **La RN 11 recibe el mismo trato** (`terraplenes` del índice, pedido del
+  usuario el 08/10/2026: «es incompatible que el agua esté por arriba del
+  terraplén de la RN 11»). Es el cierre oeste del recinto y va en terraplén:
+  el build toma su traza de `geo_rn.json` dentro del recuadro, y el panel le
+  arma su propia franja de 60 m, que se borra del dibujo y entra en el
+  «protegido». La lectura dice sobre qué terraplén está el cursor. Con la
+  mancha de 1983 la RN 11 tenía 6,9 km «cortados»; ahora ninguno.
+- **La línea blanca a rayas al sur de la ciudad es el Canal 16**, y aparece
+  sólo con el río en 8,17 m o más, junto con su informe. Su rótulo en la
+  leyenda dice por qué está («informado con agua, 8,17 m en 1998, no es una
+  mancha»): decía «Canal 16, la traza» y el usuario no entendía qué era.
 - **La pantalla es un escenario hacia adelante, con la defensa de hoy; el
   pasado es referencia** (pedido del usuario, 08/10/2026). Por eso:
   - **La mancha del 14/08/1982 —la rotura del dique del río Negro— se sacó

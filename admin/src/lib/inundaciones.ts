@@ -205,6 +205,8 @@ export interface IndiceInundaciones {
   recintos?: RecintoInundacion[]
   valle?: ValleInundacion
   elevadas?: TramoElevado[]
+  /** Rutas en terraplén que hacen de defensa (la RN 11): se tratan como la franja de la defensa */
+  terraplenes?: { id: string; nombre: string; nota: string; lineas: [number, number][][] }[]
   informes?: InformeInundacion[]
 }
 

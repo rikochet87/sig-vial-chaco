@@ -258,11 +258,21 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
    * El terraplén mismo: sobre él no hay agua del río ni camino cortado
    * mientras el río no pase el coronamiento. Se dibuja borrado igual que el recinto
    */
-  const defensaRecinto = indice?.defensas?.find(d => d.id === recinto?.defensa)
-  const terraplen = useMemo(() => defensaRecinto ? franjaDeDefensa(defensaRecinto.lineas) : null, [defensaRecinto])
+  /** Los terraplenes: la defensa y las rutas que hacen de defensa (la RN 11), cada uno con su franja */
+  const terraplenes = useMemo(() => {
+    const defensa = indice?.defensas?.find(d => d.id === recinto?.defensa)
+    const todos = [
+      ...(defensa ? [{ nombre: 'la defensa', lineas: defensa.lineas }] : []),
+      ...(indice?.terraplenes ?? []).map(t => ({ nombre: `la ${t.nombre}`, lineas: t.lineas })),
+    ]
+    return todos.map(t => ({ ...t, franja: franjaDeDefensa(t.lineas) }))
+  }, [indice, recinto])
+  const terraplen = useMemo(() => terraplenes.length ? {
+    contiene: (lat: number, lng: number) => terraplenes.some(t => t.franja.contiene(lat, lng)),
+  } : null, [terraplenes])
   const recorteDibujo = useMemo(() => recinto && defendido
-    ? [recinto.anillo, ...(defensaRecinto ? franjaParaDibujar(defensaRecinto.lineas) : [])]
-    : null, [recinto, defendido, defensaRecinto])
+    ? [recinto.anillo, ...terraplenes.flatMap(t => franjaParaDibujar(t.lineas))]
+    : null, [recinto, defendido, terraplenes])
 
   // ── El valle de inundación del Paraná ──
   const valle = indice?.valle
@@ -318,10 +328,11 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
     const out: string[] = []
     // Del río, la imagen más baja que tiene agua ahí: desde qué altura se la vio
     const adentro = defendido && !!recintoIdx?.contiene(lat, lng)
-    const enTerraplen = defendido && !adentro && !!terraplen?.contiene(lat, lng)
+    const sobre = defendido && !adentro ? terraplenes.find(t => t.franja.contiene(lat, lng)) : undefined
+    const enTerraplen = !!sobre
     const primera = adentro || enTerraplen ? undefined : delRio.find(c => geo[c.id]?.indice.contiene(lat, lng))
     if (enTerraplen) {
-      out.push(techo !== null ? `sobre el terraplén de la defensa: el río no lo pasa hasta ${f2(techo)} m` : 'sobre el terraplén de la defensa')
+      out.push(`sobre el terraplén de ${sobre!.nombre}${techo !== null ? `: el río no lo pasa hasta ${f2(techo)} m` : ''}`)
     } else if (adentro && techo !== null) {
       out.push(`dentro del recinto defendido: el río no entra hasta ${f2(techo)} m`)
     } else if (adentro) {
@@ -344,7 +355,7 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
       if (l) out.push(`${l.lado === 'rio' ? 'del lado del río' : 'del lado de la ciudad'} de la defensa, a ${l.km < 1 ? `${Math.round(l.km * 1000)} m` : `${f1(l.km)} km`}`)
     }
     return out
-  }, [delRio, geo, agua, urbanoIdx, ciegoParcial, parcialM, completaM, defensas, defendido, recintoIdx, techo, valleIdx, recinto, terraplen])
+  }, [delRio, geo, agua, urbanoIdx, ciegoParcial, parcialM, completaM, defensas, defendido, recintoIdx, techo, valleIdx, recinto, terraplenes])
 
   // ── Qué tan seguido llega el río a esa altura ──
   const registro = useMemo(() => {
@@ -373,7 +384,12 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
   // que habla de ella: suelta, es una raya con nombre que no se refiere a nada
   const referencias = useMemo(() => {
     const citadas = new Set(informes.map(i => i.referencia))
-    return (indice?.referencias ?? []).filter(x => citadas.has(x.id)).map(x => ({ nombre: x.nombre, lineas: x.lineas }))
+    // El rótulo dice por qué está la línea: sin eso, una traza a rayas se lee como un límite
+    return (indice?.referencias ?? []).filter(x => citadas.has(x.id)).map(x => {
+      const inf = informes.find(i => i.referencia === x.id)
+      return { nombre: x.nombre, lineas: x.lineas,
+        rotulo: inf ? `${x.nombre}: informado con agua, ${f2(inf.alturaM)} m en ${inf.fecha.slice(0, 4)} (no es una mancha)` : undefined }
+    })
   }, [indice, informes])
   const nombreRef = (id?: string) => indice?.referencias?.find(x => x.id === id)?.nombre
 
