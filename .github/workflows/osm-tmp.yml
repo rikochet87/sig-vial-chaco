@@ -1,0 +1,18 @@
+name: osm-tmp
+on: { push: { branches: [datos-osm-tmp] } }
+permissions: { contents: write }
+jobs:
+  bajar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Overpass
+        run: |
+          Q='[out:json][timeout:60];(way["name"~"Soberan",i](-27.62,-59.10,-27.38,-58.85);way["waterway"](-27.62,-59.10,-27.38,-58.85);way["man_made"="dyke"](-27.62,-59.10,-27.30,-58.80);way["embankment"="yes"](-27.62,-59.10,-27.30,-58.80););out tags geom;'
+          curl -sS --retry 3 -m 120 --data-urlencode "data=$Q" https://overpass-api.de/api/interpreter -o docs/geo/inundaciones/osm-sur.json
+          ls -la docs/geo/inundaciones/osm-sur.json
+      - name: Commit
+        run: |
+          git config user.name "osm-bot"; git config user.email "osm-bot@users.noreply.github.com"
+          git add docs/geo/inundaciones/osm-sur.json
+          git commit -m "osm sur (temporal)" && git push
