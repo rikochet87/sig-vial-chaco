@@ -9,7 +9,7 @@ jobs:
       - name: Overpass
         run: |
           Q='[out:json][timeout:60];(way["name"~"Soberan",i](-27.62,-59.10,-27.38,-58.85);way["waterway"](-27.62,-59.10,-27.38,-58.85);way["man_made"="dyke"](-27.62,-59.10,-27.30,-58.80);way["embankment"="yes"](-27.62,-59.10,-27.30,-58.80););out tags geom;'
-          curl -sS --retry 3 -m 120 --data-urlencode "data=$Q" https://overpass-api.de/api/interpreter -o docs/geo/inundaciones/osm-sur.json
+          for U in https://overpass-api.de/api/interpreter https://overpass.kumi.systems/api/interpreter https://overpass.private.coffee/api/interpreter; do curl -sS --retry 2 -m 150 -A "sig-vial-chaco/1.0 (github actions)" -H "Accept: application/json" --data-urlencode "data=$Q" "$U" -o docs/geo/inundaciones/osm-sur.json && head -c 1 docs/geo/inundaciones/osm-sur.json | grep -q "{" && break; done
           ls -la docs/geo/inundaciones/osm-sur.json
       - name: Commit
         run: |
