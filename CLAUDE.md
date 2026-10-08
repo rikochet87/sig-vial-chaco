@@ -923,7 +923,7 @@ imagen que, al subir la altura del río, vaya mostrando lo que se inunda:
 - **Arriba del panel van tres cifras**: km² bajo agua, en el área urbana y
   sobre lo construido hoy. Son el mayor de cada columna entre las capas
   dibujadas —se pisan y no se suman—, así que es «como mínimo», y se dice.
-- **Lluvia, río con lluvia y defensa rota siguen, plegados** (`<details>`), lo
+- **Lluvia y río con lluvia siguen, plegados** (`<details>`), lo
   mismo que la tabla por imagen y «Cómo leerlo».
 - **El límite de una imagen parcial se rotula por lo que significa**: «Sin
   imagen de 8,02 m · acá, agua hasta 7,80 m». Decía «Sin imagen el
@@ -966,7 +966,7 @@ Desde el 08/10/2026.
 - **Con el río bajo el coronamiento, dentro del recinto no se dibuja el agua
   del río**, de ninguna imagen, 1983 incluida. Es lo que pidió el usuario: el
   agua no debería aparecer adentro. **Las otras capas sí** —lluvia, río con
-  lluvia, la defensa rota de 1982—: no entraron por arriba del terraplén.
+  lluvia—: no entraron por arriba del terraplén.
   Tres lugares lo aplican y tienen que coincidir:
   - el dibujo: un polígono «borrador» (`destination-out`) último en el lienzo
     compartido de las capas `union`. Leaflet redibuja en orden de alta y el
@@ -976,6 +976,19 @@ Desde el 08/10/2026.
   - las tres cifras de arriba, restando `enRecinto` de cada capa, que el build
     mide sobre una grilla de 30 m fuera del agua permanente.
   **La mancha de 1983 tiene 23,5 km² adentro**; las demás, menos de 2.
+- **La pantalla es un escenario hacia adelante, con la defensa de hoy; el
+  pasado es referencia** (pedido del usuario, 08/10/2026). Por eso:
+  - **La mancha del 14/08/1982 —la rotura del dique del río Negro— se sacó
+    de la pantalla.** Mostraba una situación sin la defensa de hoy. El archivo
+    `obs-1982-08-14.json` se sigue generando y está en el índice, pero ningún
+    control lo prende.
+  - Las imágenes de 1983 se usan sólo afuera del recinto, y el aviso dice que
+    son referencia de cuando el anillo no estaba terminado.
+  - Las marcas 2023, 1998 y 1983 del deslizador dicen «referencia» en su
+    rótulo flotante, y el título del deslizador agrega «con la defensa de
+    hoy».
+  - Lluvia de 2019 y río con lluvia de 1998 quedan: en las dos ya estaba la
+    defensa.
 
 - **«Qué viene río arriba»** (`components/inundaciones/RioArriba.tsx`): las
   nueve escalas de `/api/rio/arriba`, con el cambio en siete días y cuántos
@@ -1019,9 +1032,9 @@ cada capa está en `docs/inundaciones-gran-resistencia.md`.
   El test lo afirma de 2 a 9,5 m.
 - **La lluvia es un solo evento** (enero de 2019) y **la combinación, otro**
   (mayo de 1998, con nubes). Van como lo que son: una observación cada uno. No
-  se suman con las zonas del río ni se calcula nada con ellas. También se puede
-  prender la mancha del 14/08/1982, tres semanas después de la rotura del
-  dique del río Negro: es lo único que hay de una falla de defensa.
+  se suman con las zonas del río ni se calcula nada con ellas. La mancha del
+  14/08/1982, tres semanas después de la rotura del dique del río Negro, se
+  sacó de la pantalla: era una situación sin la defensa de hoy.
 - **La lluvia pronosticada** es la del pronóstico por conjuntos de Cuencas,
   sobre los nodos que caen en el recuadro o a medio paso de grilla (cinco).
 

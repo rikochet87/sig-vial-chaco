@@ -16,7 +16,7 @@
  * La primera versión pintaba cada imagen de un color —celeste la zona, naranja
  * la mancha más cercana, rojizo la parcial— y explicaba cada uno en el panel.
  * Era correcta y no se entendía: había que leer tres párrafos para mirar un
- * mapa. Los otros eventos (lluvia, río con lluvia, defensa rota) siguen, pero
+ * mapa. Los otros eventos (lluvia, río con lluvia) siguen, pero
  * plegados.
  *
  * Lo que se sabe que pasó y ninguna imagen muestra va aparte, como texto: no se
@@ -143,7 +143,6 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
   const [altura, setAltura] = useState<number | null>(null)
   const [conLluvia, setConLluvia] = useState(false)
   const [conCombinada, setConCombinada] = useState(false)
-  const [conDefensa, setConDefensa] = useState(false)
   const [verUrbano, setVerUrbano] = useState(true)
   const [verDefensa, setVerDefensa] = useState(true)
 
@@ -195,9 +194,9 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
     return [
       'permanente', verUrbano && 'urbano-hoy', ...delRio.map(c => c.id),
       conLluvia && 'lluvia-2019-01-22', conLluvia && 'lluvia-2019-01-17',
-      conCombinada && 'obs-1998-05-20', conDefensa && 'obs-1982-08-14',
+      conCombinada && 'obs-1998-05-20',
     ].filter(Boolean).join(',')
-  }, [esc, delRio, verUrbano, conLluvia, conCombinada, conDefensa])
+  }, [esc, delRio, verUrbano, conLluvia, conCombinada])
 
   // Cada capa se pide recién cuando se la prende, y queda guardada
   useEffect(() => {
@@ -360,9 +359,9 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
     const abajo = [
       { t: 'Alerta', m: BARRANQUERAS.alerta, d: `${f2(BARRANQUERAS.alerta)} m, nivel de alerta del INA` },
       { t: 'Evacuación', m: BARRANQUERAS.evacuacion, d: `${f2(BARRANQUERAS.evacuacion)} m, nivel de evacuación del INA` },
-      { t: '2023', m: 7.05, d: '7,05 m, pico del 10/11/2023' },
-      { t: '1998', m: 8.17, d: '8,17 m, pico del 04/05/1998' },
-      { t: '1983', m: 8.59, d: '8,59 m, el 22/06/1983: máximo del registro' },
+      { t: '2023', m: 7.05, d: '7,05 m, referencia: pico del 10/11/2023' },
+      { t: '1998', m: 8.17, d: '8,17 m, referencia: pico del 04/05/1998' },
+      { t: '1983', m: 8.59, d: '8,59 m, referencia: el 22/06/1983, máximo del registro, sin el anillo de defensas' },
     ]
     return { arriba, abajo }
   }, [rio])
@@ -425,7 +424,7 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
         {/* ── El control: la altura del río ── */}
         <div className="sv-panel" style={{ flexShrink: 0, borderTop: '1px solid #1e1e1e', borderLeft: `3px solid ${ACENTO}`, background: '#111', padding: '10px 18px 8px' }}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
-            <span style={{ ...rotulo, marginBottom: 0 }}>Altura del río en Barranqueras</span>
+            <span style={{ ...rotulo, marginBottom: 0 }}>Altura del río en Barranqueras{defendido && ' · con la defensa de hoy'}</span>
             <span style={{ ...mono, fontSize: 28, color: '#fff', fontWeight: 700, lineHeight: 1 }}>{f2(h)} <span style={{ fontSize: 14, fontWeight: 400, color: '#a0a0a0' }}>m</span></span>
             <span style={{ ...texto, marginLeft: 'auto', textAlign: 'right' }}>
               {frecuencia ? (frecuencia.veces === 0
@@ -484,7 +483,7 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
                 {recinto && d.id === recinto.defensa && (<>
                   <br />Con la RN 11 al oeste encierra el recinto defendido ({Math.round(recinto.areaKm2)} km²): adentro no se dibuja el agua del río.
                   <span style={{ color: '#8f8f8f' }}> Entre la punta sur de la defensa y la RN 11 no hay traza: los {f1(recinto.cierreKm)} km a rayas son una recta supuesta.
-                  El agua que se ve adentro es de lluvia o de una defensa rota, en «Otros eventos».</span>
+                  El agua que se ve adentro es de lluvia, en «Otros eventos».</span>
                 </>)}</span>
             </label>
           ))}
@@ -504,10 +503,10 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
             </div>
           )}
           {masAlta?.epoca && (
-            <div style={aviso}><b>Sobre 7,3 m las imágenes son de {masAlta.epoca}.</b> Muestran dónde llegó el agua con una ciudad de la mitad del tamaño y sin el anillo de defensas terminado.
+            <div style={aviso}><b>Sobre 7,3 m la referencia es {masAlta.epoca}</b>, cuando el anillo de defensas no estaba terminado.
               {defendido
-                ? <> Lo que vieron dentro del recinto no se dibuja: con la defensa en pie el río no entra. Para ver qué pasa si una defensa falla, está la mancha de 1982 en «Otros eventos».</>
-                : <> Dentro del recinto no dicen qué pasaría hoy; fuera, sí.</>}</div>
+                ? <> Se usa sólo afuera del recinto, para ver hasta dónde llega el río; adentro no se dibuja, porque hoy la defensa está.</>
+                : <> Dentro del recinto no dice qué pasaría hoy; fuera, sí.</>}</div>
           )}
           {informes.map(i => (
             <div key={i.id} style={informe}>
@@ -596,7 +595,7 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
 
         {/* ── Otros eventos: plegado ── */}
         <details style={seccion}>
-          <summary style={plegado}>Otros eventos con imagen: lluvia y defensas</summary>
+          <summary style={plegado}>Otros eventos de referencia: lluvia</summary>
           <div style={{ ...rotulo, marginTop: 12 }}>Lluvia intensa y larga</div>
           <label style={{ ...texto, display: 'flex', alignItems: 'flex-start', gap: 7, cursor: 'pointer', color: '#d0d0d0' }}>
             <input type="checkbox" checked={conLluvia} onChange={e => setConLluvia(e.target.checked)} style={{ marginTop: 3 }} />
@@ -622,10 +621,6 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
           <label style={{ ...texto, display: 'flex', alignItems: 'flex-start', gap: 7, cursor: 'pointer', color: '#d0d0d0', marginTop: 8 }}>
             <input type="checkbox" checked={conCombinada} onChange={e => setConCombinada(e.target.checked)} style={{ marginTop: 3 }} />
             <span><b style={{ color: '#ef5350' }}>Rojo:</b> el agua del 20/05/1998, río en 7,07 m tras un pico de 8,17 y el abril más lluvioso de la serie</span>
-          </label>
-          <label style={{ ...texto, display: 'flex', alignItems: 'flex-start', gap: 7, cursor: 'pointer', color: '#d0d0d0', marginTop: 6 }}>
-            <input type="checkbox" checked={conDefensa} onChange={e => setConDefensa(e.target.checked)} style={{ marginTop: 3 }} />
-            <span><b style={{ color: '#ffee58' }}>Amarillo:</b> si falla una defensa. El 14/08/1982, tres semanas después de la rotura del dique del río Negro, con el Paraná en 5,15 m</span>
           </label>
           {combinado && (
             <div style={aviso}>
