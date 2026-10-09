@@ -218,8 +218,8 @@ export default function HistoricoBarranqueras({ actual }: Props) {
       )}
 
       {/* ── Máximos anuales ─────────────────────────────────────────────── */}
-      <div style={rotulo}>Máximo y media de cada año hidrológico</div>
-      <MaximosAnuales anios={anios} periodo={periodo} media={perm.media} sobre={sobreAnio} onSobre={setSobreAnio} />
+      <div style={rotulo}>Máximo de cada año hidrológico</div>
+      <MaximosAnuales anios={anios} periodo={periodo} sobre={sobreAnio} onSobre={setSobreAnio} />
       <div style={{ fontSize: 11, color: '#a0a0a0', marginTop: 4, minHeight: 17 }}>
         {(() => {
           const a = anios.find(x => x.anio === sobreAnio) ?? record
@@ -415,36 +415,39 @@ const diaAntes = (f: string) =>
  * diferencia entre un año y otro. El color es el estado contra los umbrales del
  * INA, que además van dibujados y rotulados — no depende sólo del color.
  *
- * La línea clara es la **media de cada año**: el promedio de todos sus días,
- * que cae entre su mínimo y su máximo. Se corta en los años incompletos —el
- * promedio de medio año no es el del año— y se atenúa fuera del período, como
- * las barras. Su rótulo va a la altura de la media de todo el período.
+ * La recta clara es el **promedio de las barras**: la media de los máximos de
+ * los años completos del período, la misma que usa el ajuste de Gumbel. Queda
+ * a centímetros del alerta, así que los tres rótulos del margen se apilan en
+ * vez de ir cada uno pegado a su línea.
  */
-function MaximosAnuales({ anios, periodo, media, sobre, onSobre }: {
-  anios: AnioRio[]; periodo: PeriodoRio; media: number
+function MaximosAnuales({ anios, periodo, sobre, onSobre }: {
+  anios: AnioRio[]; periodo: PeriodoRio
   sobre: number | null; onSobre: (a: number | null) => void
 }) {
   const ALTO = 40
+  const ALTO_PX = 150
+  const RENGLON_PX = 15
   const n = anios.length
   const techo = Math.max(...anios.map(a => a.max), BARRANQUERAS.evacuacion) * 1.06
   const y = (m: number) => ALTO - (Math.max(0, m) / techo) * ALTO
   const paso = 100 / n
-  const pct = (m: number) => `${(y(m) / ALTO) * 100}%`
+
+  const maximos = delPeriodo(anios, periodo).filter(a => a.completo).map(a => a.max)
+  const media = maximos.length ? maximos.reduce((a, b) => a + b, 0) / maximos.length : null
+
+  // Rótulos del margen, del más alto al más bajo: centrados en su línea, y
+  // corridos hacia abajo lo que haga falta para no pisar al anterior
+  const lineas = [
+    { texto: `evacuación ${nM(BARRANQUERAS.evacuacion)} m`, m: BARRANQUERAS.evacuacion, color: C_EVAC },
+    { texto: `alerta ${nM(BARRANQUERAS.alerta)} m`, m: BARRANQUERAS.alerta, color: C_ALERTA },
+    ...(media !== null ? [{ texto: `media ${nM(media)} m`, m: media, color: C_MEDIA }] : []),
+  ].sort((a, b) => b.m - a.m)
+  const rotulos = lineas.reduce<((typeof lineas)[number] & { top: number })[]>((hechos, l) => {
+    const libre = hechos.length ? hechos[hechos.length - 1].top + RENGLON_PX : 0
+    return [...hechos, { ...l, top: Math.max(libre, (y(l.m) / ALTO) * ALTO_PX - RENGLON_PX / 2) }]
+  }, [])
 
   // Una marca cada veinte años, en el año redondo
-  // Tramos de años completos seguidos, partidos también donde empieza el período
-  const tramos: { d: string; fuera: boolean }[] = []
-  let previo: { ok: boolean; fuera: boolean } = { ok: false, fuera: false }
-  anios.forEach((a, i) => {
-    const fuera = periodo === 'reciente' && a.anio < ANIO_REGIMEN
-    if (a.completo) {
-      const punto = `${((i + 0.5) * paso).toFixed(3)} ${y(a.media).toFixed(3)}`
-      if (previo.ok && previo.fuera === fuera) tramos[tramos.length - 1].d += ` L ${punto}`
-      else tramos.push({ d: `M ${punto}`, fuera })
-    }
-    previo = { ok: a.completo, fuera }
-  })
-
   const marcas = anios
     .map((a, i) => ({ a, i }))
     .filter(({ a }) => a.anio % 20 === 0)
@@ -459,8 +462,8 @@ function MaximosAnuales({ anios, periodo, media, sobre, onSobre }: {
         }}
         onMouseLeave={() => onSobre(null)}>
         <svg viewBox={`0 0 100 ${ALTO}`} preserveAspectRatio="none" role="img"
-          aria-label="Máximo de cada año hidrológico en Barranqueras, con los niveles de alerta y evacuación y la altura media de cada año"
-          style={{ width: '100%', height: 150, display: 'block', background: '#141414' }}>
+          aria-label="Máximo de cada año hidrológico en Barranqueras, con los niveles de alerta y evacuación y el promedio de los máximos"
+          style={{ width: '100%', height: ALTO_PX, display: 'block', background: '#141414' }}>
           {anios.map((a, i) => {
             const fuera = periodo === 'reciente' && a.anio < ANIO_REGIMEN
             return (
@@ -475,17 +478,14 @@ function MaximosAnuales({ anios, periodo, media, sobre, onSobre }: {
             stroke={C_EVAC} strokeWidth={1} strokeDasharray="4 3" vectorEffect="non-scaling-stroke" />
           <line x1={0} x2={100} y1={y(BARRANQUERAS.alerta)} y2={y(BARRANQUERAS.alerta)}
             stroke={C_ALERTA} strokeWidth={1} strokeDasharray="4 3" vectorEffect="non-scaling-stroke" />
-          {tramos.map((t, i) => (
-            <path key={i} d={t.d} fill="none" stroke={C_MEDIA} strokeWidth={1.5}
-              strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke"
-              opacity={t.fuera ? 0.25 : 1} />
-          ))}
+          {media !== null && (
+            <line x1={0} x2={100} y1={y(media)} y2={y(media)}
+              stroke={C_MEDIA} strokeWidth={1.5} vectorEffect="non-scaling-stroke" />
+          )}
         </svg>
-        <Etiqueta top={pct(BARRANQUERAS.evacuacion)} color={C_EVAC} arriba>evacuación {nM(BARRANQUERAS.evacuacion)} m</Etiqueta>
-        <Etiqueta top={pct(BARRANQUERAS.alerta)} color={C_ALERTA}>alerta {nM(BARRANQUERAS.alerta)} m</Etiqueta>
-        {Number.isFinite(media) && (
-          <Etiqueta top={pct(media)} color={C_MEDIA}>media de cada año</Etiqueta>
-        )}
+        {rotulos.map(r => (
+          <Etiqueta key={r.texto} top={`${r.top}px`} color={r.color}>{r.texto}</Etiqueta>
+        ))}
       </div>
       <div style={{ position: 'relative', height: 16, fontSize: 11, color: '#8f8f8f' }}>
         {marcas.map(({ a, i }) => (
