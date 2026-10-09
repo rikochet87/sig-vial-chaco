@@ -53,6 +53,7 @@ const C_NORMAL = '#7d7d7d'
 const C_ALERTA = '#EF9F27'
 const C_EVAC = '#C0392B'
 const C_ACTUAL = '#85B7EB'
+const C_MEDIA = '#e6e6e6'
 
 const nM = (m: number) => m.toFixed(2).replace('.', ',')
 const n1 = (v: number) => v.toFixed(1).replace('.', ',')
@@ -218,7 +219,7 @@ export default function HistoricoBarranqueras({ actual }: Props) {
 
       {/* ── Máximos anuales ─────────────────────────────────────────────── */}
       <div style={rotulo}>Máximo de cada año hidrológico</div>
-      <MaximosAnuales anios={anios} periodo={periodo} sobre={sobreAnio} onSobre={setSobreAnio} />
+      <MaximosAnuales anios={anios} periodo={periodo} media={perm.media} sobre={sobreAnio} onSobre={setSobreAnio} />
       <div style={{ fontSize: 11, color: '#a0a0a0', marginTop: 4, minHeight: 17 }}>
         {(() => {
           const a = anios.find(x => x.anio === sobreAnio) ?? record
@@ -412,9 +413,14 @@ const diaAntes = (f: string) =>
  * Arranca en cero y no en el mínimo: son barras, y una barra cortada exagera la
  * diferencia entre un año y otro. El color es el estado contra los umbrales del
  * INA, que además van dibujados y rotulados — no depende sólo del color.
+ *
+ * La línea de la altura media es el promedio de **todos los días** del período,
+ * no el de las barras: las barras son el máximo de cada año, así que casi todas
+ * la pasan. Dice dónde está el río un día cualquiera.
  */
-function MaximosAnuales({ anios, periodo, sobre, onSobre }: {
-  anios: AnioRio[]; periodo: PeriodoRio; sobre: number | null; onSobre: (a: number | null) => void
+function MaximosAnuales({ anios, periodo, media, sobre, onSobre }: {
+  anios: AnioRio[]; periodo: PeriodoRio; media: number
+  sobre: number | null; onSobre: (a: number | null) => void
 }) {
   const ALTO = 40
   const n = anios.length
@@ -438,7 +444,7 @@ function MaximosAnuales({ anios, periodo, sobre, onSobre }: {
         }}
         onMouseLeave={() => onSobre(null)}>
         <svg viewBox={`0 0 100 ${ALTO}`} preserveAspectRatio="none" role="img"
-          aria-label="Máximo de cada año hidrológico en Barranqueras, con los niveles de alerta y evacuación"
+          aria-label="Máximo de cada año hidrológico en Barranqueras, con los niveles de alerta y evacuación y la altura media de todos los días"
           style={{ width: '100%', height: 150, display: 'block', background: '#141414' }}>
           {anios.map((a, i) => {
             const fuera = periodo === 'reciente' && a.anio < ANIO_REGIMEN
@@ -454,9 +460,16 @@ function MaximosAnuales({ anios, periodo, sobre, onSobre }: {
             stroke={C_EVAC} strokeWidth={1} strokeDasharray="4 3" vectorEffect="non-scaling-stroke" />
           <line x1={0} x2={100} y1={y(BARRANQUERAS.alerta)} y2={y(BARRANQUERAS.alerta)}
             stroke={C_ALERTA} strokeWidth={1} strokeDasharray="4 3" vectorEffect="non-scaling-stroke" />
+          {Number.isFinite(media) && (
+            <line x1={0} x2={100} y1={y(media)} y2={y(media)}
+              stroke={C_MEDIA} strokeWidth={1} strokeDasharray="1 3" vectorEffect="non-scaling-stroke" />
+          )}
         </svg>
         <Etiqueta top={pct(BARRANQUERAS.evacuacion)} color={C_EVAC} arriba>evacuación {nM(BARRANQUERAS.evacuacion)} m</Etiqueta>
         <Etiqueta top={pct(BARRANQUERAS.alerta)} color={C_ALERTA}>alerta {nM(BARRANQUERAS.alerta)} m</Etiqueta>
+        {Number.isFinite(media) && (
+          <Etiqueta top={pct(media)} color={C_MEDIA}>media diaria {nM(media)} m</Etiqueta>
+        )}
       </div>
       <div style={{ position: 'relative', height: 16, fontSize: 11, color: '#8f8f8f' }}>
         {marcas.map(({ a, i }) => (

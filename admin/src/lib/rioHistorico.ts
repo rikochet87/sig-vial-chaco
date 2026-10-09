@@ -263,6 +263,8 @@ export function aniosSobre(maximos: number[], h: number): { veces: number; de: n
 export interface Permanencia {
   /** Días con dato que entraron */
   dias: number
+  /** Promedio de la altura de todos esos días, en metros; `NaN` si no hay ninguno */
+  media: number
   /** Fracción de los días en que la altura igualó o superó `h`, de 0 a 1 */
   sobre: (h: number) => number
   /** La altura igualada o superada la fracción `p` del tiempo */
@@ -294,6 +296,7 @@ export function permanencia(s: SerieDiariaRio, periodo: PeriodoRio): Permanencia
 
   return {
     dias: n,
+    media: n ? orden.reduce((a, b) => a + b, 0) / n : NaN,
     sobre(h) {
       if (n === 0) return 0
       // Primer índice con altura menor que h: todo lo anterior la iguala o supera

@@ -359,6 +359,12 @@ ok('desde 1971 la mediana es más alta', pr.alturaDe(0.5) > p.alturaDe(0.5))
 const directo = serie.cm.filter(v => v !== null && v >= 600).length / conDato
 cerca('`sobre` da lo mismo que contar día por día', p.sobre(6), directo, 1e-12)
 
+const sumaCm = serie.cm.reduce<number>((a, v) => a + (v ?? 0), 0)
+info(`altura media: ${p.media.toFixed(2)} m en la serie completa, ${pr.media.toFixed(2)} m desde 1970/71`)
+cerca('la media es la suma de los días con dato sobre cuántos son', p.media, sumaCm / 100 / conDato, 1e-9)
+ok('desde 1971 la media es más alta', pr.media > p.media)
+ok('la media queda bajo el alerta', p.media < barranqueras.alerta)
+
 titulo('La última vez')
 
 const ult = ultimaVezSobre(serie, barranqueras.evacuacion)
