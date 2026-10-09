@@ -365,6 +365,11 @@ cerca('la media es la suma de los días con dato sobre cuántos son', p.media, s
 ok('desde 1971 la media es más alta', pr.media > p.media)
 ok('la media queda bajo el alerta', p.media < barranqueras.alerta)
 
+ok('la media de cada año queda entre su mínimo y su máximo',
+  anios.every(a => a.min <= a.media && a.media <= a.max))
+cerca('las medias anuales, pesadas por sus días, dan la media del registro',
+  anios.reduce((s, a) => s + a.media * a.dias, 0) / conDato, p.media, 1e-9)
+
 titulo('La última vez')
 
 const ult = ultimaVezSobre(serie, barranqueras.evacuacion)

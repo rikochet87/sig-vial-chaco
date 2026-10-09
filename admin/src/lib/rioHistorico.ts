@@ -130,18 +130,21 @@ export interface AnioRio {
   fechaMax: string
   min: number
   fechaMin: string
+  /** Promedio de la altura de los días con dato del año */
+  media: number
   /** Días en que la altura igualó o superó cada umbral pedido, en el mismo orden */
   diasSobre: number[]
 }
 
 /**
- * El máximo y el mínimo de cada año hidrológico.
+ * El máximo, el mínimo y la media de cada año hidrológico.
  *
  * Los años incompletos **se devuelven marcados, no se tiran**: la pantalla
  * tiene que poder decir cuáles quedaron afuera del ajuste y por qué.
  */
 export function extremosAnuales(s: SerieDiariaRio, umbrales: number[] = []): AnioRio[] {
   const porAnio = new Map<number, AnioRio>()
+  const suma = new Map<number, number>()
   const t0 = Date.parse(s.desde + 'T00:00:00Z')
 
   for (let i = 0; i < s.cm.length; i++) {
@@ -154,17 +157,21 @@ export function extremosAnuales(s: SerieDiariaRio, umbrales: number[] = []): Ani
     let a = porAnio.get(anio)
     if (!a) {
       a = { anio, dias: 0, completo: false, max: m, fechaMax: fecha, min: m, fechaMin: fecha,
-        diasSobre: umbrales.map(() => 0) }
+        media: m, diasSobre: umbrales.map(() => 0) }
       porAnio.set(anio, a)
     }
     a.dias++
+    suma.set(anio, (suma.get(anio) ?? 0) + m)
     if (m > a.max) { a.max = m; a.fechaMax = fecha }
     if (m < a.min) { a.min = m; a.fechaMin = fecha }
     for (let u = 0; u < umbrales.length; u++) if (m >= umbrales[u]) a.diasSobre[u]++
   }
 
   const lista = [...porAnio.values()].sort((a, b) => a.anio - b.anio)
-  for (const a of lista) a.completo = a.dias >= DIAS_MINIMOS
+  for (const a of lista) {
+    a.completo = a.dias >= DIAS_MINIMOS
+    a.media = suma.get(a.anio)! / a.dias
+  }
   return lista
 }
 
@@ -335,9 +342,9 @@ export const RECURRENCIAS = [2, 5, 10, 25, 50, 100] as const
 export function csvAnios(anios: AnioRio[], umbrales: { nombre: string }[]): string {
   const n = (v: number) => v.toFixed(2).replace('.', ',')
   const cab = ['Año hidrológico', 'Días con dato', 'Máximo (m)', 'Fecha del máximo',
-    'Mínimo (m)', 'Fecha del mínimo', ...umbrales.map(u => `Días sobre ${u.nombre}`)]
+    'Mínimo (m)', 'Fecha del mínimo', 'Media (m)', ...umbrales.map(u => `Días sobre ${u.nombre}`)]
   const filas = anios.map(a => [
-    etiquetaAnio(a.anio), a.dias, n(a.max), a.fechaMax, n(a.min), a.fechaMin, ...a.diasSobre,
+    etiquetaAnio(a.anio), a.dias, n(a.max), a.fechaMax, n(a.min), a.fechaMin, n(a.media), ...a.diasSobre,
   ].join(';'))
   return [cab.join(';'), ...filas].join('\n')
 }
