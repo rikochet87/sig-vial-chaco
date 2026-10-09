@@ -2576,6 +2576,18 @@ Cosas que no son obvias:
   pantalla.
 - **Las barras fuera del período se atenúan, no desaparecen**: el gráfico no se
   reacomoda al cambiar y se ve qué se deja afuera.
+- **Sobre las barras va la media de cada año**, una línea clara (desde el
+  09/10/2026): el promedio de todos los días de ese año hidrológico
+  (`AnioRio.media`), que cae entre su mínimo y su máximo. **No es el punto
+  medio (máximo + mínimo) / 2.** Se corta en los años incompletos —el promedio
+  de medio año no es el del año— y se atenúa fuera del período, como las
+  barras. El renglón bajo el cursor y el CSV llevan la media y el mínimo del
+  año.
+- **La primera versión era una recta con la media de todos los días** (3,36 m
+  en la serie completa, 3,73 desde 1970/71) y no era lo que se pedía: una sola
+  altura no dice nada de cada año. Ese número sigue en `permanencia().media` y
+  sólo ubica el rótulo «media de cada año» en el margen. El test afirma que las
+  medias anuales, pesadas por sus días, dan esa media.
 
 `scripts/verificar-rio-historico.ts` corre sobre el archivo real, sin red. **Acá
 sí hay contra qué comparar, y son dos controles que no se conocen entre sí:**
