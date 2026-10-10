@@ -50,7 +50,8 @@ Hay tres, y no significan lo mismo.
 |---|---|---|---|---|
 | **APA** | pluviómetro, medición real | 71 estaciones que informan, sólo días con parte | JSON público, sin clave | `lib/apa.ts` |
 | **Open-Meteo** | modelo, estimación | toda la provincia, cualquier fecha | API pública con cupo | `lib/lluvia.ts` |
-| **INA** | altura del río Paraná, medida y pronosticada | 6 estaciones del tramo | JSON público, sin token | `lib/ina.ts` |
+| **INA** | pronóstico del río Paraná, y altura donde Prefectura no tiene | 6 estaciones del tramo | JSON público, sin token | `lib/ina.ts` |
+| **Prefectura** | altura del río, dos lecturas por día, y niveles de alerta | las mismas escalas salvo El Colorado, más Las Palmas e Isla del Cerrito | JSON y página públicos, sin clave | `lib/prefectura.ts` |
 
 ### 2.1 Administración Provincial del Agua (APA)
 
@@ -107,6 +108,23 @@ consorcio como para la comparación por estación.
 
 `alerta.ina.gob.ar/a5`, lectura abierta sin token. Provee altura hidrométrica
 observada, pronosticada y un histórico profundo. Se trata en la sección 8.
+
+### 2.4 Prefectura Naval Argentina
+
+`contenidosweb.prefecturanaval.gob.ar/alturas/`. Prefectura lee las escalas del
+Paraná y del Paraguay a las 00:00 y a las 12:00 y publica al momento: la última
+lectura de cada puerto en un JSON y un año de lecturas por puerto en una página.
+
+**Es la fuente principal de las alturas y de los niveles de alerta y
+evacuación.** El INA copia la lectura de las 00:00 unas once horas después y no
+carga la de las 12:00; y sobre un año de Barranqueras, 54 de 365 lecturas del
+INA difieren de las de Prefectura en más de un centímetro, casi todas de fin de
+semana, cuando el INA carga con un día de atraso.
+
+Una lectura del INA se usa sólo donde Prefectura no tiene ninguna. El
+pronóstico y el registro histórico siguen saliendo del INA. La pantalla indica
+de quién es la última lectura y de qué hora, y avisa si alguna de las dos
+fuentes no se pudo leer.
 
 ---
 

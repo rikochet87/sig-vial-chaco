@@ -13,6 +13,13 @@
  * 3. **Se puede cachear.** El INA emite una corrida por día; pedirla de nuevo en
  *    cada `render` sería maltratar la fuente.
  *
+ * ── Dos fuentes ───────────────────────────────────────────────────────────────
+ *
+ * Las alturas y los niveles de alerta son los de Prefectura, que es quien lee
+ * las escalas; el pronóstico es del INA, que además completa lo que Prefectura
+ * no tenga. Cómo se arma cada escala y qué pasa si falta una fuente está en
+ * `lib/rioFuente.ts`.
+ *
  * ── El guard ──────────────────────────────────────────────────────────────────
  *
  * `requirePermiso('lluvia')`, que es el permiso de la pantalla que la consume.
@@ -33,9 +40,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requirePermiso } from '@/lib/apiAuth'
 import {
-  ESTACIONES, estadoCompleto, estadoDe,
+  ESTACIONES, estadoDe,
   type LecturaRio, type PuntoPronostico, type EstadoRio,
 } from '@/lib/ina'
+import { prefecturaOAviso, type LecturaPrefectura } from '@/lib/prefectura'
+import { escalaDelDia } from '@/lib/rioFuente'
 
 export const dynamic = 'force-dynamic'
 
@@ -77,6 +86,20 @@ export interface EstacionConRio {
    * resulta ser real, este aviso es lo único que lo delataría.
    */
   descartadas: LecturaRio[]
+  /**
+   * La última lectura, cuando es de Prefectura, que es lo normal (ver
+   * `lib/prefectura.ts`). `null` si Prefectura no se pudo leer y es la del INA.
+   */
+  prefectura: LecturaPrefectura | null
+  /** Lecturas de Prefectura que no se usaron, por salto imposible o fecha futura */
+  descartadasPrefectura: LecturaRio[]
+  /** Cuántas lecturas de `observado` puso cada fuente */
+  fuentes: { prefectura: number; ina: number }
+  /**
+   * Los niveles del INA, **sólo si no son los que se muestran**: `alerta` y
+   * `evacuacion` son los de Prefectura cuando los publica.
+   */
+  umbralIna: { alerta: number; evacuacion: number } | null
 }
 
 export async function GET(req: NextRequest) {
@@ -119,23 +142,40 @@ export async function GET(req: NextRequest) {
     const estaciones: EstacionConRio[] = []
     const motivos: string[] = []
 
+    // Las últimas alturas de todas las escalas, en un pedido. Si falla, sigue el INA solo y se dice.
+    const pna = await prefecturaOAviso()
+    const ahora = Date.now()
+    /** Escalas cuyo año de lecturas de Prefectura no se pudo leer: van con la serie del INA */
+    const sinHistorico: string[] = []
+    /** Escalas donde no contestó el INA: van sin pronóstico */
+    const sinIna: string[] = []
+
     for (const e of ESTACIONES) {
       try {
-        const { observado, descartadas, pronostico } = await estadoCompleto(e.id, d, h)
-        const u = observado[observado.length - 1] ?? null
+        const r = await escalaDelDia(e.id, true, pna.filas, d, h, ahora)
+        if (r.sinHistorico) sinHistorico.push(e.nombre)
+        if (r.sinIna) sinIna.push(e.nombre)
+        // Los niveles son los de quien lee la escala; los del INA, de respaldo
+        const umbral = r.umbralPrefectura ?? { alerta: e.alerta, evacuacion: e.evacuacion }
+        const distinto = umbral.alerta !== e.alerta || umbral.evacuacion !== e.evacuacion
+        const u = r.observado[r.observado.length - 1] ?? null
         estaciones.push({
           id: e.id,
           nombre: e.nombre,
           rio: e.rio,
-          alerta: e.alerta,
-          evacuacion: e.evacuacion,
+          alerta: umbral.alerta,
+          evacuacion: umbral.evacuacion,
           ceroMop: e.ceroMop,
           ceroIgn: e.ceroIgn,
-          observado,
-          pronostico,
-          ultima: u ? { fecha: u.fecha, m: u.m, estado: estadoDe(e, u.m) } : null,
-          margen: u ? Math.round((e.alerta - u.m) * 100) / 100 : null,
-          descartadas,
+          observado: r.observado,
+          pronostico: r.pronostico,
+          ultima: u ? { fecha: u.fecha, m: u.m, estado: estadoDe(umbral, u.m) } : null,
+          margen: u ? Math.round((umbral.alerta - u.m) * 100) / 100 : null,
+          descartadas: r.descartadas,
+          prefectura: r.prefectura,
+          descartadasPrefectura: r.descartadasPrefectura,
+          fuentes: r.fuentes,
+          umbralIna: distinto ? { alerta: e.alerta, evacuacion: e.evacuacion } : null,
         })
       } catch (err) {
         // El motivo se guarda: si fallan todas, la pantalla tiene que poder
@@ -167,7 +207,13 @@ export async function GET(req: NextRequest) {
         sinRespuesta,
         /** Por qué fallaron, para poder diagnosticar en vez de sólo contarlas */
         motivos,
-        fuente: 'Alerta Hidrológico — Instituto Nacional del Agua',
+        fuente: 'Prefectura Naval Argentina (alturas y niveles) e Instituto Nacional del Agua (pronóstico)',
+        /**
+         * Si se pudo leer Prefectura. Con `ok: false` las alturas son las del
+         * INA, que van medio día atrás: la pantalla lo dice.
+         */
+        prefectura: { ok: pna.filas !== null, motivo: pna.motivo, sinHistorico },
+        sinIna,
       },
       { headers: { 'cache-control': `s-maxage=${CACHE_S}, stale-while-revalidate=${CACHE_S * 2}` } },
     )
@@ -175,7 +221,7 @@ export async function GET(req: NextRequest) {
     // Un organismo se cae, y cuando se cae hay que decirlo — no devolver una
     // lista vacía que la pantalla lea como "el río está bajo".
     return NextResponse.json(
-      { error: e instanceof Error ? e.message : 'No se pudo consultar el Alerta Hidrológico' },
+      { error: e instanceof Error ? e.message : 'No se pudo consultar el río' },
       { status: 502 },
     )
   }

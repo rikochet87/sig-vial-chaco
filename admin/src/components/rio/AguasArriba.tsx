@@ -26,7 +26,7 @@
  * Barranqueras no se distingue.
  *
  * **Ituzaingó está al pie de Yacyretá**: su altura la maneja la represa. Se
- * muestra con su umbral, que es el del INA, y con la aclaración.
+ * muestra con su umbral publicado y con la aclaración.
  *
  * ── Cómo se ve ────────────────────────────────────────────────────────────────
  *
@@ -41,13 +41,14 @@ import {
   DIAS_ATRASO_ARRIBA, anticipaciones, sentidoDe,
   type Anticipacion, type Sentido, type Tendencia,
 } from '@/lib/rioArriba'
+import { fechaHoraLocal, type LecturaPrefectura } from '@/lib/prefectura'
 import { useTramoDiario } from '@/hooks/useTramoDiario'
 
 export interface EstacionArribaPanel {
   id: number
   nombre: string
   rio: 'Paraná' | 'Paraguay' | 'Bermejo'
-  /** `null` donde el INA no publica umbral: El Colorado */
+  /** `null` donde nadie publica umbral: El Colorado */
   alerta: number | null
   evacuacion: number | null
   observado: { fecha: string; m: number }[]
@@ -56,12 +57,21 @@ export interface EstacionArribaPanel {
   margen: number | null
   tendencia: Tendencia | null
   descartadas: { fecha: string; m: number }[]
+  /** La última lectura, si es de Prefectura; `null` si es la del INA */
+  prefectura: LecturaPrefectura | null
+  descartadasPrefectura: { fecha: string; m: number }[]
+  /** No está en el INA: sin pronóstico y sin anticipación medida */
+  soloPrefectura: boolean
 }
 
 interface Respuesta {
   estaciones: EstacionArribaPanel[]
   sinRespuesta: string[]
   motivos: string[]
+  /** Por qué no se pudo leer Prefectura; `null` si se leyó */
+  prefecturaFallo: string | null
+  /** Escalas cuyo registro de Prefectura no se pudo leer: van con la serie del INA */
+  sinHistorico: string[]
 }
 
 interface Props {
@@ -103,7 +113,8 @@ const GRUPOS: { rio: 'Paraná' | 'Paraguay' | 'Bermejo'; titulo: string; nota: s
     nota: 'No anuncia a Barranqueras como el Paraná: crece en invierno y el Paraná en verano. '
       + 'Lo que aporta es caudal, cerca de un 18 % del que pasa frente a Barranqueras y hasta un '
       + '22 % en julio. «Llega a Barranqueras» es con qué desfase sus cambios se parecen a lo '
-      + 'que el Paraná no explica.',
+      + 'que el Paraná no explica. Las Palmas e Isla del Cerrito, las dos en el Chaco, sólo '
+      + 'están en Prefectura: no tienen pronóstico ni esa medición.',
   },
   {
     rio: 'Bermejo',
@@ -114,7 +125,7 @@ const GRUPOS: { rio: 'Paraná' | 'Paraguay' | 'Bermejo'; titulo: string; nota: s
   },
 ]
 
-/** Mismo criterio que las de aguas abajo: el umbral es el que publica el INA */
+/** Mismo criterio que las de aguas abajo: el umbral es el publicado, no uno propio */
 function pideAtencion(e: EstacionArribaPanel): boolean {
   // Sin umbral publicado no hay alerta que alcanzar
   const alerta = e.alerta
@@ -141,9 +152,16 @@ export default function AguasArriba({ dias, franja, alCargar }: Props) {
               ...e,
               descartadas: Array.isArray(e?.descartadas) ? e.descartadas : [],
               tendencia: e?.tendencia ?? null,
+              prefectura: e?.prefectura ?? null,
+              descartadasPrefectura: Array.isArray(e?.descartadasPrefectura) ? e.descartadasPrefectura : [],
+              soloPrefectura: e?.soloPrefectura === true,
             })),
           sinRespuesta: Array.isArray(j?.sinRespuesta) ? j.sinRespuesta : [],
           motivos: Array.isArray(j?.motivos) ? j.motivos : [],
+          prefecturaFallo: j?.prefectura && j.prefectura.ok !== true
+            ? (typeof j.prefectura.motivo === 'string' ? j.prefectura.motivo : 'no respondió')
+            : null,
+          sinHistorico: Array.isArray(j?.prefectura?.sinHistorico) ? j.prefectura.sinHistorico : [],
         } as Respuesta
       })
       .then(j => {
@@ -233,6 +251,27 @@ export default function AguasArriba({ dias, franja, alCargar }: Props) {
         )
       })}
 
+      {datos && datos.estaciones.some(e => e.prefectura) && (
+        <div style={{ fontSize: 11, color: '#8f8f8f', lineHeight: 1.5, marginTop: 6 }}>
+          Alturas y niveles de la Prefectura Naval, que lee a las 00:00 y a las 12:00; al lado
+          de cada altura va la hora de la lectura. Los cambios en 24 h y en 7 días son entre
+          lecturas de la misma hora; a la tarde, hasta que se publica la de las 12:00 de ayer,
+          son los de las 00:00.
+        </div>
+      )}
+      {datos?.prefecturaFallo && (
+        <div style={{ fontSize: 11, color: '#E8A87C', lineHeight: 1.5, marginTop: 6 }}>
+          No se pudo leer Prefectura ({datos.prefecturaFallo}): las alturas son las del INA, que
+          carga una lectura por día y medio día después. Las Palmas e Isla del Cerrito no están.
+        </div>
+      )}
+      {datos && datos.sinHistorico.length > 0 && (
+        <div style={{ fontSize: 11, color: '#E8A87C', lineHeight: 1.5, marginTop: 6 }}>
+          No se pudo leer el registro de Prefectura de {datos.sinHistorico.join(', ')}: ahí la
+          serie es la del INA, con la última lectura de Prefectura.
+        </div>
+      )}
+
       {datos && datos.sinRespuesta.length > 0 && (
         <div style={{ fontSize: 11, color: '#E8833A', marginTop: 6 }}>
           Sin responder: {datos.sinRespuesta.join(', ')}.
@@ -290,6 +329,7 @@ function Renglon({ e, margenMax, anticipa }: {
   const s = SENTIDO[sentidoDe(t?.cambio1 ?? null)]
   const atrasada = t !== null && t.atraso >= DIAS_ATRASO_ARRIBA
   const n = e.descartadas.length
+  const nPna = e.descartadasPrefectura.length
 
   return (
     <>
@@ -302,8 +342,15 @@ function Renglon({ e, margenMax, anticipa }: {
             </span>
           )}
         </td>
-        <td style={{ textAlign: 'right', color: e.ultima ? COLOR_ESTADO[e.ultima.estado] : '#8f8f8f' }}>
+        <td style={{ textAlign: 'right', whiteSpace: 'nowrap',
+          color: e.ultima ? COLOR_ESTADO[e.ultima.estado] : '#8f8f8f' }}>
           {e.ultima ? `${nMetros(e.ultima.m)} m` : '—'}
+          {e.prefectura && (
+            <span style={{ color: '#8f8f8f', marginLeft: 6 }}
+              title={`Lectura de Prefectura del ${fechaHoraLocal(e.prefectura.fecha)}`}>
+              {fechaHoraLocal(e.prefectura.fecha).slice(6)}
+            </span>
+          )}
         </td>
         <td style={{ textAlign: 'right', color: s.color, whiteSpace: 'nowrap' }}
           title={s.texto}>
@@ -340,7 +387,7 @@ function Renglon({ e, margenMax, anticipa }: {
             ? <span style={{ color: '#85B7EB' }}>
                 al {soloFecha(e.pronostico.puntos[e.pronostico.puntos.length - 1].fecha)}
               </span>
-            : 'sin corrida'}
+            : e.soloPrefectura ? 'no está en el INA' : 'sin corrida'}
         </td>
       </tr>
       {n > 0 && (
@@ -349,6 +396,14 @@ function Renglon({ e, margenMax, anticipa }: {
             {n === 1 ? 'Se omitió 1 lectura' : `Se omitieron ${n} lecturas`} del INA por salto
             imposible ({e.descartadas.slice(0, 3).map(l => `${soloFecha(l.fecha)}: ${nMetros(l.m)} m`).join(' · ')}
             {n > 3 ? '…' : ''}).
+          </td>
+        </tr>
+      )}
+      {nPna > 0 && (
+        <tr>
+          <td colSpan={8} style={{ color: '#b98a64', paddingBottom: 4 }}>
+            {nPna === 1 ? 'Se omitió 1 lectura' : `Se omitieron ${nPna} lecturas`} de Prefectura por
+            salto imposible ({e.descartadasPrefectura.slice(0, 3).map(l => `${soloFecha(l.fecha)}: ${nMetros(l.m)} m`).join(' · ')}).
           </td>
         </tr>
       )}

@@ -17,8 +17,11 @@
  *
  * ── Qué agrega sobre `/api/rio` ───────────────────────────────────────────────
  *
+ * Las alturas son las de Prefectura y el pronóstico el del INA
+ * (`lib/rioFuente.ts`); Las Palmas e Isla del Cerrito sólo están en Prefectura.
+ *
  * La tendencia (`lib/rioArriba.ts`): cuánto cambió en un día y en siete,
- * contra el día exacto, y cuántos días lleva sin informar. Aguas arriba lo que
+ * contra la lectura de la misma hora, y cuántos días lleva sin informar. Aguas arriba lo que
  * importa es hacia dónde va el río, no sólo cuánto le falta al alerta.
  *
  * No calcula cuántos días tarda el agua en llegar: eso es historia, no el dato
@@ -31,14 +34,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requirePermiso } from '@/lib/apiAuth'
 import {
-  ESTACIONES_ARRIBA, estadoCompleto, estadoDe,
+  ESTACIONES_ARRIBA, estadoDe,
   type LecturaRio, type PuntoPronostico, type EstadoRio,
 } from '@/lib/ina'
-import { tendenciaDe, type Tendencia } from '@/lib/rioArriba'
+import { tendenciaEnHoras, type Tendencia } from '@/lib/rioArriba'
+import {
+  ESCALAS_SOLO_PREFECTURA, prefecturaOAviso, type LecturaPrefectura,
+} from '@/lib/prefectura'
+import { escalaDelDia } from '@/lib/rioFuente'
 
 export const dynamic = 'force-dynamic'
 
-/** Nueve estaciones en serie, contra un organismo que a veces tarda */
+/** Once escalas en serie, contra dos organismos que a veces tardan */
 export const maxDuration = 60
 
 /** Media hora, como `/api/rio` */
@@ -51,7 +58,7 @@ export interface EstacionArribaConRio {
   id: number
   nombre: string
   rio: 'Paraná' | 'Paraguay' | 'Bermejo'
-  /** `null` donde el INA no publica umbral */
+  /** Los de Prefectura si los publica; si no, los del INA. `null` donde no hay ninguno */
   alerta: number | null
   evacuacion: number | null
   observado: LecturaRio[]
@@ -63,6 +70,12 @@ export interface EstacionArribaConRio {
   tendencia: Tendencia | null
   /** Lecturas que publicó el INA y no se usaron por salto imposible */
   descartadas: LecturaRio[]
+  /** La última lectura, cuando es de Prefectura; `null` si es la del INA */
+  prefectura: LecturaPrefectura | null
+  /** Lecturas de Prefectura que no se usaron, por salto imposible o fecha futura */
+  descartadasPrefectura: LecturaRio[]
+  /** La escala no está en el INA: no tiene pronóstico ni anticipación medida */
+  soloPrefectura: boolean
 }
 
 export async function GET(req: NextRequest) {
@@ -84,30 +97,56 @@ export async function GET(req: NextRequest) {
   const estaciones: EstacionArribaConRio[] = []
   const motivos: string[] = []
 
-  for (const e of ESTACIONES_ARRIBA) {
+  // Las últimas alturas de todas las escalas, en un pedido. Si falla, sigue el INA solo y se dice.
+  const pna = await prefecturaOAviso()
+  const ahora = Date.now()
+  const sinHistorico: string[] = []
+  const sinIna: string[] = []
+
+  /*
+   * Las del INA y, después de Puerto Bermejo, las dos que sólo tiene
+   * Prefectura: Las Palmas e Isla del Cerrito. El grupo del Paraguay queda en
+   * el orden del agua.
+   */
+  const escalas = [
+    ...ESTACIONES_ARRIBA.map(e => ({ ...e, enIna: true })),
+    ...ESCALAS_SOLO_PREFECTURA.map(e => ({ ...e, alerta: null, evacuacion: null, enIna: false })),
+  ]
+  const orden = (rio: string) => (rio === 'Paraná' ? 0 : rio === 'Paraguay' ? 1 : 2)
+  escalas.sort((a, b) => orden(a.rio) - orden(b.rio))
+
+  for (const e of escalas) {
     try {
-      const { observado, descartadas, pronostico } = await estadoCompleto(e.id, d, h)
-      const u = observado[observado.length - 1] ?? null
+      const r = await escalaDelDia(e.id, e.enIna, pna.filas, d, h, ahora)
+      if (r.sinHistorico) sinHistorico.push(e.nombre)
+      if (r.sinIna) sinIna.push(e.nombre)
+      const alerta = r.umbralPrefectura?.alerta ?? e.alerta
+      const evacuacion = r.umbralPrefectura?.evacuacion ?? e.evacuacion
+      const u = r.observado[r.observado.length - 1] ?? null
       estaciones.push({
         id: e.id,
         nombre: e.nombre,
         rio: e.rio,
-        alerta: e.alerta,
-        evacuacion: e.evacuacion,
-        observado,
-        pronostico,
+        alerta,
+        evacuacion,
+        observado: r.observado,
+        pronostico: r.pronostico,
         ultima: u
           ? {
               fecha: u.fecha, m: u.m,
-              estado: e.alerta !== null && e.evacuacion !== null
-                ? estadoDe({ alerta: e.alerta, evacuacion: e.evacuacion }, u.m)
+              estado: alerta !== null && evacuacion !== null
+                ? estadoDe({ alerta, evacuacion }, u.m)
                 : 'sin_umbral',
             }
           : null,
         // Sin umbral publicado no hay margen: no se inventa uno
-        margen: u && e.alerta !== null ? Math.round((e.alerta - u.m) * 100) / 100 : null,
-        tendencia: tendenciaDe(observado, h),
-        descartadas,
+        margen: u && alerta !== null ? Math.round((alerta - u.m) * 100) / 100 : null,
+        // Contra la lectura de la misma hora: Prefectura lee dos veces por día
+        tendencia: tendenciaEnHoras(r.observado, h),
+        descartadas: r.descartadas,
+        prefectura: r.prefectura,
+        descartadasPrefectura: r.descartadasPrefectura,
+        soloPrefectura: !e.enIna,
       })
     } catch (err) {
       motivos.push(`${e.nombre}: ${err instanceof Error ? err.message : 'error'}`)
@@ -117,13 +156,13 @@ export async function GET(req: NextRequest) {
   // Si no contestó ninguna, es la fuente: se dice como error, no como lista vacía
   if (estaciones.length === 0) {
     return NextResponse.json(
-      { error: motivos[0] ?? 'No se pudo consultar el Alerta Hidrológico', motivos },
+      { error: motivos[0] ?? 'No se pudo consultar el río', motivos },
       { status: 502 },
     )
   }
 
   const llegaron = new Set(estaciones.map(e => e.id))
-  const sinRespuesta = ESTACIONES_ARRIBA.filter(e => !llegaron.has(e.id)).map(e => e.nombre)
+  const sinRespuesta = escalas.filter(e => !llegaron.has(e.id)).map(e => e.nombre)
 
   return NextResponse.json(
     {
@@ -131,7 +170,9 @@ export async function GET(req: NextRequest) {
       estaciones,
       sinRespuesta,
       motivos,
-      fuente: 'Alerta Hidrológico — Instituto Nacional del Agua',
+      fuente: 'Prefectura Naval Argentina (alturas y niveles) e Instituto Nacional del Agua (pronóstico)',
+      prefectura: { ok: pna.filas !== null, motivo: pna.motivo, sinHistorico },
+      sinIna,
     },
     { headers: { 'cache-control': `s-maxage=${CACHE_S}, stale-while-revalidate=${CACHE_S * 2}` } },
   )

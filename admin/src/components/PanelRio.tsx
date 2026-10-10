@@ -22,7 +22,7 @@
  *
  * Y las demás **se promueven solas a franja grande** si su altura observada o
  * su pronóstico llega al alerta. El criterio no es un número inventado por
- * nosotros: es el umbral que publica el INA para esa estación.
+ * nosotros: es el umbral publicado para esa escala (el de Prefectura; si no, el del INA).
  *
  * ── Dos escalas, porque una sola miente por omisión ───────────────────────────
  *
@@ -46,6 +46,7 @@
 
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import { COLOR_ESTADO, ETIQUETA_ESTADO, type EstadoRio, type PuntoPronostico } from '@/lib/ina'
+import { fechaHoraLocal, type LecturaPrefectura } from '@/lib/prefectura'
 import HistoricoBarranqueras from '@/components/rio/HistoricoBarranqueras'
 import TrasladoCrecida from '@/components/rio/TrasladoCrecida'
 import BalanceConfluencia from '@/components/rio/BalanceConfluencia'
@@ -78,6 +79,12 @@ interface EstacionRio {
   margen: number | null
   /** Lecturas que publicó el INA y este sistema no usó — ver `depurar()` */
   descartadas: Lectura[]
+  /** La última lectura, si es de Prefectura; sin esto, es la del INA */
+  prefectura?: LecturaPrefectura | null
+  /** Los niveles del INA, sólo cuando los que se muestran son otros (los de Prefectura) */
+  umbralIna?: { alerta: number; evacuacion: number } | null
+  /** Lecturas de Prefectura que no se usaron — ver `sumarPrefectura()` */
+  descartadasPrefectura?: Lectura[]
 }
 
 interface Respuesta {
@@ -86,6 +93,10 @@ interface Respuesta {
   sinRespuesta: string[]
   motivos: string[]
   fuente: string
+  /** Si se pudo leer Prefectura; `null` en una respuesta anterior a que existiera */
+  prefectura: { ok: boolean; motivo: string | null; sinHistorico: string[] } | null
+  /** Escalas donde no contestó el INA: van sin pronóstico */
+  sinIna: string[]
 }
 
 interface Props {
@@ -98,6 +109,7 @@ interface Props {
 
 const nMetros = (m: number) => m.toFixed(2).replace('.', ',')
 const soloFecha = (f: string) => f.slice(0, 10).split('-').reverse().slice(0, 2).join('/')
+const conSigno = (m: number) => `${m > 0 ? '+' : m < 0 ? '−' : '±'}${nMetros(Math.abs(m))}`
 
 /**
  * Qué lecturas se omitieron, en una línea — o `null` si no se omitió ninguna.
@@ -109,12 +121,17 @@ const soloFecha = (f: string) => f.slice(0, 10).split('-').reverse().slice(0, 2)
  * aviso no estaba. El dato falso se llevaba consigo el cartel que lo explicaba.
  */
 function omitidas(est: EstacionRio): string | null {
-  const n = est.descartadas.length
-  if (n === 0) return null
-  const muestra = est.descartadas.slice(0, 3)
-    .map(l => `${soloFecha(l.fecha)}: ${nMetros(l.m)} m`).join(' · ')
-  return `${n === 1 ? 'Se omitió 1 lectura' : `Se omitieron ${n} lecturas`}`
-    + ` del INA por salto imposible (${muestra}${n > 3 ? '…' : ''}).`
+  const de = (lecturas: Lectura[], quien: string): string | null => {
+    const n = lecturas.length
+    if (n === 0) return null
+    const muestra = lecturas.slice(0, 3)
+      .map(l => `${soloFecha(l.fecha)}: ${nMetros(l.m)} m`).join(' · ')
+    return `${n === 1 ? 'Se omitió 1 lectura' : `Se omitieron ${n} lecturas`}`
+      + ` ${quien} por salto imposible (${muestra}${n > 3 ? '…' : ''}).`
+  }
+  const partes = [de(est.descartadas, 'del INA'), de(est.descartadasPrefectura ?? [], 'de Prefectura')]
+    .filter((x): x is string => x !== null)
+  return partes.length > 0 ? partes.join(' ') : null
 }
 
 /** ¿Esta estación merece franja grande aunque no sea destacada? */
@@ -162,6 +179,14 @@ export default function PanelRio({ dias = 90, desde, hasta, abiertoInicial = fal
             })),
           sinRespuesta: Array.isArray(j?.sinRespuesta) ? j.sinRespuesta : [],
           motivos: Array.isArray(j?.motivos) ? j.motivos : [],
+          prefectura: j?.prefectura
+            ? {
+                ok: j.prefectura.ok === true,
+                motivo: typeof j.prefectura.motivo === 'string' ? j.prefectura.motivo : null,
+                sinHistorico: Array.isArray(j.prefectura.sinHistorico) ? j.prefectura.sinHistorico : [],
+              }
+            : null,
+          sinIna: Array.isArray(j?.sinIna) ? j.sinIna : [],
         } as Respuesta
       })
       .then(j => { if (vivo) { setDatos(j); setError(null) } })
@@ -195,7 +220,8 @@ export default function PanelRio({ dias = 90, desde, hasta, abiertoInicial = fal
         background: 'rgba(40,24,16,.5)', borderLeft: '3px solid #E8833A', borderRadius: 2, padding: '8px 12px', marginTop: 8 }}>
         <b>No se pudo consultar el río.</b> {error}
         <div style={{ color: '#b98a64', marginTop: 2 }}>
-          El Alerta Hidrológico del INA puede estar fuera de servicio. La lluvia no se ve afectada.
+          Prefectura y el Alerta Hidrológico del INA pueden estar fuera de servicio. La lluvia no
+          se ve afectada.
         </div>
       </div>
     )
@@ -204,7 +230,7 @@ export default function PanelRio({ dias = 90, desde, hasta, abiertoInicial = fal
   if (!datos) {
     return (
       <div style={{ ...mono, fontSize: 12, color: '#8f8f8f', marginTop: 8 }}>
-        Consultando el Alerta Hidrológico…
+        Consultando las escalas del río…
       </div>
     )
   }
@@ -218,8 +244,8 @@ export default function PanelRio({ dias = 90, desde, hasta, abiertoInicial = fal
     return (
       <div style={{ ...mono, fontSize: 12, color: '#E8A87C', border: '1px solid #7a4a22',
         background: 'rgba(40,24,16,.5)', borderLeft: '3px solid #E8833A', borderRadius: 2, padding: '8px 12px', marginTop: 8 }}>
-        <b>El Alerta Hidrológico del INA no respondió.</b> Ninguna de las
-        {' '}{datos.sinRespuesta.length} estaciones devolvió datos.
+        <b>No respondieron ni Prefectura ni el INA.</b> Ninguna de las
+        {' '}{datos.sinRespuesta.length} escalas devolvió datos.
         {datos.motivos[0] && (
           <div style={{ color: '#b98a64', marginTop: 2 }}>{datos.motivos[0]}</div>
         )}
@@ -359,9 +385,36 @@ export default function PanelRio({ dias = 90, desde, hasta, abiertoInicial = fal
 
           <div style={{ fontSize: 11, color: '#8f8f8f', marginTop: 10, lineHeight: 1.5,
             borderTop: '1px solid #232323', paddingTop: 9 }}>
-            Umbrales de alerta y evacuación publicados por el INA para cada estación — no son
-            criterios de este sistema. Si alguna del resto llega a su alerta, se despliega
-            entera. Fuente: {datos.fuente}.
+Alturas y niveles de alerta y evacuación de la Prefectura Naval, que lee cada escala
+            a las 00:00 y a las 12:00; pronóstico del INA. Los niveles no son criterios de este
+            sistema. Si alguna del resto llega a su alerta, se despliega entera.
+            {(() => {
+              const otros = datos.estaciones.filter(e => e.umbralIna)
+              return otros.length === 0 ? null : (
+                <> El INA publica otros niveles para{' '}
+                {otros.map(e => `${e.nombre} (alerta ${nMetros(e.umbralIna!.alerta)}, evacuación ${nMetros(e.umbralIna!.evacuacion)})`).join(' y ')}
+                ; se muestran los de Prefectura.</>
+              )
+            })()}
+            {datos.prefectura && !datos.prefectura.ok && (
+              <span style={{ color: '#E8A87C' }}>
+                {' '}No se pudo leer Prefectura
+                {datos.prefectura.motivo ? ` (${datos.prefectura.motivo})` : ''}: las alturas y
+                los niveles son los del INA, que carga una lectura por día y medio día después.
+              </span>
+            )}
+            {datos.prefectura?.ok && datos.prefectura.sinHistorico.length > 0 && (
+              <span style={{ color: '#E8A87C' }}>
+                {' '}No se pudo leer el registro de Prefectura de{' '}
+                {datos.prefectura.sinHistorico.join(', ')}: ahí la serie es la del INA, con la
+                última lectura de Prefectura.
+              </span>
+            )}
+            {datos.sinIna.length > 0 && (
+              <span style={{ color: '#E8A87C' }}>
+                {' '}El INA no contestó por {datos.sinIna.join(', ')}: van sin pronóstico.
+              </span>
+            )}
             {/*
               Las dos destacadas, que son las que se van a cruzar contra cotas.
               Va dicho de qué año es el dato: no es una vinculación moderna.
@@ -462,6 +515,15 @@ function Franja({ est, desde, hasta, alDato, promovida }: {
               alerta {nMetros(est.alerta)} · evac {nMetros(est.evacuacion)}
             </span>
           </>
+        )}
+        {/* De quién es la última lectura y de qué hora, cuando no es la del INA */}
+        {est.prefectura && (
+          <span style={{ color: '#a0a0a0' }}>
+            Prefectura, {fechaHoraLocal(est.prefectura.fecha)}
+            {est.prefectura.variacion && (
+              <> · {conSigno(est.prefectura.variacion.m)} m en {est.prefectura.variacion.horas} h</>
+            )}
+          </span>
         )}
         <span style={{ flex: 1 }} />
         {est.pronostico

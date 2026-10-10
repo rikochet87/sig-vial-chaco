@@ -85,6 +85,64 @@ export function tendenciaDe(lecturas: LecturaRio[], hoy: string): Tendencia | nu
   }
 }
 
+/**
+ * Cuánto puede apartarse de «la misma hora» la lectura contra la que se
+ * compara. Prefectura lee a las 00:00 y a las 12:00, con alguna a la 01:00.
+ */
+const MISMA_HORA_MS = 3 * 3_600_000
+
+/**
+ * La tendencia cuando hay más de una lectura por día: **contra la lectura de la
+ * misma hora**, un día y siete días antes de la última.
+ *
+ * Es lo que hace falta con las lecturas de Prefectura, que son dos por día.
+ * `tendenciaDe()` toma una por fecha —la última del día—, así que con la última
+ * a las 00:00 compararía contra las 12:00 de ayer y «24 h» mediría doce.
+ *
+ * Mismo criterio que aquélla: el cambio es siempre entre dos lecturas de la
+ * misma hora. No se compara contra la del otro turno ni la del día de al lado.
+ *
+ * **Si la última no tiene pareja, se mide desde la anterior que sí la tenga**,
+ * dentro del último día. Pasa todas las tardes: la última es la de las 12:00 y
+ * el registro de Prefectura todavía no trae la de las 12:00 de ayer, así que el
+ * cambio es el de las 00:00 de hoy contra las 00:00 de ayer. Son 24 horas
+ * exactas, terminadas hasta doce horas antes de la última lectura; `ultima` y
+ * `atraso` siguen hablando de la última.
+ */
+export function tendenciaEnHoras(lecturas: LecturaRio[], hoy: string): Tendencia | null {
+  if (lecturas.length === 0) return null
+  const ordenadas = [...lecturas].sort((a, b) => a.fecha.localeCompare(b.fecha))
+  const ultima = ordenadas[ordenadas.length - 1]
+  const tUltima = Date.parse(ultima.fecha)
+
+  /** La lectura de la misma hora, `dias` antes de `base` */
+  const hace = (base: LecturaRio, dias: number): number | null => {
+    const objetivo = Date.parse(base.fecha) - dias * DIA_MS
+    let mejor: LecturaRio | null = null
+    for (const l of ordenadas) {
+      const d = Math.abs(Date.parse(l.fecha) - objetivo)
+      if (d <= MISMA_HORA_MS && (!mejor || d < Math.abs(Date.parse(mejor.fecha) - objetivo))) mejor = l
+    }
+    return mejor ? mejor.m : null
+  }
+
+  let base = ultima
+  for (let i = ordenadas.length - 1; i >= 0; i--) {
+    const l = ordenadas[i]
+    if (tUltima - Date.parse(l.fecha) >= DIA_MS) break
+    if (hace(l, 1) !== null) { base = l; break }
+  }
+  const ayer = hace(base, 1)
+  const semana = hace(base, 7)
+
+  return {
+    ultima: { fecha: ultima.fecha, m: ultima.m },
+    atraso: Math.round((Date.parse(hoy.slice(0, 10)) - Date.parse(ultima.fecha.slice(0, 10))) / DIA_MS),
+    cambio1: ayer === null ? null : cm(base.m - ayer),
+    cambio7: semana === null ? null : cm(base.m - semana),
+  }
+}
+
 /** Sube, baja o está quieto, según la variación del último día */
 export type Sentido = 'sube' | 'baja' | 'quieto' | 'sin_dato'
 

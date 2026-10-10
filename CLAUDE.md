@@ -37,7 +37,7 @@ npx expo-doctor               # desde la raíz — detecta incompatibilidades de
 ```
 
 **Todo eso corre junto con `npm run verificar`** (desde `admin/`):
-`tsc --noEmit`, la barrera de lint, la sintaxis de los `.sql` y los treinta
+`tsc --noEmit`, la barrera de lint, la sintaxis de los `.sql` y los treinta y un
 `scripts/verificar-*.ts`. `next build` queda afuera a propósito: tarda minutos y
 usa el binario nativo de SWC, así que sólo corre donde se instalaron los
 paquetes. El orquestador es `scripts/verificar-todo.mjs`, en Node y no en un
@@ -2419,6 +2419,103 @@ otras dos, la tendencia con casos que se saben sin calcular y la anticipación
 sobre el archivo real —que todo el Paraná pasa antes y en orden, que Corrientes
 da cero y que El Colorado no se distingue—. `relevar-ina.ts` compara los
 umbrales contra el catálogo.
+
+### Las alturas salen de Prefectura; el INA pronostica y completa
+
+`lib/prefectura.ts` + `lib/rioFuente.ts`, desde el 10/10/2026. Las escalas del
+Paraná y del Paraguay las lee la Prefectura Naval, a las 00:00 y a las 12:00, y
+las publica al momento. **El INA copia la de las 00:00 y la carga cerca de las
+11:30; la de las 12:00 no la carga.** Con el río subiendo 18 cm por día, ese
+día el panel mostraba 4,70 m en Barranqueras cuando Prefectura ya tenía 4,88.
+
+**Y cuando el INA carga tarde, carga otra cosa.** Sobre un año de Barranqueras
+(10/2025 a 10/2026), 54 de 365 lecturas difieren en más de un centímetro, 39 de
+ellas de sábado o domingo, hasta 33 cm. El 16/11/2025 Prefectura da 3,31 · 3,24
+· 3,20 · 3,15 · 3,08 —un río que baja— y el INA, cargado al día siguiente, 3,53
+en el medio. En 26 de las 54 el valor del INA es la lectura de Prefectura de
+doce horas después. Por eso, a pedido del usuario, **Prefectura es la fuente
+principal de las alturas y de los niveles de alerta**, y el INA queda para el
+pronóstico y para completar lo que Prefectura no tenga.
+
+De dónde sale cada cosa:
+
+| | Qué trae | Cómo |
+|---|---|---|
+| `…/alturas/alturas.json` | última lectura y anterior de 91 puertos, con alerta y evacuación | JSON, sin clave; un pedido para todas |
+| `…/alturas/?page=historico&id=…` | un año de lecturas de un puerto, las dos de cada día | página, ~290 KB, 0,1 a 0,3 s; una por escala |
+| INA | el pronóstico, y la serie para completar | como siempre |
+
+(`…` es `contenidosweb.prefecturanaval.gob.ar`.)
+
+- **`unirSeries()`: manda Prefectura.** Una lectura del INA entra sólo si
+  Prefectura no tiene ninguna a menos de tres horas: un día que le falta, o lo
+  anterior al año del histórico. En 90 días de Barranqueras son 176 lecturas de
+  Prefectura y 2 del INA; en Puerto Pilcomayo, donde a Prefectura le faltan
+  más, 106 y 35.
+- **El histórico va unos días atrás** y le faltan lecturas sueltas: el
+  10/10/2026 terminaba el 09/10 a las 00:00, sin la del 08/10 a las 12:00. Por
+  eso encima se le suman las dos de `alturas.json` (`lecturasDePrefectura()`).
+- **`escalaDelDia()` arma cada escala para las dos rutas**, que comparten Itá
+  Ibaté y no pueden armarla distinto. Una escala no se cae porque se cayó una
+  fuente: sin el histórico va la serie del INA con las últimas de Prefectura;
+  sin Prefectura, lo del INA como antes; sin el INA, las alturas sin
+  pronóstico. Cada caso se avisa en pantalla (`prefectura.ok`, `sinHistorico`,
+  `sinIna`).
+- **Los niveles de alerta y evacuación son los de Prefectura** cuando los
+  publica; los de `ESTACIONES` (del INA) quedan de respaldo. Coinciden en doce
+  de las trece escalas: **en Empedrado Prefectura evacúa a 7,00 m y el INA a
+  6,70**. La pantalla muestra el de Prefectura y dice que el INA publica otro
+  (`umbralIna`). **`ESTACIONES` no se tocó**: la pestaña Gran Resistencia, el
+  histórico de Barranqueras y `relevar-ina.ts` siguen con esos valores, que en
+  Barranqueras son los mismos.
+- **Las Palmas e Isla del Cerrito** (`ESCALAS_SOLO_PREFECTURA`) van en «Aguas
+  arriba», con el Paraguay, después de Puerto Bermejo. Sólo están en
+  Prefectura: sin pronóstico y sin «Llega a Barranqueras», que sale del
+  registro desde 1970. Llevan id negativo (−525 y −530, el número del puerto en
+  Prefectura) para no chocar con los del INA. También aparecen en «Qué viene
+  río arriba» de Gran Resistencia, que usa la misma ruta.
+- **Los cambios en 24 h y en 7 días son entre lecturas de la misma hora**
+  (`tendenciaEnHoras()` en `lib/rioArriba.ts`). `tendenciaDe()` toma una por
+  fecha, y con dos lecturas por día «24 h» mediría doce. **A la tarde la última
+  es la de las 12:00 y el histórico todavía no trae la de las 12:00 de ayer**:
+  entonces se mide desde la anterior que sí tenga pareja, que es la de las
+  00:00. Se vio en la primera prueba en vivo, pasado el mediodía: Empedrado y
+  Bella Vista quedaban sin cambio de 24 h.
+- **La última lectura dice de quién es y de qué hora** («Prefectura, 10/10
+  00:00 · +0,09 m en 12 h»).
+- **Las horas**: Prefectura publica en hora local y el INA marca la de las
+  00:00 a las 03:00 UTC. Se convierte con UTC−3 fijo, así las dos fuentes le
+  ponen la misma fecha a la misma lectura.
+- **Pasan las dos por el mismo filtro** (`depurar()`, salto de más de 2 m), y
+  una fecha futura no entra. Lo descartado se muestra por fuente. El INA sigue
+  publicando el lote falso de Empedrado —ceros y 12,33 m a las 12:00 UTC—, que
+  aparece como omitido.
+- **«S/E» es sin lectura**, no cero.
+- **El nombre del puerto va con el río** (`PUERTOS_PREFECTURA`): «BERMEJO» es
+  Puerto Bermejo, sobre el Paraguay, y «PARANA» es la ciudad. El Colorado no
+  está: Prefectura no tiene escala sobre el río Bermejo, y sigue sólo con el
+  INA.
+- **`traerHistorico()` comprueba que la página sea del puerto pedido.** El id
+  del histórico es un número de Prefectura que el JSON no trae; si lo
+  reasignan, la página sería de otro río con este nombre.
+- **Nada de esto está documentado por Prefectura**, como el índice del SMN. Si
+  el JSON falla se lee la tabla de la página, que trae lo mismo
+  (`leerTabla()`). `grafico-infowindow.php`, que alimenta el gráfico de su
+  mapa, contesta 500 desde afuera y no se usa.
+- **Son hasta 16 páginas de 290 KB por media hora** entre las dos rutas, de a
+  una. Las quince escalas tardan ~16 s, casi todo del INA (un segundo por
+  escala); Prefectura contesta en 0,1 a 0,3 s.
+- **No se probó desde Vercel.** Desde la PC contesta sin clave y sin
+  `User-Agent`; si rechaza direcciones de afuera del país, el panel va a decir
+  que no pudo leerla y seguir con el INA.
+- **El registro largo no cambió**: `barranqueras_diario.json` y
+  `tramo_diario.json` salen de las series de media diaria del INA, que son
+  otras que la de lecturas comparada acá. Si el defecto de fin de semana
+  también está ahí no se miró.
+
+`scripts/verificar-prefectura.ts` no sale a la red: usa filas del JSON, de la
+tabla y del histórico tal como se publicaron el 10/10/2026, la serie del INA de
+esa semana y el caso del 16/11/2025.
 
 ### El cero de cada escala: MOP no es IGN
 
