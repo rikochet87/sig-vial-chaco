@@ -1124,7 +1124,38 @@ detalle está en «Tercera pasada» de `docs/inundaciones-gran-resistencia.md`.
   una crecida de 7 m y la de 1998 hay 1,2 m. **No se dibuja ninguna «zona bajo
   cota»**. Lo que lo cambiaría es el MDT de 5 m del IGN sobre
   Corrientes–Resistencia (2016) y el de 0,5 m de Fontana (2021), que se piden
-  por correo: el borrador está en `docs/pedido-ign-mde-gran-resistencia.txt`.
+  por correo. **El pedido se mandó el 08/10/2026** (el texto está en
+  `docs/pedido-ign-mde-gran-resistencia.txt`) **y al 11/10/2026 no hubo
+  respuesta.**
+- **Tampoco alcanzan FABDEM, NASADEM ni ALOS, y esta vez medidos contra el
+  suelo** (11/10/2026). GEDI, el lidar de la estación espacial, da la cota del
+  suelo en disparos sueltos de 25 m: 65.897 buenos en el recuadro y 7.429
+  dentro del recinto, sin el agua permanente. Dentro del recinto:
+
+  | | Corrimiento | Error medio sin el corrimiento | Uno de cada diez puntos | r |
+  |---|---|---|---|---|
+  | FABDEM | −0,32 m | 1,15 m | 2,7 m o más | 0,67 |
+  | ALOS AW3D30 | +2,12 | 1,38 | 2,9 | 0,65 |
+  | Copernicus GLO-30 | +0,44 | 1,40 | 3,2 | 0,66 |
+  | NASADEM | +0,93 | 1,88 | 3,9 | 0,56 |
+
+  El terreno del recinto varía 2,2 m (desvío): el error del mejor es del
+  tamaño de lo que hay que distinguir.
+  - **Sacarle el corrimiento no arregla nada**: FABDEM pasa de 1,20 a 1,15 m.
+  - **Promediar por sectores tampoco.** Juntando los disparos en celdas de
+    250, 500 y 1.000 m, el desvío del error de FABDEM va de 0,98 a 0,84 m. El
+    error se repite en zonas enteras y no se cancela. **Ni para ordenar
+    sectores de más bajo a más alto es confiable.**
+  - Fuera del recinto FABDEM anda mejor (0,97 m, r 0,90): lo que lo complica
+    es la ciudad.
+  - **El corrimiento absoluto vale a los decímetros.** GEDI mide sobre el
+    elipsoide y los modelos sobre el geoide; la diferencia (18,9 m) sale de la
+    propia GEDI, que trae la cota de TanDEM-X en cada disparo, contra GLO-30.
+    Las otras tres columnas no dependen de eso.
+  - El error de GEDI —del orden de medio metro— está adentro de esos números.
+  - `scripts/inundaciones/mde-contra-gedi.mjs`, con Earth Engine (`EE_CLAVE`
+    y `EE_MODULOS`, como `build_anegamiento.mjs`). Tarda tres minutos.
+  - **No volver a probar modelos globales de 30 m para esto.**
 - **El IGN publica qué modelos tiene por WFS**
   (`wms.ign.gob.ar/geoserver/modelos-digitales-elevaciones`, capas `mde_5m`,
   `mdt_5m`, `mde_50cm`, `mdt_50cm`, `mde_v2_30m`). El de 30 m baja sin cuenta
@@ -3107,7 +3138,7 @@ Para cualquier simulación de mancha de inundación, lo relevado hasta ahora:
 | | Resolución | Error vertical | Nota |
 |---|---|---|---|
 | **IGN MDE-Ar v2.1** | 30 m | ~2 m | Nacional, libre, el citable en Argentina |
-| **FABDEM** | 30 m | ~1,5 m | El mejor de los globales en llanura; **le saca bosque y edificios** |
+| **FABDEM** | 30 m | ~1,5 m | El mejor de los globales en llanura; **le saca bosque y edificios**. Medido en el Gran Resistencia el 11/10/2026: no alcanza (ver «El Canal 16, la otra órbita y lo informado») |
 | Copernicus / NASADEM / SRTM | 30 m | peor | SRTM y NASADEM **sobreestiman bajo dosel** — el Impenetrable |
 
 **El límite es real y está medido**: en la franja crítica de 0 a 6 m sobre el
@@ -3115,7 +3146,11 @@ cauce, los errores verticales de los MDE globales son comparables o mayores que
 la profundidad real de la inundación. En terreno llano como el Chaco eso
 descalifica cualquier delimitación a escala de barrio.
 
-La salida publicada es **ICESat-2**: lidar satelital de precisión centimétrica
+**GEDI ya se usó como verdad de campo** (11/10/2026) y sirvió para medir el
+error, no para corregirlo: no es un corrimiento parejo ni ruido que se
+promedie.
+
+La otra salida publicada es **ICESat-2**: lidar satelital de precisión centimétrica
 pero disperso, que no sirve como MDE pero sí como verdad de campo para corregir
 uno. Hay trabajo que entrena una red sobre ICESat-2 para corregir y bajar FABDEM
 a 10 m, mejorando hasta 15 % la habilidad para reproducir la mancha.
@@ -3675,7 +3710,9 @@ límites que sólo aplica cuando se le pasa un `buf` propio. No se toca.
   entera, 337 desde 1984) y en Sentinel-2, a qué altura del río se moja cada
   lugar, la mancha urbana por época, y el cruce con Barranqueras, el Niño y la
   lluvia local. Desde el 07/10/2026 tiene una tercera pasada: la órbita
-  227/079, el Canal 16 y la prueba de los modelos de elevación. Resultados en `docs/geo/inundaciones/`. Alimenta la pestaña
+  227/079, el Canal 16 y la prueba de los modelos de elevación; y desde el
+  11/10/2026 una cuarta, con esos modelos y FABDEM medidos contra el suelo de
+  GEDI. Resultados en `docs/geo/inundaciones/`. Alimenta la pestaña
   «Gran Resistencia» de Hidrología. Cosas que conviene no volver a averiguar:
   - Landsat y Sentinel-2 se leen sin cuenta desde Planetary Computer. **De a
     una banda y con el permiso pedido una sola vez**: en paralelo las

@@ -501,14 +501,80 @@ Copernicus GLO-30, y se los enfrentó al agua observada y al canal.
   con un error mayor que lo que se quiere distinguir.
 - Lo que sí cambiaría esto es el **MDT de 5 m del IGN** sobre
   Corrientes–Resistencia (vuelo de 2016) y el de 0,5 m de Fontana (2021). No
-  se descargan: se piden a asesoriatecnica@ign.gob.ar. El borrador del pedido
-  está en `docs/pedido-ign-mde-gran-resistencia.txt`.
+  se descargan: se piden a asesoriatecnica@ign.gob.ar. El pedido se mandó el 08/10/2026 (el
+  texto está en `docs/pedido-ign-mde-gran-resistencia.txt`) y al 11/10/2026
+  no hubo respuesta.
 
 Scripts, en `admin/scripts/inundaciones/`: `crecidas-altas.mjs` (clasifica una
 lista de escenas de cualquier órbita, mide el agua sobre una traza y deja una
 vista en falso color para mirarla) y `dem-contra-agua.mjs` (los modelos de
 elevación contra el agua observada; los modelos se llevan antes a la grilla
 con `gdalwarp`).
+
+## Cuarta pasada: los modelos de elevación contra el suelo medido
+
+Del 11/10/2026. En la tercera pasada se compararon dos modelos entre sí y
+contra el agua observada, sin saber cuál de los dos se equivocaba. Faltaba
+probar FABDEM —el Copernicus GLO-30 con los edificios y los árboles
+quitados, el mejor de los globales en llanura— y faltaba una medida del suelo.
+
+**La medida del suelo es GEDI**, el lidar de la NASA en la estación espacial
+(2019 a 2023): no da un modelo, da la cota del suelo en disparos sueltos de
+25 m. Con Google Earth Engine se tomaron los disparos de buena calidad del
+recuadro, fuera del agua permanente: **65.897, de los cuales 7.429 caen
+dentro del recinto defendido**.
+
+Cada modelo menos el suelo de GEDI:
+
+| | Disparos | Corrimiento (mediana) | Error medio sin el corrimiento | Uno de cada diez puntos | Correlación |
+|---|---|---|---|---|---|
+| **Dentro del recinto** | 7.429 | | | | |
+| FABDEM | | −0,32 m | 1,15 m | 2,7 m o más | 0,67 |
+| ALOS AW3D30 | | +2,12 | 1,38 | 2,9 | 0,65 |
+| Copernicus GLO-30 | | +0,44 | 1,40 | 3,2 | 0,66 |
+| NASADEM | | +0,93 | 1,88 | 3,9 | 0,56 |
+| **Fuera del recinto** | 58.577 | | | | |
+| FABDEM | | +0,31 | 0,97 | 2,2 | 0,90 |
+| Copernicus GLO-30 | | +0,62 | 1,73 | 4,3 | 0,80 |
+| ALOS AW3D30 | | +2,62 | 1,73 | 3,9 | 0,78 |
+| NASADEM | | +1,12 | 1,89 | 4,1 | 0,79 |
+
+- **Ninguno alcanza.** Dentro del recinto el terreno varía 2,2 m (desvío; del
+  5 al 95 %, de 46,4 a 53,1 m), y entre una crecida de 7 m y la de 1998 hay
+  1,2 m. El error del mejor modelo es del tamaño de lo que hay que distinguir.
+- **FABDEM es el mejor, y en la ciudad mejora poco.** Afuera reduce el error
+  de GLO-30 casi a la mitad; adentro, de 1,40 a 1,15 m.
+- **No es un corrimiento.** Restándole a cada modelo su mediana, el error
+  medio de FABDEM pasa de 1,20 a 1,15 m.
+- **No es ruido que se promedie.** Juntando los disparos del recinto en
+  celdas, con ocho o más por celda:
+
+  | Celda | Celdas | Relieve entre celdas (desvío) | Desvío del error de FABDEM | Correlación |
+  |---|---|---|---|---|
+  | 250 m | 266 | 1,75 m | 0,98 m | 0,84 |
+  | 500 m | 411 | 1,62 | 0,96 | 0,81 |
+  | 1.000 m | 144 | 1,51 | 0,84 | 0,84 |
+
+  Si el error fuera independiente de un punto a otro, a 1 km tendría que
+  haber bajado varias veces. Se repite en zonas enteras. **Ni siquiera para
+  ordenar sectores de más bajo a más alto es confiable**: uno de cada diez
+  queda con 2 m de error.
+
+Dos reservas sobre la medida:
+
+- **El corrimiento absoluto vale a los decímetros.** GEDI mide sobre el
+  elipsoide y los modelos sobre el geoide. La diferencia —18,9 m— se sacó de
+  la propia GEDI, que trae en cada disparo la cota de TanDEM-X sobre el
+  elipsoide, contra GLO-30, que es TanDEM-X sobre el geoide. Las demás
+  columnas no dependen de ese número.
+- **GEDI tiene su propio error**, del orden de medio metro, y está adentro de
+  estos números: el de los modelos es algo menor que el de la tabla.
+
+Sigue sin dibujarse ninguna «zona bajo cota», y sigue faltando lo mismo: el
+MDT de 5 m del IGN.
+
+Script: `admin/scripts/inundaciones/mde-contra-gedi.mjs`. Usa Earth Engine;
+toma la clave y el paquete de `EE_CLAVE` y `EE_MODULOS`.
 
 ## Las inundaciones y la altura del río
 
@@ -724,7 +790,9 @@ paso que más rinde, y es un pedido a la APA.
    crecidas con nubes: sobre 7 m hay una sola escena limpia.
 6. **El MDT de 5 m del IGN** (y el de 0,5 m de Fontana). Es lo único
    disponible que permitiría ponerle cota al borde de cada mancha en el área
-   urbana. Pedido redactado, sin enviar.
+   urbana. Pedido enviado el 08/10/2026; al 11/10, sin respuesta. Los modelos globales
+   de 30 m ya se midieron contra el suelo y no lo reemplazan (ver «Cuarta
+   pasada»).
 7. **Conseguir más marcas de campo**: otras de la crecida de
    1998, con lugar y si es posible cota. Cada una entra como un informe más.
 8. **Está montado en el panel**: pestaña «Gran Resistencia» de Hidrología, con
@@ -758,6 +826,9 @@ hechos (ver «Segunda pasada»).
 - Traza del Canal 16: © colaboradores de OpenStreetMap (ODbL).
 - MDE-Ar v2.1, Instituto Geográfico Nacional; Copernicus DEM GLO-30, ESA, vía
   Microsoft Planetary Computer. Usados sólo para la prueba de «Tercera pasada».
+- GEDI L2A (NASA / Universidad de Maryland), FABDEM (Universidad de Bristol),
+  NASADEM (NASA), ALOS AW3D30 (JAXA) y Copernicus GLO-30, vía Google Earth
+  Engine. Usados sólo para la prueba de «Cuarta pasada».
 - Landsat Collection 2, USGS, vía Microsoft Planetary Computer.
   <https://planetarycomputer.microsoft.com/api/stac/v1>
 - ONI, NOAA Climate Prediction Center.
