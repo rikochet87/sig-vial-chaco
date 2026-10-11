@@ -10,7 +10,7 @@
  * de Thiessen por superficie, que es el método de manual: al abrir una fila se
  * ve su tabla de pesos, que es lo que se cita en un expediente.
  *
- * Tiene siete vistas. **Período** es la lámina y el volumen del rango elegido.
+ * Tiene ocho vistas. **Período** es la lámina y el volumen del rango elegido.
  * **Máximas en varios días** busca, en los últimos tres meses, la mayor lámina
  * que juntó cada cuenca en 1, 3, 5 y 7 días corridos: en llanura lo que anega
  * no es el pico de una tarde sino lo que se acumula en una semana. **Red vial
@@ -23,6 +23,8 @@
  * lo que viene, por cuenca y como rango, al lado de lo medido la última semana.
  * **Histórico** es qué es normal y qué es raro: la lluvia de cada cuenca desde
  * 1981 estimada por satélite (CHIRPS), que no se mezcla con lo medido.
+ * **Anegamiento** es cuánto terreno se ve mojado en cada cuenca, quincena por
+ * quincena, según la clasificación de imágenes de Dynamic World.
  *
  * Ocupa la pestaña Cuencas entera. Las cuencas y la lámina del período llegan
  * de afuera, de `useCuencasLluvia`: las mismas las usa la lista de cuencas que
@@ -44,6 +46,7 @@ import VistaHidro from './cuencas/VistaHidro'
 import VistaPronostico from './cuencas/VistaPronostico'
 import VistaRios from './cuencas/VistaRios'
 import VistaHistorico from './cuencas/VistaHistorico'
+import VistaAnegamiento from './cuencas/VistaAnegamiento'
 import { bajarCsv, boton, fCorta, mono, nKm2, nMm, nPct, td, tdD, th, thD } from './cuencas/piezas'
 
 interface Props {
@@ -61,7 +64,7 @@ interface Props {
 }
 
 type Orden = 'mm' | 'cod'
-type Vista = 'periodo' | 'maximas' | 'red' | 'hidro' | 'rios' | 'pronostico' | 'historico'
+type Vista = 'periodo' | 'maximas' | 'red' | 'hidro' | 'rios' | 'pronostico' | 'historico' | 'anegamiento'
 
 /** Cuántos días hacia atrás mira la serie diaria: los mismos que la línea de tiempo y el río */
 const DIAS_SERIE = 90
@@ -192,7 +195,7 @@ export default function PanelCuencas({ datos, estaciones, desde, hasta, hoy, tra
 
           {!error && cuencas && (
             <div style={{ display: 'flex', border: '1px solid #252525', width: 'fit-content', marginBottom: 8 }}>
-              {([['periodo', 'Período elegido'], ['maximas', 'Máximas en varios días'], ['red', 'Red vial y obras de arte'], ['hidro', 'Cursos de agua y cruces'], ['rios', 'Ríos internos'], ['pronostico', 'Pronóstico'], ['historico', 'Histórico']] as const).map(([v, t]) => (
+              {([['periodo', 'Período elegido'], ['maximas', 'Máximas en varios días'], ['red', 'Red vial y obras de arte'], ['hidro', 'Cursos de agua y cruces'], ['rios', 'Ríos internos'], ['pronostico', 'Pronóstico'], ['historico', 'Histórico'], ['anegamiento', 'Anegamiento']] as const).map(([v, t]) => (
                 <button key={v} onClick={() => { setVista(v); setDetalle(null) }} style={{
                   ...mono, fontSize: 12, padding: '4px 12px', cursor: 'pointer', border: 'none',
                   background: vista === v ? '#1e1e1e' : 'transparent',
@@ -243,6 +246,8 @@ export default function PanelCuencas({ datos, estaciones, desde, hasta, hoy, tra
           )}
 
           {!error && cuencas && vista === 'historico' && <VistaHistorico cuencas={cuencas} />}
+
+          {!error && cuencas && vista === 'anegamiento' && <VistaAnegamiento cuencas={cuencas} />}
 
           {!error && cuencas && vista === 'periodo' && estaciones.length === 0 && (
             <div style={{ color: '#9aa0a6' }}>

@@ -37,7 +37,7 @@ npx expo-doctor               # desde la raíz — detecta incompatibilidades de
 ```
 
 **Todo eso corre junto con `npm run verificar`** (desde `admin/`):
-`tsc --noEmit`, la barrera de lint, la sintaxis de los `.sql` y los treinta y un
+`tsc --noEmit`, la barrera de lint, la sintaxis de los `.sql` y los treinta y dos
 `scripts/verificar-*.ts`. `next build` queda afuera a propósito: tarda minutos y
 usa el binario nativo de SWC, así que sólo corre donde se instalaron los
 paquetes. El orquestador es `scripts/verificar-todo.mjs`, en Node y no en un
@@ -820,7 +820,7 @@ Seis pestañas, cada una con la pantalla entera:
 | Pestaña | Qué tiene | Selector de período |
 |---|---|---|
 | **Mapa** | el mapa y, al lado, la lista de consorcios **o** de cuencas | sí |
-| **Cuencas** | `PanelCuencas` con sus siete vistas | sí, salvo la de cursos de agua y la histórica |
+| **Cuencas** | `PanelCuencas` con sus ocho vistas | sí, salvo la de cursos de agua, la histórica y la de anegamiento |
 | **Río Paraná** | `PanelRio`, abierto | sí |
 | **Gran Resistencia** | las áreas inundables: mapa propio y panel de escenarios (ver «Gran Resistencia — áreas inundables») | no: se elige una altura del río, no un período |
 | **Tiempo** | alertas del SMN y pronóstico por consorcio (ver «El tiempo») | no: mira hacia adelante |
@@ -1864,6 +1864,9 @@ contra las cuencas y los canales, y el armado de la serie y su resumen.
 
 #### Sentinel-1: lo que se probó, y por qué no se usa
 
+**Lo que sí funcionó está en la sección que sigue** («Anegamiento por cuenca»):
+no es radar sino la clasificación de imágenes ópticas de Dynamic World.
+
 Era el paso 2 del plan del balance hídrico: la superficie anegada por cuenca
 después de cada evento, como observación. **Se midió el 05/10/2026 y el
 producto disponible no sirve para eso en el Chaco.** No hay pantalla; queda
@@ -1904,10 +1907,124 @@ de la provincia, cruzado con los partes de la APA y la altura de los ríos:
 la mayoría de las escenas y decima el archivo. Se leen los TIFF.
 
 **Lo que queda como observación son las escalas del INA** (la vista «Ríos
-internos»), que sí responden. Si se vuelve sobre el satélite, lo que falta
-probar es otra cosa: la retrodispersión cruda de Sentinel-1 contra su propia
-historia en cada píxel —EODC publica `SENTINEL1_SIG0_20M`—, o el agua de la
-clasificación de escena de Sentinel-2, que es óptico y no ve con nubes.
+internos»), que sí responden, y desde el 11/10/2026 la vegetación inundada de
+Dynamic World. La retrodispersión cruda de Sentinel-1 contra su propia
+historia también se probó, y tampoco sirve.
+
+#### Anegamiento por cuenca: Dynamic World por quincena
+
+`scripts/build_anegamiento.mjs` + `lib/anegamiento.ts` +
+`public/lluvia/anegamiento_cuencas.json` +
+`components/cuencas/VistaAnegamiento.tsx`, la octava vista del panel de
+cuencas («Anegamiento»). Desde el 11/10/2026.
+
+Es lo que el GFM no pudo dar: cuánta superficie de cada cuenca se ve mojada,
+quincena por quincena, desde 06/2015. Sale de **Dynamic World**, la
+clasificación automática que Google y el WRI hacen de cada imagen de
+Sentinel-2, leída con Google Earth Engine. De sus nueve clases se usa una, la
+3, «vegetación inundada».
+
+**Es una clasificación de imágenes, no una medición ni una mancha dibujada**, y
+la pantalla lo dice. Va en verde musgo (`C_ANEG`), que no es el color de
+ninguna otra fuente.
+
+Lo que se probó antes de llegar a esto, para no repetirlo:
+
+- **Sentinel-1 crudo** (`COPERNICUS/S1_GRD`, cada pasada contra la mediana de
+  su órbita), sobre 96 pasadas de Negro - Salado: no sirve. Lo oscuro aumenta
+  en seco, el brillo medio sigue a la lluvia de los últimos días y no al río, y
+  la franja a menos de 1 m sobre el drenaje (HAND de MERIT Hydro) es el 72 % de
+  la cuenca. En Earth Engine no hay escenas de esa zona antes de 04/2025.
+- **La clase 0, «agua», del mismo Dynamic World**: en 09/2024 da más de
+  1.000 km² en Negro - Salado con el río bajo. Se deja afuera. No se miraron
+  las imágenes; por la época, lo más probable son quemas.
+- **Sumar por pasada**: la huella cambia de una a otra. Por eso va por
+  quincena de calendario.
+
+Cómo se cuenta:
+
+- **Un píxel cuenta si está clasificado así en la mitad o más de las pasadas
+  despejadas de la quincena.**
+- **Sólo cuentan las quincenas en que se vio el 90 % de la cuenca o más**
+  (`VISTO_MINIMO`), y lo clasificado se lleva a la cuenca entera en proporción
+  a lo visto. **Una quincena nublada va vacía, no en cero.**
+- **Lo normal se cuenta desde 2018** (`ANIO_NORMAL_DESDE`). Antes volaba un
+  solo satélite: hay de una a ocho quincenas útiles por año, contra catorce a
+  veintidós después. Quedan 144 a 162 por cuenca.
+- A 30 m, que es lo que el cupo gratuito deja correr.
+
+**Se compara contra el mismo mes de otros años, nunca un mes contra otro.** Es
+lo que salió de mirar los once años:
+
+- **Hay una joroba de mayo a julio**: en Negro - Salado la mediana es de unos
+  100 km² contra 17 en enero.
+- **La lluvia no la explica.** Contra la lámina de CHIRPS de los 90 días
+  anteriores, en bruto correlaciona de 0,0 a 0,5 (Spearman).
+- **Sacándole a cada quincena la mediana de su mes, sí sigue a la lluvia**: de
+  0,4 a 0,5 en la mayoría y 0,68 en Línea Paraná.
+- **No se sabe si la joroba es agua que en invierno tarda en irse o cómo
+  clasifica el satélite con el sol bajo.** La pantalla no afirma ninguna de las
+  dos; por eso no hay ninguna comparación entre épocas.
+
+Lo que sí lo sostiene, por fuera de la lluvia:
+
+- **Los picos son crecidas que se conocen por otro lado.** La mayor quincena de
+  las cuencas 6, 7, 8, 9 y 10 es la del 16/01/2019, el evento de lluvia de la
+  pestaña Gran Resistencia. En el valle del Paraná, 03/2016 y 11/2023.
+- **Contra las escalas del INA**, por quincena: Spearman 0,74 con el Negro en
+  Laguna Blanca (39 quincenas) y 0,89 con el Tapenagá desde 09/2025 (19).
+  Medido el 10/10/2026 sobre dos años; no está en el test.
+
+Dónde no dice lo que parece (`RESERVAS`, va a pantalla junto al nombre):
+
+- **Impenetrable (13): no se detecta nada.** Nunca más de 4 km² sobre 18.800.
+  Es monte cerrado. Como su mayor no llega a `MINIMO_DETECTABLE_KM2` (10), no
+  se la compara contra lo normal: «dentro de lo normal» sobre cero no dice
+  nada. Se vio en la pantalla.
+- **Bermejo - Bermejito (1): no sigue a la lluvia de la cuenca** (0,03). Puede
+  seguir al río Bermejo, que trae agua de los Andes; no se comparó.
+- **Valle del Paraná (12)**: el agua la pone el río.
+
+Cosas que no son obvias:
+
+- **`@google/earthengine` no está en `package.json`, ni la clave en el
+  repo.** El script los toma del entorno: `EE_CLAVE` es la ruta a la clave
+  JSON de la cuenta de servicio y `EE_MODULOS` una carpeta de afuera donde se
+  instaló el paquete. Son 55 paquetes para un script que se corre de vez en
+  cuando.
+
+  ```powershell
+  $env:EE_CLAVE = "$env:USERPROFILE\.claves\<clave>.json"
+  $env:EE_MODULOS = "$env:USERPROFILE\Documents\sig-vial-earth-engine"
+  node scripts/build_anegamiento.mjs
+  ```
+
+- **Retoma solo.** Escribe después de cada tanda de tres quincenas y, al
+  volver a correrlo, pide desde la última guardada de cada cuenca. Las dos
+  últimas se repiten siempre: las imágenes se siguen cargando unos días después
+  de tomadas. Al día, las trece cuencas tardan dos minutos.
+- **La quincena en curso no se pide**: no terminó, y a medias se leería como
+  seca.
+- **Once años de las trece cuencas tardaron dos horas y media** (11/10/2026),
+  de 4 minutos el valle del Paraná a 33 Bermejo - Bermejito. El archivo pesa
+  37 KB.
+- **Una quincena sin ninguna imagen no es un error**: va con `visto` en cero.
+  La primera corrida fallaba ahí con «Image.gte: If one image has no bands».
+- **El gráfico de quincenas va con la raíz de la superficie**, y lo dice: enero
+  de 2019 es diez veces una quincena común y en escala pareja las demás quedan
+  en el piso.
+- **No se cruza con el período elegido**, ni es un índice: es superficie que se
+  ve mojada, no cómo está un camino.
+
+`scripts/verificar-anegamiento.ts` no sale a la red. Afirma el lector sobre un
+archivo armado a mano, el archivo contra `geo_cuencas.json`, los picos contra
+las crecidas conocidas, la joroba de invierno, y —con `chirps_cuencas.json`—
+que sin la estación sigue a la lluvia mejor que en bruto en diez cuencas o
+más. **No afirma que la clasificación acierte.**
+
+Sin hacer: usarlo para verificar un balance hídrico, que era para lo que se
+buscaba (paso 3 del plan); compararlo contra el río Bermejo; y resolver qué es
+la joroba de invierno.
 
 #### En diciembre de 2025 llovió y la APA no publicó ningún parte
 

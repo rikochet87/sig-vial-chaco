@@ -588,6 +588,73 @@ extrapola: la vista no informa nada más raro que una de cada diez.
   que al oeste, verano lluvioso e invierno seco, 2020 a 2022 por debajo de la
   media—.
 
+### 6.6 quater Superficie anegada por cuenca (Dynamic World)
+
+La lluvia dice cuánta agua cayó y las escalas de los ríos cuánto subió el agua
+en un punto. La vista «Anegamiento» agrega una tercera observación: cuánta
+superficie de cada cuenca se ve mojada, quincena por quincena.
+
+**Fuente.** Dynamic World (Google y World Resources Institute): una
+clasificación automática de cada imagen del satélite Sentinel-2, a 10 m, en
+nueve clases de cobertura, disponible desde junio de 2015. Se lee con Google
+Earth Engine. Se usa una sola clase, «vegetación inundada».
+
+**Es una clasificación de imágenes, no una medición ni una mancha dibujada.**
+Es óptica: no ve con nubes ni debajo del monte, y no cuenta el agua abierta.
+
+**Cómo se calcula.**
+
+- Por quincena de calendario (del 1 al 15 y del 16 a fin de mes).
+- Un lugar cuenta si está clasificado como vegetación inundada en la mitad o
+  más de las imágenes despejadas de la quincena.
+- Sólo se informan las quincenas en que se vio el 90 % de la cuenca o más; lo
+  clasificado se lleva a la cuenca entera en proporción a lo visto. Una
+  quincena nublada no tiene dato: no es cero.
+- Se mide a 30 m.
+
+**Qué se informa, por cuenca.** La última quincena con la cuenca a la vista; la
+mediana y el rango entre los percentiles 10 y 90 de las quincenas de ese mismo
+mes desde 2018; el puesto que ocupa entre ellas; y la mayor quincena desde
+2018. Lo normal se cuenta desde 2018 porque antes había un solo satélite y hay
+menos de diez quincenas útiles por año.
+
+**Se compara contra el mismo mes de otros años, no un mes contra otro.** De
+mayo a julio la superficie clasificada es varias veces la de verano —en Negro -
+Salado, una mediana de unos 100 km² contra 17 en enero—, y la lluvia de los
+meses anteriores no lo explica. No se determinó si es agua que en invierno
+tarda en irse o un efecto de la clasificación. Por eso la vista no compara
+épocas entre sí.
+
+**Controles.**
+
+| | Resultado |
+|---|---|
+| Contra la lámina de CHIRPS de los 90 días anteriores, en bruto (Spearman, desde 2018) | 0,0 a 0,5 según la cuenca |
+| Lo mismo, restando a cada serie la mediana de su mes | 0,4 a 0,5 en la mayoría; 0,68 en Línea Paraná |
+| Contra la altura del río Negro en Laguna Blanca, por quincena (39 quincenas) | 0,74 |
+| Contra la altura del Tapenagá desde 09/2025 (19 quincenas) | 0,89 |
+| Mayor quincena de las cuencas 6, 7, 8, 9 y 10 | 16 al 31/01/2019, el mayor evento de lluvia del período |
+| Mayores quincenas del valle del Paraná | 03/2016 y 11/2023, crecidas del río |
+
+**Límites.**
+
+- **En el Impenetrable no se detecta nada**: nunca más de 4 km² sobre
+  18.800 km². Es monte cerrado. La vista lo dice y no lo compara contra lo
+  normal.
+- **En Bermejo - Bermejito no sigue a la lluvia de la cuenca** (0,03). No se
+  comparó contra el río Bermejo.
+- **En el valle del Paraná** la superficie responde al río, no a la lluvia
+  local.
+- Es relativo: sirve para decir si una quincena está por encima o por debajo
+  de lo habitual para su mes, no para dar la superficie inundada de un evento.
+- No dice nada del estado de un camino.
+
+**Lo que se probó antes y se descartó.** El producto de inundación de
+Copernicus sobre radar (GFM) excluye más de la mitad del terreno y marca suelo
+seco como agua. El radar Sentinel-1 sin procesar, comparando cada pasada con
+la mediana de su órbita, sigue a la lluvia de los últimos días y no al río. La
+clase «agua» de Dynamic World da más de 1.000 km² con los ríos bajos.
+
 ### 6.7 Cursos de agua, canales y cruces con la red vial
 
 `lib/hidrografia.ts`. Agrega a las cuencas por dónde corre el agua, y con eso
@@ -1153,6 +1220,8 @@ Se enumeran porque condicionan el uso legítimo de la herramienta.
 - **Open-Meteo** — `archive-api.open-meteo.com` (ERA5 / IFS operacional)
 - **CHIRPS** — Climate Hazards Center, UC Santa Barbara, vía ClimateSERV de
   NASA SERVIR (`climateserv.servirglobal.net`)
+- **Dynamic World** — Google y World Resources Institute, sobre Sentinel-2,
+  vía Google Earth Engine (`GOOGLE/DYNAMICWORLD/V1`)
 - **Instituto Nacional del Agua — Alerta Hidrológico de la Cuenca del Plata** —
   `alerta.ina.gob.ar/a5`
 - Umbrales de alerta y evacuación: publicados por el INA por estación, sobre
