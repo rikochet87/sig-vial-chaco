@@ -15,6 +15,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { esMovilAhora } from '@/hooks/useEsMovil'
 import 'leaflet/dist/leaflet.css'
 import { colorLluvia, type ResumenConsorcio } from '@/lib/lluvia'
 import { RADIO_KM } from '@/lib/fusion'
@@ -232,7 +233,8 @@ export default function MapaLluvia({
   const mostrarCuencas = verCuencas || cuencaSeleccionada !== null
   useEffect(() => { onCapaCuencas?.(mostrarCuencas) }, [mostrarCuencas, onCapaCuencas])
   /** El panel de capas se puede plegar para devolverle el lugar al mapa */
-  const [capasAbiertas, setCapasAbiertas] = useState(true)
+  // En un celular el panel abierto tapa medio mapa: arranca plegado
+  const [capasAbiertas, setCapasAbiertas] = useState(() => !esMovilAhora())
   const [cuencas, setCuencas] = useState<Cuenca[]>([])
   const [errorCuencas, setErrorCuencas] = useState<string | null>(null)
   const [intentoCuencas, setIntentoCuencas] = useState(0)
@@ -1294,7 +1296,7 @@ export default function MapaLluvia({
           background: '#111', border: '1px solid #222', borderLeft: '3px solid #F5C300',
           borderRadius: 2, boxShadow: '0 4px 16px rgba(0,0,0,.7)',
           padding: '7px 11px', fontFamily: 'monospace', fontSize: 12,
-          color: '#c4c4c4', lineHeight: 1.6, maxWidth: 420, pointerEvents: 'none',
+          color: '#c4c4c4', lineHeight: 1.6, maxWidth: 'min(420px, calc(100% - 20px))', pointerEvents: 'none',
         }}>
           <b style={{ color: '#F5C300' }}>{tramos[bajoCursor].ruta || 'Sin designación'}</b>
           {Number.isFinite(tramos[bajoCursor].cc) && (

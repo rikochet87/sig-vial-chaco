@@ -38,6 +38,7 @@ import {
 } from '@/lib/inundaciones'
 import type { CapaDibujo, LineaDibujo, PuntoDibujo } from './MapaInundaciones'
 import RioArriba from './RioArriba'
+import { useEsMovil } from '@/hooks/useEsMovil'
 
 const MapaInundaciones = dynamic(() => import('./MapaInundaciones'), {
   ssr: false,
@@ -127,6 +128,7 @@ async function leerJson<T>(url: string): Promise<T> {
 }
 
 export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
+  const movil = useEsMovil()
   const [indice, setIndice] = useState<IndiceInundaciones | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [geo, setGeo] = useState<Record<string, Geometria>>({})
@@ -463,16 +465,16 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
         background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', whiteSpace: 'nowrap',
         fontSize: 11, color: activa ? ACENTO : arriba ? '#e0e0e0' : '#a0a0a0',
       }}>
-        <span>{a.t}</span>
+        {!movil && <span>{a.t}</span>}
         <span style={{ width: 1, height: 6, background: activa ? ACENTO : '#8f8f8f' }} />
       </button>
     )
   }
 
   return (
-    <div style={{ flex: 1, minHeight: 360, display: 'flex', gap: 12 }}>
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', background: '#191919', border: '1px solid #1e1e1e' }}>
-        <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
+    <div className="sv-m-col" style={{ flex: 1, minHeight: 360, display: 'flex', gap: 12 }}>
+      <div className="sv-m-auto" style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', background: '#191919', border: '1px solid #1e1e1e' }}>
+        <div className="sv-m-mapa" style={{ flex: 1, minHeight: 0, position: 'relative' }}>
           <MapaInundaciones recuadro={indice.recuadro} urbano={indice.urbano}
             capas={dibujo} vias={lineas} afectadas={cruce.partes} obras={puntos} referencias={referencias} defensas={defensas}
             recorte={recorteDibujo}
@@ -492,15 +494,30 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
                 : 'Mové el deslizador para ver qué se inunda'}
             </span>
           </div>
-          <div style={{ position: 'relative', height: 22, marginTop: 4 }}>{marcas.arriba.map(a => marca(a, true))}</div>
+          <div style={{ position: 'relative', height: movil ? 8 : 22, marginTop: 4 }}>{marcas.arriba.map(a => marca(a, true))}</div>
           <input type="range" className="sv-range sv-range-grande" min={RIO_MIN} max={RIO_MAX} step={0.01} value={Math.min(RIO_MAX, Math.max(RIO_MIN, h))}
             onChange={e => setAltura(Number(e.target.value))} style={{ width: '100%', display: 'block' }}
             aria-label="Altura del río en Barranqueras, en metros" />
-          <div style={{ position: 'relative', height: 22 }}>{marcas.abajo.map(a => marca(a, false))}</div>
+          <div style={{ position: 'relative', height: movil ? 8 : 22 }}>{marcas.abajo.map(a => marca(a, false))}</div>
+          {/* En un celular los rótulos no entran sobre el riel: van como botones, con su altura */}
+          {movil && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+              {[...marcas.arriba, ...marcas.abajo].map(a => {
+                const activa = Math.abs(h - a.m) < 0.005
+                return (
+                  <button key={a.t} type="button" onClick={() => setAltura(a.m)} style={{
+                    ...mono, fontSize: 12, padding: '5px 9px', cursor: 'pointer', borderRadius: 2,
+                    background: activa ? '#F5C30022' : 'transparent',
+                    border: `1px solid ${activa ? ACENTO : '#2a2a2a'}`, color: activa ? ACENTO : '#c8c8c8',
+                  }}>{a.t} <span style={{ color: '#8f8f8f' }}>{f2(a.m)}</span></button>
+                )
+              })}
+            </div>
+          )}
         </div>
       </div>
 
-      <div className="sv-panel" style={{ width: 380, flexShrink: 0, overflowY: 'auto', minHeight: 0,
+      <div className="sv-panel sv-m-lado" style={{ width: 380, flexShrink: 0, overflowY: 'auto', minHeight: 0,
         background: '#191919', border: '1px solid #1e1e1e' }}>
 
         {/* ── Qué se inunda ── */}

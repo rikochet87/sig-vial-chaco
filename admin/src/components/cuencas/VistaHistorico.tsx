@@ -110,8 +110,8 @@ export default function VistaHistorico({ cuencas }: { cuencas: Cuenca[] }) {
   const thOrden = (i: number) => ({ ...thD, cursor: 'pointer', color: orden === i ? '#F5C300' : undefined })
 
   return (<>
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-      <span style={{ color: '#8f8f8f', flex: 1 }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, flexWrap: 'wrap' }}>
+      <span style={{ color: '#8f8f8f', flex: '1 1 220px' }}>
         No depende del período. Del {fLarga(chirps.desde)} al {fLarga(chirps.hasta)}, estimado por satélite.
         Tocá una cuenca para ver sus años, sus meses y cada cuánto se repite una lámina.
       </span>

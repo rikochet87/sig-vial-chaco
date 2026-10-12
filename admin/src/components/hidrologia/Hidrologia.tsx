@@ -351,7 +351,7 @@ export default function Hidrologia({ publico = false }: { publico?: boolean }) {
     && datos.filter(d => d.procedencia === 'medido' || d.procedencia === 'interpolado').length <= datos.length / 2
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column',
+    <div className="sv-hidro" style={{ display: 'flex', flexDirection: 'column',
       // Alto **definido** más `overflow: auto`, no `minHeight`.
       //
       // Con `minHeight` la cadena flex se queda sin altura definida, y entonces
@@ -363,11 +363,11 @@ export default function Hidrologia({ publico = false }: { publico?: boolean }) {
       height: 'calc(100vh - 60px)', overflow: 'auto' }}>
 
       {/* Encabezado */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 10, flexShrink: 0 }}>
+      <div className="sv-hidro-cab" style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 10, flexShrink: 0 }}>
         <h1 style={{ color: '#e0e0e0', fontSize: 20, fontWeight: 700, letterSpacing: 0.5, ...mono, margin: 0 }}>
           Hidrología
         </h1>
-        <div style={{ display: 'flex', border: '1px solid #252525' }}>
+        <div className="sv-tira" style={{ display: 'flex', border: '1px solid #252525' }}>
           {vistas.map(([v, t]) => (
             <button key={v} onClick={() => elegirVista(v)} style={{
               ...mono, fontSize: 13, padding: '5px 14px', cursor: 'pointer',
@@ -408,7 +408,7 @@ export default function Hidrologia({ publico = false }: { publico?: boolean }) {
         así que tampoco lleva el selector de período.
       */}
       {vista === 'tiempo' && (
-        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+        <div className="sv-m-tablas" style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
           <PanelTiempo />
         </div>
       )}
@@ -563,7 +563,7 @@ export default function Hidrologia({ publico = false }: { publico?: boolean }) {
       )}
 
       {vista === 'cuencas' && (
-        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+        <div className="sv-m-tablas" style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
           <PanelCuencas datos={datosCuencas} estaciones={estaciones} desde={desde} hasta={hasta}
             hoy={hoy} tramos={tramos} lluviaTramos={lluvia} />
         </div>
@@ -574,16 +574,16 @@ export default function Hidrologia({ publico = false }: { publico?: boolean }) {
         lectura de la lluvia. Comparte el período elegido para ver si coinciden.
       */}
       {vista === 'rio' && (
-        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+        <div className="sv-m-tablas" style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
           <PanelRio abiertoInicial dias={90} desde={desde} hasta={hasta} />
         </div>
       )}
 
       {/* Mapa + tabla */}
       {vista === 'mapa' && (
-      <div style={{ flex: 1, minHeight: 360, display: 'flex', gap: 12 }}>
+      <div className="sv-m-col" style={{ flex: 1, minHeight: 360, display: 'flex', gap: 12 }}>
 
-        <div style={{ flex: 1, minWidth: 0, position: 'relative',
+        <div className="sv-m-mapa" style={{ flex: 1, minWidth: 0, position: 'relative',
           background: '#191919', border: '1px solid #1e1e1e' }}>
           {/*
             Si la red vial no llegó, el mapa queda vacío. Antes eso pasaba en
@@ -620,7 +620,7 @@ export default function Hidrologia({ publico = false }: { publico?: boolean }) {
         </div>
 
         {/* Ranking */}
-        <div style={{ width: 340, flexShrink: 0, display: 'flex', flexDirection: 'column',
+        <div className="sv-m-lado" style={{ width: 340, flexShrink: 0, display: 'flex', flexDirection: 'column',
           background: '#191919', border: '1px solid #1e1e1e', minHeight: 0 }}>
           {/*
             Qué se lista: consorcios o cuencas. Al cambiar se suelta lo elegido

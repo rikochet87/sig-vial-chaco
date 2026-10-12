@@ -502,7 +502,7 @@ function Franja({ est, desde, hasta, alDato, promovida }: {
 
   return (
     <div style={{ margin: '10px 0 14px' }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, fontSize: 11, marginBottom: 3 }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, fontSize: 11, marginBottom: 3, flexWrap: 'wrap' }}>
         <span style={{ color: '#ddd' }}>{est.nombre}</span>
         {promovida && (
           <span style={{ color: '#E8833A' }}>llega al alerta</span>

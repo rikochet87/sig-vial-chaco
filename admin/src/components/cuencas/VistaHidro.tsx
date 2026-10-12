@@ -105,8 +105,8 @@ export default function VistaHidro({ cuencas, tramos }: Props) {
   const adentro = filas.filter(f => f.cod !== 0)
 
   return (<>
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-      <span style={{ color: '#8f8f8f', flex: 1 }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, flexWrap: 'wrap' }}>
+      <span style={{ color: '#8f8f8f', flex: '1 1 220px' }}>
         No depende del período. Tocá una cuenca para ver dónde la red cruza un curso o un canal.
       </span>
       <button onClick={() => bajarCsv(csvCruces(filas, cursos, tramos), 'cruces-red-y-cursos-de-agua.csv')}

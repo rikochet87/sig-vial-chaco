@@ -37,7 +37,7 @@ export default function HidrologiaPublica() {
           </span>
           <TamanoTexto />
         </div>
-        <main id="panel-contenido" style={{ flex: 1, overflowY: 'auto', padding: '1.5rem' }}>
+        <main id="panel-contenido" className="sv-publico-main" style={{ flex: 1, overflowY: 'auto', padding: '1.5rem' }}>
           <Suspense fallback={null}>
             <Hidrologia publico />
           </Suspense>

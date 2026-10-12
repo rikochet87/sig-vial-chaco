@@ -169,7 +169,7 @@ export default function PanelCuencas({ datos, estaciones, desde, hasta, hoy, tra
   return (
     <div style={{ ...mono, border: '1px solid #1e1e1e', background: '#191919' }}>
       <div style={{
-        display: 'flex', alignItems: 'baseline', gap: 10, padding: '9px 12px 7px',
+        display: 'flex', alignItems: 'baseline', gap: 10, padding: '9px 12px 7px', flexWrap: 'wrap',
         fontSize: 13, color: '#ccc', borderLeft: '3px solid #F5C300',
       }}>
         <span style={{ flex: 1 }}>Precipitación media areal de las 13 cuencas hídricas</span>
@@ -194,7 +194,7 @@ export default function PanelCuencas({ datos, estaciones, desde, hasta, hoy, tra
           {!error && !cuencas && <div style={{ color: '#8f8f8f' }}>Cargando las cuencas…</div>}
 
           {!error && cuencas && (
-            <div style={{ display: 'flex', border: '1px solid #252525', width: 'fit-content', marginBottom: 8 }}>
+            <div className="sv-tira" style={{ display: 'flex', border: '1px solid #252525', width: 'fit-content', marginBottom: 8 }}>
               {([['periodo', 'Período elegido'], ['maximas', 'Máximas en varios días'], ['red', 'Red vial y obras de arte'], ['hidro', 'Cursos de agua y cruces'], ['rios', 'Ríos internos'], ['pronostico', 'Pronóstico'], ['historico', 'Histórico'], ['anegamiento', 'Anegamiento']] as const).map(([v, t]) => (
                 <button key={v} onClick={() => { setVista(v); setDetalle(null) }} style={{
                   ...mono, fontSize: 12, padding: '4px 12px', cursor: 'pointer', border: 'none',
@@ -257,8 +257,8 @@ export default function PanelCuencas({ datos, estaciones, desde, hasta, hoy, tra
           )}
 
           {vista === 'periodo' && filas && total && (<>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-              <span style={{ color: '#8f8f8f', flex: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, flexWrap: 'wrap' }}>
+              <span style={{ color: '#8f8f8f', flex: '1 1 220px' }}>
                 Del {desde.split('-').reverse().join('/')} al {hasta.split('-').reverse().join('/')}
                 {' · '}{estaciones.length} pluviómetros. Tocá una cuenca para ver de dónde sale su número.
               </span>
@@ -468,8 +468,8 @@ function VistaMaximas({ filas, error, onReintentar, serieDesde, hoy, desde, hast
     : [...filas].sort((a, b) => (b.maximas[orden]?.mm ?? -1) - (a.maximas[orden]?.mm ?? -1) || a.cod - b.cod)
 
   return (<>
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-      <span style={{ color: '#8f8f8f', flex: 1 }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, flexWrap: 'wrap' }}>
+      <span style={{ color: '#8f8f8f', flex: '1 1 220px' }}>
         Del {fCorta(serieDesde)} al {fCorta(hoy)} · {totalDias} días, {diasConParte} con parte de la APA.
         Tocá una cuenca para ver su serie día por día.
       </span>

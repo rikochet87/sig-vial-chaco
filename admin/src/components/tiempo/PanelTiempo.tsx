@@ -100,9 +100,9 @@ export default function PanelTiempo() {
           <SemanaProvincia resumen={resumen} total={consorcios.length} />
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: detalle ? 'minmax(0, 1fr) 420px' : '1fr', gap: 10, alignItems: 'start' }}>
+        <div className="sv-m-una" style={{ display: 'grid', gridTemplateColumns: detalle ? 'minmax(0, 1fr) 420px' : '1fr', gap: 10, alignItems: 'start' }}>
           <div style={caja}>
-            <div style={{ ...titulo, display: 'flex', gap: 10, alignItems: 'center' }}>
+            <div style={{ ...titulo, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
               <span style={{ flex: 1 }}>Por consorcio</span>
               <select value={zona} onChange={e => setZona(e.target.value)} style={sel}>
                 <option value="">Todas las zonas</option>
@@ -133,7 +133,7 @@ export default function PanelTiempo() {
 
 function SemanaProvincia({ resumen, total }: { resumen: ReturnType<typeof resumenProvincia>; total: number }) {
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${resumen.length}, minmax(0, 1fr))`, gap: 6 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${resumen.length}, minmax(104px, 1fr))`, gap: 6, overflowX: 'auto' }}>
       {resumen.map(d => {
         const c = cieloDe(d.codigo)
         return (

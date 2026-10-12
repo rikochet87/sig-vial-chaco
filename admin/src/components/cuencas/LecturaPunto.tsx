@@ -96,7 +96,7 @@ export default function LecturaPunto({
       background: '#111', border: '1px solid #222', borderLeft: '3px solid #C9A0DC',
       borderRadius: 2, boxShadow: '0 4px 16px rgba(0,0,0,.7)',
       padding: '7px 11px', fontFamily: 'monospace', fontSize: 12,
-      color: '#c4c4c4', lineHeight: 1.6, maxWidth: 440, pointerEvents: 'none',
+      color: '#c4c4c4', lineHeight: 1.6, maxWidth: 'min(440px, calc(100% - 20px))', pointerEvents: 'none',
     }}>
       {l.cuenca ? (
         <>

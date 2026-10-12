@@ -165,3 +165,30 @@ html                             { scrollbar-width: thin; scrollbar-color: #2a2a
 .glow-g:hover:not(:disabled) { box-shadow: 0 0 12px rgba(245,195,0,.12) !important; }
 /* Botones peligro/eliminar:      className="glow-r"         */
 .glow-r:hover { box-shadow: 0 0 12px var(--danger-glow) !important; }
+
+/* ─── Hidrología en pantallas angostas ──────────────────────
+   Para quien abre el enlace público desde el celular. La pantalla está armada
+   con estilos en línea pensados para un monitor; estas clases los pisan, y por
+   eso llevan !important. El corte es el de `hooks/useEsMovil.ts`. */
+@media (max-width: 760px) {
+  .sv-publico-main { padding: 10px !important; }
+
+  /* La página deja de tener alto fijo: se recorre de arriba abajo */
+  .sv-hidro { height: auto !important; overflow: visible !important; }
+  .sv-hidro-cab { flex-wrap: wrap; gap: 8px !important; }
+
+  /* Tiras de pestañas: no se cortan, se deslizan */
+  .sv-tira { max-width: 100%; overflow-x: auto; }
+  .sv-tira > button { flex-shrink: 0; white-space: nowrap; }
+
+  /* Mapa y panel de al lado: uno arriba del otro */
+  .sv-m-col  { flex-direction: column !important; flex: none !important; }
+  .sv-m-auto { flex: none !important; }
+  .sv-m-mapa { flex: none !important; height: 62vh; min-height: 340px; }
+  .sv-m-lado { width: auto !important; }
+  .sv-m-una  { grid-template-columns: 1fr !important; }
+
+  /* Las tablas conservan un ancho legible y se deslizan dentro de su caja */
+  .sv-m-tablas table { min-width: 640px; }
+  .sv-m-tablas div:has(> table) { overflow-x: auto; }
+}

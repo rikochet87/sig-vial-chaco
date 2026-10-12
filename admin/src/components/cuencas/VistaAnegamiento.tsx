@@ -107,8 +107,8 @@ export default function VistaAnegamiento({ cuencas }: { cuencas: Cuenca[] }) {
   const thOrden = (i: number) => ({ ...thD, cursor: 'pointer', color: orden === i ? '#F5C300' : undefined })
 
   return (<>
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-      <span style={{ color: '#8f8f8f', flex: 1 }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, flexWrap: 'wrap' }}>
+      <span style={{ color: '#8f8f8f', flex: '1 1 220px' }}>
         No depende del período. Superficie que las imágenes de satélite clasifican como vegetación inundada,
         por quincena, hasta el {datos.hasta ? fLarga(datos.hasta) : '—'}. Tocá una cuenca para ver todas sus quincenas.
       </span>

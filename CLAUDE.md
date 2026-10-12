@@ -378,6 +378,26 @@ destinatario para poder cortar uno sin tocar los demás.
   valor distinto es un pedido nuevo a Prefectura, que bloquea si se insiste. Si
   un enlace se usa mal, se da de baja.
 
+#### En el celular
+
+El enlace se abre sobre todo desde el teléfono, y la pantalla estaba armada
+para un monitor: a 390 px el mapa quedaba aplastado en ancho cero por la lista
+de 340 px. Desde el 12/10/2026:
+
+- **El acomodo está en `globals.css`** («Hidrología en pantallas angostas»,
+  corte en 760 px), con clases que pisan los estilos en línea y por eso llevan
+  `!important`: `sv-hidro` (la página deja de tener alto fijo y se recorre de
+  arriba abajo), `sv-tira` (las tiras de pestañas se deslizan), `sv-m-col`,
+  `sv-m-mapa` y `sv-m-lado` (mapa arriba a 62 % del alto, panel abajo),
+  `sv-m-tablas` (las tablas conservan 640 px y se deslizan dentro de su caja).
+- **`hooks/useEsMovil.ts` es para lo que el CSS no decide**: el panel de capas
+  y la leyenda del mapa de inundaciones arrancan plegados, y los rótulos de las
+  marcas del deslizador de altura —que sobre el riel se pisan— pasan a ser
+  botones con su altura debajo. En el servidor contesta que no.
+- **Probado en un marco de 390 px, no en un teléfono**: no se probó el arrastre
+  del mapa con el dedo ni el deslizador de imágenes históricas.
+- El panel con sesión (`/dashboard`) no se adaptó: la barra lateral sigue fija.
+
 ### Relevamientos de gabinete
 
 `/dashboard/relevamientos/nuevo` — el formulario de la app de campo, cargado

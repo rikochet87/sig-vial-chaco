@@ -91,8 +91,8 @@ export default function VistaRed({ cuencas, tramos, lluviaTramos, estaciones, de
   const totalObras = TIPOS_OBRA.map((_, t) => (obrasCuenca ?? []).reduce((s, o) => s + o.cuenta[t], 0))
 
   return (<>
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-      <span style={{ color: '#8f8f8f', flex: 1 }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, flexWrap: 'wrap' }}>
+      <span style={{ color: '#8f8f8f', flex: '1 1 220px' }}>
         {hayLluvia
           ? <>Del {fCorta(desde)} al {fCorta(hasta)}. Tocá una cuenca para ver sus obras de arte relevadas.</>
           : <>Sin mediciones de la APA en el período: se muestra la red, sin lluvia.</>}

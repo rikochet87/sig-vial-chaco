@@ -73,7 +73,7 @@ export default function LecturaCurso({ mapaRef, listo, cursos, margenDerecho, co
       borderLeft: `3px solid ${canal ? colorCanal : colorCurso}`,
       borderRadius: 2, boxShadow: '0 4px 16px rgba(0,0,0,.7)',
       padding: '6px 11px', fontFamily: 'monospace', fontSize: 12,
-      color: '#c4c4c4', lineHeight: 1.6, maxWidth: 300, pointerEvents: 'none',
+      color: '#c4c4c4', lineHeight: 1.6, maxWidth: `min(300px, calc(100% - ${margenDerecho + 10}px))`, pointerEvents: 'none',
     }}>
       <b style={{ color: canal ? colorCanal : colorCurso }}>{rotuloCurso(curso)}</b>
       <div style={{ color: '#8f8f8f', fontSize: 11 }}>

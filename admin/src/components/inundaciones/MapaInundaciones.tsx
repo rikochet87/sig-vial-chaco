@@ -14,6 +14,7 @@
 import 'leaflet/dist/leaflet.css'
 import { useEffect, useRef, useState } from 'react'
 import type { Caja, MultiPoligono } from '@/lib/inundaciones'
+import { esMovilAhora } from '@/hooks/useEsMovil'
 
 export interface CapaDibujo {
   id: string
@@ -104,6 +105,8 @@ export default function MapaInundaciones({ recuadro, urbano, capas, vias, afecta
   const mapRef = useRef<any>(null)
   const [mapaListo, setMapaListo] = useState(false)
   const [satelite, setSatelite] = useState(false)
+  // En un celular la leyenda abierta tapa el mapa: arranca plegada
+  const [leyenda, setLeyenda] = useState(() => !esMovilAhora())
   const [lectura, setLectura] = useState<{ lat: number; lng: number; capas: string[] } | null>(null)
   const leerRef = useRef(leer)
   useEffect(() => { leerRef.current = leer }, [leer])
@@ -298,10 +301,21 @@ export default function MapaInundaciones({ recuadro, urbano, capas, vias, afecta
 
       {/* Leyenda: sólo lo que está dibujado */}
       <div className="sv-panel" style={{
-        ...mono, position: 'absolute', left: 10, top: 10, zIndex: 1000, maxWidth: 270,
+        // Plegada deja a la vista los botones de zoom, que quedan debajo
+        ...mono, position: 'absolute', left: leyenda ? 10 : 56, top: 10, zIndex: 1000, maxWidth: 'min(270px, calc(100% - 20px))',
         background: 'rgba(14,14,14,.94)', border: '1px solid #222', borderLeft: `3px solid ${ACENTO}`,
         borderRadius: 2, padding: '7px 10px', fontSize: 11, color: '#c8c8c8', lineHeight: 1.7,
       }}>
+        <button type="button" onClick={() => setLeyenda(v => !v)}
+          title={leyenda ? 'Plegar la leyenda' : 'Abrir la leyenda'} style={{
+            ...mono, display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: 0, cursor: 'pointer',
+            background: 'transparent', border: 'none', color: '#8f8f8f', fontSize: 11,
+            letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: leyenda ? 3 : 0,
+          }}>
+          <span style={{ flex: 1, textAlign: 'left' }}>Leyenda</span>
+          <span>{leyenda ? '▲' : '▼'}</span>
+        </button>
+        {leyenda && (<>
         {[...capas].sort((a, b) => b.orden - a.orden).filter((c, i, t) => t.findIndex(x => x.titulo === c.titulo) === i).map(c => (
           <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
             {c.relleno > 0 ? (
@@ -346,12 +360,13 @@ export default function MapaInundaciones({ recuadro, urbano, capas, vias, afecta
           </div>
         ))}
         {capas.length === 0 && <span style={{ color: '#8f8f8f' }}>Cargando capas…</span>}
+        </>)}
       </div>
 
       {/* Lectura bajo el cursor */}
       {lectura && (
         <div className="sv-panel" style={{
-          ...mono, position: 'absolute', left: 10, bottom: 22, zIndex: 1000, maxWidth: 360,
+          ...mono, position: 'absolute', left: 10, bottom: 22, zIndex: 1000, maxWidth: 'min(360px, calc(100% - 20px))',
           background: 'rgba(14,14,14,.94)', border: '1px solid #222', borderRadius: 2,
           padding: '6px 10px', fontSize: 11, color: '#c8c8c8', lineHeight: 1.6,
         }}>
