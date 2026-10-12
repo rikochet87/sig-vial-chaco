@@ -2700,7 +2700,8 @@ De dónde sale cada cosa:
   históricos seguidos desde la PC dieron siete 403. Unas decenas más, ya con
   403, y **dejó de aceptar la conexión** (falla el saludo TLS) — el mismo
   síntoma que se veía desde Washington, así que aquello pudo ser una dirección
-  de Vercel bloqueada y no la región. Al 12/10/2026 no se sabe cuánto dura.
+  de Vercel bloqueada y no la región. El bloqueo de la PC se levantó solo el
+  mismo día, en menos de un par de horas; no se midió cuánto.
   - En `/api/rio/arriba`, Las Palmas e Isla del Cerrito no pasan por el INA:
     sus dos históricos salían uno atrás del otro y el segundo volvía 403
     siempre («No se pudo leer el registro de Prefectura de Isla del Cerrito»).
