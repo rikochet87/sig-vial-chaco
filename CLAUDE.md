@@ -1246,7 +1246,7 @@ combinaciones estación-fecha:
 | Thiessen | 4,47 | 12,50 | 0,70 |
 | **IDW² radio 60 km** | **3,98** | **10,47** | **0,77** |
 
-Tres cosas que **no** hay que rehacer porque ya se midieron y salieron mal:
+Cuatro cosas que **no** hay que rehacer porque ya se midieron y salieron mal:
 
 - **Anclar en el modelo y corregirlo con los pluviómetros** sale peor que
   ignorar el modelo: arrastra su patrón espacial, que correlaciona 0,47.
@@ -1254,6 +1254,8 @@ Tres cosas que **no** hay que rehacer porque ya se midieron y salieron mal:
   contamina la buena estimación de cerca. El cambio al modelo es duro, a 60 km.
 - **Corregir el sesgo con un factor único** empeora los eventos que importan. El
   modelo subestima la lluvia liviana y aplasta los picos: `APA ≈ 2,3·modelo^0,68`.
+- **Anclar en la lluvia de satélite IMERG y corregirla con los pluviómetros**
+  también sale peor que el IDW solo (MAE 4,03 contra 3,87). Ver más abajo.
 
 ### Procedencia: de dónde salió cada número
 
@@ -1331,8 +1333,39 @@ fusionar— y marcaban los 103 consorcios como "sin recalcular", tapando que el
 suma; un día que aportó 0 mm no debería decidir su etiqueta. El umbral está en
 `UMBRAL` dentro de `api/lluvia/route.ts`.
 
-Lo que falta probar —IMERG, radar, kriging— está en `docs/lluvia-pendientes.md`
+Lo que falta probar —radar, kriging— está en `docs/lluvia-pendientes.md`
 con el procedimiento para medirlo.
+
+**IMERG se midió el 11/10/2026 y no se usa.** Es la lluvia de satélite de la
+NASA, leída con Earth Engine (`NASA/GPM_L3/IMERG_V07`) en las 71 estaciones
+para las 173 fechas con parte. Dejando cada estación afuera, 12.141
+combinaciones:
+
+| Método | MAE | RMSE | r | Sesgo |
+|---|---|---|---|---|
+| Modelo de Open-Meteo solo | 6,77 | 14,96 | 0,47 | +17 % |
+| **IMERG solo** | **5,82** | **14,46** | **0,54** | **−2 %** |
+| IDW con el modelo de respaldo (producción) | 3,87 | 10,26 | 0,77 | −1 % |
+| IDW con IMERG de respaldo | 3,87 | 10,24 | 0,77 | −1 % |
+| IMERG más IDW de los residuos | 4,03 | 10,48 | 0,76 | +3 % |
+
+- **Como respaldo es algo mejor que el modelo**, y casi sin sesgo. Acierta
+  menos días de lluvia (68 % contra 79 %) y da menos falsas alarmas (47 %
+  contra 54 %).
+- **Como base sale peor que el IDW**, también con el pluviómetro más cercano a
+  más de 30 km (4,55 contra 4,34).
+- **Con 20 mm o más subestima un 43 %**; el modelo, un 51 %.
+- **La ventana del parte da mucho peor que el día calendario**, como con
+  Open-Meteo: de las 18 a las 06, r 0,17.
+- **No se llevó a producción**: la mejora sería sólo en los 528 km de red sin
+  pluviómetro, y obliga a cargar la clave de Earth Engine en Vercel y a sumarle
+  una dependencia al cron diario.
+- **154 de las 173 fechas son de la corrida rápida**: en Earth Engine la
+  definitiva sólo llegaba a 10/2025.
+- **El banco de pruebas no está en el repo.** Se rehízo para esto, en la
+  máquina de trabajo, y reproduce los números de la tabla de más arriba (modelo
+  6,79 e IDW 3,95 sobre el período original). Si hace falta de nuevo, hay que
+  traerlo.
 
 ### Isohietas
 
@@ -2653,9 +2686,15 @@ De dónde sale cada cosa:
 - **Son hasta 16 páginas de 290 KB por media hora** entre las dos rutas, de a
   una. Las quince escalas tardan ~16 s, casi todo del INA (un segundo por
   escala); Prefectura contesta en 0,1 a 0,3 s.
-- **No se probó desde Vercel.** Desde la PC contesta sin clave y sin
-  `User-Agent`; si rechaza direcciones de afuera del país, el panel va a decir
-  que no pudo leerla y seguir con el INA.
+- **Desde la región por defecto de Vercel (Washington) Prefectura no
+  contesta**: ni rechaza, la conexión no se establece, y el panel decía «No se
+  pudo contactar a Prefectura» y seguía con el INA. Por eso `admin/vercel.json`
+  lleva `"regions": ["gru1"]` desde el 12/10/2026: desde San Pablo contesta, y
+  se comprobó en producción (las seis escalas de `/api/rio` con ~170 lecturas
+  de Prefectura cada una). **Mueve todas las funciones**, no sólo las del río:
+  Next 16 da por obsoleto `preferredRegion` por ruta. Si se saca esa línea,
+  las alturas vuelven a ser las del INA. No es un bloqueo a todo lo de afuera
+  del país: desde otro servidor extranjero contestó.
 - **El registro largo no cambió**: `barranqueras_diario.json` y
   `tramo_diario.json` salen de las series de media diaria del INA, que son
   otras que la de lecturas comparada acá. Si el defecto de fin de semana
@@ -3724,7 +3763,8 @@ límites que sólo aplica cuando se le pasa un `buf` propio. No se toca.
   - Los scripts están en `admin/scripts/inundaciones/` y usan paquetes que **no
     están en `package.json`** (geotiff, proj4, d3-contour, pngjs): se corren
     copiando la carpeta afuera del repo.
-- `docs/lluvia-pendientes.md` — lo que falta probar (IMERG, radar, kriging) con
+- `docs/lluvia-pendientes.md` — lo que falta probar (radar, kriging) y lo que
+  dio IMERG, con
   el procedimiento para medirlo
 - `docs/propuesta-ripio-presupuesto.md` — análisis de las planillas de cálculo y
   el plan de implementación

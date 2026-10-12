@@ -205,7 +205,7 @@ estación-fecha**.
 | Thiessen (estación más cercana) | 4,47 | 12,50 | 0,70 |
 | **IDW² radio 60 km** | **3,98** | **10,47** | **0,77** |
 
-### 4.3 Tres alternativas medidas y descartadas
+### 4.3 Cuatro alternativas medidas y descartadas
 
 No conviene rehacerlas: ya se probaron y salieron peor.
 
@@ -218,6 +218,15 @@ No conviene rehacerlas: ya se probaron y salieron peor.
   eventos que importan: el modelo subestima la lluvia liviana y aplasta los
   picos, con una relación aproximada `APA ≈ 2,3 · modelo^0,68`. Un factor
   multiplicativo único no puede corregir una relación no lineal.
+- **La lluvia de satélite IMERG** (NASA, 0,1°, cada media hora), medida el
+  11/10/2026 sobre 173 fechas y 12.141 combinaciones estación-fecha. Sola
+  rinde algo mejor que el modelo (MAE 5,82 contra 6,77; r 0,54 contra 0,47;
+  sesgo −2 % contra +17 %) y bastante peor que el IDW (3,87; r 0,77).
+  Corregida con los pluviómetros —IDW sobre la diferencia entre lo medido y
+  el satélite— rinde peor que el IDW solo (4,03), también donde el
+  pluviómetro más cercano está a más de 30 km. Donde llovió 20 mm o más
+  subestima un 43 %. No se incorporó: la única mejora sería como respaldo
+  fuera del radio de 60 km, y es chica.
 
 ### 4.4 Los límites de esta validación
 
