@@ -330,15 +330,44 @@ export function fechaHoraLocal(iso: string): string {
 
 // ── La red ───────────────────────────────────────────────────────────────────
 
+/**
+ * Prefectura limita los pedidos seguidos: contesta 403 al que llega pegado a
+ * otro, y si se insiste deja de aceptar la conexión de esa dirección. Se vio el
+ * 12/10/2026: en `/api/rio/arriba` Las Palmas e Isla del Cerrito no pasan por
+ * el INA, así que sus dos históricos salían uno atrás del otro y el segundo
+ * volvía 403 siempre. Con el INA en el medio —un segundo por escala— no pasa.
+ *
+ * El límite exacto no se conoce: al medirlo, quince pedidos seguidos dieron
+ * siete 403 y unas decenas más cortaron la conexión. Por eso la separación es
+ * holgada y **un 403 se reintenta una sola vez**: insistir es lo que bloquea.
+ */
+const SEPARACION_MS = 1_000
+const ESPERA_403_MS = 3_000
+
+const dormir = (ms: number) => new Promise<void>(r => setTimeout(r, ms))
+
+/** El último pedido de este proceso, para que el siguiente espere su turno */
+let turno: Promise<void> = Promise.resolve()
+
+function esperarTurno(): Promise<void> {
+  const mio = turno
+  turno = mio.then(() => dormir(SEPARACION_MS))
+  return mio
+}
+
 async function pedir(ruta: string): Promise<string> {
-  let res: Response
-  try {
-    res = await fetch(BASE + ruta, { signal: AbortSignal.timeout(ESPERA_MS), cache: 'no-store' })
-  } catch {
-    throw new Error('No se pudo contactar a Prefectura.')
+  for (let intento = 0; ; intento++) {
+    await esperarTurno()
+    let res: Response
+    try {
+      res = await fetch(BASE + ruta, { signal: AbortSignal.timeout(ESPERA_MS), cache: 'no-store' })
+    } catch {
+      throw new Error('No se pudo contactar a Prefectura.')
+    }
+    if (res.ok) return res.text()
+    if (res.status !== 403 || intento > 0) throw new Error(`Prefectura respondió ${res.status}`)
+    await dormir(ESPERA_403_MS)
   }
-  if (!res.ok) throw new Error(`Prefectura respondió ${res.status}`)
-  return res.text()
 }
 
 const conEscalas = (filas: FilaPrefectura[]) =>

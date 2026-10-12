@@ -2695,6 +2695,21 @@ De dónde sale cada cosa:
   Next 16 da por obsoleto `preferredRegion` por ruta. Si se saca esa línea,
   las alturas vuelven a ser las del INA. No es un bloqueo a todo lo de afuera
   del país: desde otro servidor extranjero contestó.
+- **Prefectura limita los pedidos seguidos, y si se insiste bloquea la
+  dirección.** Contesta 403 al pedido que llega pegado a otro: quince
+  históricos seguidos desde la PC dieron siete 403. Unas decenas más, ya con
+  403, y **dejó de aceptar la conexión** (falla el saludo TLS) — el mismo
+  síntoma que se veía desde Washington, así que aquello pudo ser una dirección
+  de Vercel bloqueada y no la región. Al 12/10/2026 no se sabe cuánto dura.
+  - En `/api/rio/arriba`, Las Palmas e Isla del Cerrito no pasan por el INA:
+    sus dos históricos salían uno atrás del otro y el segundo volvía 403
+    siempre («No se pudo leer el registro de Prefectura de Isla del Cerrito»).
+  - `pedir()` en `lib/prefectura.ts` separa los pedidos un segundo
+    (`SEPARACION_MS`) y reintenta un 403 **una sola vez**, a los tres segundos.
+    El límite exacto no se pudo medir: la medición fue lo que provocó el
+    bloqueo.
+  - **No probar Prefectura en bucle**, ni desde la PC: de a un pedido y con
+    pausa.
 - **El registro largo no cambió**: `barranqueras_diario.json` y
   `tramo_diario.json` salen de las series de media diaria del INA, que son
   otras que la de lecturas comparada acá. Si el defecto de fin de semana
