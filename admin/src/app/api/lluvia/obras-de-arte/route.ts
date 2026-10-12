@@ -23,7 +23,7 @@
 
 import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { requirePermiso, dbError } from '@/lib/apiAuth'
+import { requireLecturaHidrologia, dbError } from '@/lib/apiAuth'
 import { TIPOS_OBRA, type ObraRelevada, type TipoObra } from '@/lib/redCuencas'
 
 export const dynamic = 'force-dynamic'
@@ -31,7 +31,7 @@ export const dynamic = 'force-dynamic'
 const PAGINA = 1000
 
 export async function GET() {
-  const auth = await requirePermiso('lluvia')
+  const auth = await requireLecturaHidrologia()
   if (auth instanceof NextResponse) return auth
 
   const supabase = createServiceClient()

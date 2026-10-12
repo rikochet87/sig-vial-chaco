@@ -1,8 +1,23 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { puedeAcceder, rutaInicialPara } from '@/lib/permisos'
+import {
+  COOKIE_ENLACE, RUTA_SIN_ACCESO, enlaceVigente, esDatoDeHidrologia,
+} from '@/lib/enlacePublico'
 
 export async function middleware(request: NextRequest) {
+  const ruta = request.nextUrl.pathname
+  const enlace = request.cookies.get(COOKIE_ENLACE)?.value
+
+  // El enlace público de Hidrología: `/p/<clave>` valida y deja la cookie, y
+  // `/publico/*` se abre con ella, haya o no sesión. Ver `lib/enlacePublico.ts`.
+  if (ruta.startsWith('/p/') || ruta === RUTA_SIN_ACCESO) return NextResponse.next()
+  if (ruta.startsWith('/publico')) {
+    return (await enlaceVigente(enlace))
+      ? NextResponse.next()
+      : NextResponse.redirect(new URL(RUTA_SIN_ACCESO, request.url))
+  }
+
   let supabaseResponse = NextResponse.next({ request })
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -23,6 +38,8 @@ export async function middleware(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   const pathname = request.nextUrl.pathname
   if (!user && !pathname.startsWith('/login') && !pathname.startsWith('/acceso-denegado')) {
+    // Los archivos de `public/` que baja la pantalla pública
+    if (esDatoDeHidrologia(pathname) && await enlaceVigente(enlace)) return supabaseResponse
     return NextResponse.redirect(new URL('/login', request.url))
   }
   if (user && pathname.startsWith('/dashboard')) {

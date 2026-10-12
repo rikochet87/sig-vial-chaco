@@ -27,7 +27,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { requirePermiso, dbError } from '@/lib/apiAuth'
+import { requireLecturaHidrologia, dbError } from '@/lib/apiAuth'
 import { hace, aISO } from '@/lib/lluvia'
 import { ESTACIONES_ACTIVAS } from '@/data/estacionesApa'
 import { fechasApa } from '@/lib/apa'
@@ -42,7 +42,7 @@ const FECHA = /^\d{4}-\d{2}-\d{2}$/
 
 export async function GET(req: NextRequest) {
   // El permiso de la pantalla que la consume, no la sesión a secas.
-  const auth = await requirePermiso('lluvia')
+  const auth = await requireLecturaHidrologia()
   if (auth instanceof NextResponse) return auth
 
   const { searchParams } = new URL(req.url)

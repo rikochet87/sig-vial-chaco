@@ -8,13 +8,13 @@
  * abre cualquiera que entra al panel.
  */
 import { NextResponse } from 'next/server'
-import { requireAlgunPermiso } from '@/lib/apiAuth'
+import { requireLecturaHidrologia } from '@/lib/apiAuth'
 import { consultarTiempo, CACHE_TIEMPO_S } from '@/lib/tiempoFuente'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
-  const auth = await requireAlgunPermiso(['dashboard', 'lluvia'])
+  const auth = await requireLecturaHidrologia(['dashboard', 'lluvia'])
   if (auth instanceof NextResponse) return auth
   try {
     return NextResponse.json(await consultarTiempo(), {

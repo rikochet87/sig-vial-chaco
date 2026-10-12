@@ -22,6 +22,7 @@ import {
   type ObraRelevada, type ObrasDeCuenca, type RedDeCuenca,
 } from '@/lib/redCuencas'
 import type { MedicionConNombre } from '@/lib/thiessenAreal'
+import { useUser } from '@/lib/UserContext'
 import { bajarCsv, boton, fCorta, nKm, nMm, td, tdD, th, thD } from './piezas'
 
 /** Cuántas obras se listan al abrir una cuenca */
@@ -178,6 +179,7 @@ function FilaRed({ f, obras, hayLluvia, cargandoObras, abierta, onClick }: {
   abierta: boolean
   onClick: () => void
 }) {
+  const verFicha = useUser().hasPermiso('relevamientos')
   const afuera = f.cod === 0
   const columnas = 4 + UMBRALES_KM.length + 1 + TIPOS_OBRA.length
   const lista = obras?.obras ?? []
@@ -239,11 +241,14 @@ function FilaRed({ f, obras, hayLluvia, cargandoObras, abierta, onClick }: {
                         {!hayLluvia ? '—' : o.mm === null ? 'sin dato' : `${nMm(o.mm)} mm`}
                       </td>
                       <td style={tdD}>
+                        {/* La ficha es de Relevamientos: sin ese permiso —o desde el enlace público— no hay adónde ir */}
+                        {verFicha && (
                         <a href={`/dashboard/relevamientos/${o.id}`} onClick={e => e.stopPropagation()}
                           style={{ color: '#F5C300', fontSize: 11, letterSpacing: 0.8,
                             textTransform: 'uppercase', textDecoration: 'none' }}>
                           Ver →
                         </a>
+                        )}
                       </td>
                     </tr>
                   ))}

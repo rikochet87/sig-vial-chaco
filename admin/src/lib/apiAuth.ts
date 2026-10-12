@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { cookies } from 'next/headers'
 import { tienePermiso, type PermisoKey } from '@/lib/permisos'
+import { COOKIE_ENLACE, enlaceVigente } from '@/lib/enlacePublico'
 
 /**
  * Verifica que el request tenga una sesión de Supabase válida.
@@ -109,6 +111,23 @@ export async function requireAlgunPermiso(
     )
   }
   return auth
+}
+
+/**
+ * Para las rutas de **lectura** de Hidrología: pasa quien tiene el permiso, y
+ * también quien llega con un enlace público vigente (`lib/enlacePublico.ts`),
+ * que no tiene cuenta — por eso `userId` puede ser `null`.
+ *
+ * Sólo para GET que no escriben ni gastan cupo por pedido. Lo que importa,
+ * descarga o guarda sigue con `requireAdminRole()`, y la pestaña Precisión
+ * (`/api/lluvia/mediciones`) no está en el enlace.
+ */
+export async function requireLecturaHidrologia(
+  claves: PermisoKey[] = ['lluvia'],
+): Promise<{ userId: string | null } | NextResponse> {
+  const enlace = (await cookies()).get(COOKIE_ENLACE)?.value
+  if (await enlaceVigente(enlace)) return { userId: null }
+  return requireAlgunPermiso(claves)
 }
 
 /**

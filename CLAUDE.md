@@ -337,6 +337,47 @@ la fila de perfil —el contexto además con `hasPermiso: () => true`—. El ser
 no se dejaba engañar, pero la interfaz mostraba los controles de administrador.
 Un dato ausente tiene que significar no poder hacer nada.
 
+### Enlaces públicos de Hidrología
+
+`lib/enlacePublico.ts`, desde el 12/10/2026. Quien tiene un enlace ve la
+sección Hidrología **sin cuenta**: sólo lectura, sin la pestaña Precisión y sin
+ninguna otra parte del panel. Se crean, se copian y se dan de baja en Usuarios →
+«Enlaces públicos» (`dashboard/tecnicos/EnlacesPublicos.tsx`), uno por
+destinatario para poder cortar uno sin tocar los demás.
+
+- **El enlace es `/p/<clave>`**: valida la clave, la deja en la cookie
+  `sv_enlace` (seis meses) y pasa a `/publico/hidrologia`. De ahí en más la
+  cookie autoriza tres cosas, y las tres preguntan con el mismo
+  `enlaceVigente()`:
+  - la página, en el `middleware.ts`;
+  - los archivos de `public/geo`, `public/rio` y `public/lluvia`, que el
+    middleware no le sirve a quien no tiene sesión;
+  - las doce rutas de lectura, con `requireLecturaHidrologia()` de
+    `apiAuth.ts`: permiso `lluvia` **o** enlace vigente.
+- **Lo que no abre**: `/api/lluvia/mediciones` (Precisión), la ingesta, la
+  importación y el registro del pronóstico, que siguen con sus guards. Al
+  agregar una ruta a Hidrología hay que decidir si entra en el enlace:
+  `requireLecturaHidrologia()` es sólo para GET que no escriben.
+- **La pantalla es el mismo componente** (`components/hidrologia/Hidrologia.tsx`,
+  con `publico`); `dashboard/lluvia/page.tsx` quedó como envoltorio. La página
+  pública le arma un `UserProvider` con un visitante sin rol ni permisos, así
+  que ningún control de administrador aparece, y el enlace «Ver» de una obra
+  de arte en Cuencas se muestra sólo con el permiso `relevamientos`.
+- **Sí muestra las obras de arte relevadas** (tipo, coordenada y ruta) en
+  Cuencas: se pidió la sección completa.
+- **La clave va en claro en `enlaces_publicos`** (`docs/sql/14-enlaces-publicos.sql`)
+  para poder volver a copiar el enlace desde la lista. La tabla tiene RLS sin
+  políticas. Dar de baja le pone fecha, no borra.
+- **La respuesta se recuerda un minuto por proceso**: una página son veinte
+  pedidos preguntando lo mismo. Es también lo que puede tardar en cortarse un
+  enlace dado de baja. Las respuestas de las rutas del río y del tiempo además
+  quedan en la caché de Vercel (media hora, una hora).
+- **`enlacePublico.ts` no importa nada de Node** —lo usa el middleware— y lee la
+  tabla con `fetch` contra la API REST de Supabase.
+- **Sin límite de pedidos propio.** Las rutas del río aceptan `dias` y cada
+  valor distinto es un pedido nuevo a Prefectura, que bloquea si se insiste. Si
+  un enlace se usa mal, se da de baja.
+
 ### Relevamientos de gabinete
 
 `/dashboard/relevamientos/nuevo` — el formulario de la app de campo, cargado

@@ -11,13 +11,13 @@
  * los avisos sueltos que no se pudieron leer.
  */
 import { NextResponse } from 'next/server'
-import { requireAlgunPermiso } from '@/lib/apiAuth'
+import { requireLecturaHidrologia } from '@/lib/apiAuth'
 import { consultarAlertas, CACHE_ALERTAS_S } from '@/lib/tiempoFuente'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
-  const auth = await requireAlgunPermiso(['dashboard', 'lluvia'])
+  const auth = await requireLecturaHidrologia(['dashboard', 'lluvia'])
   if (auth instanceof NextResponse) return auth
   try {
     const r = await consultarAlertas()

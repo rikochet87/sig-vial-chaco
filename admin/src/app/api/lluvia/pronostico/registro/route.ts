@@ -15,7 +15,7 @@
  */
 import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { requireAdminRole, requirePermiso, dbError } from '@/lib/apiAuth'
+import { requireAdminRole, requireLecturaHidrologia, dbError } from '@/lib/apiAuth'
 import { estadoRegistro, registrarPronostico } from '@/lib/pronosticoRegistro'
 
 export const dynamic = 'force-dynamic'
@@ -32,7 +32,7 @@ const errorDe = (e: unknown, donde: string) => {
 }
 
 export async function GET() {
-  const auth = await requirePermiso('lluvia')
+  const auth = await requireLecturaHidrologia()
   if (auth instanceof NextResponse) return auth
   try {
     return NextResponse.json(await estadoRegistro(createServiceClient()))

@@ -1,0 +1,732 @@
+'use client'
+/**
+ * Hidrología — cuántos milímetros cayeron y dónde, y por dónde corre el agua.
+ *
+ * La sección se llamó «Lluvias» hasta que dejó de ser sólo eso: hoy tiene las
+ * cuencas, los cursos de agua y el río Paraná. El nombre que ve el usuario es
+ * «Hidrología»; la ruta (`/dashboard/lluvia`) y la clave del permiso (`lluvia`)
+ * siguen igual, porque cambiarlas rompe enlaces guardados y obliga a tocar los
+ * permisos de cada usuario en la base.
+ *
+ * El caso de uso que manda es el de después de la tormenta: entrar y ver de un
+ * vistazo sobre qué parte de la red vial cayó el agua. Por eso la pantalla abre
+ * con el último episodio detectado y no con un rango arbitrario: lo que se
+ * quiere mirar es el evento, que puede haber durado dos o tres días.
+ *
+ * El número baja hasta el camino, no se queda en el consorcio: un consorcio
+ * puede tener 250 km y una tormenta mojar una punta y no la otra.
+ *
+ * Los otros dos usos salen de los mismos datos: el rango libre sirve para
+ * documentar las fechas de una obra, y el acumulado por consorcio es el
+ * histórico que se va juntando solo con el cron diario.
+ *
+ * Es un componente y no la página porque se monta en dos lugares: en el panel
+ * (`/dashboard/lluvia`) y, con `publico`, en `/publico/hidrologia`, que se abre
+ * con un enlace y sin cuenta. Ahí no va la pestaña Precisión ni nada que
+ * escriba: quien mira no es administrador y los botones no aparecen.
+ */
+
+import { useSearchParams } from 'next/navigation'
+import { useEffect, useMemo, useState, useCallback } from 'react'
+import dynamic from 'next/dynamic'
+import { useUser } from '@/lib/UserContext'
+import {
+  clasificar, rangoLluvia, hace, aISO, mmRedondeado,
+  type ResumenConsorcio, type Episodio,
+} from '@/lib/lluvia'
+
+import type { EstacionLluvia } from '@/components/MapaLluvia'
+import { useRedLluvia } from '@/hooks/useRedLluvia'
+import { useCuencasLluvia } from '@/hooks/useCuencasLluvia'
+import PanelMediaAreal from '@/components/PanelMediaAreal'
+import PanelRio from '@/components/PanelRio'
+import PanelTiempo from '@/components/tiempo/PanelTiempo'
+import PanelCuencas from '@/components/PanelCuencas'
+import PanelInundaciones from '@/components/inundaciones/PanelInundaciones'
+import ListaCuencas from '@/components/cuencas/ListaCuencas'
+import { csvTramos } from '@/lib/redLluvia'
+import SelectorPeriodo, { type PuntoSerie, type Cobertura } from '@/components/SelectorPeriodo'
+
+const PanelMediciones = dynamic(() => import('@/components/PanelMediciones'), { ssr: false })
+
+const MapaLluvia = dynamic(() => import('@/components/MapaLluvia'), {
+  ssr: false,
+  loading: () => <div style={{ ...mono, color: '#8f8f8f', fontSize: 13, padding: 20 }}>Cargando mapa…</div>,
+})
+
+const mono: React.CSSProperties = { fontFamily: 'monospace' }
+const lbl: React.CSSProperties = {
+  display: 'block', fontSize: 12, color: '#8f8f8f', textTransform: 'uppercase',
+  letterSpacing: 0.8, ...mono, marginBottom: 4,
+}
+const inp: React.CSSProperties = {
+  background: '#0a0a0a', border: '1px solid #222', color: '#ddd',
+  padding: '6px 9px', fontSize: 13, ...mono, outline: 'none', borderRadius: 2,
+}
+
+const fmtFecha = (f: string) => f.split('-').reverse().join('/')
+
+type Orden = 'mm' | 'pico' | 'numero'
+
+/**
+ * Las pestañas de la pantalla.
+ *
+ * Antes todo iba apilado: el mapa, y debajo —en renglones plegados— el río, las
+ * cuencas y la comparación de métodos. El mapa quedaba con 418 px de alto en un
+ * monitor de 1080, tan bajo que el encuadre de la provincia caía un nivel de
+ * zoom y el Chaco se veía chiquito en medio de medio continente; y las tablas
+ * de cuencas, que son tres, vivían al fondo de la página adentro de un renglón.
+ * Cada cosa tiene ahora la pantalla entera.
+ */
+const VISTAS = [
+  ['mapa', 'Mapa'], ['cuencas', 'Cuencas'], ['rio', 'Río Paraná'], ['inundables', 'Gran Resistencia'],
+  ['tiempo', 'Tiempo'], ['precision', 'Precisión'],
+] as const
+type Vista = typeof VISTAS[number][0]
+
+export default function Hidrologia({ publico = false }: { publico?: boolean }) {
+  const { profile } = useUser()
+  const esAdmin = !publico && profile?.rol === 'admin'
+  const vistas = publico ? VISTAS.filter(([k]) => k !== 'precision') : VISTAS
+
+  // hace(6), no hace(7): el rango se cuenta inclusive, así que desde hoy menos
+  // seis hay siete días. Ver el comentario de los presets más abajo.
+  const [desde, setDesde] = useState(hace(6))
+  const [hasta, setHasta] = useState(aISO(new Date()))
+  const [datos, setDatos] = useState<ResumenConsorcio[]>([])
+  const [episodios, setEpisodios] = useState<Episodio[]>([])
+  const [ultimaCarga, setUltimaCarga] = useState<string | null>(null)
+  const [cargando, setCargando] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [seleccionado, setSeleccionado] = useState<number | null>(null)
+  const [orden, setOrden] = useState<Orden>('mm')
+  /** Días del período con serie, interpolados y sin parte. Va declarado
+   *  acá arriba porque `cargar()` lo usa: si se declara más abajo, se lee
+   *  antes de existir y el compilador de React lo marca. */
+  const [cobertura, setCobertura] = useState<Cobertura | null>(null)
+  const [ingiriendo, setIngiriendo] = useState(false)
+  const [progreso, setProgreso] = useState<
+    { hecho: number; total: number; desde: string; hasta: string } | null
+  >(null)
+  const [autoEpisodio, setAutoEpisodio] = useState(true)
+  /*
+   * La pestaña sale de la URL (`?vista=tiempo`) y se escribe en ella al
+   * cambiar: así la tarjeta del Dashboard abre directo en Tiempo, y cualquier
+   * pestaña se puede compartir con un enlace. El panel se renderiza por pedido
+   * —el layout lee la sesión—, así que el servidor ya ve el parámetro y no hay
+   * desajuste de hidratación.
+   */
+  const params = useSearchParams()
+  const [vista, setVista] = useState<Vista>(() => {
+    const v = params.get('vista')
+    return vistas.some(([k]) => k === v) ? (v as Vista) : 'mapa'
+  })
+  const elegirVista = (v: Vista) => {
+    setVista(v)
+    window.history.replaceState(null, '', v === 'mapa' ? window.location.pathname : `?vista=${v}`)
+  }
+  /** Qué se lista al lado del mapa, y la cuenca elegida ahí */
+  const [lista, setLista] = useState<'consorcios' | 'cuencas'>('consorcios')
+  const [cuencaSel, setCuencaSel] = useState<number | null>(null)
+
+  const cargar = useCallback(async (d: string, h: string) => {
+    setCargando(true); setError(null)
+    try {
+      const r = await fetch(`/api/lluvia?desde=${d}&hasta=${h}`)
+      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error ?? 'No se pudo consultar')
+      const j = await r.json()
+      setDatos(j.consorcios ?? [])
+      setEpisodios(j.episodios ?? [])
+      setUltimaCarga(j.ultimaFechaCargada ?? null)
+      setCobertura(j.cobertura ?? null)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Error al consultar')
+      setDatos([])
+    } finally {
+      setCargando(false)
+    }
+  }, [])
+
+  useEffect(() => { cargar(desde, hasta) }, [cargar, desde, hasta])
+
+  /**
+   * Las mediciones de la APA del período, para las isohietas.
+   *
+   * Va aparte de `cargar` a propósito: son 71 números y el mapa los usa sólo si
+   * el usuario prende la capa, así que si esta consulta falla no tiene que
+   * arrastrar al resto de la pantalla.
+   */
+  /** Desde cuántos mm se resaltan los caminos en el mapa */
+  const [umbral, setUmbral] = useState(0)
+
+  /**
+   * La lámina máxima diaria de los últimos 90 días, para la línea de tiempo.
+   *
+   * Va por su propia ruta y no por `/api/lluvia`: la línea muestra más días que
+   * el rango elegido —su gracia es ver dónde cae el período dentro de los
+   * últimos meses— y pedirlo al endpoint grande sería traer el resumen de 103
+   * consorcios por 90 días para quedarse con un número por fecha.
+   */
+  const [serie, setSerie] = useState<PuntoSerie[]>([])
+  useEffect(() => {
+    let vivo = true
+    fetch('/api/lluvia/serie?dias=90')
+      .then(r => (r.ok ? r.json() : null))
+      .then(j => { if (vivo) setSerie(j?.serie ?? []) })
+      .catch(() => { /* sin línea de tiempo la pantalla sigue sirviendo */ })
+    return () => { vivo = false }
+  }, [ultimaCarga])
+
+
+  const [estaciones, setEstaciones] = useState<EstacionLluvia[]>([])
+  useEffect(() => {
+    let vivo = true
+    fetch(`/api/lluvia/estaciones?desde=${desde}&hasta=${hasta}`)
+      .then(r => (r.ok ? r.json() : null))
+      .then(j => { if (vivo) setEstaciones(j?.estaciones ?? []) })
+      .catch(() => { if (vivo) setEstaciones([]) })
+    return () => { vivo = false }
+  }, [desde, hasta])
+
+  /**
+   * La lluvia bajada al camino.
+   *
+   * Es el mismo IDW que alimenta la tabla por consorcio, pero evaluado sobre la
+   * traza de cada tramo en vez del centro de la red. Un consorcio puede tener
+   * 250 km y una tormenta mojar una punta y no la otra; el promedio lo tapaba.
+   */
+  const { tramos, lluvia, arealProvincia, arealPorCC,
+    error: errorRed, reintentar: reintentarRed } = useRedLluvia(estaciones)
+
+  // Las cuencas se piden recién cuando alguien las mira: en su pestaña o en la
+  // lista de al lado del mapa.
+  /** La capa de cuencas del mapa está prendida: la lectura del punto necesita la lámina */
+  const [capaCuencas, setCapaCuencas] = useState(false)
+  const datosCuencas = useCuencasLluvia(
+    estaciones, vista === 'cuencas' || lista === 'cuencas' || capaCuencas)
+
+  /** Descargar la lista completa de tramos con su lluvia */
+  const descargarCsv = () => {
+    const csv = csvTramos(tramos, lluvia, { desde, hasta })
+    // El BOM es lo que hace que Excel en español abra los acentos bien
+    const url = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' }))
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `lluvia-por-camino_${desde}_a_${hasta}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  /**
+   * Al entrar, saltar al último episodio en vez de quedarse en "los últimos 7
+   * días": si la tormenta fue el martes y hoy es viernes, el acumulado semanal
+   * dice lo mismo pero el rango del evento es lo que se quiere ver y citar.
+   */
+  useEffect(() => {
+    if (!autoEpisodio || cargando || episodios.length === 0) return
+    const e = episodios[0]
+    setAutoEpisodio(false)
+    if (e.desde !== desde || e.hasta !== hasta) { setDesde(e.desde); setHasta(e.hasta) }
+  }, [autoEpisodio, cargando, episodios, desde, hasta])
+
+  const ordenados = useMemo(() => {
+    const xs = [...datos]
+    if (orden === 'mm')     xs.sort((a, b) => b.mm - a.mm || a.numero - b.numero)
+    if (orden === 'pico')   xs.sort((a, b) => b.mmMaxDia - a.mmMaxDia || a.numero - b.numero)
+    if (orden === 'numero') xs.sort((a, b) => a.numero - b.numero)
+    return xs
+  }, [datos, orden])
+
+  const conDato = datos.filter(d => d.mm > 0)
+  const mayor   = conDato.length
+    ? conDato.reduce((a, b) => (b.mm > a.mm ? b : a))
+    : null
+  const maximo  = conDato.length ? Math.max(...conDato.map(d => d.mm)) : 0
+  const promedio = conDato.length ? conDato.reduce((s, d) => s + d.mm, 0) / conDato.length : 0
+  const afectados = datos.filter(d => d.mm >= 40).length
+
+  /**
+   * Trae el rango en ventanas de dos semanas, de a una.
+   *
+   * El servicio cobra una llamada por ubicación y corta en 600 por minuto: con
+   * ~450 puntos, una ventana de 14 días entra justa y un mes entero no. Antes
+   * un rango largo moría con un 429 y el mensaje crudo del servicio; ahora se
+   * parte solo, se espera entre ventanas y se ve el avance.
+   *
+   * Cada ventana se guarda apenas llega, así que si se corta a la mitad lo
+   * cargado queda: al reintentar sólo se repite lo que falta.
+   */
+  async function ingerir() {
+    const VENTANA_DIAS = 14
+    const PAUSA_MS = 20_000   // el cupo se libera por minuto
+
+    const dia = 86_400_000
+    const ventanas: [string, string][] = []
+    for (let t = Date.parse(desde); t <= Date.parse(hasta); t += VENTANA_DIAS * dia) {
+      const fin = Math.min(t + (VENTANA_DIAS - 1) * dia, Date.parse(hasta))
+      ventanas.push([aISO(new Date(t)), aISO(new Date(fin))])
+    }
+
+    setIngiriendo(true); setError(null); setProgreso(null)
+    try {
+      for (let i = 0; i < ventanas.length; i++) {
+        const [d, h] = ventanas[i]
+        setProgreso({ hecho: i, total: ventanas.length, desde: d, hasta: h })
+
+        const r = await fetch(`/api/lluvia/ingesta?desde=${d}&hasta=${h}`, { method: 'POST' })
+        const j = await r.json().catch(() => ({}))
+        if (!r.ok) throw new Error(j.error ?? 'No se pudo actualizar')
+
+        // Entre ventanas hay que dejar respirar al cupo; en la última no
+        if (i < ventanas.length - 1) await new Promise(res => setTimeout(res, PAUSA_MS))
+      }
+      setProgreso(null)
+      await cargar(desde, hasta)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Error al actualizar')
+      // Lo que alcanzó a cargarse ya está guardado: mostrarlo
+      await cargar(desde, hasta)
+    } finally {
+      setIngiriendo(false)
+      setProgreso(null)
+    }
+  }
+
+  /**
+   * Recalcula la fusión sin volver a pedirle nada a Open-Meteo.
+   *
+   * Los milímetros del modelo ya están guardados; lo único que falta es cruzarlos
+   * con los partes de la APA. Por eso este botón no dispara la ingesta completa,
+   * que tardaría minutos y gastaría cupo para traer lo que ya está.
+   */
+  const [recalculando, setRecalculando] = useState(false)
+  async function recalcularFusion() {
+    setRecalculando(true); setError(null)
+    try {
+      const r = await fetch(`/api/lluvia/ingesta?soloFusion=1&desde=${desde}&hasta=${hasta}`,
+        { method: 'POST' })
+      const j = await r.json().catch(() => ({}))
+      // El código de Postgres ayuda a distinguir un tiempo agotado de un error
+      // real sin tener que mirar el log del servidor
+      if (!r.ok) throw new Error((j.error ?? 'No se pudo interpolar') + (j.codigo ? ` (${j.codigo})` : ''))
+      await cargar(desde, hasta)
+      if (!j.filas) {
+        setError(j.sinCambio
+          ? `Ya estaba interpolado: ${j.sinCambio.toLocaleString('es-AR')} filas sin cambios.`
+          : j.aviso ?? 'No había nada para interpolar en ese rango.')
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Error al recalcular')
+    } finally { setRecalculando(false) }
+  }
+
+  const hoy = aISO(new Date())
+  const desactualizado = ultimaCarga !== null && ultimaCarga < hace(1)
+
+  /**
+   * Si más de la mitad de los consorcios todavía no se cruzó con los
+   * pluviómetros, lo que se está mirando es el modelo crudo. Se avisa arriba en
+   * vez de dejarlo escondido en el globo de cada uno de los 103 círculos.
+   */
+  /**
+   * Dos estados que se veían igual y no lo son.
+   *
+   * `sin_calcular` se arregla recalculando: hay parte de la APA y esa fila
+   * todavía no se cruzó con él. `sin_parte` no: ese día la APA no publicó nada,
+   * así que no hay pluviómetro con qué cruzar y el botón no puede hacer nada.
+   *
+   * Mezclarlos hacía que el cartel ofreciera «Recalcular», que uno lo apretara,
+   * que el recálculo hiciera bien su trabajo — y que el cartel volviera igual,
+   * porque los días sin parte seguían ahí y siempre van a seguir.
+   */
+  const sinRecalcular = datos.length > 0
+    && datos.filter(d => d.procedencia === 'sin_calcular').length > datos.length / 2
+  const sinParte = datos.length > 0 && !sinRecalcular
+    && datos.filter(d => d.procedencia === 'sin_parte').length > datos.length / 2
+  /**
+   * Los números del período son del modelo, no de los pluviómetros: la mayoría
+   * de los consorcios no tiene nada medido o interpolado detrás.
+   */
+  const delModelo = datos.length > 0
+    && datos.filter(d => d.procedencia === 'medido' || d.procedencia === 'interpolado').length <= datos.length / 2
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column',
+      // Alto **definido** más `overflow: auto`, no `minHeight`.
+      //
+      // Con `minHeight` la cadena flex se queda sin altura definida, y entonces
+      // el `overflowY: auto` de la lista de consorcios no se activa nunca: la
+      // lista crece, estira la fila del mapa y la página se va a cualquier lado.
+      // Con alto fijo la lista scrollea adentro, que es lo que corresponde; y el
+      // `overflow: auto` de acá es la red de contención para cuando los
+      // controles de arriba crecen tanto que el mapa no entra en su piso.
+      height: 'calc(100vh - 60px)', overflow: 'auto' }}>
+
+      {/* Encabezado */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 10, flexShrink: 0 }}>
+        <h1 style={{ color: '#e0e0e0', fontSize: 20, fontWeight: 700, letterSpacing: 0.5, ...mono, margin: 0 }}>
+          Hidrología
+        </h1>
+        <div style={{ display: 'flex', border: '1px solid #252525' }}>
+          {vistas.map(([v, t]) => (
+            <button key={v} onClick={() => elegirVista(v)} style={{
+              ...mono, fontSize: 13, padding: '5px 14px', cursor: 'pointer',
+              border: 'none', letterSpacing: 0.5,
+              background: vista === v ? '#1e1e1e' : 'transparent',
+              color: vista === v ? '#F5C300' : '#8f8f8f',
+              borderBottom: `2px solid ${vista === v ? '#F5C300' : 'transparent'}`,
+            }}>{t}</button>
+          ))}
+        </div>
+      </div>
+
+      {/*
+        Precisión habla de los métodos, no de un período: la comparación entre
+        IDW y Thiessen va acá, y sigue al consorcio elegido en el mapa.
+      */}
+      {vista === 'precision' && !publico && (
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+          <PanelMediaAreal
+            ambito={seleccionado === null
+              ? 'toda la red de la provincia'
+              : `la red del consorcio Nº ${seleccionado}`}
+            mmIdw={seleccionado === null
+              ? (datos.length ? datos.reduce((s, c) => s + c.mm, 0) / datos.length : null)
+              : (datos.find(c => c.numero === seleccionado)?.mm ?? null)}
+            porLongitud={seleccionado === null
+              ? (arealProvincia?.porLongitud ?? null)
+              : (arealPorCC.get(seleccionado) ?? null)}
+            porSuperficie={seleccionado === null ? (arealProvincia?.porSuperficie ?? null) : null}
+          />
+          <div style={{ height: 4 }} />
+          <PanelMediciones esAdmin={esAdmin} />
+        </div>
+      )}
+
+      {/*
+        Tiempo mira hacia adelante —alertas del SMN y pronóstico por consorcio—,
+        así que tampoco lleva el selector de período.
+      */}
+      {vista === 'tiempo' && (
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+          <PanelTiempo />
+        </div>
+      )}
+
+      {/*
+        Las áreas inundables del Gran Resistencia tampoco llevan el selector:
+        no miran un período de lluvia sino un escenario —una altura del río—
+        que se elige en su propio panel.
+      */}
+      {vista === 'inundables' && <PanelInundaciones tramos={tramos} />}
+
+      {/* El período es común a las tres pestañas que miran lluvia */}
+      {vista !== 'precision' && vista !== 'tiempo' && vista !== 'inundables' && (<>
+
+      <SelectorPeriodo
+        desde={desde} hasta={hasta} hoy={hoy}
+        episodios={episodios} serie={serie} cobertura={cobertura}
+        esAdmin={esAdmin}
+        onRango={(d, h) => { setAutoEpisodio(false); setDesde(d); setHasta(h) }}
+        onDescargar={ingerir} onInterpolar={recalcularFusion}
+        descargando={ingiriendo} interpolando={recalculando} progreso={progreso}
+        onDescargarCsv={tramos.length > 0 && lluvia.length > 0 ? descargarCsv : undefined}
+      />
+
+      {/* Avance de la carga */}
+      {progreso && (
+        <div style={{
+          ...mono, fontSize: 13, color: '#7BC47F', background: '#0a1408',
+          border: '1px solid #2e6b3e', padding: '9px 13px', marginBottom: 12,
+          flexShrink: 0, lineHeight: 1.5,
+        }}>
+          Trayendo {fmtFecha(progreso.desde)} → {fmtFecha(progreso.hasta)} · ventana{' '}
+          {progreso.hecho + 1} de {progreso.total}
+          <div style={{ height: 3, background: '#1a2a1a', marginTop: 7 }}>
+            <div style={{
+              height: '100%', background: '#2e6b3e',
+              width: `${(progreso.hecho / progreso.total) * 100}%`,
+              transition: 'width .3s',
+            }} />
+          </div>
+          <div style={{ color: '#4a6a4a', fontSize: 12, marginTop: 6 }}>
+            Va de a dos semanas con una pausa entre medio, porque el servicio limita
+            las consultas por minuto. Cada ventana se guarda apenas llega: si cortás,
+            no se pierde lo cargado.
+          </div>
+        </div>
+      )}
+
+      {/* Avisos */}
+      {error && (
+        <div style={{ ...mono, fontSize: 13, color: '#E57373', background: '#1a0c0c',
+          border: '1px solid #5a2222', padding: '8px 12px', marginBottom: 12, flexShrink: 0 }}>
+          {error}
+        </div>
+      )}
+      {!error && ultimaCarga === null && !cargando && (
+        <div style={{ ...mono, fontSize: 13, color: '#F5C300', background: '#2a1f00',
+          border: '1px solid #5a4400', padding: '9px 13px', marginBottom: 12, flexShrink: 0, lineHeight: 1.5 }}>
+          Todavía no hay datos cargados.{esAdmin
+            ? ' Apretá «Actualizar rango» para traer el período, o esperá a que corra la carga automática de mañana.'
+            : ' La carga automática corre cada mañana.'}
+        </div>
+      )}
+      {!error && desactualizado && (
+        <div style={{ ...mono, fontSize: 13, color: '#E8833A', background: '#1a1206',
+          border: '1px solid #5a3a00', padding: '8px 12px', marginBottom: 12, flexShrink: 0 }}>
+          El último día cargado es el {fmtFecha(ultimaCarga!)}. La carga automática puede haberse salteado.
+        </div>
+      )}
+
+      {/*
+        Este aviso es **sólo para quien no es admin**. El admin ya tiene la
+        franja de datos del selector, que dice lo mismo con más detalle y con el
+        botón al lado; repetirlo eran 53 px de alto que le sacaban al mapa. Pero
+        el usuario de oficina no ve esa franja y sí tiene que saber qué está
+        leyendo.
+      */}
+      {!error && !cargando && sinRecalcular && !esAdmin && (
+        <div style={{ ...mono, fontSize: 13, color: '#bdbdbd', background: '#17191a',
+          border: '1px solid #33383a', padding: '9px 12px', marginBottom: 12, flexShrink: 0,
+          lineHeight: 1.6 }}>
+          Estas láminas son <b style={{ color: '#e0e0e0' }}>la estimación del modelo</b>:
+          el período tiene partes de la APA pero todavía no se interpolaron.
+          {esAdmin && ' Usá «Interpolar pluviómetros» arriba.'}
+        </div>
+      )}
+
+      {/*
+        Sin parte no hay nada que recalcular, así que este cartel no lleva
+        botón: ofrecer uno que no puede cambiar nada fue el error anterior.
+      */}
+      {!error && !cargando && sinParte && !esAdmin && (
+        <div style={{ ...mono, fontSize: 13, color: '#9aa0a6', background: '#141618',
+          border: '1px solid #282c2e', padding: '9px 12px', marginBottom: 12, flexShrink: 0,
+          lineHeight: 1.6 }}>
+          En el grueso de este período <b style={{ color: '#c4c4c4' }}>la APA no publicó
+          parte</b>, así que no hay pluviómetros que interpolar y estas láminas son la
+          estimación del modelo. No se arregla recalculando: el dato no existe.
+        </div>
+      )}
+
+      {/*
+        Una frase en vez de tres tarjetas de números.
+        Máximo, promedio y "consorcios sobre 40 mm" son los mismos datos, pero
+        sueltos obligan a interpretarlos; en una oración se leen de corrido.
+      */}
+      {vista === 'mapa' && !cargando && conDato.length > 0 && !delModelo && (
+        <div style={{
+          ...mono, fontSize: 13, lineHeight: 1.5, color: '#d8d8d8', flexShrink: 0,
+          background: '#191919', borderLeft: '3px solid #F5C300',
+          padding: '7px 12px', marginBottom: 10,
+        }}>
+          {desde === hasta
+            ? <>El <b style={{ color: '#fff' }}>{fmtFecha(desde)}</b> </>
+            : <>Entre el <b style={{ color: '#fff' }}>{fmtFecha(desde)}</b> y el{' '}
+               <b style={{ color: '#fff' }}>{fmtFecha(hasta)}</b> </>}
+          llovió en <b style={{ color: '#fff' }}>{conDato.length}</b> de los {datos.length}{' '}
+          consorcios. La lámina areal máxima fue de{' '}
+          <b style={{ color: '#F5C300' }}>{mmRedondeado(maximo)}</b>
+          {mayor && <> en el <b style={{ color: '#fff' }}>CC N° {mayor.numero}</b></>}
+          {afectados > 0
+            ? <>, y <b style={{ color: '#E8833A' }}>{afectados}</b>{' '}
+               {afectados === 1 ? 'pasó' : 'pasaron'} los 40 mm.</>
+            : <>, y ninguno pasó los 40 mm.</>}
+        </div>
+      )}
+
+
+      {/*
+        Sin parte de la APA el número es el del modelo, y el modelo da algo de
+        lluvia casi en todos lados: decir «llovió en 103 de 103» con eso era
+        afirmar una medición que no existe. El 07/10/2026 el modelo daba 50 mm
+        en el CC 108 y la APA, cuando publicó, 13 como máximo y sólo en el este.
+      */}
+      {vista === 'mapa' && !cargando && conDato.length > 0 && delModelo && (
+        <div style={{
+          ...mono, fontSize: 13, lineHeight: 1.5, color: '#bdbdbd', flexShrink: 0,
+          background: '#191919', borderLeft: '3px solid #8f8f8f',
+          padding: '7px 12px', marginBottom: 10,
+        }}>
+          {(cobertura?.interpolados ?? 0) === 0
+            ? <b style={{ color: '#e0e0e0' }}>Sin parte de la APA para {desde === hasta ? 'este día' : 'estos días'}:
+                no hay lluvia medida.</b>
+            : <b style={{ color: '#e0e0e0' }}>La mayor parte de estos milímetros no tiene parte de la APA detrás.</b>}
+          {' '}Lo que se ve en la lista es la estimación del modelo, que
+          da lluvia en {conDato.length} de los {datos.length} consorcios y hasta{' '}
+          {mmRedondeado(maximo)}{mayor && <> en el CC N° {mayor.numero}</>}. No es una medición
+          y suele exagerar: la APA publica parte los días que llueve, y si no lo hizo lo más
+          probable es que haya llovido poco.
+          {esAdmin && ' Si la APA ya lo publicó, aparece el botón «Interpolar» en la franja de datos.'}
+        </div>
+      )}
+
+      {vista === 'cuencas' && (
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+          <PanelCuencas datos={datosCuencas} estaciones={estaciones} desde={desde} hasta={hasta}
+            hoy={hoy} tramos={tramos} lluviaTramos={lluvia} />
+        </div>
+      )}
+
+      {/*
+        El río va en su pestaña y abierto: es la otra amenaza, no una segunda
+        lectura de la lluvia. Comparte el período elegido para ver si coinciden.
+      */}
+      {vista === 'rio' && (
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+          <PanelRio abiertoInicial dias={90} desde={desde} hasta={hasta} />
+        </div>
+      )}
+
+      {/* Mapa + tabla */}
+      {vista === 'mapa' && (
+      <div style={{ flex: 1, minHeight: 360, display: 'flex', gap: 12 }}>
+
+        <div style={{ flex: 1, minWidth: 0, position: 'relative',
+          background: '#191919', border: '1px solid #1e1e1e' }}>
+          {/*
+            Si la red vial no llegó, el mapa queda vacío. Antes eso pasaba en
+            silencio —el fetch tenía un catch vacío— y no había forma de saber
+            si era un problema o si no había llovido.
+          */}
+          {errorRed && (
+            <div style={{
+              position: 'absolute', top: 10, left: 10, zIndex: 600,
+              background: 'rgba(40,24,16,.96)', border: '1px solid #7a4a22',
+              borderLeft: '3px solid #E8833A', borderRadius: 2,
+              padding: '9px 12px', fontFamily: 'monospace',
+              fontSize: 12, color: '#E8A87C', lineHeight: 1.6, maxWidth: 360,
+            }}>
+              <b>No se pudo cargar la red vial.</b><br />
+              <span style={{ color: '#b98a64' }}>{errorRed}</span>
+              <br />
+              <button onClick={reintentarRed} style={{
+                fontFamily: 'monospace', fontSize: 12, marginTop: 6,
+                padding: '4px 10px', borderRadius: 2, cursor: 'pointer',
+                background: 'transparent', border: '1px solid #7a4a22', color: '#E8A87C',
+              }}>
+                Reintentar
+              </button>
+            </div>
+          )}
+
+          <MapaLluvia datos={datos} seleccionado={seleccionado}
+            estaciones={estaciones} tramos={tramos} lluviaTramos={lluvia}
+            umbral={umbral} onUmbral={setUmbral}
+            cuencaSeleccionada={lista === 'cuencas' ? cuencaSel : null}
+            laminasCuencas={datosCuencas.filas} onCapaCuencas={setCapaCuencas} />
+
+        </div>
+
+        {/* Ranking */}
+        <div style={{ width: 340, flexShrink: 0, display: 'flex', flexDirection: 'column',
+          background: '#191919', border: '1px solid #1e1e1e', minHeight: 0 }}>
+          {/*
+            Qué se lista: consorcios o cuencas. Al cambiar se suelta lo elegido
+            en la otra, para que el mapa no quede resaltando dos cosas.
+          */}
+          <div style={{ display: 'flex', borderBottom: '1px solid #1e1e1e', flexShrink: 0 }}>
+            {([['consorcios', `Consorcios · ${datos.length}`], ['cuencas', 'Cuencas · 13']] as const).map(([k, t]) => (
+              <button key={k}
+                onClick={() => { setLista(k); setSeleccionado(null); setCuencaSel(null) }}
+                style={{
+                  ...mono, flex: 1, fontSize: 12, padding: '8px 6px', cursor: 'pointer', border: 'none',
+                  letterSpacing: 0.8, textTransform: 'uppercase',
+                  background: lista === k ? '#1e1e1e' : 'transparent',
+                  color: lista === k ? '#F5C300' : '#8f8f8f',
+                  borderBottom: `2px solid ${lista === k ? '#F5C300' : 'transparent'}`,
+                }}>{t}</button>
+            ))}
+          </div>
+
+          {lista === 'cuencas' && (
+            <ListaCuencas datos={datosCuencas} hayMediciones={estaciones.length > 0}
+              elegida={cuencaSel} onElegir={setCuencaSel} onVerTabla={() => elegirVista('cuencas')} />
+          )}
+
+          {lista === 'consorcios' && (<>
+          <div style={{ padding: '9px 12px', borderBottom: '1px solid #1e1e1e',
+            display: 'flex', gap: 5, alignItems: 'center', flexShrink: 0 }}>
+            <span style={{ ...lbl, marginBottom: 0, flex: 1 }}>Ordenar por</span>
+            {([['mm', 'Lámina acumulada'], ['pico', 'Lámina máx. diaria'], ['numero', 'Nº']] as const).map(([k, t]) => (
+              <button key={k} onClick={() => setOrden(k)} style={{
+                ...mono, fontSize: 12, cursor: 'pointer', padding: '3px 8px', border: 'none',
+                background: orden === k ? '#252525' : 'transparent',
+                color: orden === k ? '#F5C300' : '#8f8f8f',
+              }}>{t}</button>
+            ))}
+          </div>
+
+          <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
+            {cargando && <div style={{ padding: 16, ...mono, fontSize: 13, color: '#8f8f8f' }}>Cargando…</div>}
+
+            {!cargando && ordenados.map(c => {
+              const nivel  = clasificar(c.mm)
+              const activo = c.numero === seleccionado
+              return (
+                <button key={c.numero}
+                  onClick={() => setSeleccionado(activo ? null : c.numero)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left',
+                    padding: '8px 12px', cursor: 'pointer', ...mono,
+                    background: activo ? 'rgba(245,195,0,0.07)' : 'transparent',
+                    border: 'none', borderBottom: '1px solid #141414',
+                    borderLeft: `3px solid ${activo ? '#F5C300' : 'transparent'}`,
+                  }}>
+                  <span style={{ width: 12, height: 12, borderRadius: '50%', background: nivel.color,
+                    border: '1px solid #111', flexShrink: 0 }} />
+                  <span style={{ flex: 1, minWidth: 0 }}>
+                    <span style={{ display: 'block', fontSize: 12, color: '#999',
+                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <b style={{ color: '#ccc' }}>Nº {c.numero}</b>
+                      {' · '}
+                      {c.nombre.replace(/^Consorcio Caminero N°?\s*\d+\s*/i, '').replace(/"/g, '')}
+                    </span>
+                    <span style={{ display: 'block', fontSize: 11, color: '#8f8f8f', marginTop: 1 }}>
+                      {c.zona}{c.dias > 0 ? ` · ${c.dias} día${c.dias === 1 ? '' : 's'} con agua` : ' · sin agua'}
+                      {c.mmMaxDia > 0 ? ` · lámina máx. ${Math.round(c.mmMaxDia)}` : ''}
+                      {/* Un solo punto = no hay traza de su red en el bundle */}
+                      {c.puntos === 1 && (
+                        <span title="Este consorcio no tiene su red cargada: la lámina areal sale de un solo punto, no promediada sobre los caminos"
+                          style={{ color: '#E8833A' }}> · 1 punto</span>
+                      )}
+                    </span>
+                  </span>
+                  <span style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                    <span style={{ display: 'block', fontSize: 12, fontWeight: 700, color: nivel.color }}>
+                      {nivel.label}
+                    </span>
+                    <span style={{ display: 'block', fontSize: 12, color: '#a0a0a0', marginTop: 1 }}>
+                      {rangoLluvia(c.mm)}
+                    </span>
+                  </span>
+                </button>
+              )
+            })}
+
+            {!cargando && ordenados.length === 0 && (
+              <div style={{ padding: 16, ...mono, fontSize: 13, color: '#8f8f8f', lineHeight: 1.6 }}>
+                Sin registros en este rango.
+              </div>
+            )}
+          </div>
+          </>)}
+        </div>
+      </div>
+      )}
+
+      {vista === 'mapa' && (
+        <div style={{ ...mono, fontSize: 12, color: '#8f8f8f', marginTop: 8, flexShrink: 0 }}>
+          {!cargando && <>{conDato.length} de {datos.length} consorcios con registro · </>}
+          {delModelo
+            ? 'Los caminos van sin color porque no hay pluviómetros en el período; la lista de consorcios es la estimación del modelo.'
+            : 'Lámina interpolada por IDW desde los pluviómetros de la Administración Provincial del Agua, sobre la traza de cada camino.'}
+        </div>
+      )}
+
+      </>)}
+
+    </div>
+  )
+}

@@ -18,11 +18,11 @@
  *
  * ── El guard ──────────────────────────────────────────────────────────────────
  *
- * `requirePermiso('lluvia')`, el permiso de la pantalla que la consume.
+ * `requireLecturaHidrologia()`, el permiso de la pantalla que la consume.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { requirePermiso } from '@/lib/apiAuth'
+import { requireLecturaHidrologia } from '@/lib/apiAuth'
 import { observacionesDeSerie } from '@/lib/ina'
 import { hace, aISO } from '@/lib/lluvia'
 import {
@@ -45,7 +45,7 @@ const MAX_DIAS = 400
 const ISO = /^\d{4}-\d{2}-\d{2}$/
 
 export async function GET(req: NextRequest) {
-  const auth = await requirePermiso('lluvia')
+  const auth = await requireLecturaHidrologia()
   if (auth instanceof NextResponse) return auth
 
   const sp = new URL(req.url).searchParams

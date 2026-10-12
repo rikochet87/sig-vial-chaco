@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import EditTecnicoButton from './EditTecnicoButton'
 import DeleteTecnicoButton from './DeleteTecnicoButton'
 import ResendInviteButton from './ResendInviteButton'
+import EnlacesPublicos from './EnlacesPublicos'
 import type { Profile } from '@/types'
 
 // Quita acceso al panel sin eliminar el usuario (limpia permisos)
@@ -57,7 +58,7 @@ const TH = ({ children }: { children: string }) => (
 )
 
 export default function UsuariosTabs({ panel, tecnicos }: Props) {
-  const [tab, setTab] = useState<'panel' | 'tecnicos'>('panel')
+  const [tab, setTab] = useState<'panel' | 'tecnicos' | 'enlaces'>('panel')
 
   const tabStyle = (active: boolean): React.CSSProperties => ({
     padding: '9px 20px',
@@ -96,7 +97,13 @@ export default function UsuariosTabs({ panel, tecnicos }: Props) {
           App de campo&nbsp;
           <span style={{ opacity: 0.5 }}>({tecnicos.length})</span>
         </button>
+        <button style={tabStyle(tab === 'enlaces')} onClick={() => setTab('enlaces')}>
+          Enlaces públicos
+        </button>
       </div>
+
+      {/* Hidrología sin cuenta, para quien tenga el enlace */}
+      {tab === 'enlaces' && <EnlacesPublicos />}
 
       {/* Panel web table */}
       {tab === 'panel' && (

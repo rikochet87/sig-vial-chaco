@@ -155,7 +155,7 @@ export default function RioArriba() {
       <div style={{ ...mono, fontSize: 11, color: '#8f8f8f', lineHeight: 1.6, marginTop: 6 }}>
         ▲ subió 10 cm o más en siete días · ▼ bajó · ■ estable. «Llega» es cuántos días antes que por Barranqueras pasa
         el pico de una crecida, medido desde 1970. Dice que viene agua y cuándo, no a qué altura: eso es el pronóstico
-        del INA. <a href="/dashboard/lluvia?vista=rio" style={{ color: '#c4c4c4' }}>Detalle en Río Paraná</a>
+        del INA. <a href="?vista=rio" style={{ color: '#c4c4c4' }}>Detalle en Río Paraná</a>
       </div>
     </div>
   )

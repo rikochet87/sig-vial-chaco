@@ -22,7 +22,7 @@
  *
  * ── El guard ──────────────────────────────────────────────────────────────────
  *
- * `requirePermiso('lluvia')`, que es el permiso de la pantalla que la consume.
+ * `requireLecturaHidrologia()`, que es el permiso de la pantalla que la consume.
  *
  * Las lecturas de `/api/lluvia` —el resumen, la serie, las estaciones y las
  * mediciones— usaban `requireAdmin()`, que sólo verifica que haya sesión: el
@@ -38,7 +38,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { requirePermiso } from '@/lib/apiAuth'
+import { requireLecturaHidrologia } from '@/lib/apiAuth'
 import {
   ESTACIONES, estadoDe,
   type LecturaRio, type PuntoPronostico, type EstadoRio,
@@ -103,7 +103,7 @@ export interface EstacionConRio {
 }
 
 export async function GET(req: NextRequest) {
-  const auth = await requirePermiso('lluvia')
+  const auth = await requireLecturaHidrologia()
   if (auth instanceof NextResponse) return auth
 
   const sp = new URL(req.url).searchParams

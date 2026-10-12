@@ -11,7 +11,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { requirePermiso, dbError } from '@/lib/apiAuth'
+import { requireLecturaHidrologia, dbError } from '@/lib/apiAuth'
 import { fechasApa } from '@/lib/apa'
 import {
   resumirPorConsorcio, detectarEpisodios, hace, aISO, diasEntre, type RegistroLluvia,
@@ -21,7 +21,7 @@ import {
 const PAGINA = 1000
 
 export async function GET(req: NextRequest) {
-  const auth = await requirePermiso('lluvia')
+  const auth = await requireLecturaHidrologia()
   if (auth instanceof NextResponse) return auth
 
   const { searchParams } = new URL(req.url)

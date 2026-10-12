@@ -32,7 +32,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { requirePermiso } from '@/lib/apiAuth'
+import { requireLecturaHidrologia } from '@/lib/apiAuth'
 import {
   ESTACIONES_ARRIBA, estadoDe,
   type LecturaRio, type PuntoPronostico, type EstadoRio,
@@ -79,7 +79,7 @@ export interface EstacionArribaConRio {
 }
 
 export async function GET(req: NextRequest) {
-  const auth = await requirePermiso('lluvia')
+  const auth = await requireLecturaHidrologia()
   if (auth instanceof NextResponse) return auth
 
   const sp = new URL(req.url).searchParams
