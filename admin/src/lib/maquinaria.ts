@@ -137,8 +137,40 @@ export interface Maquina extends DatosMaquina {
   id: string
   consorcio_numero: number
   creado_por: string | null
+  /** El nombre de quien la cargó, tal como era ese día: sobrevive al borrado del usuario */
+  creado_por_nombre: string | null
   created_at: string
+  actualizado_por: string | null
+  actualizado_por_nombre: string | null
   updated_at: string
+}
+
+// ── Quién puede cargar ────────────────────────────────────────────────────
+
+export interface PerfilMaquinaria {
+  rol: string | null | undefined
+  zona: string | null | undefined
+}
+
+/**
+ * Cargar y editar: **el administrador en cualquier consorcio, y un técnico sólo
+ * en los de su zona.** Puede haber varios técnicos en la misma zona. Un técnico
+ * sin zona asignada no carga en ninguno. Los usuarios de oficina con el permiso
+ * `consorcios` ven la lista pero no la tocan.
+ *
+ * `zonaConsorcio` sale de la tabla `consorcios` y la del técnico de su perfil,
+ * las dos del lado del servidor: `ZI` a `ZV` en las dos.
+ */
+export function puedeCargar(perfil: PerfilMaquinaria, zonaConsorcio: string | null | undefined): boolean {
+  if (perfil.rol === 'admin') return true
+  if (perfil.rol !== 'tecnico') return false
+  const z = perfil.zona?.trim()
+  return !!z && !!zonaConsorcio && z === zonaConsorcio.trim()
+}
+
+/** Borrar es sólo del administrador: lo que cargó un técnico no lo borra otro */
+export function puedeBorrar(perfil: PerfilMaquinaria): boolean {
+  return perfil.rol === 'admin'
 }
 
 export const ANIO_MIN = 1950

@@ -485,8 +485,31 @@ dice la condición) ni el historial de cambios.
   `consorcios` y no consta que `numero` sea único. La ruta comprueba que el
   consorcio exista al cargar, y edita y borra filtrando por id **y** por
   consorcio, así una máquina de otro consorcio da 404.
-- **RLS sin políticas y permiso `consorcios`** para leer y escribir, como el
-  resto de la ficha. La app móvil no la lee.
+- **Quién hace qué** (`puedeCargar`, `puedeBorrar` en `lib/maquinaria.ts`;
+  `lib/maquinariaAcceso.ts` lee perfil y zona del consorcio de la base):
+
+  | | Ver | Cargar y editar | Borrar |
+  |---|---|---|---|
+  | Administrador | sí | en cualquier consorcio | sí |
+  | Técnico con zona asignada | con el permiso `consorcios` | sólo en los consorcios de su zona | no |
+  | Usuario de oficina con `consorcios` | sí | no | no |
+
+  Puede haber varios técnicos en la misma zona. **Un técnico sin zona no carga
+  en ninguno.** Pedido del usuario el 16/10/2026. **El técnico necesita además
+  el permiso `consorcios`** marcado en Usuarios: es lo que lo deja entrar al
+  panel y a la página (el middleware lo pide por ruta); las rutas de la API no
+  lo exigen para cargar, deciden por rol y zona. La zona del perfil y la del
+  consorcio van con el mismo formato (`ZI` a `ZV`) y se comparan exactas — ZI
+  es prefijo de ZII, y el test lo afirma. La ruta devuelve `puede` y la
+  pantalla esconde los botones con eso, pero cada escritura lo vuelve a
+  decidir en el servidor.
+- **Quién cargó y cuándo** (`docs/sql/17-maquinaria-autor.sql`): `creado_por`
+  y `creado_por_nombre` con `created_at`, y `actualizado_por` y
+  `actualizado_por_nombre` con `updated_at`. Salen de la sesión y del reloj
+  del servidor, no del navegador. **El nombre se guarda en la fila** porque
+  los id se ponen en null si se borra el usuario. Se ve en la columna
+  «Cargado», en el formulario de edición y en el CSV.
+- **RLS sin políticas.** La app móvil no la lee.
 - **`validarMaquina()` es lista blanca** y la usa la ruta. Un tipo sin chasis y
   motor guarda esos dos en null aunque lleguen —un número que quedó de cuando
   se eligió otro tipo no es un dato—, y el dominio va en mayúsculas y sin
@@ -496,10 +519,11 @@ dice la condición) ni el historial de cambios.
   su póliza**: no necesita seguro. Pero **la baja cuenta en el total**: sigue
   en el inventario hasta que alguien la borra, y el número tiene que coincidir
   con la lista.
-- **Borrar es borrar**, con confirmación en la misma fila (no un diálogo del
-  navegador). No hay borrado lógico ni registro de quién cambió qué; la app
-  vieja lo tenía con un trigger que leía `auth.uid()`, que con la clave de
-  servicio da null. Si hace falta, va en la ruta.
+- **Borrar es borrar**, sólo el administrador, con confirmación en la misma
+  fila (no un diálogo del navegador). No hay borrado lógico ni historial
+  campo por campo —sólo el último que modificó—; la app vieja lo tenía con un
+  trigger que leía `auth.uid()`, que con la clave de servicio da null. Si
+  hace falta, va en la ruta.
 - Sin hacer: el conteo de equipos en la lista de consorcios y un resumen por
   zona.
 

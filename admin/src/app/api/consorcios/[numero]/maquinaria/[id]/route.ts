@@ -1,14 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { requirePermiso, dbError } from '@/lib/apiAuth'
+import { dbError } from '@/lib/apiAuth'
 import { validarMaquina, numeroDe } from '@/lib/maquinaria'
+import { accesoMaquinaria, NO_CARGAR, NO_BORRAR } from '@/lib/maquinariaAcceso'
 
 /**
- * Una máquina: PATCH la edita, DELETE la borra.
+ * Una máquina: PATCH la edita (administrador o técnico de la zona), DELETE la
+ * borra (sólo el administrador).
  *
- * **Se filtra por id y por consorcio a la vez.** Con el id solo, la dirección
- * de un consorcio podría editar la máquina de otro; así, una máquina que no es
- * de ese consorcio da 404.
+ * **Se filtra por id y por consorcio a la vez.** Con el id solo, un técnico de
+ * una zona podría editar la máquina de un consorcio de otra pasando el número
+ * de uno suyo en la dirección; así, una máquina que no es de ese consorcio da
+ * 404.
  */
 
 type Ctx = { params: Promise<{ numero: string; id: string }> }
@@ -22,11 +25,12 @@ async function leerParams(params: Ctx['params']) {
 }
 
 export async function PATCH(request: NextRequest, { params }: Ctx) {
-  const auth = await requirePermiso('consorcios')
-  if (auth instanceof NextResponse) return auth
-
   const p = await leerParams(params)
   if (!p) return NextResponse.json({ error: 'Máquina inválida' }, { status: 400 })
+
+  const acceso = await accesoMaquinaria(p.numero)
+  if (acceso instanceof NextResponse) return acceso
+  if (!acceso.cargar) return NO_CARGAR(acceso.zonaConsorcio)
 
   const supabase = createServiceClient()
   const { data: actual, error: e1 } = await supabase.from('maquinaria')
@@ -43,8 +47,14 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
   )
   if (!v.ok) return NextResponse.json({ error: v.error }, { status: 400 })
 
+  // Quién cargó y cuándo no se tocan; sólo quién modificó por última vez
   const { data, error } = await supabase.from('maquinaria')
-    .update({ ...v.datos, updated_at: new Date().toISOString() })
+    .update({
+      ...v.datos,
+      actualizado_por: acceso.userId,
+      actualizado_por_nombre: acceso.nombre,
+      updated_at: new Date().toISOString(),
+    })
     .eq('id', p.id).eq('consorcio_numero', p.numero)
     .select('*')
     .single()
@@ -54,11 +64,12 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
 }
 
 export async function DELETE(_request: NextRequest, { params }: Ctx) {
-  const auth = await requirePermiso('consorcios')
-  if (auth instanceof NextResponse) return auth
-
   const p = await leerParams(params)
   if (!p) return NextResponse.json({ error: 'Máquina inválida' }, { status: 400 })
+
+  const acceso = await accesoMaquinaria(p.numero)
+  if (acceso instanceof NextResponse) return acceso
+  if (!acceso.borrar) return NO_BORRAR()
 
   const supabase = createServiceClient()
   const { data, error } = await supabase.from('maquinaria')

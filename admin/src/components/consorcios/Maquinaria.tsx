@@ -40,6 +40,25 @@ function formDe(m: Maquina): Form {
 
 const fechaAR = (iso: string) => iso.split('-').reverse().join('/')
 
+/** Fecha y hora local de un instante: «16/10/2026 14:05» */
+function momentoAR(iso: string | null): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`
+}
+
+/** ¿La modificaron después de cargarla? Un minuto de margen por el mismo guardado */
+const modificada = (m: Maquina) =>
+  Date.parse(m.updated_at) - Date.parse(m.created_at) > 60_000
+
+type Respuesta = {
+  maquinas: Maquina[]
+  puede: { cargar: boolean; borrar: boolean }
+  zona: string | null
+}
+
 type Filtro = 'todas' | 'operativas' | 'no_operativas'
 
 export default function Maquinaria({ numero, nombre }: { numero: number; nombre: string }) {
@@ -53,22 +72,29 @@ export default function Maquinaria({ numero, nombre }: { numero: number; nombre:
   const [borrando, setBorrando] = useState<string | null>(null)
   const [filtro, setFiltro] = useState<Filtro>('todas')
   const [busqueda, setBusqueda] = useState('')
+  // Hasta que contesta la ruta no se ofrece nada: un dato ausente no da permisos
+  const [puede, setPuede] = useState<Respuesta['puede']>({ cargar: false, borrar: false })
+  const [zona, setZona] = useState<string | null>(null)
   // La fecha de hoy se toma una vez, no en cada render
   const [hoy] = useState(() => hoyLocal())
 
   const base = `/api/consorcios/${numero}/maquinaria`
 
   // El estado se toca recién cuando contesta la ruta, nunca en el cuerpo del efecto
-  const pedir = useCallback(async (): Promise<Maquina[]> => {
+  const pedir = useCallback(async (): Promise<Respuesta> => {
     const r = await fetch(base)
     const b = await r.json().catch(() => ({}))
     if (!r.ok) throw new Error(b.error ?? `Error ${r.status}`)
-    return b.maquinas as Maquina[]
+    return b as Respuesta
   }, [base])
 
-  const aplicar = useCallback((p: Promise<Maquina[]>, vigente: () => boolean = () => true) => {
-    p.then(l => { if (vigente()) setMaquinas(l) })
-      .catch(e => { if (vigente()) setErrorCarga(e instanceof Error ? e.message : String(e)) })
+  const aplicar = useCallback((p: Promise<Respuesta>, vigente: () => boolean = () => true) => {
+    p.then(b => {
+      if (!vigente()) return
+      setMaquinas(b.maquinas)
+      setPuede(b.puede)
+      setZona(b.zona)
+    }).catch(e => { if (vigente()) setErrorCarga(e instanceof Error ? e.message : String(e)) })
   }, [])
 
   useEffect(() => {
@@ -151,13 +177,16 @@ export default function Maquinaria({ numero, nombre }: { numero: number; nombre:
 
   function exportarCSV() {
     const enc = ['Categoría', 'Tipo', 'Marca', 'Modelo', 'Año', 'Dominio', 'N° chasis', 'N° motor',
-      'Condición', 'Póliza N°', 'Póliza vto.', 'Observaciones']
+      'Condición', 'Póliza N°', 'Póliza vto.', 'Observaciones',
+      'Cargado por', 'Cargado el', 'Modificado por', 'Modificado el']
     const filas = visibles.map(m => {
       const tipo = tipoPorId(m.tipo_id)
       return [
         CATEGORIAS.find(c => c.id === tipo?.categoria)?.nombre ?? '', tipo?.nombre ?? `Tipo ${m.tipo_id}`,
         m.marca, m.modelo, m.anio, m.dominio, m.n_chasis, m.n_motor, m.condicion,
         m.poliza_numero, m.poliza_vencimiento, m.observaciones,
+        m.creado_por_nombre, momentoAR(m.created_at),
+        m.actualizado_por_nombre, momentoAR(m.updated_at),
       ]
     })
     const csv = [enc, ...filas]
@@ -177,9 +206,17 @@ export default function Maquinaria({ numero, nombre }: { numero: number; nombre:
           {maquinas && maquinas.length > 0 && (
             <button type="button" onClick={exportarCSV} style={botonSec}>↓ CSV</button>
           )}
-          <button type="button" onClick={abrirNueva} disabled={editando === 'nueva'} style={botonPri}>+ Agregar equipo</button>
+          {puede.cargar && (
+            <button type="button" onClick={abrirNueva} disabled={editando === 'nueva'} style={botonPri}>+ Agregar equipo</button>
+          )}
         </div>
       </div>
+
+      {maquinas != null && !puede.cargar && (
+        <div style={{ color: '#8f8f8f', fontSize: 11, margin: '-4px 0 10px' }}>
+          Sólo lectura. Cargan y editan la maquinaria los técnicos de la zona {zona ?? 'del consorcio'} y el administrador.
+        </div>
+      )}
 
       {errorCarga && (
         <div style={{ ...caja, borderLeftColor: ERROR, color: '#e0e0e0', display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'space-between' }}>
@@ -199,6 +236,7 @@ export default function Maquinaria({ numero, nombre }: { numero: number; nombre:
           {editando && (
             <Formulario
               form={form} setForm={setForm} nueva={editando === 'nueva'} hoy={hoy}
+              maquina={editando !== 'nueva' ? maquinas.find(m => m.id === editando) : undefined}
               guardando={guardando} error={errorForm} onGuardar={guardar} onCancelar={cerrar}
               tipoActual={editando !== 'nueva' ? maquinas.find(m => m.id === editando)?.tipo_id : undefined}
             />
@@ -231,27 +269,27 @@ export default function Maquinaria({ numero, nombre }: { numero: number; nombre:
               </div>
 
               <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 820 }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 960 }}>
                   <thead>
                     <tr>
-                      {['Tipo', 'Marca / modelo', 'Año', 'Dominio', 'Condición', 'Póliza', ''].map(h => (
+                      {['Tipo', 'Marca / modelo', 'Año', 'Dominio', 'Condición', 'Póliza', 'Cargado', ''].map(h => (
                         <th key={h} style={th}>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {porCategoria.map(({ categoria, lista }) => (
-                      <Grupo key={categoria.id} titulo={categoria.nombre} lista={lista} hoy={hoy}
+                      <Grupo key={categoria.id} titulo={categoria.nombre} lista={lista} hoy={hoy} puede={puede}
                         editando={editando} confirmar={confirmarBorrar} borrando={borrando}
                         onEditar={abrirEdicion} onConfirmar={setConfirmarBorrar} onBorrar={borrar} />
                     ))}
                     {sinCategoria.length > 0 && (
-                      <Grupo titulo="Tipo fuera del catálogo" lista={sinCategoria} hoy={hoy}
+                      <Grupo titulo="Tipo fuera del catálogo" lista={sinCategoria} hoy={hoy} puede={puede}
                         editando={editando} confirmar={confirmarBorrar} borrando={borrando}
                         onEditar={abrirEdicion} onConfirmar={setConfirmarBorrar} onBorrar={borrar} />
                     )}
                     {visibles.length === 0 && (
-                      <tr><td colSpan={7} style={{ ...td, color: '#a0a0a0', textAlign: 'center', padding: 20 }}>Ningún equipo con ese filtro</td></tr>
+                      <tr><td colSpan={8} style={{ ...td, color: '#a0a0a0', textAlign: 'center', padding: 20 }}>Ningún equipo con ese filtro</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -303,15 +341,15 @@ function Cifra({ titulo, valor, color }: { titulo: string; valor: number; color?
 
 // ── Lista ─────────────────────────────────────────────────────────────────
 
-function Grupo({ titulo, lista, hoy, editando, confirmar, borrando, onEditar, onConfirmar, onBorrar }: {
-  titulo: string; lista: Maquina[]; hoy: string
+function Grupo({ titulo, lista, hoy, puede, editando, confirmar, borrando, onEditar, onConfirmar, onBorrar }: {
+  titulo: string; lista: Maquina[]; hoy: string; puede: Respuesta['puede']
   editando: string | null; confirmar: string | null; borrando: string | null
   onEditar: (m: Maquina) => void; onConfirmar: (id: string | null) => void; onBorrar: (id: string) => void
 }) {
   return (
     <>
       <tr>
-        <td colSpan={7} style={{ padding: '10px 8px 4px', color: '#c8c8c8', fontSize: 11, textTransform: 'uppercase', letterSpacing: 1.2, borderBottom: '1px solid #2a2a2a' }}>
+        <td colSpan={8} style={{ padding: '10px 8px 4px', color: '#c8c8c8', fontSize: 11, textTransform: 'uppercase', letterSpacing: 1.2, borderBottom: '1px solid #2a2a2a' }}>
           {titulo} <span style={{ color: '#8f8f8f' }}>· {lista.length}</span>
         </td>
       </tr>
@@ -329,8 +367,9 @@ function Grupo({ titulo, lista, hoy, editando, confirmar, borrando, onEditar, on
             <td style={{ ...td, letterSpacing: 0.6 }}>{m.dominio ?? '—'}</td>
             <td style={td}><CondicionChip c={m.condicion} /></td>
             <td style={td}><Poliza m={m} hoy={hoy} /></td>
+            <td style={td}><Autor m={m} /></td>
             <td style={{ ...td, textAlign: 'right', whiteSpace: 'nowrap' }}>
-              {confirmar === m.id ? (
+              {!puede.cargar && !puede.borrar ? null : confirmar === m.id ? (
                 <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
                   <span style={{ color: '#a0a0a0', fontSize: 11 }}>¿Borrar?</span>
                   <button type="button" onClick={() => onBorrar(m.id)} disabled={borrando === m.id} style={{ ...botonSec, color: ERROR, borderColor: ERROR }}>Sí, borrar</button>
@@ -338,8 +377,8 @@ function Grupo({ titulo, lista, hoy, editando, confirmar, borrando, onEditar, on
                 </span>
               ) : (
                 <span style={{ display: 'inline-flex', gap: 6 }}>
-                  <button type="button" onClick={() => onEditar(m)} style={botonSec}>Editar</button>
-                  <button type="button" onClick={() => onConfirmar(m.id)} style={{ ...botonSec, color: '#a0a0a0' }}>✕</button>
+                  {puede.cargar && <button type="button" onClick={() => onEditar(m)} style={botonSec}>Editar</button>}
+                  {puede.borrar && <button type="button" onClick={() => onConfirmar(m.id)} title="Borrar" style={{ ...botonSec, color: '#a0a0a0' }}>✕</button>}
                 </span>
               )}
             </td>
@@ -347,6 +386,22 @@ function Grupo({ titulo, lista, hoy, editando, confirmar, borrando, onEditar, on
         )
       })}
     </>
+  )
+}
+
+/** Quién la cargó y cuándo; si después la modificó alguien, también */
+function Autor({ m }: { m: Maquina }) {
+  const quien = (n: string | null) => n || 'usuario sin nombre'
+  return (
+    <div style={{ fontSize: 11, lineHeight: 1.4, whiteSpace: 'nowrap' }}>
+      <div style={{ color: '#c8c8c8' }}>{quien(m.creado_por_nombre)}</div>
+      <div style={{ color: '#8f8f8f' }}>{momentoAR(m.created_at)}</div>
+      {modificada(m) && (
+        <div style={{ color: '#8f8f8f' }} title={`Modificado por ${quien(m.actualizado_por_nombre)} el ${momentoAR(m.updated_at)}`}>
+          mod. {momentoAR(m.updated_at)}
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -380,8 +435,8 @@ function Poliza({ m, hoy }: { m: Maquina; hoy: string }) {
 
 // ── Formulario ────────────────────────────────────────────────────────────
 
-function Formulario({ form, setForm, nueva, hoy, guardando, error, onGuardar, onCancelar, tipoActual }: {
-  form: Form; setForm: React.Dispatch<React.SetStateAction<Form>>; nueva: boolean; hoy: string
+function Formulario({ form, setForm, nueva, hoy, maquina, guardando, error, onGuardar, onCancelar, tipoActual }: {
+  form: Form; setForm: React.Dispatch<React.SetStateAction<Form>>; nueva: boolean; hoy: string; maquina?: Maquina
   guardando: boolean; error: string | null
   onGuardar: (e: React.FormEvent) => void; onCancelar: () => void; tipoActual?: number
 }) {
@@ -397,6 +452,12 @@ function Formulario({ form, setForm, nueva, hoy, guardando, error, onGuardar, on
       <div style={{ color: '#F5C300', fontSize: 11, textTransform: 'uppercase', letterSpacing: 1.2, marginBottom: 10 }}>
         {nueva ? 'Nuevo equipo' : 'Editar equipo'}
       </div>
+      {maquina && (
+        <div style={{ color: '#8f8f8f', fontSize: 11, margin: '-4px 0 10px' }}>
+          Cargado por {maquina.creado_por_nombre || 'usuario sin nombre'} el {momentoAR(maquina.created_at)}
+          {modificada(maquina) && ` · modificado por ${maquina.actualizado_por_nombre || 'usuario sin nombre'} el ${momentoAR(maquina.updated_at)}`}
+        </div>
+      )}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))', gap: 10 }}>
         <div style={{ ...field, gridColumn: 'span 2' }}>

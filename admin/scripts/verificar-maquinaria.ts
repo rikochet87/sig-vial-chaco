@@ -9,7 +9,7 @@
  */
 import {
   CATEGORIAS, TIPOS, CONDICIONES, OPERATIVAS, COLOR_CONDICION,
-  tipoPorId, validarMaquina, estadoPoliza, resumir, numeroDe, hoyLocal,
+  tipoPorId, validarMaquina, estadoPoliza, resumir, numeroDe, hoyLocal, puedeCargar, puedeBorrar,
   type Condicion,
 } from '../src/lib/maquinaria'
 
@@ -123,6 +123,23 @@ ok('las de cero también están', r.porCondicion['Desuso'], 0)
 ok('una póliza vencida (la de la baja no cuenta)', r.polizasVencidas, 1)
 ok('una por vencer', r.polizasPorVencer, 1)
 ok('lista vacía: todo en cero', resumir([], HOY).total, 0)
+
+// ── Quién carga ─────────────────────────────────────────────────────────────
+titulo('Quién carga y quién borra')
+
+ok('el administrador carga en cualquier zona', puedeCargar({ rol: 'admin', zona: null }, 'ZIII'))
+ok('un técnico carga en su zona', puedeCargar({ rol: 'tecnico', zona: 'ZII' }, 'ZII'))
+ok('dos técnicos de la misma zona cargan los dos',
+  puedeCargar({ rol: 'tecnico', zona: 'ZII' }, 'ZII') && puedeCargar({ rol: 'tecnico', zona: 'ZII' }, 'ZII'))
+ok('un técnico no carga en otra zona', puedeCargar({ rol: 'tecnico', zona: 'ZII' }, 'ZIII'), false)
+// «ZI» es prefijo de «ZII»: la comparación tiene que ser exacta
+ok('ZI no habilita ZII', puedeCargar({ rol: 'tecnico', zona: 'ZI' }, 'ZII'), false)
+ok('un técnico sin zona no carga en ninguna', puedeCargar({ rol: 'tecnico', zona: null }, 'ZI'), false)
+ok('ni con la zona vacía', puedeCargar({ rol: 'tecnico', zona: '' }, ''), false)
+ok('un usuario de oficina no carga, aunque tenga zona', puedeCargar({ rol: 'panel', zona: 'ZI' }, 'ZI'), false)
+ok('un perfil sin rol no carga', puedeCargar({ rol: undefined, zona: 'ZI' }, 'ZI'), false)
+ok('sólo el administrador borra', puedeBorrar({ rol: 'admin', zona: null }))
+ok('el técnico no borra', puedeBorrar({ rol: 'tecnico', zona: 'ZI' }), false)
 
 // ── Varios ──────────────────────────────────────────────────────────────────
 titulo('Número de consorcio y fecha')
