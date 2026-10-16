@@ -27,6 +27,7 @@ import {
   pronosticoDeCrecida, CUENCAS_BRASIL, type CuencaBrasil,
 } from '../src/lib/crecida'
 import { leerCsvOns } from '../src/lib/crecidaFuente'
+import { crpsEnsamble, filaDeCrecida, corridasDe, aciertoCrecida, medidasDe, type FilaCrecida } from '../src/lib/crecidaAcierto'
 
 let fallos = 0
 const fmt = (v: unknown) =>
@@ -251,6 +252,66 @@ titulo('CSV del ONS, los dos formatos')
     ok('con la lluvia que cayó sube más que sin lluvia', r.banda[r.banda.length - 1].p50! > r.sinLluvia[r.sinLluvia.length - 1]!)
     ok(`tarda menos de un segundo (${ms} ms)`, ms < 1000)
   }
+}
+
+titulo('Registro diario y acierto')
+{
+  cerca('CRPS de una sola corrida es el error absoluto', crpsEnsamble([7.2], 7.0), 0.2, 1e-12)
+  // Dos corridas a ±1 de la medida: E|X−y| = 1, ½E|X−X'| = ½·(2·2/4) = 0,5
+  cerca('CRPS de dos corridas a ±1 de la medida es 0,5', crpsEnsamble([6, 8], 7), 0.5, 1e-12)
+  // Contra la definición, por fuerza bruta
+  const xs = [5.1, 6.3, 6.4, 7.9, 8.2], y = 6.6
+  let a = 0, b = 0
+  for (const u of xs) { a += Math.abs(u - y); for (const v of xs) b += Math.abs(u - v) }
+  cerca('CRPS ordenado = definición por pares', crpsEnsamble(xs, y), a / 5 - b / 50, 1e-12)
+
+  // Un río que sube 10 cm por día, y un pronóstico que lo acierta exacto con
+  // tres corridas a −5, 0 y +5 cm
+  const real = (d: number) => 5 + 0.1 * d
+  const filas: FilaCrecida[] = []
+  for (let e = 0; e < 20; e++) {
+    const dias = 16, corridas = 3
+    const alturas: number[] = []
+    for (let k = 0; k < dias; k++) for (const dd of [-5, 0, 5]) alturas.push(Math.round(real(e + k) * 100) + dd)
+    filas.push({
+      emitido: isoDe(19000 + e), altura_hoy: real(e), altura_fecha: isoDe(19000 + e) + 'T03:00:00.000Z',
+      altura_fuente: 'prueba', dia0: isoDe(19000 + e), dias, corridas, alturas,
+      sin_lluvia: Array.from({ length: dias }, () => Math.round(real(e) * 100)),
+      determinado_hasta: null, ultimo_ons: isoDe(19000 + e - 2), dias_lluvia: 0, lluvia_iguacu: [], lluvia_itaipu_inc: [],
+      itaipu_iguazu_desde: isoDe(19000 + e), itaipu_iguazu: [], itaipu_iguazu_medidos: 0, calibracion: '', modelo: '', avisos: [],
+    })
+  }
+  // Una emisión que arrancó con una lectura vieja no se mide
+  filas.push({ ...filas[5], emitido: isoDe(19100), dia0: isoDe(19100), altura_fecha: isoDe(19098) + 'T03:00:00.000Z' })
+  const ac = aciertoCrecida(filas)
+  const a3 = ac.find(x => x.dias === 3)!
+  ok('a 3 días se miden las emisiones con medida 3 días después', a3.n, 17)
+  cerca('la mediana exacta da error cero', a3.maeMediana!, 0, 1e-9)
+  cerca('la persistencia erra lo que subió el río', a3.maePersistencia!, 0.3, 1e-9)
+  cerca('sin más lluvia, lo mismo que la persistencia acá', a3.maeSinLluvia!, 0.3, 1e-9)
+  ok('la medida cae dentro de la banda siempre', a3.cobertura, 1)
+  cerca('CRPS de ±5 cm alrededor de la medida', a3.crps!, crpsEnsamble([-0.05, 0, 0.05], 0), 1e-9)
+  ok('a 14 días quedan 6 casos', ac.find(x => x.dias === 14)!.n, 6)
+  ok('la medida de un día es la de la primera emisión con esa lectura', medidasDe(filas).get(19098), real(5))
+
+  // La fila desde un cálculo, ida y vuelta
+  const alt = [[6.01, 6.1, null], [6.02, 6.2, 6.3]]
+  const f = filaDeCrecida({
+    respuesta: {
+      emitido: '2026-10-16', alturaHoy: { m: 6, fecha: '2026-10-16T03:00:00.000Z', fuente: 'p' },
+      fechas: ['2026-10-16', '2026-10-17', '2026-10-18'], sinLluvia: [6, 6.05, null], determinadoHasta: '2026-10-16',
+      itaipuIguazu: [{ fecha: '2026-10-13', m3s: 20000, medido: true }, { fecha: '2026-10-14', m3s: 21000, medido: true }, { fecha: '2026-10-15', m3s: 22000, medido: false }],
+      ultimoOns: '2026-10-14', calibracion: 'x', avisos: [],
+    },
+    alturas: alt,
+    lluviaCorridas: { iguacu: [[1.25, 0], [3, 4]], itaipu_inc: [[0, 0], [0.04, 10]] },
+    modelo: 'ecmwf_ifs025',
+  })
+  ok('alturas en cm, día por día y corrida por corrida', JSON.stringify(f.alturas), JSON.stringify([601, 602, 610, 620, null, 630]))
+  ok('y se leen de vuelta, sin los null', JSON.stringify(corridasDe(f)), JSON.stringify([[6.01, 6.02], [6.1, 6.2], [6.3]]))
+  ok('lluvia en décimas, mismo orden', JSON.stringify(f.lluvia_iguacu), JSON.stringify([13, 30, 0, 40]))
+  ok('Itaipú + Iguazú con cuántos son medidos', [f.itaipu_iguazu.length, f.itaipu_iguazu_medidos].join(), '3,2')
+  ok('sin lluvia en cm', JSON.stringify(f.sin_lluvia), JSON.stringify([600, 605, null]))
 }
 
 console.log(`\n${fallos ? `✗ ${fallos} fallos` : '✓ todo bien'}`)

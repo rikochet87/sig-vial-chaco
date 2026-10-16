@@ -29,6 +29,7 @@
 import { useEffect, useState } from 'react'
 import { mono, boton } from '@/components/cuencas/piezas'
 import type { PuntoPronostico } from '@/lib/ina'
+import type { EstadoCrecida } from '@/lib/crecidaRegistro'
 
 const C_PROPIO = '#D9A6C9'
 const C_INA = '#85B7EB'
@@ -176,6 +177,8 @@ export default function CrecidaBrasil({ observado, pronosticoIna }: {
         </tbody>
       </table>
 
+      <Registro emitido={datos.emitido} />
+
       <div style={{ fontSize: 11, color: '#8f8f8f', marginTop: 10, lineHeight: 1.5,
         borderTop: '1px solid #232323', paddingTop: 9 }}>
         <b style={{ color: '#a0a0a0' }}>Cómo sale.</b> Lo que ya largaron Itaipú y el Iguazú se usa medido
@@ -299,6 +302,94 @@ function Grafico({ datos, observado, pronosticoIna }: {
         evacuación ({nM(datos.umbral.evacuacion)} m). Línea gris llena: hoy
         {datos.determinadoHasta ? <>; punteada: hasta acá decide el agua ya en camino ({fC(datos.determinadoHasta)})</> : null}.
       </div>
+    </div>
+  )
+}
+
+/**
+ * El registro diario y el acierto medido. Un registro que se corta en silencio
+ * se descubre meses después, cuando se va a medir: por eso dice cuándo fue el
+ * último guardado.
+ */
+function Registro({ emitido }: { emitido: string }) {
+  const [r, setR] = useState<EstadoCrecida | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  useEffect(() => {
+    let vivo = true
+    fetch('/api/rio/crecida/registro')
+      .then(async x => {
+        const j = await x.json().catch(() => null)
+        if (!x.ok) throw new Error(j?.error ?? `el servidor respondió ${x.status}`)
+        return j as EstadoCrecida
+      })
+      .then(j => { if (vivo) setR(j) })
+      .catch(e => { if (vivo) setError(e instanceof Error ? e.message : 'error') })
+    return () => { vivo = false }
+  }, [])
+
+  const caja: React.CSSProperties = { fontSize: 11, color: '#8f8f8f', marginTop: 12, lineHeight: 1.5 }
+  const rotulo = <div style={{ fontSize: 11, color: '#a0a0a0', textTransform: 'uppercase', letterSpacing: 1 }}>Acierto medido</div>
+  if (error) return <div style={caja}>{rotulo}No se pudo leer el registro diario: {error}</div>
+  if (!r) return <div style={caja}>{rotulo}Leyendo el registro diario…</div>
+
+  const dia = (f: string) => Math.round(Date.parse(f + 'T00:00:00Z') / 86_400_000)
+  const atrasado = r.ultimo !== null && dia(emitido) - dia(r.ultimo) > 1
+  const medidos = r.acierto.filter(a => a.n > 0)
+  const n = (v: number | null) => (v === null ? '—' : v.toFixed(2).replace('.', ','))
+  const th: React.CSSProperties = { textAlign: 'right', fontWeight: 400, padding: '4px 0 4px 10px', color: '#8f8f8f' }
+  const td: React.CSSProperties = { textAlign: 'right', padding: '4px 0 4px 10px' }
+
+  return (
+    <div style={caja}>
+      {rotulo}
+      {r.dias === 0
+        ? <>Todavía no se guardó ningún pronóstico. Se guarda uno por día, a las 09:00.</>
+        : <>Guardados {r.dias} días, del {fC(r.primero!)} al {fC(r.ultimo!)}.</>}
+      {atrasado && (
+        <span style={{ color: '#E8A87C' }}> El último es del {fC(r.ultimo!)}: el guardado diario se cortó.</span>
+      )}
+      {r.dias > 0 && !medidos.length && (
+        <> Ninguno se puede medir todavía: la medida de un día es la altura con la que arranca el del día siguiente.</>
+      )}
+      {medidos.length > 0 && (
+        <>
+          <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse', color: '#c4c4c4', marginTop: 6 }}>
+            <thead>
+              <tr style={{ fontSize: 11 }}>
+                <th style={{ ...th, textAlign: 'left', paddingLeft: 0 }}>Plazo</th>
+                <th style={th}>Casos</th>
+                <th style={th}>Error, mediana (m)</th>
+                <th style={th}>Error, sin cambio (m)</th>
+                <th style={th}>Error, sin más lluvia (m)</th>
+                <th style={th}>Sesgo (m)</th>
+                <th style={th}>Dentro de 10–90 %</th>
+              </tr>
+            </thead>
+            <tbody>
+              {medidos.map(a => {
+                const gana = a.maeMediana !== null && a.maePersistencia !== null && a.maeMediana < a.maePersistencia
+                return (
+                  <tr key={a.dias} style={{ borderTop: '1px solid #232323' }}>
+                    <td style={{ ...td, textAlign: 'left', paddingLeft: 0 }}>{a.dias} {a.dias === 1 ? 'día' : 'días'}</td>
+                    <td style={td}>{a.n}</td>
+                    <td style={{ ...td, color: gana ? '#fff' : '#c4c4c4' }}>{n(a.maeMediana)}</td>
+                    <td style={td}>{n(a.maePersistencia)}</td>
+                    <td style={td}>{n(a.maeSinLluvia)}</td>
+                    <td style={td}>{a.sesgo !== null && a.sesgo > 0 ? '+' : ''}{n(a.sesgo)}</td>
+                    <td style={td}>{a.cobertura === null ? '—' : `${Math.round(a.cobertura * 100)} %`}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+          <div style={{ marginTop: 4 }}>
+            Error medio absoluto contra la altura medida en Barranqueras. «Sin cambio» es suponer que el río sigue
+            como el día de emisión: el cálculo sirve donde le gana. «Dentro de 10–90 %» debería rondar el 80 %;
+            mucho menos es una banda demasiado angosta. Con menos de treinta casos por plazo, todavía no alcanza
+            para sacar conclusiones.
+          </div>
+        </>
+      )}
     </div>
   )
 }

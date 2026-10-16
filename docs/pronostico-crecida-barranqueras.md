@@ -425,12 +425,33 @@ propio».
   cadena entera sobre el 03/11/2023 con la lluvia que cayó: 6,84 m a 7 días
   (medido 7,05), en 40 ms.
 
+### El registro diario, para medir el acierto de verdad
+
+Todo lo de la validación es con la lluvia que cayó. Con la pronosticada sólo
+se sabe guardando cada emisión: Open-Meteo no ofrece ensambles pasados.
+
+- **Tabla `pronostico_crecida`** (`docs/sql/15-pronostico-crecida.sql`), una
+  fila por día: las 51 corridas de altura (cm), la curva sin más lluvia, la
+  lluvia de cada corrida por cuenca (décimas de mm), Itaipú + Iguazú, el
+  último dato del ONS, con qué calibración se calculó y la altura con la que
+  arrancó, con su fecha y fuente. ~20 KB por día.
+- **Cron propio a las 09:00** (`0 12 * * *` UTC) sobre
+  `/api/rio/crecida/registro`. A esa hora Prefectura ya publicó la lectura de
+  las 00:00 y la corrida de las 00 UTC del ECMWF está en Open-Meteo.
+- **La medida sale de la misma tabla**: la altura con la que arranca la
+  emisión del día D es la medida del día D para las emisiones anteriores.
+- **Medidas por plazo** (1, 2, 3, 5, 7, 10 y 14 días): error medio absoluto de
+  la mediana, de la persistencia y de la curva sin más lluvia; sesgo; CRPS del
+  ensamble; y qué parte de las medidas cayó entre el 10 y el 90 % (lo ideal,
+  80 %). Van en la pantalla, debajo del gráfico.
+- Con menos de treinta casos por plazo no alcanza para concluir nada: hacen
+  falta meses, y una crecida adentro.
+
 ## Pendiente
 
 - **Verificar que Vercel (gru1) llegue al S3 del ONS y a Open-Meteo.** Desde
   GitHub Actions llegó a los dos; desde Vercel no se probó.
-- **Guardar cada pronóstico emitido** y medir el acierto con la lluvia
-  pronosticada, que es lo único que dice cuánto vale de verdad. Lo de arriba
-  es con la lluvia que cayó.
+- **Correr `docs/sql/15-pronostico-crecida.sql` en Supabase** para que el
+  registro diario empiece a guardar, y mirar a los meses el acierto medido.
 - **La llanura de inundación** queda sin resolver (ver más arriba): hacen
   falta más crecidas, o cotas, para elegir con qué representarla.

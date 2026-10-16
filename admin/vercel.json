@@ -9,6 +9,10 @@
     {
       "path": "/api/lluvia/ingesta",
       "schedule": "0 15 * * *"
+    },
+    {
+      "path": "/api/rio/crecida/registro",
+      "schedule": "0 12 * * *"
     }
   ]
 }

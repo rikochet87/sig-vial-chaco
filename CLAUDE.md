@@ -3231,7 +3231,8 @@ histórica.
 ### Crecida en Barranqueras desde la lluvia en Brasil
 
 `lib/gr4j.ts` + `lib/crecida.ts` + `lib/crecidaFuente.ts` +
-`app/api/rio/crecida/route.ts` + `components/rio/CrecidaBrasil.tsx` +
+`lib/crecidaCalculo.ts` + `lib/crecidaAcierto.ts` + `lib/crecidaRegistro.ts` +
+`app/api/rio/crecida/route.ts` + `app/api/rio/crecida/registro/route.ts` + `components/rio/CrecidaBrasil.tsx` +
 `scripts/build_crecida.mjs` + `scripts/calibrar_crecida.ts` +
 `public/rio/crecida_parametros.json`. Desde el 16/10/2026, en la pestaña Río
 Paraná, debajo de «Aguas arriba». El método, la validación y los números
@@ -3270,13 +3271,30 @@ Iguazú y de la incremental de Itaipú con **GR4J** → Itaipú + Iguazú (ONS) 
 - **No es un pronóstico oficial y la pantalla lo dice**; al lado va el del INA.
   La línea punteada (`determinadoHasta`) es el último día en que la banda no
   se abre más de 5 cm: hasta ahí decide agua que ya salió de Brasil.
-- **Los pronósticos emitidos todavía no se guardan**: la validación es con la
-  lluvia que cayó, un techo.
+- **Cada día se guarda lo emitido** (`pronostico_crecida`,
+  `docs/sql/15-pronostico-crecida.sql`), porque la validación es con la lluvia
+  que cayó —un techo— y Open-Meteo no da ensambles pasados. Lo guarda su
+  propio cron (`0 12 * * *`, las 09:00) en `/api/rio/crecida/registro`, no el
+  de la lluvia: el cálculo baja ~9 MB y ese cron ya tiene el minuto
+  repartido. Un admin puede guardar el del día a mano (POST).
+  - **Las 51 corridas enteras y la lluvia de cada una por cuenca**, no la
+    banda: con eso se calcula cualquier medida después y se separa el error
+    de la lluvia del de la cadena.
+  - **El cálculo es uno solo** (`lib/crecidaCalculo.ts`) para la ruta que
+    muestra y para el registro: lo que se mide tiene que ser lo que se mostró.
+  - **La medida es la propia tabla**: la altura con la que arranca cada
+    emisión, con su fecha, verifica a las anteriores. Una emisión que arrancó
+    con una lectura de otro día no se mide. Sin otra fuente que pueda faltar.
+  - `aciertoCrecida()` (`lib/crecidaAcierto.ts`, puro) da por plazo el error
+    de la mediana, de la persistencia y de «sin más lluvia», el sesgo, el CRPS
+    y qué parte cayó entre el 10 y el 90 %. La pantalla lo muestra debajo del
+    gráfico, y avisa si el último guardado tiene más de un día.
 - `verificar-crecida.ts` no sale a la red. Con los archivos presentes afirma
   además el balance de Itaipú (R² > 0,95), que los pesos de la respuesta sumen
   ~1, que la cadena le gane a la persistencia a 10 días en aguas altas, los dos
-  formatos del CSV del ONS y la cadena entera sobre el 03/11/2023 (6,84 m a
-  7 días; medido 7,05).
+  formatos del CSV del ONS, la cadena entera sobre el 03/11/2023 (6,84 m a
+  7 días; medido 7,05), el CRPS contra su definición, la fila ida y vuelta y
+  el acierto sobre un río sintético que se sabe sin calcular.
 
 ### El relevamiento no entra en `npm run verificar`
 
@@ -3527,14 +3545,15 @@ cartel viejo — ofrecía arreglar algo sin arreglo y volvía a aparecer despué
 apretarlo. Es la misma regla de siempre: **un botón que no puede cambiar nada es
 peor que no tener botón.**
 
-#### Dos crons, y por qué el segundo
+#### Los crons, y por qué el segundo
 
-`vercel.json` tiene dos, los dos sobre `/api/lluvia/ingesta`:
+`vercel.json` tiene dos sobre `/api/lluvia/ingesta`, más el de la crecida:
 
 | Horario UTC | Hora local | Qué hace | Cupo |
 |---|---|---|---|
 | `30 9 * * *` | 06:30 | ingesta de los últimos 7 días, e interpola al final | ~453 llamadas |
 | `0 15 * * *` | 12:00 | reinterpola los últimos 7 días, guarda el pronóstico e importa los partes nuevos | el modelo en las estaciones que informaron, sólo los días con parte nuevo |
+| `0 12 * * *` | 09:00 | guarda la crecida de Barranqueras desde Brasil (`/api/rio/crecida/registro`) | ~40 ubicaciones × 2 consultas |
 
 **El segundo existe por un desfasaje real.** A las 06:30 la APA todavía no
 publicó el parte del día —su período va de 17:00 a 07:00 y carga con retraso—,
@@ -3773,7 +3792,7 @@ Los arregla `docs/sql/09-seguridad.sql`, ya aplicado.
   `is_admin()`. **Toda función SECURITY DEFINER necesita `set search_path`** o es
   un vector de escalada de privilegios.
 - **`precipitaciones`, `mediciones_lluvia`, `estaciones_lluvia` y
-  `pronostico_lluvia` tienen RLS y cero políticas, a propósito.** Sólo se acceden con la clave de servicio. No es
+  `pronostico_lluvia` y `pronostico_crecida` tienen RLS y cero políticas, a propósito.** Sólo se acceden con la clave de servicio. No es
   un olvido: si algún día el navegador necesita leerlas, se agrega una política
   de select, **no** se desactiva RLS.
 - **Siete tablas no tienen script de creación en el repo** — `profiles`,
