@@ -37,7 +37,7 @@ npx expo-doctor               # desde la raíz — detecta incompatibilidades de
 ```
 
 **Todo eso corre junto con `npm run verificar`** (desde `admin/`):
-`tsc --noEmit`, la barrera de lint, la sintaxis de los `.sql` y los treinta y cuatro
+`tsc --noEmit`, la barrera de lint, la sintaxis de los `.sql` y los treinta y cinco
 `scripts/verificar-*.ts`. `next build` queda afuera a propósito: tarda minutos y
 usa el binario nativo de SWC, así que sólo corre donde se instalaron los
 paquetes. El orquestador es `scripts/verificar-todo.mjs`, en Node y no en un
@@ -297,6 +297,24 @@ los permisos de cada usuario en la base.
 
 Roles: `admin` (acceso total), `panel` (usuario de oficina, gateado por
 permisos), `tecnico` y `usuario` (app móvil).
+
+**La pantalla de Usuarios es una sola lista con filtros** desde el 16/10/2026
+(`dashboard/tecnicos/UsuariosTabs.tsx`, lógica en `lib/usuarios.ts`). Antes
+eran dos pestañas, «Panel web» y «App de campo», que se superponían: un
+técnico con permisos salía en las dos (17 + 24 pestañas para 25 usuarios).
+Filtros: búsqueda por nombre o correo (sin tildes), tipo de usuario, zona
+(con «sin zona» para los técnicos que no la tienen), acceso (panel, app o
+los dos, con `entraAlPanel()` copiando el criterio del `middleware.ts` —si
+cambia uno, cambia el otro—), sección, y orden por nombre o por cantidad de
+relevamientos en total, 90 o 30 días. «Enlaces públicos» sigue en su pestaña:
+no son usuarios.
+
+- **Los relevamientos se cuentan por `tecnico_id`** en el servidor, paginando
+  con `order`. Uno sin autor no es de nadie y no se cuenta. Los 30 días son
+  hoy y los 29 anteriores, con el «hoy» de Argentina (`hoyArgentina()`): el
+  servidor corre en UTC.
+- **Los conteos de cada opción de filtro son sobre la lista entera**: dicen
+  cuántos hay, no cuántos quedan con los otros filtros.
 
 El middleware corre en Edge runtime: **`permisos.ts` no debe importar nada de
 Node.**
