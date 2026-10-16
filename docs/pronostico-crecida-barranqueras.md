@@ -1,268 +1,294 @@
-# Pronóstico de crecida en Barranqueras desde la cuenca alta
+# Crecida en Barranqueras a partir de la lluvia en el Paraná brasileño
 
 Investigación del 16/10/2026, con el Paraná en 6,05 m en Barranqueras y
-subiendo. Pregunta: **¿cómo anticipar la altura en Barranqueras a partir de lo
-que llueve y escurre en la cuenca alta y en Brasil?**
+subiendo. Pregunta: **con la lluvia medida y pronosticada en Brasil, y con lo
+que miden allá en el río, ¿cuánto crecería Barranqueras?**
 
-Todo lo medido acá sale de tres fuentes, cruzadas día por día:
+La respuesta es una cadena de cálculo de tres eslabones, cada uno calibrado
+contra mediciones:
 
-- `public/rio/confluencia_caudal.json` y `barranqueras_diario.json` (INA, ya en el repo)
-- **ONS** (Operador Nacional do Sistema Elétrico, Brasil): datos hidrológicos
-  diarios de cada represa, abiertos y sin clave
-- **GloFAS v4** (Copernicus) por la API de crecidas de Open-Meteo
+```
+lluvia sobre la cuenca  ──GR4J──▶  caudal del Iguazú y aporte propio de Itaipú
+caudal del Paraná alto  ──medido (ONS)──┘                │
+                                                         ▼
+           Itaipú + Iguazú  ──función de respuesta──▶  caudal en Barranqueras
+                                                         │
+                                       curva altura–caudal ▼
+                                                altura en la escala
+```
 
-Los cálculos se corrieron en el navegador de la PC (desde la nube no se llega a
-ninguna de las tres) y **no quedaron como script**. Antes de llevar algo a
-producción hay que rehacerlos en `admin/scripts/`.
+Los cálculos se corrieron en el navegador de la PC, porque desde la nube no se
+llega a ninguna de las fuentes, y **no quedaron como script**. Todo número de
+este documento tiene que poder rehacerse con un `scripts/build_*` y un
+`verificar-*` antes de ir a una pantalla.
 
 ---
 
-## Resumen
+## Qué parte de Brasil importa
 
-El agua que llega a Barranqueras tiene dos plazos, y cada uno pide otra fuente:
+El Paraná brasileño **de arriba** —Paranaíba, Grande, Tietê— está escalonado en
+decenas de represas que lo regulan: lo que llueve ahí sale de Porto Primavera
+días o semanas después, y como decide el operador. **Lo que mueve una crecida
+en Barranqueras es la parte de abajo, entre esas represas y la frontera**:
 
-| Plazo | Qué lo determina | Fuente | Qué se puede decir |
+| Cuenca | Qué es | Área usada | Lluvia anual (ERA5) |
 |---|---|---|---|
-| **0 a 5 días** | agua que ya salió de Itaipú y del Iguazú | ONS (medido) | cuánto viene y cuándo llega, con análogos y regresión |
-| **5 a 30 días** | lluvia sobre la cuenca alta que todavía no escurrió | GloFAS (modelo) | si sigue creciendo o afloja, como tendencia con banda |
-| meses | régimen (El Niño, estación) | INA semanal (`cal_id` 499) | ya está |
+| **Iguazú** | todo el río, de Curitiba a Foz | 57.000 km² hasta Salto Caxias | 1.776 mm |
+| **Incremental de Itaipú** | lo que entra entre Porto Primavera / Rosana e Itaipú: Ivaí, Piquiri, Ivinhema, Amambaí, Iguatemi | 150.000 km² | 1.539 mm |
 
-**La propuesta es sumar el primer plazo ya, y el segundo como tendencia, nunca
-como altura.** Lo que el INA pronostica a ~11 días sigue siendo la referencia
-oficial; esto agrega de dónde viene el agua y con cuántos días de anticipo.
+Del 1 al 15/10/2026 llovieron **174 mm sobre el Iguazú** (1,5 veces lo normal
+para esa quincena) y **192 mm sobre la incremental de Itaipú** (2,2 veces).
+Esa es la crecida de ahora.
 
----
-
-## 1. Lo que ya está en tránsito: Itaipú + Iguazú
-
-### Por qué esas dos
-
-`lib/rioCaudales.ts` ya mide que el 77 % de lo que pasa por Barranqueras sale
-de Yacyretá. Aguas arriba de Yacyretá, casi todo es **Itaipú** (el Paraná que
-viene de Brasil) más el **Iguazú**, que entra justo abajo de Itaipú. Las dos
-son represas del ONS y publican su caudal defluente diario.
-
-Sobre 2000–2026 (9.627 días), con cambios de 3 días:
-
-| | Desfase con mejor correlación | r |
-|---|---|---|
-| Itaipú + Iguazú → Yacyretá | 1 día | 0,57 |
-| Itaipú + Iguazú → Barranqueras | **5 días** | 0,48 |
-
-Itaipú + Iguazú promedian 11.705 m³/s contra 13.151 de Yacyretá: la diferencia
-(~1.450 m³/s) es lo que entra entre las dos (Misiones y Paraguay oriental).
-
-### Los análogos: cada vez que esa suma pasó los 26.000 m³/s
-
-Picos del promedio de 3 días de Itaipú + Iguazú sobre 26.000 m³/s, separados al
-menos 30 días, 2000–2026:
-
-| Pico Itaipú+Iguazú | m³/s (3 días) | Máx. Yacyretá | Máx. Barranqueras | Días después | Paraguay (Pilcomayo) |
-|---|---|---|---|---|---|
-| 22/10/2009 | 28.145 | 34.100 | **6,74 m** | 8 | 2.004 |
-| 03/02/2010 | 26.683 | 28.300 | **6,75 m** | 4 | 3.471 |
-| 27/06/2013 | 33.481 | 38.600 | **7,09 m** | 7 | 3.694 |
-| 10/06/2014 | 32.206 | 38.700 | **7,00 m** | 8 | 6.238 |
-| 05/03/2016 | 28.415 | 31.000 | **7,17 m** | 6 | 6.241 |
-| 04/11/2023 | 28.044 | 36.500 | **7,05 m** | 6 | 1.839 |
-
-- **Los seis pasaron la evacuación (6,50 m) y ninguno llegó a 7,20 m.** El pico
-  se aplasta: con 28.000 a 39.000 m³/s en Yacyretá, Barranqueras tuvo entre
-  31.000 y 34.000.
-- **El Paraguay pesa poco en la altura máxima**: 2014 con 6.238 m³/s y 2023 con
-  1.839 dieron casi lo mismo.
-- Son seis casos. Sirven para decir «la última vez que pasó esto, el río llegó
-  a tanto», no para dar un número con decimales.
-
-### Octubre de 2026
-
-Defluente diario del ONS (m³/s), con dos días de atraso:
-
-| Fecha | Itaipú | Iguazú (Baixo Iguaçu) | Suma |
-|---|---|---|---|
-| 08/10 | 13.343 | 5.118 | 18.461 |
-| 10/10 | 15.678 | 5.738 | 21.416 |
-| 11/10 | 13.881 | 9.954 | 23.835 |
-| 12/10 | 18.727 | 7.867 | 26.594 |
-| 13/10 | 21.040 | 13.228 | **34.268** |
-| 14/10 | 20.968 | 11.629 | 32.597 |
-
-Promedio del 12 al 14/10: **31.150 m³/s**, entre 2016 y 2013/2014 en la tabla
-de análogos. **Lectura por análogos: alrededor de 7 m entre el 18 y el
-22/10**, si no llega otro pulso. Coincide con lo que anunció el INA
-(evacuación probable desde el 17/10).
-
-**Control de cierre.** La suma del 11/10 (23.835) más lo que entra entre
-represas, el Paraguay en Formosa, el Bermejo y el resto da ~28.000 m³/s cinco
-días después, el 16/10. La curva de abajo da 6,0–6,2 m para ese caudal. La
-escala marcó 6,05.
-
-### Regresión: cuánto mejora a la persistencia
-
-Modelo lineal del cambio de caudal en Barranqueras a `k` días, con tres
-entradas: el cambio en Itaipú + Iguazú (desfasado 5 días y **con los dos días
-de atraso del ONS**), el cambio en el Paraguay (10 días) y el desbalance entre
-lo que entra y lo que pasa. Se ajustó con 2000–2014 y se probó con 2015–2026.
-Mejora del error medio contra suponer que el río no cambia:
-
-| k (días) | Todos los días | Con Barranqueras sobre ~24.000 m³/s (~5,2 m) |
-|---|---|---|
-| 1 | 9 % | 33 % |
-| 3 | 4 % | 33 % |
-| 5 | 1 % | 26 % |
-| 8 | 4 % | 20 % |
-| 10 | 2 % | 12 % |
-
-- **Sirve en aguas altas, que es cuando importa.** En aguas bajas el río casi no
-  se mueve y la persistencia ya es difícil de mejorar.
-- Sumar Porto Primavera y Rosana (el Paraná brasileño antes de Itaipú, ~9 días)
-  no mejora: Itaipú ya los regula.
-- Con Yacyretá en vez del ONS, y **suponiendo que se tiene el dato del día**, la
-  mejora llega al 39 % a 4 días (58 % en aguas altas). Ese dato llega con
-  atraso en el INA.
-- El conjunto de prueba es chico: la serie de caudal de Barranqueras tiene
-  huecos largos y **termina el 10/07/2026**.
-
-### De caudal a altura en Barranqueras
-
-Mediana del caudal del INA (serie 26617) por franja de altura, 1994–2026:
-
-| Altura | Caudal | Días |
-|---|---|---|
-| 5,00 m | 22.869 | 319 |
-| 5,50 m | 24.945 | 233 |
-| **6,00 m (alerta)** | **27.310** | 159 |
-| **6,50 m (evacuación)** | **29.737** | 108 |
-| 7,00 m | 32.704 | 67 |
-| 7,50 m | 35.770 | 20 |
-| 8,00 m | 39.549 | 6 |
-
-Sobre 7,5 m hay pocos días: arriba de eso la curva es una extrapolación.
-
-### Cómo se implementaría
-
-- **`lib/ons.ts`**: baja `DADOS_HIDROLOGICOS_RES_{año}.csv` de
-  `ons-aws-prod-opendata.s3.amazonaws.com/dataset/dados_hidrologicos_di/` y se
-  queda con cinco represas (`id_reservatorio`): `PNITAI` Itaipú, `IGUHBI` Baixo
-  Iguaçu (desde 2005), `IGSCAX` Salto Caxias, `PNPPRI` Porto Primavera,
-  `PPROSA` Rosana.
-  - El archivo del año en curso pesa **8,7 MB** y se actualiza a diario. Va en
-    el **cron**, no en la pantalla, y se guarda en una tabla
-    (`caudal_represas`).
-  - **El formato cambió en 2022**: antes, el id de la represa es la última
-    columna y no existe `id_reservatorio`. Hay que leer por encabezado, no por
-    posición.
-  - CORS cerrado: desde el navegador no se puede. Desde Vercel (gru1, San
-    Pablo) no se probó.
-- **En la pantalla** («Aguas arriba»): una franja con Itaipú + Iguazú y la fecha
-  en que ese caudal pasa por Barranqueras (+5 días). Al lado, el análogo más
-  parecido de la tabla. Y la regla del sistema: **la altura que sale de los
-  análogos se muestra como «la última vez que pasó esto», nunca como
-  pronóstico**.
-- **Test** (`verificar-ons.ts`): filas reales del CSV en los dos formatos, el
-  desfase de 5 días sobre el archivo, y el control de cierre del 16/10/2026.
+Las dos cuencas están dibujadas a mano como polígonos aproximados (`POL` en el
+código de la sesión). Para producción conviene usar los contornos de cuenca
+que publica el propio ONS.
 
 ---
 
-## 2. La lluvia que todavía no escurrió: GloFAS
+## Eslabón 1 — Lluvia → caudal: modelo GR4J
 
-### Qué es
+### Por qué GR4J
 
-GloFAS (Copernicus/ECMWF) pasa el pronóstico de lluvia por un modelo
-hidrológico de toda la cuenca, con represas incluidas. Pronóstico de 30 días,
-51 miembros, celdas de 5 km. **Open-Meteo lo sirve sin clave**
-(`flood-api.open-meteo.com/v1/flood`), y el panel ya usa Open-Meteo para la
-lluvia.
+Es el modelo lluvia–caudal diario más usado en hidrología operativa (Perrin,
+Michel y Andréassian, 2003): cuatro parámetros, un almacenamiento de suelo, un
+almacenamiento de tránsito y dos hidrogramas unitarios. Se calibra con
+lluvia, evapotranspiración y caudal observado, y no necesita datos de suelo ni
+de cobertura, que no tenemos.
 
-La celda de Barranqueras es `-27.475, -58.925` (aguas abajo de la confluencia).
-La de enfrente, `-27.475, -58.875`, da un 4 % menos: es el Paraná solo.
+### Datos
 
-### Cuánto acierta, medido
+- **Lluvia y evapotranspiración (ET0 FAO)**: ERA5 por Open-Meteo, diaria desde
+  2008, en 45 puntos de grilla dentro de las dos cuencas (cada ~0,7°),
+  promediados por cuenca.
+- **Caudal observado**: el que publica el ONS en `DADOS_HIDROLOGICOS_RES`.
+  - Para el Iguazú, el **caudal natural** en Salto Caxias (`val_vazaonatural`):
+    el río sin el efecto de las represas de aguas arriba.
+  - Para Itaipú, el **caudal incremental** (`val_vazaoincremental`): lo que
+    escurre de la cuenca propia, descontado lo que llega de Porto Primavera y
+    Rosana.
+  - **Control**: el natural de Itaipú es el de Porto Primavera más el de Rosana
+    más el incremental. Sobre 6.862 días el desvío medio es de −2 m³/s.
 
-**El caudal absoluto no sirve.** Contra el caudal medido en Barranqueras:
+### Calibración y validación
 
-| Período | Sesgo | r |
-|---|---|---|
-| Reanálisis 1994–2022 | **+24 %** | 0,78 |
-| Operativo 2022–2026 (81 días con dato) | **−25 %** | 0,82 |
+Optimización Nelder–Mead del KGE (Kling–Gupta). Calibración 2009–2018 y
+validación 2019–2026, con el año 2008 de calentamiento.
 
-El sesgo cambia de signo. El 16/10/2026 GloFAS da 22.541 m³/s, y la escala
-(6,05 m) indica ~27.500.
-
-**La variación relativa sí aporta.** Método: caudal medido hoy × (GloFAS en
-`t+k` / GloFAS hoy). Sobre el reanálisis 1994–2022, mejora contra la
-persistencia:
-
-| k | 3 | 5 | 7 | 10 | 15 | 20 | 30 días |
+| Cuenca | X1 (mm) | X2 (mm/d) | X3 (mm) | X4 (d) | NSE cal. | NSE val. | KGE val. |
 |---|---|---|---|---|---|---|---|
-| Mejora | 2 % | 7 % | 12 % | 17 % | 22 % | 24 % | 27 % |
+| Iguazú | 56 | 1,36 | 419 | 2,4 | 0,73 | **0,78** | 0,87 |
+| Incremental de Itaipú | 1.925 | 2,00 | 103 | 3,5 | 0,63 | **0,65** | 0,75 |
 
-- **Esto es un techo, no lo que se va a lograr.** El reanálisis corre con la
-  lluvia que cayó; el pronóstico, con la que se prevé. Open-Meteo no guarda los
-  pronósticos viejos, así que el acierto real no se puede medir desde acá.
-- **A menos de 5 días no aporta**: ahí manda lo que ya está en tránsito
-  (sección 1).
-- **GloFAS se adelanta unos 2 días**: la correlación de cambios de 15 días es
-  máxima con un desfase de +2.
-
-### Lo que dice hoy
-
-La corrida del 16/10 (sin bias) sube de 22.541 a 25.176 m³/s el 19/10,
-afloja hasta el 24 y vuelve a subir hasta **40.550 el 14/11**. Aplicado como
-razón al caudal de hoy da un número fuera de la curva, así que la lectura
-honesta es sólo la forma: **el modelo ve una segunda onda a fines de octubre y
-crecida sostenida en noviembre**. No se pudo bajar la banda del ensamble: la PC
-se desconectó antes.
-
-### Cómo se implementaría
-
-- Pedir `river_discharge_median`, `_p25` y `_p75` con `forecast_days=30` en la
-  celda de Barranqueras y en Itaipú e Iguazú. Un pedido por día, en el cron.
-- Mostrar **una flecha de tendencia por semana** (sube / estable / baja) con la
-  banda, y la frase «modelo global, no calibrado en el Chaco». Nunca metros.
-- **Guardar cada corrida** en una tabla. Es la única forma de medir el acierto
-  real dentro de un año.
+- **Valida igual o mejor de lo que calibra**: no está sobreajustado.
+- El Iguazú responde rápido (suelo chico, X1 = 56 mm): es basalto con
+  pendiente. La incremental de Itaipú es lenta y de suelo profundo, por la
+  llanura de Mato Grosso do Sul.
+- El incremental de Itaipú es una resta que hace el ONS, y trae ruido de día a
+  día. Por eso su NSE es menor.
+- **En la crecida actual el modelo se queda corto**: el 13/10 simula 5.400 m³/s
+  en el Iguazú contra 10.100 medidos. La lluvia de ERA5 es un promedio de
+  celdas de 25 km y aplasta las tormentas. Eso se corrige con el paso
+  siguiente.
 
 ---
 
-## 3. La lluvia en sí: lo que pidió el usuario
+## Eslabón 2 — De las represas a Barranqueras
 
-Hoy el panel muestra la lluvia del Chaco, y el río se mueve con la de Brasil.
-Para ver la causa:
+### El Paraná que llega a Itaipú
 
-- **Lluvia areal por subcuenca de la cuenca alta**: Paranaíba, Grande, Tietê,
-  Paranapanema, Iguazú e incremental de Itaipú. Acumulado de 7 días y
-  pronóstico de 7 días, con Open-Meteo (el mismo motor del panel).
-  - Los polígonos están en el ONS («contorno de bacias»).
-  - **La que más pesa en lo inmediato es la incremental de Itaipú y el
-    Iguazú**: el 14/10 el ONS daba 10.700 m³/s de caudal incremental en Itaipú,
-    agua de lluvia caída entre Porto Primavera e Itaipú en los días anteriores.
-    Lo que llueve en el Paranaíba o el Grande lo frenan las represas de arriba.
-- **Caudal natural e incremental del ONS** (`val_vazaonatural`,
-  `val_vazaoincremental`): ya vienen en el mismo CSV y miden el escurrimiento
-  de la lluvia sin el efecto de las represas. Es el puente entre «llovió en
-  Brasil» y «sale de Itaipú».
+Ajuste sobre 2008–2026, R² = 0,98:
 
-**No se propone un modelo lluvia → altura propio.** Con represas que deciden
-cuánto largan, una regresión sobre la lluvia mediría la operación de Itaipú,
-no la cuenca. Para el plazo largo, GloFAS ya modela eso. Para el corto, el
-ONS dice lo que salió de verdad.
+```
+Itaipú afluente(t) = 0,96 · Porto Primavera(t−2) + 0,97 · Rosana(t−2) + 1,01 · incremental(t)
+```
+
+Los coeficientes dan 1: es un balance de masa, y **el agua de Porto Primavera
+tarda 2 días en llegar a Itaipú**. Itaipú casi no guarda agua: el embalse se
+movió entre 216,4 y 220,5 m en el 98 % de los días desde 2008. Lo que entra es
+lo que sale: 10.150 contra 10.146 m³/s de promedio.
+
+### De Itaipú + Iguazú a Barranqueras: función de respuesta
+
+Caudal de Barranqueras como suma ponderada de lo que largaron Itaipú y el
+Iguazú en los días anteriores, más el Paraguay en Puerto Pilcomayo. Es una
+**convolución lineal** (la misma idea que un hidrograma unitario o un tránsito
+de Muskingum) con los pesos ajustados por mínimos cuadrados sobre 2008–2018:
+
+| Días antes | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 12 | 14 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| Peso | 0,10 | 0,07 | 0,14 | 0,15 | **0,16** | 0,10 | 0,07 | 0,03 | 0,09 | 0,05 | 0,06 |
+
+- **Los pesos suman 1,02**: lo que sale de Itaipú y del Iguazú llega entero a
+  Barranqueras. No se impuso; salió del ajuste, y es el control físico.
+- **El pico de la respuesta es a 4–6 días y la cola llega a dos semanas**: así
+  se ve la atenuación en Yacyretá y en la llanura.
+- El Paraguay entra con coeficiente 1,16 (promedio de 5 a 14 días antes), y hay
+  un aporte fijo de 1.530 m³/s: Misiones, Paraguay oriental, el Bermejo y el
+  resto.
+- **NSE 0,88 en calibración y 0,83 en validación (2019–2026).** En aguas altas
+  subestima unos 960 m³/s (~0,3 m). Por eso cada pronóstico arranca de la
+  altura medida y no de lo que dice el modelo (paso siguiente).
+
+### Curva altura–caudal en Barranqueras
+
+Mediana del caudal del INA (serie 26617) por franja de 25 cm, 1994–2026:
+
+| Altura | 5,0 | 5,5 | **6,0** | **6,5** | 7,0 | 7,5 | 8,0 | 8,5* | 9,0* |
+|---|---|---|---|---|---|---|---|---|---|
+| m³/s | 22.869 | 24.945 | **27.310** | **29.737** | 32.704 | 35.770 | 39.549 | 42.972 | 46.394 |
+
+\* Sobre 8 m hay seis días medidos: la curva sigue la pendiente del último
+metro y es una extrapolación.
 
 ---
 
-## Orden sugerido
+## Eslabón 3 — Cómo se arma un pronóstico
 
-1. **ONS en el cron y la franja de Itaipú + Iguazú con su +5 días.** Es medido,
-   abierto, y es lo que habría avisado de esta crecida el 13/10.
-2. **La tabla de análogos** en pantalla, con la regla de «la última vez».
-3. **GloFAS como tendencia**, guardando las corridas para medirlo.
-4. **Lluvia por subcuenca brasileña**, como contexto de las dos anteriores.
+Con fecha de emisión `t0`:
 
-## Pendiente de verificar
+1. **Lo que ya salió de Brasil** se usa tal cual. El ONS publica con dos días
+   de atraso, así que Itaipú + Iguazú son medidos hasta `t0 − 2`.
+2. **Lo que todavía no salió** se calcula con GR4J, corriendo con la lluvia
+   observada hasta ayer y la pronosticada después. Dos correcciones:
+   - **Actualización de estado.** El modelo se escala para que coincida con lo
+     medido el último día (`obs/sim`). La corrección se desvanece con una
+     constante de 20 días.
+   - **Mezcla con la persistencia.** La previsión es la última medida más una
+     fracción α del cambio que da el modelo. α crece con la anticipación: 0,18
+     a un día, 0,57 a cinco y ~0,7 desde diez. Se ajustó con 2009–2018. **A uno
+     o dos días, lo medido es mejor que cualquier modelo**, y α lo dice.
+3. **Barranqueras**: la función de respuesta da el **cambio** de caudal desde
+   hoy, y se suma al caudal que corresponde a la altura medida hoy. El error
+   del eslabón 2 se cancela en la resta.
+4. **Altura**: por la curva.
+5. **Incertidumbre**: se repite con cada uno de los 51 miembros del pronóstico
+   por ensamble del ECMWF (15 días) y se informa la banda.
 
-- Que Vercel (gru1) llegue a S3 del ONS y a la API de crecidas de Open-Meteo.
-- Rehacer las mediciones como script en el repo (`build_rio_ons.mjs` y un
-  `verificar-`), igual que el banco de pruebas de la lluvia.
-- La banda del ensamble de GloFAS para la corrida de hoy.
-- Si la entidad de Yacyretá (EBY) publica su pronóstico de caudal afluente en
-  algún formato consultable: la prensa del 14/10 citaba 29.000–32.000 m³/s.
+### Validación: cuánto mejora a no hacer nada
+
+Contra suponer que Barranqueras se queda en la altura de hoy (persistencia),
+2009–2026, **días con Barranqueras sobre 24.000 m³/s (~5,2 m)**. Error medio en
+m³/s y mejora porcentual:
+
+| Anticipación | Persistencia | Sólo lo que ya salió de Brasil | **Cadena con lluvia** | Si se supiera el futuro de Itaipú+Iguazú |
+|---|---|---|---|---|
+| 3 días | 1.210 | 626 (48 %) | **636 (47 %)** | 650 (46 %) |
+| 5 días | 1.860 | 1.044 (44 %) | **937 (50 %)** | 920 (51 %) |
+| 7 días | 2.480 | 1.720 (31 %) | **1.312 (47 %)** | 1.219 (51 %) |
+| 10 días | 3.137 | 2.602 (17 %) | **1.620 (48 %)** | 1.475 (53 %) |
+| 15 días | 3.805 | 3.478 (9 %) | **2.016 (47 %)** | 1.733 (54 %) |
+
+- **La lluvia es lo que sostiene el pronóstico más allá de 5 días.** Sin ella,
+  la mejora cae del 44 % al 9 % a quince días. Con ella, se queda cerca del
+  techo (la última columna).
+- 1.600 m³/s a diez días son **~0,3 m** en aguas altas; 2.000 a quince, ~0,35 m.
+- **Reserva importante: esta validación usa la lluvia que cayó (ERA5), no la
+  pronosticada.** Es el acierto con un pronóstico de lluvia perfecto. Con el
+  real va a ser peor, y cuánto no se puede medir sin guardar pronósticos.
+- El período 2019–2026 sirve poco para validar aguas altas: sequía de 2019 a
+  2022 y huecos en el caudal de Barranqueras. Hay 17 días utilizables.
+
+### Crecidas pasadas, con la lluvia que cayó
+
+Altura máxima observada contra la que daba la cadena, emitida N días antes:
+
+| Pico | Observado | 15 d antes | 10 d | 7 d | 5 d | 3 d |
+|---|---|---|---|---|---|---|
+| 30/10/2009 | 6,74 | 6,38 | 6,62 | 6,53 | 6,40 | 6,63 |
+| 04/07/2013 | 7,09 | 6,56 | 7,17 | **8,05** | 7,54 | 7,24 |
+| 18/06/2014 | 7,00 | 5,95 | 6,25 | 7,56 | 6,94 | 6,92 |
+| 10/03/2016 | 7,17 | 7,16 | 7,47 | 7,14 | 7,26 | 7,30 |
+| 10/11/2023 | 7,05 | 6,19 | 7,54 | 6,85 | 7,31 | 6,91 |
+
+- **A 15 días anticipa la crecida en los cinco casos**, aunque se queda corta:
+  0,4 a 1 m de menos. Con la altura de ese día, quedarse quieto decía entre
+  4,0 y 5,6 m.
+- **Entre 3 y 10 días el error suele estar dentro de ±0,5 m.** La excepción es
+  2013 a 7 días: se pasó casi un metro.
+- **Con subidas muy rápidas tiende a pasarse.** La respuesta es lineal y no
+  representa que, con el río fuera de cauce, la llanura guarda más agua.
+
+---
+
+## Lo que da hoy (emisión 16/10/2026)
+
+Datos de partida:
+- Barranqueras 6,05 m (~27.550 m³/s por la curva)
+- ONS hasta el 14/10: Itaipú 20.968 + Iguazú 11.629 = 32.597 m³/s (el 13/10 fue 34.268)
+- lluvia observada hasta el 15/10
+- ensamble ECMWF del 16 al 30/10
+
+Lluvia pronosticada para los próximos 15 días (mediana del ensamble; entre
+paréntesis, del 10 % al 90 %):
+- **Iguazú: 104 mm (73–172)**
+- **Incremental de Itaipú: 141 mm (104–193)**
+
+Del 16 al 20/10 casi no llueve. **Del 21 al 25/10 vuelve a llover fuerte**:
+~100 mm en la incremental de Itaipú.
+
+| Fecha | 10 % | **Mediana** | 90 % | Máx. del ensamble | Sin más lluvia |
+|---|---|---|---|---|---|
+| 17/10 | 6,53 | **6,53** | 6,53 | 6,53 | 6,53 |
+| 19/10 | 7,12 | **7,12** | 7,12 | 7,13 | 7,12 |
+| 21/10 | 7,34 | **7,34** | 7,34 | 7,34 | 7,34 |
+| 23/10 | 7,31 | **7,31** | 7,31 | 7,33 | 7,30 |
+| 25/10 | 7,11 | **7,17** | 7,23 | 7,30 | 7,06 |
+| 27/10 | 7,00 | **7,16** | 7,39 | 7,57 | 6,81 |
+| 29/10 | 6,97 | **7,22** | 7,59 | 7,99 | 6,47 |
+| 01/11 | 6,81 | **7,21** | 7,78 | 8,94 | 6,05 |
+
+Cómo leerlo:
+
+- **Hasta el 23/10 la banda no se abre**: esa altura la determina agua que ya
+  salió de Itaipú y del Iguazú, y no depende de lo que llueva. **Pico de unos
+  7,3 m entre el 20 y el 23/10.** Por lo visto en los casos pasados, puede
+  pasarse hasta ~0,5 m; un rango razonable es 6,9 a 7,4 m.
+- **Evacuación (6,50 m) el 17/10**: coincide con lo que anunció el INA.
+- **Después del 25/10 decide la lluvia de la semana que viene.**
+  - Sin más lluvia, el río bajaría a ~6 m el 1/11.
+  - Con la mediana del pronóstico se sostiene en ~7,2 m.
+  - El 10 % más lluvioso lo lleva a 7,8 m.
+  - Un miembro extremo llega a 8,9 m.
+- **Esto no es un pronóstico oficial.** El del INA lo es. Esto agrega de dónde
+  viene el agua y con qué anticipación.
+
+---
+
+## Para llevarlo al panel
+
+1. **Ingesta diaria (cron)**:
+   - **ONS**: el CSV del año en curso (8,7 MB), filtrado a Itaipú, Baixo
+     Iguaçu, Salto Caxias, Porto Primavera y Rosana. El formato cambió en 2022:
+     hay que leer por encabezado, no por posición.
+   - **Open-Meteo**: lluvia y ET0 de ERA5 en los 45 puntos, y el ensamble
+     ECMWF.
+   - Guardar cada pronóstico emitido, para medir el acierto real dentro de un
+     año.
+2. **Motor en `lib/`**: GR4J, la función de respuesta, la mezcla α y la curva,
+   con los parámetros de este documento congelados en un JSON. Igual que con
+   la lluvia: el número y de dónde sale.
+3. **Pantalla** en la pestaña Río: la banda de altura de 15 días con los
+   umbrales.
+   - **Una línea vertical marca hasta dónde la altura está determinada por
+     agua ya en camino (~5 días) y desde dónde depende de la lluvia.** Es la
+     lectura más útil y la más honesta.
+   - Al lado, la lluvia observada y pronosticada sobre las dos cuencas.
+4. **Tests**:
+   - el balance Primavera + Rosana + incremental
+   - que los pesos de la respuesta sumen ~1
+   - GR4J contra una implementación de referencia (el paquete `airGR` de R)
+   - los cinco casos de la tabla de crecidas pasadas
+
+## Pendiente
+
+- Rehacer todo como script en el repo. La sesión del navegador no se guarda.
+- Comparar GR4J contra `airGR` con los mismos datos.
+- Los polígonos de cuenca del ONS en lugar de los dibujados a mano.
+- Verificar que Vercel (gru1) llegue al S3 del ONS y a Open-Meteo. **Open-Meteo
+  limita las llamadas por minuto**, y 18 años son muchas llamadas por punto:
+  bajar los 45 puntos llevó ~15 minutos. El histórico se baja una vez y después sólo el día.
+- Medir el acierto con pronósticos de lluvia reales, que es lo único que dice
+  cuánto vale de verdad.
+- Representar la llanura de inundación en aguas altas. Es lo que hace que se
+  pase en las subidas rápidas.
