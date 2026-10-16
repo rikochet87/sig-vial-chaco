@@ -152,6 +152,13 @@ async function bajarOns() {
 // ── Lluvia por cuenca ─────────────────────────────────────────────────────────
 
 const OPEN_METEO = 'https://archive-api.open-meteo.com/v1/archive'
+/**
+ * Producto de lluvia. `era5` por defecto, fijo para toda la serie. Con
+ * `MODELO_LLUVIA=best_match` se baja la mezcla que arma Open-Meteo (ERA5 y,
+ * desde 2017, el análisis del IFS operativo) a otro archivo, para comparar.
+ */
+const MODELO = process.env.MODELO_LLUVIA || 'era5'
+const ARCHIVO_LLUVIA = MODELO === 'era5' ? 'lluvia_brasil.json' : `lluvia_brasil_${MODELO}.json`
 const DESDE_LLUVIA = '2008-01-01'
 const PAUSA_MS = 9000
 const ESPERA_429_MS = 65_000
@@ -221,10 +228,10 @@ function puntosDe(contiene) {
 
 async function bajarPunto([la, lo], hasta) {
   mkdirSync(CACHE, { recursive: true })
-  const archivo = join(CACHE, `${la}_${lo}_${DESDE_LLUVIA}_${hasta}.json`)
+  const archivo = join(CACHE, `${MODELO}_${la}_${lo}_${DESDE_LLUVIA}_${hasta}.json`)
   if (existsSync(archivo)) return JSON.parse(readFileSync(archivo, 'utf8'))
   const url = `${OPEN_METEO}?latitude=${la}&longitude=${lo}&start_date=${DESDE_LLUVIA}&end_date=${hasta}`
-    + '&daily=precipitation_sum,et0_fao_evapotranspiration&models=era5&timezone=GMT'
+    + `&daily=precipitation_sum,et0_fao_evapotranspiration&models=${MODELO}&timezone=GMT`
   for (let intento = 1; intento <= 8; intento++) {
     const r = await fetch(url).catch(e => ({ ok: false, status: 0, text: async () => String(e) }))
     if (r.status === 429) {
@@ -270,13 +277,13 @@ async function bajarLluvia() {
     }
   }
   const salida = {
-    fuente: 'ERA5 (ECMWF) por la API de archivo de Open-Meteo, models=era5',
+    fuente: `Open-Meteo, API de archivo, models=${MODELO}`,
     unidad: 'décimas de mm por día, promedio de los puntos de cada cuenca; null sin dato',
     generado: hoyIso(), desde: DESDE_LLUVIA, hasta, cuencas,
   }
   mkdirSync(DIR, { recursive: true })
-  writeFileSync(join(DIR, 'lluvia_brasil.json'), JSON.stringify(salida))
-  console.log(`lluvia_brasil.json: ${DESDE_LLUVIA} a ${hasta}`)
+  writeFileSync(join(DIR, ARCHIVO_LLUVIA), JSON.stringify(salida))
+  console.log(`${ARCHIVO_LLUVIA}: ${DESDE_LLUVIA} a ${hasta}`)
 }
 
 const que = process.argv[2]
