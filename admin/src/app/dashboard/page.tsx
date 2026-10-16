@@ -76,7 +76,7 @@ export default async function DashboardPage() {
           color: '#fff', fontSize: 18, fontWeight: 700, margin: 0,
           alignSelf: 'center', paddingRight: 6, whiteSpace: 'nowrap',
         }}>
-          Dashboard
+          Panorama
         </h1>
 
         <StatCard label="Relevamientos" value={totalRelev ?? 0} flex={2}>

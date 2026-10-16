@@ -23,7 +23,7 @@ export type PermisoKey =
 
 /** Opciones que se muestran al crear/editar un usuario */
 export const PERMISOS_OPCIONES: { key: PermisoKey; label: string }[] = [
-  { key: 'dashboard',        label: 'Dashboard' },
+  { key: 'dashboard',        label: 'Panorama' },
   { key: 'consorcios',       label: 'Consorcios' },
   { key: 'relevamientos',    label: 'Relevamientos' },
   { key: 'herramientas',     label: 'Herramientas' },

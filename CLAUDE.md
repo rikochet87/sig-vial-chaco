@@ -288,6 +288,13 @@ permisos, el mapa ruta → permiso y los helpers. Lo consumen el `middleware.ts`
 Claves: `dashboard`, `consorcios`, `relevamientos`, `herramientas`, `obras`,
 `calc_ripio`, `calc_desmalezado`, `calc_desbosque`.
 
+**La pantalla de inicio se llama «Panorama»** desde el 16/10/2026: antes decía
+«Dashboard». Cambiaron el rótulo del menú, el título de la página y la
+etiqueta del permiso; **la ruta (`/dashboard`), la clave del permiso
+(`dashboard`) y los nombres de archivos y componentes siguen igual**, por lo
+mismo que con Hidrología: cambiarlos rompe enlaces guardados y obliga a tocar
+los permisos de cada usuario en la base.
+
 Roles: `admin` (acceso total), `panel` (usuario de oficina, gateado por
 permisos), `tecnico` y `usuario` (app móvil).
 
@@ -304,7 +311,7 @@ Node.**
 - `requirePermiso(clave)` — exige un permiso concreto, con el mismo
   `tienePermiso()` que usan el middleware y el Sidebar
 - `requireAlgunPermiso([claves])` — alguno de varios permisos, para las rutas
-  que alimentan a más de una pantalla (el tiempo va en Dashboard y Hidrología)
+  que alimentan a más de una pantalla (el tiempo va en Panorama y Hidrología)
 - `checkOwnerOrAdmin()` — admin o dueño del recurso
 
 **`requirePermiso` es el que faltaba.** Había sólo dos extremos —sesión a secas o
@@ -3710,7 +3717,7 @@ para la ingesta por consorcio y para la comparación por estación.
 
 `lib/tiempo.ts` (puro) + `lib/tiempoFuente.ts` (servidor) + `components/tiempo/`.
 Pestaña «Tiempo» de Hidrología (`PanelTiempo`) y una tarjeta en la fila de
-arriba del Dashboard (`ResumenTiempo`): la peor alerta vigente, agrupada por
+arriba de Panorama (`ResumenTiempo`): la peor alerta vigente, agrupada por
 fenómeno y nivel (`agruparAlertas`), y la semana en miniatura. **Fue una
 franja aparte y no gustó**: un día de tormentas listaba ocho avisos casi
 iguales y le sacaba 70 px al mapa. Una línea, del alto de las otras tarjetas. Para cuatro usos: planificar obras, enterarse de un evento,
