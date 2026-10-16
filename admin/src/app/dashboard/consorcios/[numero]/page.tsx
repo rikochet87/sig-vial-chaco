@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import type { Consorcio } from '@/types'
 import EditConsorcioForm from './EditConsorcioForm'
+import Maquinaria from '@/components/consorcios/Maquinaria'
 
 export default async function ConsorcioDetailPage({ params }: { params: Promise<{ numero: string }> }) {
   const { numero } = await params
@@ -38,6 +39,8 @@ export default async function ConsorcioDetailPage({ params }: { params: Promise<
           ))}
         </div>
       </div>
+
+      <Maquinaria numero={c.numero} nombre={c.nombre} />
 
       {/* Editable form */}
       <EditConsorcioForm consorcio={c} />

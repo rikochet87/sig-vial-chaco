@@ -37,7 +37,7 @@ npx expo-doctor               # desde la raíz — detecta incompatibilidades de
 ```
 
 **Todo eso corre junto con `npm run verificar`** (desde `admin/`):
-`tsc --noEmit`, la barrera de lint, la sintaxis de los `.sql` y los treinta y dos
+`tsc --noEmit`, la barrera de lint, la sintaxis de los `.sql` y los treinta y cuatro
 `scripts/verificar-*.ts`. `next build` queda afuera a propósito: tarda minutos y
 usa el binario nativo de SWC, así que sólo corre donde se instalaron los
 paquetes. El orquestador es `scripts/verificar-todo.mjs`, en Node y no en un
@@ -121,7 +121,7 @@ composiciones. Estilos inline, sin framework CSS.
 
 **Backend** — Supabase (auth + Postgres + Storage). Tablas: `profiles`,
 `relevamientos`, `obras`, `obra_destinatarios`, `consorcios`, `proyectos_ripio`,
-`ripios`, `equipos`, `precios_base`.
+`ripios`, `equipos`, `precios_base`, `maquinaria`.
 
 ## Arquitectura — App móvil
 
@@ -451,6 +451,60 @@ anteriores y la red vial de fondo.
   alcantarilla.
 - **La ficha ya no muestra toneladas de ripio**: la tarjeta vieja multiplicaba
   por 2,1 t/m³ fijo. Muestra el volumen, que es geometría y no supone densidad.
+
+### Maquinaria vial de cada consorcio
+
+`lib/maquinaria.ts` + `components/consorcios/Maquinaria.tsx` +
+`/api/consorcios/[numero]/maquinaria` (GET, POST) y `…/maquinaria/[id]`
+(PATCH, DELETE), desde el 16/10/2026. En la ficha de cada consorcio, entre la
+información general y los datos editables: qué equipos tiene y en qué
+condición están. Resumen arriba (operativos, no operativos, por condición,
+pólizas vencidas o por vencer), lista agrupada por categoría, filtro
+operativas / no operativas, búsqueda, CSV, y el formulario de carga y edición
+se abre encima de la lista.
+
+**La organización y los nombres vienen de la app «Equipos Viales»**, que se
+armó aparte, con su propia base de Supabase, y se sacó del repo. Se trajo el
+catálogo —cuatro categorías y 31 tipos, con los mismos id—, qué tipos llevan
+chasis y motor, los campos de cada equipo y las seis condiciones en dos grupos:
+Bueno, Regular y Malo son operativas; En reparación, Desuso y Baja, no. **No se
+trajo** el propietario (allá un equipo podía ser de la repartición; acá todo lo
+que lista la sección es del consorcio), el legajo interno, `en_servicio` (lo
+dice la condición) ni el historial de cambios.
+
+- **La tabla se llama `maquinaria`, no `equipos`**: `equipos` ya existe y es el
+  costo de los equipos del análisis de precios de Ripio. Script en
+  `docs/sql/16-maquinaria.sql`. **Hay que aplicarlo en Supabase antes de usar
+  la sección**; sin la tabla, la ruta contesta con el error de la base y la
+  pantalla lo muestra con un botón para reintentar.
+- **El catálogo va en el código, no en una tabla.** La base guarda `tipo_id` y
+  la ruta rechaza uno que no esté en `TIPOS`. **Los id no se reusan**: un tipo
+  que deja de usarse se marca `activo: false`, las máquinas que lo tienen lo
+  siguen mostrando y el formulario no lo ofrece para una nueva.
+- **`consorcio_numero` sin clave foránea**: no hay script de creación de
+  `consorcios` y no consta que `numero` sea único. La ruta comprueba que el
+  consorcio exista al cargar, y edita y borra filtrando por id **y** por
+  consorcio, así una máquina de otro consorcio da 404.
+- **RLS sin políticas y permiso `consorcios`** para leer y escribir, como el
+  resto de la ficha. La app móvil no la lee.
+- **`validarMaquina()` es lista blanca** y la usa la ruta. Un tipo sin chasis y
+  motor guarda esos dos en null aunque lleguen —un número que quedó de cuando
+  se eligió otro tipo no es un dato—, y el dominio va en mayúsculas y sin
+  espacios.
+- **La póliza avisa 30 días antes** (`AVISO_POLIZA_DIAS`, el de la app vieja).
+  Vence hoy es «por vencer», no vencida. **Una máquina dada de baja no avisa
+  su póliza**: no necesita seguro. Pero **la baja cuenta en el total**: sigue
+  en el inventario hasta que alguien la borra, y el número tiene que coincidir
+  con la lista.
+- **Borrar es borrar**, con confirmación en la misma fila (no un diálogo del
+  navegador). No hay borrado lógico ni registro de quién cambió qué; la app
+  vieja lo tenía con un trigger que leía `auth.uid()`, que con la clave de
+  servicio da null. Si hace falta, va en la ruta.
+- Sin hacer: el conteo de equipos en la lista de consorcios y un resumen por
+  zona.
+
+`scripts/verificar-maquinaria.ts` afirma el catálogo contra el de la app
+vieja, la lista blanca, los bordes de la póliza y el resumen.
 
 ### Calculadoras de obra
 
@@ -3816,7 +3870,7 @@ Los arregla `docs/sql/09-seguridad.sql`, ya aplicado.
   `is_admin()`. **Toda función SECURITY DEFINER necesita `set search_path`** o es
   un vector de escalada de privilegios.
 - **`precipitaciones`, `mediciones_lluvia`, `estaciones_lluvia` y
-  `pronostico_lluvia` y `pronostico_crecida` tienen RLS y cero políticas, a propósito.** Sólo se acceden con la clave de servicio. No es
+  `pronostico_lluvia`, `pronostico_crecida` y `maquinaria` tienen RLS y cero políticas, a propósito.** Sólo se acceden con la clave de servicio. No es
   un olvido: si algún día el navegador necesita leerlas, se agrega una política
   de select, **no** se desactiva RLS.
 - **Siete tablas no tienen script de creación en el repo** — `profiles`,
