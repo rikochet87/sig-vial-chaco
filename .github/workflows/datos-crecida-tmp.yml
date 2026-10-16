@@ -23,16 +23,14 @@ jobs:
           path: admin/scripts/.cache-crecida
           key: crecida-${{ github.run_id }}
           restore-keys: crecida-
-      - name: ONS
-        run: node admin/scripts/build_crecida.mjs ons
-      - name: Lluvia ERA5
-        run: node admin/scripts/build_crecida.mjs lluvia
+      - name: Lluvia best_match, para comparar con ERA5
+        run: MODELO_LLUVIA=best_match node admin/scripts/build_crecida.mjs lluvia
       - name: Commitear
         if: always()
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@users.noreply.github.com"
-          git add -f admin/public/rio/ons_represas.json admin/public/rio/lluvia_brasil.json 2>/dev/null || true
+          git add -f admin/public/rio/lluvia_brasil_best_match.json 2>/dev/null || true
           git commit -m "Datos de Brasil para el cálculo de crecida (Actions)" || echo "nada que commitear"
           git pull --rebase origin datos-crecida-tmp
           git push origin HEAD:datos-crecida-tmp
