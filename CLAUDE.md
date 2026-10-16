@@ -3268,6 +3268,15 @@ Iguazú y de la incremental de Itaipú con **GR4J** → Itaipú + Iguazú (ONS) 
   pasado eso hay que regenerar `lluvia_brasil.json`— y las 51 corridas del
   ensamble. Guard `requireLecturaHidrologia()`. **Que Vercel llegue al S3 del
   ONS y a Open-Meteo no está probado**: desde Actions sí.
+- **La pantalla está escrita para quien decide, no para quien calcula**
+  (16/10/2026: la primera versión «era demasiado técnica»). Arriba una frase
+  —hoy está en X, lo más probable es que llegue a Y hacia tal día— y una regla
+  con los tres niveles pintados; después tres tarjetas a 3, 7 y 14 días, el
+  gráfico con los rótulos sobre las líneas y la lectura del día bajo el
+  cursor, y la lluvia por cuenca. El método, la validación y el acierto van
+  plegados en «Cómo se calcula y cuánto acierta». «Lo más probable» es la
+  mediana; «entre a y b», del 10 al 90 %. La banda de todas las corridas no se
+  dibuja.
 - **No es un pronóstico oficial y la pantalla lo dice**; al lado va el del INA.
   La línea punteada (`determinadoHasta`) es el último día en que la banda no
   se abre más de 5 cm: hasta ahí decide agua que ya salió de Brasil.
