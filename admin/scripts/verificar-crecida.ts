@@ -161,8 +161,8 @@ if (existsSync(archivoOns)) {
   const ons = JSON.parse(readFileSync(archivoOns, 'utf8'))
   const s = (k: string, v: string) => lector({ desde: ons.desde, valores: ons.series[k][v] })
   const pri = s('primavera', 'def'), ros = s('rosana', 'def')
-  // Lo que larga Itaipú es lo que llega de arriba, dos días después, más lo que escurre de su cuenca propia
-  const def = s('itaipu', 'def'), inc = s('itaipu', 'inc')
+  // Lo que le entra a Itaipú es lo que larga lo de arriba, dos días antes, más lo que escurre de su cuenca propia
+  const def = s('itaipu', 'af'), inc = s('itaipu', 'inc')
   const X: number[][] = [], y: number[] = []
   for (let t = diaDe('2008-01-10'); t < diaDe(ons.hasta); t++) {
     const a = pri(t - 2), b = ros(t - 2), c = inc(t), o = def(t)
@@ -172,7 +172,7 @@ if (existsSync(archivoOns)) {
   const m = y.reduce((p, q) => p + q, 0) / y.length
   let se = 0, st = 0
   X.forEach((x, i) => { const p = x.reduce((acc, v, j) => acc + v * co[j], 0); se += (y[i] - p) ** 2; st += (y[i] - m) ** 2 })
-  ok('Itaipú = Porto Primavera(t−2) + Rosana(t−2) + incremental: R² > 0,95', 1 - se / st > 0.95)
+  ok('Itaipú afluente = P. Primavera(t−2) + Rosana(t−2) + incr.: R² > 0,95', 1 - se / st > 0.95)
   cerca('el coeficiente de Porto Primavera es ~1', co[0], 1, 0.1)
   cerca('el del incremental es ~1', co[2], 1, 0.1)
 }
