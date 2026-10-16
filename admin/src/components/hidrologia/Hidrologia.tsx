@@ -364,9 +364,13 @@ export default function Hidrologia({ publico = false }: { publico?: boolean }) {
 
       {/* Encabezado */}
       <div className="sv-hidro-cab" style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 10, flexShrink: 0 }}>
-        <h1 style={{ color: '#e0e0e0', fontSize: 20, fontWeight: 700, letterSpacing: 0.5, ...mono, margin: 0 }}>
-          Hidrología
-        </h1>
+        {/* En el enlace público el nombre ya va en la barra de arriba
+            («Sección Hidrometeorológica»): repetirlo acá se pidió sacar */}
+        {!publico && (
+          <h1 style={{ color: '#e0e0e0', fontSize: 20, fontWeight: 700, letterSpacing: 0.5, ...mono, margin: 0 }}>
+            Hidrología
+          </h1>
+        )}
         <div className="sv-tira" style={{ display: 'flex', border: '1px solid #252525' }}>
           {vistas.map(([v, t]) => (
             <button key={v} onClick={() => elegirVista(v)} style={{

@@ -18,7 +18,7 @@ import Firma from '@/components/Firma'
 export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
-  title: 'Hidrología — SIG Vial Chaco',
+  title: 'Sección Hidrometeorológica — SIG Vial Chaco',
   // Se abre con un enlace que se le pasa a alguien: no es para los buscadores
   robots: { index: false, follow: false },
 }
@@ -34,7 +34,7 @@ export default function HidrologiaPublica() {
           justifyContent: 'space-between', padding: '0 16px', borderBottom: '1px solid #222',
         }}>
           <span style={{ fontWeight: 600, fontSize: 13, color: '#e0e0e0', letterSpacing: 0.3 }}>
-            SIG Vial Chaco — Hidrología
+            SIG Vial Chaco — Sección Hidrometeorológica
           </span>
           <TamanoTexto />
         </div>

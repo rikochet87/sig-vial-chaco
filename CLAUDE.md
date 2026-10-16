@@ -363,6 +363,10 @@ destinatario para poder cortar uno sin tocar los demás.
   pública le arma un `UserProvider` con un visitante sin rol ni permisos, así
   que ningún control de administrador aparece, y el enlace «Ver» de una obra
   de arte en Cuencas se muestra sólo con el permiso `relevamientos`.
+- **En el enlace la sección se llama «Sección Hidrometeorológica»** (barra de
+  arriba y título de la pestaña) y el título «Hidrología» de la pantalla no se
+  muestra (`publico` en `Hidrologia.tsx`). Pedido del usuario, 16/10/2026. El
+  panel con sesión sigue diciendo «Hidrología».
 - **Sí muestra las obras de arte relevadas** (tipo, coordenada y ruta) en
   Cuencas: se pidió la sección completa.
 - **La clave va en claro en `enlaces_publicos`** (`docs/sql/14-enlaces-publicos.sql`)
