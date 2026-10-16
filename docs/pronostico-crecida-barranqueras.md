@@ -17,10 +17,10 @@ caudal del Paraná alto  ──medido (ONS)──┘                │
                                                 altura en la escala
 ```
 
-Los cálculos se corrieron en el navegador de la PC, porque desde la nube no se
-llega a ninguna de las fuentes, y **no quedaron como script**. Todo número de
-este documento tiene que poder rehacerse con un `scripts/build_*` y un
-`verificar-*` antes de ir a una pantalla.
+**Todo está en el repo desde el 16/10/2026** (ver «Cómo se reproduce» al
+final). La primera pasada se hizo en el navegador de la PC; los números de
+este documento son los de la segunda, rehecha con los scripts, y donde
+difieren se dice.
 
 ---
 
@@ -114,9 +114,15 @@ de cobertura, que no tenemos.
 
 ### Datos
 
-- **Lluvia y evapotranspiración (ET0 FAO)**: ERA5 por Open-Meteo, diaria desde
-  2008, en 45 puntos de grilla dentro de las dos cuencas (cada ~0,7°),
-  promediados por cuenca.
+- **Lluvia y evapotranspiración (ET0 FAO)**: Open-Meteo, diaria desde 2008, en
+  40 puntos de grilla dentro de las dos cuencas (cada ~0,7°), promediados por
+  cuenca. El producto es `best_match`: ERA5 y, desde 2017, el análisis del IFS
+  operativo. Se comparó contra ERA5 fijo y valida mejor (ver la tabla de
+  abajo).
+- **Las cuencas son las del ONS** (`docs/geo/cuencas-ons/`, el shapefile
+  «Contorno das bacias»). El Iguazú, tal cual (67.705 km²). La incremental de
+  Itaipú es la cuenca «Paraná» del ONS cortada aguas abajo de Porto Primavera,
+  por la divisoria entre el Ivinhema y el Pardo (155.218 km²).
 - **Caudal observado**: el que publica el ONS en `DADOS_HIDROLOGICOS_RES`.
   - Para el Iguazú, el **caudal natural** en Salto Caxias (`val_vazaonatural`):
     el río sin el efecto de las represas de aguas arriba.
@@ -128,24 +134,51 @@ de cobertura, que no tenemos.
 
 ### Calibración y validación
 
-Optimización Nelder–Mead del KGE (Kling–Gupta). Calibración 2009–2018 y
-validación 2019–2026, con el año 2008 de calentamiento.
+Optimización Nelder–Mead del KGE (Kling–Gupta), con cuatro arranques.
+Calibración 2009–2018 y validación de 2019 al 09/10/2026, con 2008 de
+calentamiento.
 
 | Cuenca | X1 (mm) | X2 (mm/d) | X3 (mm) | X4 (d) | NSE cal. | NSE val. | KGE val. |
 |---|---|---|---|---|---|---|---|
-| Iguazú | 56 | 1,36 | 419 | 2,4 | 0,73 | **0,78** | 0,87 |
-| Incremental de Itaipú | 1.925 | 2,00 | 103 | 3,5 | 0,63 | **0,65** | 0,75 |
+| Iguazú | 61 | 0,29 | 379 | 2,5 | 0,70 | **0,73** | 0,85 |
+| Incremental de Itaipú | 1.934 | 2,32 | 91 | 3,5 | 0,62 | **0,62** | 0,72 |
 
 - **Valida igual o mejor de lo que calibra**: no está sobreajustado.
-- El Iguazú responde rápido (suelo chico, X1 = 56 mm): es basalto con
+- El Iguazú responde rápido (suelo chico, X1 ≈ 60 mm): es basalto con
   pendiente. La incremental de Itaipú es lenta y de suelo profundo, por la
   llanura de Mato Grosso do Sul.
 - El incremental de Itaipú es una resta que hace el ONS, y trae ruido de día a
   día. Por eso su NSE es menor.
-- **En la crecida actual el modelo se queda corto**: el 13/10 simula 5.400 m³/s
-  en el Iguazú contra 10.100 medidos. La lluvia de ERA5 es un promedio de
-  celdas de 25 km y aplasta las tormentas. Eso se corrige con el paso
-  siguiente.
+- **Al principio de la crecida actual el modelo arranca corto**: del 1 al 9/10
+  la incremental de Itaipú simula entre 12 y 34 % menos que lo medido. El análisis
+  de lluvia es un promedio de celdas de 9 a 25 km y aplasta las tormentas. Eso
+  se corrige con la actualización de estado (eslabón 3). En la primera pasada,
+  el 13/10 el Iguazú simulaba la mitad de lo medido.
+
+**El producto de lluvia**, con todo lo demás igual:
+
+| | NSE val. Iguazú | NSE val. incremental | Cadena a 10 días |
+|---|---|---|---|
+| ERA5 fijo | 0,66 | 0,52 | 48 % |
+| **`best_match`** | **0,73** | **0,62** | 48 % |
+
+La cadena entera no cambia; el modelo de lluvia, sí. Se usa `best_match`
+porque además es el mismo modelo que da el pronóstico y llega hasta ayer
+(ERA5, con cinco días de atraso).
+
+**La primera pasada, en el navegador, daba 0,78 y 0,65** de NSE en
+validación: tenía los polígonos dibujados a mano, que incluían algo más de
+tierra al norte del Iguazú. Con los contornos del ONS el número es éste.
+
+### GR4J contra `airGR`
+
+`src/lib/gr4j.ts` se compara contra el núcleo Fortran de **`airGR`** (INRAE),
+la implementación de referencia, a través del paquete de Python `hydrogr`.
+Sobre 1.500 días de lluvia sintética y cuatro juegos de parámetros —incluidos
+intercambio negativo, x4 de casi diez días, sequía larga y tormentas de
+120 mm— **la mayor diferencia es de 4 × 10⁻⁷ mm/d**. Además, el balance de
+agua de cada corrida cierra a 10⁻¹¹ mm. La referencia está congelada en
+`scripts/gr4j-airgr-referencia.json` y la afirma `verificar-crecida.ts`.
 
 ---
 
@@ -229,17 +262,21 @@ m³/s y mejora porcentual:
 
 | Anticipación | Persistencia | Sólo lo que ya salió de Brasil | **Cadena con lluvia** | Si se supiera el futuro de Itaipú+Iguazú |
 |---|---|---|---|---|
-| 3 días | 1.210 | 626 (48 %) | **636 (47 %)** | 650 (46 %) |
-| 5 días | 1.860 | 1.044 (44 %) | **937 (50 %)** | 920 (51 %) |
-| 7 días | 2.480 | 1.720 (31 %) | **1.312 (47 %)** | 1.219 (51 %) |
-| 10 días | 3.137 | 2.602 (17 %) | **1.620 (48 %)** | 1.475 (53 %) |
-| 15 días | 3.805 | 3.478 (9 %) | **2.016 (47 %)** | 1.733 (54 %) |
+| 3 días | 1.210 | 626 (48 %) | **639 (47 %)** | 650 (46 %) |
+| 5 días | 1.860 | 1.044 (44 %) | **946 (49 %)** | 920 (51 %) |
+| 7 días | 2.480 | 1.720 (31 %) | **1.327 (47 %)** | 1.219 (51 %) |
+| 10 días | 3.141 | 2.605 (17 %) | **1.639 (48 %)** | 1.475 (53 %) |
+| 15 días | 3.807 | 3.480 (9 %) | **2.038 (46 %)** | 1.733 (54 %) |
+
+Las tres primeras columnas salen de `calibrar_crecida.ts` y quedan en
+`crecida_parametros.json`. La última es de la primera pasada, en el navegador,
+y no se rehízo.
 
 - **La lluvia es lo que sostiene el pronóstico más allá de 5 días.** Sin ella,
   la mejora cae del 44 % al 9 % a quince días. Con ella, se queda cerca del
   techo (la última columna).
 - 1.600 m³/s a diez días son **~0,3 m** en aguas altas; 2.000 a quince, ~0,35 m.
-- **Reserva importante: esta validación usa la lluvia que cayó (ERA5), no la
+- **Reserva importante: esta validación usa la lluvia que cayó, no la
   pronosticada.** Es el acierto con un pronóstico de lluvia perfecto. Con el
   real va a ser peor, y cuánto no se puede medir sin guardar pronósticos.
 - El período 2019–2026 sirve poco para validar aguas altas: sequía de 2019 a
@@ -251,23 +288,43 @@ Altura máxima observada contra la que daba la cadena, emitida N días antes:
 
 | Pico | Observado | 15 d antes | 10 d | 7 d | 5 d | 3 d |
 |---|---|---|---|---|---|---|
-| 30/10/2009 | 6,74 | 6,38 | 6,62 | 6,53 | 6,40 | 6,63 |
-| 04/07/2013 | 7,09 | 6,56 | 7,17 | **8,05** | 7,54 | 7,24 |
-| 18/06/2014 | 7,00 | 5,95 | 6,25 | 7,56 | 6,94 | 6,92 |
-| 10/03/2016 | 7,17 | 7,16 | 7,47 | 7,14 | 7,26 | 7,30 |
-| 10/11/2023 | 7,05 | 6,19 | 7,54 | 6,85 | 7,31 | 6,91 |
+| 30/10/2009 | 6,74 | 6,30 | 6,64 | 6,52 | 6,40 | 6,63 |
+| 04/07/2013 | 7,09 | 6,54 | 7,14 | **8,06** | 7,53 | 7,23 |
+| 18/06/2014 | 7,00 | 5,87 | 6,25 | 7,54 | 6,92 | 6,92 |
+| 10/03/2016 | 7,17 | 7,18 | 7,44 | 7,14 | 7,26 | 7,30 |
+| 10/11/2023 | 7,05 | 6,08 | 7,49 | 6,84 | 7,32 | 6,90 |
 
-- **A 15 días anticipa la crecida en los cinco casos**, aunque se queda corta:
-  0,4 a 1 m de menos. Con la altura de ese día, quedarse quieto decía entre
-  4,0 y 5,6 m.
+- **A 15 días anticipa la crecida en los cinco casos**, aunque en cuatro se
+  queda corta: de 0,4 a 1,1 m de menos. Con la altura de ese día, quedarse
+  quieto decía entre 4,0 y 5,6 m.
 - **Entre 3 y 10 días el error suele estar dentro de ±0,5 m.** La excepción es
   2013 a 7 días: se pasó casi un metro.
 - **Con subidas muy rápidas tiende a pasarse.** La respuesta es lineal y no
   representa que, con el río fuera de cauce, la llanura guarda más agua.
 
+### La llanura de inundación: se probó y no se adoptó
+
+Para representar que la llanura guarda agua cuando el río sale de cauce, se
+sumó a la respuesta un término con el exceso de Itaipú + Iguazú sobre un
+umbral (promedio de 2 a 8 días antes). El ajuste le da coeficiente negativo,
+como corresponde: el exceso se atenúa. Probado con umbrales de 22.000 a
+31.000 m³/s:
+
+| Umbral | Mejora a 10 días | Error en el pico de 2013, 7 d antes | Error medio en los cinco picos, 7 d / 10 d |
+|---|---|---|---|
+| sin término | 48 % | +0,96 m | 0,46 / 0,24 m |
+| 22.000 | 48 % | +0,06 m | 0,30 / 0,35 m |
+| 25.000 | 48 % | −0,19 m | 0,28 / 0,30 m |
+| 28.000 | 47 % | −0,49 m | 0,32 / 0,27 m |
+
+**Arregla 2013 y desarregla los otros**: el error se reparte distinto, pero no
+baja. Con cinco crecidas no hay con qué elegir un umbral sin elegirlo mirando
+el resultado. Queda la respuesta lineal, con la advertencia de que se pasa en
+las subidas rápidas.
+
 ---
 
-## Lo que da hoy (emisión 16/10/2026)
+## Lo que dio el 16/10/2026 (primera pasada, en el navegador)
 
 Datos de partida:
 - Barranqueras 6,05 m (~27.550 m³/s por la curva)
@@ -311,6 +368,35 @@ Cómo leerlo:
 
 ---
 
+## Cómo se reproduce
+
+| Archivo | Qué hace | Sale a la red |
+|---|---|---|
+| `admin/src/lib/gr4j.ts` | GR4J, idéntico a `airGR` | no |
+| `admin/src/lib/crecida.ts` | respuesta, curva, mezcla α, proyección y altura | no |
+| `admin/scripts/build_cuencas_brasil.mjs` | contornos del ONS → `public/geo/cuencas_brasil.json` | no |
+| `admin/scripts/build_crecida.mjs` | ONS → `public/rio/ons_represas.json`; lluvia → `public/rio/lluvia_brasil.json` | **sí** |
+| `admin/scripts/calibrar_crecida.ts` | calibra todo → `public/rio/crecida_parametros.json` | no |
+| `admin/scripts/verificar-crecida.ts` | GR4J contra `airGR`, balance, casos armados, parámetros | no |
+| `admin/scripts/referencia_gr4j_airgr.py` | genera la referencia de `airGR` (Python, una vez) | no |
+
+```bash
+cd admin
+node scripts/build_crecida.mjs          # ~20 minutos la primera vez; después, de la caché
+npx tsx scripts/calibrar_crecida.ts     # un minuto
+npx tsx scripts/verificar-crecida.ts
+```
+
+- **Desde la nube no se llega ni al ONS ni a Open-Meteo.** El 16/10/2026 se
+  bajó con un workflow temporal de GitHub Actions en la rama
+  `datos-crecida-tmp`, como se hizo con el río el 08/10. Desde la PC, correr
+  el script directo.
+- **Open-Meteo limita las llamadas por minuto**: el script va de a un punto
+  con nueve segundos de pausa y guarda cada punto en
+  `scripts/.cache-crecida/`, así que una corrida cortada sigue donde quedó.
+- **Si al recalibrar se mueven números que no se esperaban, eso es el
+  hallazgo**: el diff de git de `crecida_parametros.json` muestra cuáles.
+
 ## Para llevarlo al panel
 
 1. **Ingesta diaria (cron)**:
@@ -338,13 +424,13 @@ Cómo leerlo:
 
 ## Pendiente
 
-- Rehacer todo como script en el repo. La sesión del navegador no se guarda.
-- Comparar GR4J contra `airGR` con los mismos datos.
-- Los polígonos de cuenca del ONS en lugar de los dibujados a mano.
-- Verificar que Vercel (gru1) llegue al S3 del ONS y a Open-Meteo. **Open-Meteo
-  limita las llamadas por minuto**, y 18 años son muchas llamadas por punto:
-  bajar los 45 puntos llevó ~15 minutos. El histórico se baja una vez y después sólo el día.
-- Medir el acierto con pronósticos de lluvia reales, que es lo único que dice
-  cuánto vale de verdad.
-- Representar la llanura de inundación en aguas altas. Es lo que hace que se
-  pase en las subidas rápidas.
+- **Llevarlo al panel**: una ruta que baje el ONS del año en curso y la lluvia
+  de los últimos días con el ensamble, corra la cadena con
+  `crecida_parametros.json` y devuelva la banda. Y la pantalla.
+- **Verificar que Vercel (gru1) llegue al S3 del ONS y a Open-Meteo.** Desde
+  GitHub Actions llegó a los dos; desde Vercel no se probó.
+- **Guardar cada pronóstico emitido** y medir el acierto con la lluvia
+  pronosticada, que es lo único que dice cuánto vale de verdad. Lo de arriba
+  es con la lluvia que cayó.
+- **La llanura de inundación** queda sin resolver (ver más arriba): hacen
+  falta más crecidas, o cotas, para elegir con qué representarla.

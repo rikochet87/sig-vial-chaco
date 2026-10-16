@@ -1,0 +1,497 @@
+{
+ "lluvia": "Open-Meteo, API de archivo, models=best_match",
+ "generado": "2026-10-16",
+ "metodo": "docs/pronostico-crecida-barranqueras.md",
+ "datos": {
+  "ons": "2000-01-01 a 2026-10-14",
+  "lluvia": "2008-01-01 a 2026-10-09",
+  "ina": "1994-07-24 a 2026-10-07"
+ },
+ "gr4j": {
+  "iguacu": {
+   "params": {
+    "x1": 61.25,
+    "x2": 0.289,
+    "x3": 379.39,
+    "x4": 2.5004
+   },
+   "kgeCal": 0.848,
+   "kgeVal": 0.85,
+   "nseCal": 0.699,
+   "nseVal": 0.725,
+   "areaKm2": 57000
+  },
+  "itaipu_inc": {
+   "params": {
+    "x1": 1934.48,
+    "x2": 2.3179,
+    "x3": 90.66,
+    "x4": 3.4574
+   },
+   "kgeCal": 0.811,
+   "kgeVal": 0.721,
+   "nseCal": 0.623,
+   "nseVal": 0.622,
+   "areaKm2": 150000
+  }
+ },
+ "razonIguazu": 1.047,
+ "respuesta": {
+  "pesos": [
+   0.1011,
+   0.0674,
+   0.1424,
+   0.1483,
+   0.1554,
+   0.1018,
+   0.0711,
+   0.0312,
+   0.0893,
+   0.0538,
+   0.0575
+  ],
+  "paraguay": 1.1627,
+  "constante": 1530,
+  "nResp": 3666,
+  "cal": {
+   "nse": 0.883,
+   "dias": 3666
+  },
+  "val": {
+   "nse": 0.826,
+   "dias": 840
+  }
+ },
+ "curva": [
+  [
+   0,
+   7181
+  ],
+  [
+   0.25,
+   7742
+  ],
+  [
+   0.5,
+   8066
+  ],
+  [
+   0.75,
+   8664
+  ],
+  [
+   1,
+   9426
+  ],
+  [
+   1.25,
+   10091
+  ],
+  [
+   1.5,
+   10741
+  ],
+  [
+   1.75,
+   11442
+  ],
+  [
+   2,
+   12198
+  ],
+  [
+   2.25,
+   12889
+  ],
+  [
+   2.5,
+   13728
+  ],
+  [
+   2.75,
+   14467
+  ],
+  [
+   3,
+   15294
+  ],
+  [
+   3.25,
+   16183
+  ],
+  [
+   3.5,
+   17028
+  ],
+  [
+   3.75,
+   17917
+  ],
+  [
+   4,
+   18867
+  ],
+  [
+   4.25,
+   19827
+  ],
+  [
+   4.5,
+   20734
+  ],
+  [
+   4.75,
+   21828
+  ],
+  [
+   5,
+   22869
+  ],
+  [
+   5.25,
+   23938
+  ],
+  [
+   5.5,
+   24945
+  ],
+  [
+   5.75,
+   26021
+  ],
+  [
+   6,
+   27310
+  ],
+  [
+   6.25,
+   28538
+  ],
+  [
+   6.5,
+   29737
+  ],
+  [
+   6.75,
+   31047
+  ],
+  [
+   7,
+   32704
+  ],
+  [
+   7.25,
+   34038
+  ],
+  [
+   7.5,
+   35770
+  ],
+  [
+   7.75,
+   37825
+  ],
+  [
+   8,
+   39549
+  ],
+  [
+   8.25,
+   41260
+  ],
+  [
+   8.5,
+   42972
+  ],
+  [
+   8.75,
+   44683
+  ],
+  [
+   9,
+   46394
+  ],
+  [
+   9.25,
+   48105
+  ],
+  [
+   9.5,
+   49817
+  ],
+  [
+   9.75,
+   51528
+  ],
+  [
+   10,
+   53239
+  ]
+ ],
+ "alfa": [
+  [
+   1,
+   0.179
+  ],
+  [
+   2,
+   0.326
+  ],
+  [
+   3,
+   0.439
+  ],
+  [
+   4,
+   0.513
+  ],
+  [
+   5,
+   0.56
+  ],
+  [
+   6,
+   0.594
+  ],
+  [
+   7,
+   0.628
+  ],
+  [
+   8,
+   0.661
+  ],
+  [
+   10,
+   0.71
+  ],
+  [
+   12,
+   0.709
+  ],
+  [
+   15,
+   0.696
+  ],
+  [
+   18,
+   0.716
+  ]
+ ],
+ "alfaValidacion": {
+  "1": {
+   "persistencia": 1870952,
+   "mezcla": 1845567,
+   "mejora": 0.01
+  },
+  "2": {
+   "persistencia": 2850434,
+   "mezcla": 2659763,
+   "mejora": 0.07
+  },
+  "3": {
+   "persistencia": 3346861,
+   "mezcla": 3028515,
+   "mejora": 0.1
+  },
+  "4": {
+   "persistencia": 3567357,
+   "mezcla": 3130799,
+   "mejora": 0.12
+  },
+  "5": {
+   "persistencia": 3577901,
+   "mezcla": 3077095,
+   "mejora": 0.14
+  },
+  "6": {
+   "persistencia": 3345413,
+   "mezcla": 2878839,
+   "mejora": 0.14
+  },
+  "7": {
+   "persistencia": 3209823,
+   "mezcla": 2750977,
+   "mejora": 0.14
+  },
+  "8": {
+   "persistencia": 3728740,
+   "mezcla": 3137569,
+   "mejora": 0.16
+  },
+  "10": {
+   "persistencia": 4515691,
+   "mezcla": 3627005,
+   "mejora": 0.2
+  },
+  "12": {
+   "persistencia": 4582420,
+   "mezcla": 3675175,
+   "mejora": 0.2
+  },
+  "15": {
+   "persistencia": 4511196,
+   "mezcla": 3611199,
+   "mejora": 0.2
+  },
+  "18": {
+   "persistencia": 5105693,
+   "mezcla": 4037945,
+   "mejora": 0.21
+  }
+ },
+ "validacion": {
+  "nota": "Con la lluvia que cayó (ERA5): es el acierto con un pronóstico de lluvia perfecto, un techo. Error medio en m³/s, días con Barranqueras sobre 24.000 m³/s.",
+  "todo": [
+   {
+    "dias": 3,
+    "n": 571,
+    "persistencia": 1210,
+    "cadena": 639,
+    "soloMedido": 626,
+    "mejora": 0.47,
+    "mejoraSoloMedido": 0.48
+   },
+   {
+    "dias": 5,
+    "n": 570,
+    "persistencia": 1860,
+    "cadena": 946,
+    "soloMedido": 1044,
+    "mejora": 0.49,
+    "mejoraSoloMedido": 0.44
+   },
+   {
+    "dias": 7,
+    "n": 569,
+    "persistencia": 2480,
+    "cadena": 1327,
+    "soloMedido": 1720,
+    "mejora": 0.47,
+    "mejoraSoloMedido": 0.31
+   },
+   {
+    "dias": 10,
+    "n": 567,
+    "persistencia": 3141,
+    "cadena": 1639,
+    "soloMedido": 2605,
+    "mejora": 0.48,
+    "mejoraSoloMedido": 0.17
+   },
+   {
+    "dias": 15,
+    "n": 562,
+    "persistencia": 3807,
+    "cadena": 2038,
+    "soloMedido": 3480,
+    "mejora": 0.46,
+    "mejoraSoloMedido": 0.09
+   }
+  ],
+  "desde2019": [
+   {
+    "dias": 3,
+    "n": 17,
+    "persistencia": 2722,
+    "cadena": 2635,
+    "soloMedido": 2620,
+    "mejora": 0.03,
+    "mejoraSoloMedido": 0.04
+   },
+   {
+    "dias": 5,
+    "n": 17,
+    "persistencia": 1865,
+    "cadena": 1835,
+    "soloMedido": 1753,
+    "mejora": 0.02,
+    "mejoraSoloMedido": 0.06
+   },
+   {
+    "dias": 7,
+    "n": 18,
+    "persistencia": 3972,
+    "cadena": 3888,
+    "soloMedido": 3410,
+    "mejora": 0.02,
+    "mejoraSoloMedido": 0.14
+   },
+   {
+    "dias": 10,
+    "n": 17,
+    "persistencia": 4528,
+    "cadena": 4575,
+    "soloMedido": 4173,
+    "mejora": -0.01,
+    "mejoraSoloMedido": 0.08
+   },
+   {
+    "dias": 15,
+    "n": 17,
+    "persistencia": 4121,
+    "cadena": 4540,
+    "soloMedido": 4215,
+    "mejora": -0.1,
+    "mejoraSoloMedido": -0.02
+   }
+  ]
+ },
+ "casos": [
+  {
+   "pico": "2009-10-30",
+   "observado": 6.74,
+   "emitido": {
+    "15d": 6.3,
+    "10d": 6.64,
+    "7d": 6.52,
+    "5d": 6.4,
+    "3d": 6.63
+   }
+  },
+  {
+   "pico": "2013-07-04",
+   "observado": 7.09,
+   "emitido": {
+    "15d": 6.54,
+    "10d": 7.14,
+    "7d": 8.06,
+    "5d": 7.53,
+    "3d": 7.23
+   }
+  },
+  {
+   "pico": "2014-06-18",
+   "observado": 7,
+   "emitido": {
+    "15d": 5.87,
+    "10d": 6.25,
+    "7d": 7.54,
+    "5d": 6.92,
+    "3d": 6.92
+   }
+  },
+  {
+   "pico": "2016-03-10",
+   "observado": 7.17,
+   "emitido": {
+    "15d": 7.18,
+    "10d": 7.44,
+    "7d": 7.14,
+    "5d": 7.26,
+    "3d": 7.3
+   }
+  },
+  {
+   "pico": "2023-11-10",
+   "observado": 7.05,
+   "emitido": {
+    "15d": 6.08,
+    "10d": 7.49,
+    "7d": 6.84,
+    "5d": 7.32,
+    "3d": 6.9
+   }
+  }
+ ]
+}

@@ -3228,6 +3228,42 @@ Las que están al día se superponen con el año de lluvia de la APA. Las de
 caudal largas terminan antes de que empiece: para cruzarlas hace falta lluvia
 histórica.
 
+### Crecida en Barranqueras desde la lluvia en Brasil
+
+`lib/gr4j.ts` + `lib/crecida.ts` + `scripts/build_crecida.mjs` +
+`scripts/calibrar_crecida.ts` + `public/rio/crecida_parametros.json`. Desde el
+16/10/2026; **todavía no tiene ruta ni pantalla**. El método, la validación y
+los números están en `docs/pronostico-crecida-barranqueras.md`.
+
+Una cadena de tres eslabones: lluvia (Open-Meteo `best_match`) → caudal del
+Iguazú y de la incremental de Itaipú con **GR4J** → Itaipú + Iguazú (ONS) →
+**función de respuesta** lineal hasta Barranqueras → altura por la curva.
+
+- **GR4J coincide con `airGR` a 4 × 10⁻⁷ mm/d.** La referencia está congelada
+  en `scripts/gr4j-airgr-referencia.json` (la genera
+  `referencia_gr4j_airgr.py`, con Python y el paquete `hydrogr`, una sola vez).
+  Si se toca `gr4j.ts`, ese test es el que manda.
+- **Los datos de Brasil son del ONS** (`ons_represas.json`, un CSV por año en
+  un S3 abierto; el formato cambió en 2022 y se lee por encabezado) y **las
+  cuencas, del shapefile del ONS** (`docs/geo/cuencas-ons/` →
+  `public/geo/cuencas_brasil.json`). La incremental de Itaipú es el «Paraná»
+  del ONS cortado abajo de Porto Primavera (`CORTE` en `build_crecida.mjs`).
+- **Desde la nube no se llega ni al ONS ni a Open-Meteo**: se bajó con un
+  workflow temporal de GitHub Actions, como el río. `build_crecida.mjs` guarda
+  cada punto de lluvia en `scripts/.cache-crecida/` (no va al repo).
+- **La lluvia es `best_match` y no ERA5 fijo**, al revés de `build_era5.ts`:
+  valida mejor (NSE del Iguazú 0,73 contra 0,66), es el mismo modelo que el
+  pronóstico y llega hasta ayer. El cambio de producto en 2017 cae casi todo
+  en la validación, no en la calibración.
+- **Ilha Solteira se midió y no sirve para anticipar**: es la mitad del caudal
+  de Itaipú pero el 7 % de sus subidas, y su cambio no mejora en nada el
+  pronóstico de Porto Primavera. Está en el archivo como referencia.
+- **Un término de llanura de inundación se probó y no se adoptó**: arregla
+  2013 y desarregla los demás.
+- `verificar-crecida.ts` no sale a la red. Con los archivos presentes afirma
+  además el balance de Itaipú (R² > 0,95), que los pesos de la respuesta sumen
+  ~1 y que la cadena le gane a la persistencia a 10 días en aguas altas.
+
 ### El relevamiento no entra en `npm run verificar`
 
 `scripts/relevar-ina.ts` **no es un test de lógica sino de contrato con un
@@ -3840,6 +3876,9 @@ límites que sólo aplica cuando se le pasa un `buf` propio. No se toca.
   - Los scripts están en `admin/scripts/inundaciones/` y usan paquetes que **no
     están en `package.json`** (geotiff, proj4, d3-contour, pngjs): se corren
     copiando la carpeta afuera del repo.
+- `docs/pronostico-crecida-barranqueras.md` — la cadena lluvia en Brasil →
+  caudal → altura en Barranqueras: método, calibración, validación contra la
+  persistencia y crecidas pasadas, Ilha Solteira, y cómo se reproduce
 - `docs/lluvia-pendientes.md` — lo que falta probar (radar, kriging) y lo que
   dio IMERG, con
   el procedimiento para medirlo
