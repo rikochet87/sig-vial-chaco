@@ -777,6 +777,10 @@ desborda.
 
 - **NO mencionar** DVP, Dirección de Conservación Vial ni Dirección de Vialidad
   Provincial en la UI ni en los impresos. El sistema es independiente.
+- **Firma al pie**: el panel con sesión y el enlace público de Hidrología
+  llevan `components/Firma.tsx` («Desarrollado por Matias Rosello» y el
+  correo), afuera de `#panel-contenido` para que el zoom no la toque. Pedido
+  del autor el 16/10/2026.
 - Colores: negro `#2C2C2C` (primario), amarillo `#F5C300` (acento). Ver
   `constants/Colors.ts`.
 - **Estilo del panel web: técnico, de programa de CAD.** Caja casi negra

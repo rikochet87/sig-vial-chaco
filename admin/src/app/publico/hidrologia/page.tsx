@@ -13,6 +13,7 @@ import type { Metadata } from 'next'
 import { UserProvider, type UserProfile } from '@/lib/UserContext'
 import Hidrologia from '@/components/hidrologia/Hidrologia'
 import TamanoTexto from '@/components/TamanoTexto'
+import Firma from '@/components/Firma'
 
 export const dynamic = 'force-dynamic'
 
@@ -42,6 +43,7 @@ export default function HidrologiaPublica() {
             <Hidrologia publico />
           </Suspense>
         </main>
+        <Firma />
       </div>
     </UserProvider>
   )

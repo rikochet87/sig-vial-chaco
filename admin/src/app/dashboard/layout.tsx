@@ -4,6 +4,7 @@ import { UserProvider } from '@/lib/UserContext'
 import type { UserProfile } from '@/lib/UserContext'
 import Sidebar from '@/components/Sidebar'
 import Header from '@/components/Header'
+import Firma from '@/components/Firma'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -41,6 +42,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <main id="panel-contenido" style={{ flex: 1, overflowY: 'auto', padding: '1.5rem' }}>
             {children}
           </main>
+          <Firma />
         </div>
       </div>
     </UserProvider>
