@@ -8,6 +8,7 @@
  *   node scripts/build_crecida.mjs            las dos cosas
  *   node scripts/build_crecida.mjs ons        sólo el ONS (un minuto)
  *   node scripts/build_crecida.mjs lluvia     sólo la lluvia (~20 minutos)
+ *   node scripts/build_crecida.mjs puntos     lista los puntos de lluvia, sin red
  *
  * Node puro, sin dependencias. El nombre empieza con `build_` y no con
  * `verificar-` a propósito: sale a la red.
@@ -50,9 +51,9 @@
  * - **Termina siete días antes de hoy**: ERA5 llega con unos cinco de atraso.
  *   Lo que falta hasta hoy lo completa el pronóstico, que es otra fuente.
  *
- * Las cuencas son polígonos dibujados a mano (`CUENCAS`). Sirven para elegir
- * puntos de lluvia, no para medir superficie: el área que se usa para pasar
- * mm/d a m³/s es la de la represa (`areaKm2`).
+ * Las cuencas salen de los contornos del ONS (ver `CUENCAS`). Sirven para
+ * elegir puntos de lluvia; el área que se usa para pasar mm/d a m³/s es la de
+ * la represa (`areaKm2`).
  */
 import { writeFileSync, mkdirSync, readFileSync, existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
@@ -156,40 +157,64 @@ const PAUSA_MS = 9000
 const ESPERA_429_MS = 65_000
 
 /**
- * Polígonos aproximados, [lat, lon]. Dibujados a mano sobre la divisoria de
- * aguas; alcanzan para elegir puntos de lluvia. `areaKm2` es la superficie
- * hasta la represa contra la que se calibra, no la del polígono.
+ * Los contornos son los del ONS (`public/geo/cuencas_brasil.json`, que arma
+ * `build_cuencas_brasil.mjs`), en [lon, lat]:
+ *
+ * - **Iguazú**: la cuenca entera, tal cual.
+ * - **Incremental de Itaipú**: la cuenca «Paraná» del ONS **aguas abajo de
+ *   Porto Primavera y Rosana**. El ONS la da entera, desde Ilha Solteira; lo
+ *   que llueve arriba de Porto Primavera llega medido por la represa y no hay
+ *   que modelarlo. El corte (`CORTE`) sigue a mano la divisoria entre el
+ *   Ivinhema, que entra abajo de Porto Primavera, y el Pardo y el Verde, que
+ *   entran arriba; al este, el Paranapanema, que el ONS ya da aparte. Lo que
+ *   queda son 155.218 km².
+ *
+ * `areaKm2` es la superficie hasta la represa contra cuyo caudal se calibra,
+ * no la del polígono: para el Iguazú, Salto Caxias.
  */
-const CUENCAS = {
-  iguacu: {
-    nombre: 'Iguazú', represa: 'Salto Caxias (caudal natural)', areaKm2: 57000,
-    poligono: [[-25.2, -54.6], [-25.15, -53.0], [-25.0, -51.5], [-25.2, -50.0], [-25.3, -49.0], [-25.7, -48.95],
-      [-26.3, -49.3], [-26.5, -50.3], [-26.6, -51.3], [-26.6, -52.5], [-26.3, -53.6], [-25.9, -54.3], [-25.6, -54.6]],
-  },
-  itaipu_inc: {
-    nombre: 'Incremental de Itaipú', represa: 'Itaipu (caudal incremental)', areaKm2: 150000,
-    poligono: [[-22.5, -53.0], [-21.0, -54.3], [-20.6, -54.8], [-21.5, -55.3], [-22.6, -55.6], [-23.6, -55.6], [-24.3, -55.2],
-      [-25.0, -55.0], [-25.4, -54.6], [-25.2, -53.5], [-25.1, -52.0], [-25.3, -51.0], [-25.0, -50.4], [-24.2, -50.6],
-      [-23.3, -51.4], [-22.8, -52.4]],
-  },
+const CONTORNOS = JSON.parse(readFileSync(join(AQUI, '..', 'public', 'geo', 'cuencas_brasil.json'), 'utf8')).cuencas
+
+/** Divisoria por arriba de la incremental de Itaipú, [lat, lon] de oeste a este */
+const CORTE = [[-19.9, -56.5], [-19.9, -56.0], [-20.5, -54.6], [-21.3, -54.0], [-22.0, -53.4], [-22.5, -52.95],
+  [-22.7, -52.0], [-22.9, -50.0], [-23.0, -48.0]]
+
+function latitudDelCorte(lo) {
+  if (lo <= CORTE[0][1]) return CORTE[0][0]
+  for (let i = 1; i < CORTE.length; i++) {
+    const [a1, o1] = CORTE[i - 1], [a2, o2] = CORTE[i]
+    if (lo <= o2) return a1 + (a2 - a1) * (lo - o1) / (o2 - o1)
+  }
+  return CORTE[CORTE.length - 1][0]
 }
 
-function adentro([la, lo], pol) {
+/** Punto [lat, lon] en un anillo [lon, lat] */
+function adentro([la, lo], anillo) {
   let c = false
-  for (let i = 0, j = pol.length - 1; i < pol.length; j = i++) {
-    const [yi, xi] = pol[i], [yj, xj] = pol[j]
+  for (let i = 0, j = anillo.length - 1; i < anillo.length; j = i++) {
+    const [xi, yi] = anillo[i], [xj, yj] = anillo[j]
     if ((yi > la) !== (yj > la) && lo < (xj - xi) * (la - yi) / (yj - yi) + xi) c = !c
   }
   return c
 }
 
+const CUENCAS = {
+  iguacu: {
+    nombre: 'Iguazú', represa: 'Salto Caxias (caudal natural)', areaKm2: 57000,
+    contiene: p => adentro(p, CONTORNOS.iguacu.anillo),
+  },
+  itaipu_inc: {
+    nombre: 'Incremental de Itaipú', represa: 'Itaipu (caudal incremental)', areaKm2: 150000,
+    contiene: p => adentro(p, CONTORNOS.parana.anillo) && p[0] < latitudDelCorte(p[1]),
+  },
+}
+
 /** Tresbolillo de 0,5°: puntos donde lat y lon son los dos enteros o los dos medios */
-function puntosDe(pol) {
+function puntosDe(contiene) {
   const pts = []
-  for (let la = -27; la <= -20; la += 0.5) for (let lo = -56; lo <= -48.5; lo += 0.5) {
+  for (let la = -27; la <= -17; la += 0.5) for (let lo = -56.5; lo <= -48.5; lo += 0.5) {
     const entero = Number.isInteger(la) && Number.isInteger(lo)
     const medio = Number.isInteger(la + 0.5) && Number.isInteger(lo + 0.5)
-    if ((entero || medio) && adentro([la, lo], pol)) pts.push([la, lo])
+    if ((entero || medio) && contiene([la, lo])) pts.push([la, lo])
   }
   return pts
 }
@@ -226,7 +251,7 @@ async function bajarLluvia() {
   const n = diaDe(hasta) - diaDe(DESDE_LLUVIA) + 1
   const cuencas = {}
   for (const [k, c] of Object.entries(CUENCAS)) {
-    const pts = puntosDe(c.poligono)
+    const pts = puntosDe(c.contiene)
     console.log(`${c.nombre}: ${pts.length} puntos`)
     const sp = new Float64Array(n), se = new Float64Array(n), cp = new Int32Array(n), ce = new Int32Array(n)
     for (const p of pts) {
@@ -240,7 +265,7 @@ async function bajarLluvia() {
     }
     const dec = (s, c) => Array.from(s, (v, i) => (c[i] ? Math.round(10 * v / c[i]) : null))
     cuencas[k] = {
-      nombre: c.nombre, represa: c.represa, areaKm2: c.areaKm2, puntos: pts, poligono: c.poligono,
+      nombre: c.nombre, represa: c.represa, areaKm2: c.areaKm2, puntos: pts,
       lluvia: dec(sp, cp), etp: dec(se, ce),
     }
   }
@@ -255,5 +280,9 @@ async function bajarLluvia() {
 }
 
 const que = process.argv[2]
+if (que === 'puntos') {
+  for (const c of Object.values(CUENCAS)) console.log(`${c.nombre}: ${puntosDe(c.contiene).map(p => p.join(' ')).join(' · ')}`)
+  process.exit(0)
+}
 if (!que || que === 'ons') { console.log('— ONS —'); await bajarOns() }
 if (!que || que === 'lluvia') { console.log('— Lluvia —'); await bajarLluvia() }
