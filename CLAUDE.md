@@ -3230,10 +3230,12 @@ histórica.
 
 ### Crecida en Barranqueras desde la lluvia en Brasil
 
-`lib/gr4j.ts` + `lib/crecida.ts` + `scripts/build_crecida.mjs` +
-`scripts/calibrar_crecida.ts` + `public/rio/crecida_parametros.json`. Desde el
-16/10/2026; **todavía no tiene ruta ni pantalla**. El método, la validación y
-los números están en `docs/pronostico-crecida-barranqueras.md`.
+`lib/gr4j.ts` + `lib/crecida.ts` + `lib/crecidaFuente.ts` +
+`app/api/rio/crecida/route.ts` + `components/rio/CrecidaBrasil.tsx` +
+`scripts/build_crecida.mjs` + `scripts/calibrar_crecida.ts` +
+`public/rio/crecida_parametros.json`. Desde el 16/10/2026, en la pestaña Río
+Paraná, debajo de «Aguas arriba». El método, la validación y los números
+están en `docs/pronostico-crecida-barranqueras.md`.
 
 Una cadena de tres eslabones: lluvia (Open-Meteo `best_match`) → caudal del
 Iguazú y de la incremental de Itaipú con **GR4J** → Itaipú + Iguazú (ONS) →
@@ -3260,9 +3262,21 @@ Iguazú y de la incremental de Itaipú con **GR4J** → Itaipú + Iguazú (ONS) 
   pronóstico de Porto Primavera. Está en el archivo como referencia.
 - **Un término de llanura de inundación se probó y no se adoptó**: arregla
   2013 y desarregla los demás.
+- **La ruta junta todo en vivo y cachea tres horas**: el CSV del ONS del año
+  (~9 MB), la lluvia que falta hasta ayer con `past_days` —alcanza 92 días;
+  pasado eso hay que regenerar `lluvia_brasil.json`— y las 51 corridas del
+  ensamble. Guard `requireLecturaHidrologia()`. **Que Vercel llegue al S3 del
+  ONS y a Open-Meteo no está probado**: desde Actions sí.
+- **No es un pronóstico oficial y la pantalla lo dice**; al lado va el del INA.
+  La línea punteada (`determinadoHasta`) es el último día en que la banda no
+  se abre más de 5 cm: hasta ahí decide agua que ya salió de Brasil.
+- **Los pronósticos emitidos todavía no se guardan**: la validación es con la
+  lluvia que cayó, un techo.
 - `verificar-crecida.ts` no sale a la red. Con los archivos presentes afirma
   además el balance de Itaipú (R² > 0,95), que los pesos de la respuesta sumen
-  ~1 y que la cadena le gane a la persistencia a 10 días en aguas altas.
+  ~1, que la cadena le gane a la persistencia a 10 días en aguas altas, los dos
+  formatos del CSV del ONS y la cadena entera sobre el 03/11/2023 (6,84 m a
+  7 días; medido 7,05).
 
 ### El relevamiento no entra en `npm run verificar`
 

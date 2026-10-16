@@ -397,36 +397,36 @@ npx tsx scripts/verificar-crecida.ts
 - **Si al recalibrar se mueven números que no se esperaban, eso es el
   hallazgo**: el diff de git de `crecida_parametros.json` muestra cuáles.
 
-## Para llevarlo al panel
+## En el panel
 
-1. **Ingesta diaria (cron)**:
-   - **ONS**: el CSV del año en curso (8,7 MB), filtrado a Itaipú, Baixo
-     Iguaçu, Salto Caxias, Porto Primavera y Rosana. El formato cambió en 2022:
-     hay que leer por encabezado, no por posición.
-   - **Open-Meteo**: lluvia y ET0 de ERA5 en los 45 puntos, y el ensamble
-     ECMWF.
-   - Guardar cada pronóstico emitido, para medir el acierto real dentro de un
-     año.
-2. **Motor en `lib/`**: GR4J, la función de respuesta, la mezcla α y la curva,
-   con los parámetros de este documento congelados en un JSON. Igual que con
-   la lluvia: el número y de dónde sale.
-3. **Pantalla** en la pestaña Río: la banda de altura de 15 días con los
-   umbrales.
-   - **Una línea vertical marca hasta dónde la altura está determinada por
-     agua ya en camino (~5 días) y desde dónde depende de la lluvia.** Es la
-     lectura más útil y la más honesta.
-   - Al lado, la lluvia observada y pronosticada sobre las dos cuencas.
-4. **Tests**:
-   - el balance Primavera + Rosana + incremental
-   - que los pesos de la respuesta sumen ~1
-   - GR4J contra una implementación de referencia (el paquete `airGR` de R)
-   - los cinco casos de la tabla de crecidas pasadas
+Desde el 16/10/2026, en Hidrología → Río Paraná, entre «Aguas arriba» y el
+registro largo: recuadro «Barranqueras desde la lluvia en Brasil · cálculo
+propio».
+
+- **`GET /api/rio/crecida`** (`app/api/rio/crecida/route.ts`) junta todo en
+  cada pedido y cachea tres horas: la altura de hoy (Prefectura, o el INA), el
+  ONS congelado más el CSV del año en curso (`lib/crecidaFuente.ts`), la
+  lluvia congelada más lo que falta hasta ayer (`past_days`, alcanza 92 días:
+  pasado eso hay que regenerar `lluvia_brasil.json`) y las 51 corridas del
+  ensamble. Corre `pronosticoDeCrecida()` de `lib/crecida.ts`: GR4J una vez
+  sobre la historia y después, desde ese estado, una vez por corrida.
+- **Guard `requireLecturaHidrologia()`**: entra en los enlaces públicos, como
+  las demás lecturas del río.
+- **La pantalla** (`components/rio/CrecidaBrasil.tsx`): lo medido, la banda del
+  10 al 90 % y la de todas las corridas, la mediana, la curva sin más lluvia,
+  el pronóstico del INA para comparar, los dos umbrales y una línea punteada
+  en `determinadoHasta`, el último día en que la banda no se abre más de
+  5 cm: hasta ahí decide el agua que ya salió. Debajo, la lluvia por cuenca y
+  la validación con sus números. Va en un rosa propio, no en el azul del INA.
+- **Si falta una fuente**: sin altura de hoy, sin ONS del último mes o sin
+  lluvia, la ruta da 502 con el motivo. Si el CSV del ONS no contesta sigue
+  con lo congelado y lo avisa.
+- `verificar-crecida.ts` afirma la lectura de los dos formatos del CSV y la
+  cadena entera sobre el 03/11/2023 con la lluvia que cayó: 6,84 m a 7 días
+  (medido 7,05), en 40 ms.
 
 ## Pendiente
 
-- **Llevarlo al panel**: una ruta que baje el ONS del año en curso y la lluvia
-  de los últimos días con el ensamble, corra la cadena con
-  `crecida_parametros.json` y devuelva la banda. Y la pantalla.
 - **Verificar que Vercel (gru1) llegue al S3 del ONS y a Open-Meteo.** Desde
   GitHub Actions llegó a los dos; desde Vercel no se probó.
 - **Guardar cada pronóstico emitido** y medir el acierto con la lluvia

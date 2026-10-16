@@ -49,6 +49,7 @@ import { COLOR_ESTADO, ETIQUETA_ESTADO, type EstadoRio, type PuntoPronostico } f
 import { fechaHoraLocal, type LecturaPrefectura } from '@/lib/prefectura'
 import HistoricoBarranqueras from '@/components/rio/HistoricoBarranqueras'
 import TrasladoCrecida from '@/components/rio/TrasladoCrecida'
+import CrecidaBrasil from '@/components/rio/CrecidaBrasil'
 import BalanceConfluencia from '@/components/rio/BalanceConfluencia'
 import AguasArriba from '@/components/rio/AguasArriba'
 
@@ -436,6 +437,12 @@ Alturas y niveles de alerta y evacuación de la Prefectura Naval, que lee cada e
       El registro largo va en su propio recuadro, debajo: habla de 120 años y no
       de los 90 días de las franjas, y se carga recién al abrir el panel.
     */}
+    {abierto && (
+      <CrecidaBrasil
+        observado={datos.estaciones.find(e => e.id === 20)?.observado}
+        pronosticoIna={datos.estaciones.find(e => e.id === 20)?.pronostico?.puntos}
+      />
+    )}
     {abierto && (
       <HistoricoBarranqueras actual={datos.estaciones.find(e => e.id === 20)?.ultima ?? null} />
     )}

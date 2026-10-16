@@ -24,7 +24,9 @@ import { gr4j, ordenadas, mmDiaAM3s } from '../src/lib/gr4j'
 import {
   diaDe, isoDe, lector, minimosCuadrados, ajustarRespuesta, caudalRespuesta, DEMORAS_RESPUESTA,
   armarCurva, alturaDe, caudalDe, alfaEn, proyectarI, nse, kge, type Curva,
+  pronosticoDeCrecida, CUENCAS_BRASIL, type CuencaBrasil,
 } from '../src/lib/crecida'
+import { leerCsvOns } from '../src/lib/crecidaFuente'
 
 let fallos = 0
 const fmt = (v: unknown) =>
@@ -189,6 +191,66 @@ if (existsSync(archivoParam)) {
   const a10 = p.validacion.todo.find((f: { dias: number }) => f.dias === 10)
   ok('en aguas altas, a 10 días la cadena mejora a la persistencia', a10.mejora > 0.2)
   ok('y a 10 días mejora a usar sólo lo medido', a10.mejora > a10.mejoraSoloMedido)
+}
+
+titulo('CSV del ONS, los dos formatos')
+{
+  // Antes de 2022: sin id_reservatorio, el código va en la última columna
+  const viejo = 'nom_reservatorio;din_instante;val_vazaoafluente;val_vazaodefluente;val_vazaoincremental;cod\n'
+    + 'ITAIPU;2019-03-01;20000;19500;3000;PNITAI\nOTRA;2019-03-01;1;1;1;XXXXX\n'
+  // Desde 2022: con id_reservatorio, en cualquier posición
+  const nuevo = 'id_reservatorio;nom_reservatorio;din_instante;val_vazaodefluente;val_vazaoincremental\n'
+    + 'IGUHBI;BAIXO IGUACU;2024-05-02 00:00:00;8000;;\nPNITAI;ITAIPU;2024-05-02 00:00:00;21000;2500\n'
+  const a = leerCsvOns(viejo), b = leerCsvOns(nuevo)
+  ok('formato viejo: lee Itaipú por la última columna', JSON.stringify(a.get('itaipu')?.get('2019-03-01')), JSON.stringify({ def: 19500, inc: 3000 }))
+  ok('formato viejo: ignora las represas que no usa', a.size, 1)
+  ok('formato nuevo: lee por encabezado', JSON.stringify(b.get('itaipu')?.get('2024-05-02')), JSON.stringify({ def: 21000, inc: 2500 }))
+  ok('formato nuevo: un vacío es null, no cero', b.get('baixoiguacu')?.get('2024-05-02')?.inc, null)
+}
+
+{
+  const archivos = ['crecida_parametros.json', 'ons_represas.json', 'lluvia_brasil.json', 'confluencia_caudal.json', 'barranqueras_diario.json']
+  if (archivos.every(f => existsSync(join(RIO, f)))) {
+    titulo('La cadena entera sobre la crecida de noviembre de 2023')
+    const leer = (f: string) => JSON.parse(readFileSync(join(RIO, f), 'utf8'))
+    const [p, ons, ll, conf, bq] = archivos.map(leer)
+    const hoy = diaDe('2023-11-03')
+    const altura = lector({ desde: bq.desde, valores: bq.cm })
+    const serie = (k: string, v: string) => lector({ desde: ons.desde, valores: ons.series[k][v] })
+    const baixo = serie('baixoiguacu', 'def'), caxias = serie('caxias', 'def')
+    const prim = serie('primavera', 'def'), ros = serie('rosana', 'def')
+    // Lo que el ONS publica con dos días de atraso: nada posterior a hoy − 2
+    const hasta = (f: (d: number) => number | null) => (d: number) => (d <= hoy - 2 ? f(d) : null)
+    const i0 = diaDe(ll.desde)
+    const lluvia = {} as Record<CuencaBrasil, { P: number[]; E: number[] }>
+    const futura = {} as Record<CuencaBrasil, number[]>
+    for (const c of CUENCAS_BRASIL) {
+      const cu = ll.cuencas[c]
+      lluvia[c] = {
+        P: cu.lluvia.slice(0, hoy - i0).map((v: number | null) => (v ?? 0) / 10),
+        E: cu.etp.slice(0, hoy - i0).map((v: number | null) => (v ?? 0) / 10),
+      }
+      futura[c] = cu.lluvia.slice(hoy - i0, hoy - i0 + 15).map((v: number | null) => (v ?? 0) / 10)
+    }
+    const t0 = Date.now()
+    const r = pronosticoDeCrecida({
+      p, hoy, alturaHoy: altura(hoy)! / 100, desdeLluvia: ll.desde, lluvia,
+      escenarios: [{ nombre: 'la que cayó', lluvia: futura }],
+      itaipu: hasta(serie('itaipu', 'def')),
+      iguazu: hasta(d => { const b = baixo(d); return b !== null && b > 0 ? b : caxias(d) }),
+      altoParana: hasta(d => { const a = prim(d), b = ros(d); return a === null || b === null ? null : a + b }),
+      incItaipu: hasta(serie('itaipu', 'inc')),
+      paraguay: lector({ desde: conf.desde, valores: conf.m3s.paraguay }),
+    })
+    const ms = Date.now() - t0
+    const k = r.fechas.indexOf('2023-11-10')
+    ok('las fechas arrancan hoy', r.fechas[0], '2023-11-03')
+    ok('con un solo escenario la banda se cierra', r.banda[k].p10 === r.banda[k].p90)
+    cerca('a 7 días da ~6,84 m (medido: 7,05)', r.banda[k].p50!, 6.84, 0.1)
+    ok('la medida queda a menos de 30 cm', Math.abs(r.banda[k].p50! - altura(diaDe('2023-11-10'))! / 100) < 0.3)
+    ok('con la lluvia que cayó sube más que sin lluvia', r.banda[r.banda.length - 1].p50! > r.sinLluvia[r.sinLluvia.length - 1]!)
+    ok(`tarda menos de un segundo (${ms} ms)`, ms < 1000)
+  }
 }
 
 console.log(`\n${fallos ? `✗ ${fallos} fallos` : '✓ todo bien'}`)

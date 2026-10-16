@@ -35,6 +35,8 @@
  * agua: ahí tiende a pasarse.
  */
 
+import { gr4j, mmDiaAM3s, type ParametrosGr4j } from './gr4j'
+
 // ── Fechas ────────────────────────────────────────────────────────────────────
 
 const DIA_MS = 86_400_000
@@ -316,4 +318,140 @@ export function alturaPronosticada(
   const q1 = caudalRespuesta(r, hoy + dias, I, Py)
   if (q0 === null || q1 === null) return null
   return alturaDe(curva, caudalDe(curva, alturaHoy) + (q1 - q0))
+}
+
+// ── La corrida completa, para la ruta y para el test ─────────────────────────
+
+
+export type CuencaBrasil = 'iguacu' | 'itaipu_inc'
+export const CUENCAS_BRASIL: CuencaBrasil[] = ['iguacu', 'itaipu_inc']
+
+/** Lo que guarda `calibrar_crecida.ts` en `crecida_parametros.json` y usa la corrida */
+export interface ParametrosCrecida {
+  gr4j: Record<CuencaBrasil, { params: ParametrosGr4j; areaKm2: number }>
+  razonIguazu: number
+  respuesta: Respuesta
+  curva: Curva
+  alfa: Alfa
+}
+
+export interface EntradaCrecida {
+  p: ParametrosCrecida
+  /** Día de emisión */
+  hoy: number
+  /** Altura medida en Barranqueras ese día, m */
+  alturaHoy: number
+  /** Primer día de la lluvia observada */
+  desdeLluvia: string
+  /** Lluvia y ETP observadas por cuenca, mm/d, desde `desdeLluvia` hasta el día anterior a `hoy` */
+  lluvia: Record<CuencaBrasil, { P: number[]; E: number[] }>
+  /** Lluvia futura por cuenca, mm/d, desde `hoy`: un escenario por miembro del ensamble */
+  escenarios: { nombre: string; lluvia: Record<CuencaBrasil, number[]> }[]
+  itaipu: (d: number) => number | null
+  iguazu: (d: number) => number | null
+  altoParana: (d: number) => number | null
+  incItaipu: (d: number) => number | null
+  paraguay: (d: number) => number | null
+}
+
+export interface ResultadoCrecida {
+  /** De `hoy` en adelante, un día por posición */
+  fechas: string[]
+  /** Una serie de alturas por escenario, en el orden de la entrada */
+  alturas: (number | null)[][]
+  /** Sin lluvia desde hoy: el piso de lo que ya está en camino */
+  sinLluvia: (number | null)[]
+  /** Percentiles del ensamble por día */
+  banda: { p10: number; p50: number; p90: number; min: number; max: number }[]
+  /**
+   * Último día en que el ensamble entero cae dentro de `ANCHO_DETERMINADO_M`:
+   * hasta ahí la altura la decide agua que ya salió de Brasil, no la lluvia.
+   */
+  determinadoHasta: string | null
+  /** Itaipú + Iguazú: medido hasta el último dato del ONS, y la mediana del ensamble después */
+  itaipuIguazu: { fecha: string; m3s: number; medido: boolean }[]
+}
+
+/** Ancho de la banda por debajo del cual se dice que la altura no depende de la lluvia */
+export const ANCHO_DETERMINADO_M = 0.05
+
+function percentil(v: number[], q: number): number {
+  const s = [...v].sort((a, b) => a - b)
+  const i = (s.length - 1) * q
+  const a = Math.floor(i), b = Math.ceil(i)
+  return s[a] + (s[b] - s[a]) * (i - a)
+}
+
+/**
+ * Corre la cadena entera para un día de emisión. Pura: todos los datos
+ * entran por parámetro. GR4J corre una vez sobre lo observado y, desde ese
+ * estado, una vez por escenario.
+ */
+export function pronosticoDeCrecida(e: EntradaCrecida): ResultadoCrecida {
+  const d0 = diaDe(e.desdeLluvia)
+  const n = e.hoy - d0
+  const historia = {} as Record<CuencaBrasil, { q: Float64Array; estado: ReturnType<typeof gr4j>['estado']; etp: number; area: number }>
+  for (const c of CUENCAS_BRASIL) {
+    const { P, E } = e.lluvia[c]
+    if (P.length !== n || E.length !== n) throw new Error(`Lluvia de ${c}: se esperaban ${n} días hasta el anterior a hoy y hay ${P.length}`)
+    const r = gr4j(P, E, e.p.gr4j[c].params)
+    const ult = E.slice(-30)
+    historia[c] = { q: r.q, estado: r.estado, etp: ult.reduce((a, b) => a + b, 0) / ult.length, area: e.p.gr4j[c].areaKm2 }
+  }
+
+  const I = (d: number) => { const a = e.itaipu(d), b = e.iguazu(d); return a === null || b === null ? null : a + b }
+  const correr = (lluvia: Record<CuencaBrasil, number[]>) => {
+    const sim = {} as Record<CuencaBrasil, (d: number) => number | null>
+    for (const c of CUENCAS_BRASIL) {
+      const h = historia[c]
+      const fut = lluvia[c]
+      const q = gr4j(fut, fut.map(() => h.etp), e.p.gr4j[c].params, h.estado).q
+      sim[c] = (d: number) => {
+        const i = d - d0
+        if (i < 0) return null
+        if (i < n) return mmDiaAM3s(h.q[i], h.area)
+        const k = d - e.hoy
+        return k < q.length ? mmDiaAM3s(q[k], h.area) : null
+      }
+    }
+    const If = proyectarI({
+      hoy: e.hoy, I, itaipu: e.itaipu, iguazu: e.iguazu, altoParana: e.altoParana, incItaipu: e.incItaipu,
+      incModelo: sim.itaipu_inc, iguazuModelo: sim.iguacu, razonIguazu: e.p.razonIguazu, alfa: e.p.alfa,
+    })
+    return If
+  }
+
+  const largo = Math.max(...e.escenarios.map(s => s.lluvia.iguacu.length)) + ATRASO_ONS
+  // La altura del día hoy + k usa Itaipú + Iguazú hasta hoy + k − 2: el último día con lluvia pronosticada fija el horizonte
+  const fechas = Array.from({ length: largo }, (_, k) => isoDe(e.hoy + k))
+  const alturasDe = (If: ((d: number) => number | null) | null) =>
+    fechas.map((_, k) => (If ? alturaPronosticada(e.p.respuesta, e.p.curva, e.hoy, e.alturaHoy, k, If, e.paraguay) : null))
+
+  const proyecciones = e.escenarios.map(s => correr(s.lluvia))
+  const alturas = proyecciones.map(alturasDe)
+  const ceros = Object.fromEntries(CUENCAS_BRASIL.map(c => [c, new Array(largo - ATRASO_ONS).fill(0)])) as Record<CuencaBrasil, number[]>
+  const sinLluvia = alturasDe(correr(ceros))
+
+  const banda = fechas.map((_, k) => {
+    const v = alturas.map(a => a[k]).filter((x): x is number => x !== null)
+    if (!v.length) return { p10: NaN, p50: NaN, p90: NaN, min: NaN, max: NaN }
+    return { p10: percentil(v, 0.1), p50: percentil(v, 0.5), p90: percentil(v, 0.9), min: Math.min(...v), max: Math.max(...v) }
+  })
+  let determinadoHasta: string | null = null
+  for (let k = 0; k < banda.length; k++) {
+    if (!(banda[k].p90 - banda[k].p10 <= ANCHO_DETERMINADO_M)) break
+    determinadoHasta = fechas[k]
+  }
+
+  const L = e.hoy - ATRASO_ONS
+  const itaipuIguazu: ResultadoCrecida['itaipuIguazu'] = []
+  for (let d = L - 14; d <= e.hoy + largo - ATRASO_ONS; d++) {
+    if (d <= L) { const v = I(d); if (v !== null) itaipuIguazu.push({ fecha: isoDe(d), m3s: Math.round(v), medido: true }) }
+    else {
+      const v = proyecciones.map(f => f?.(d) ?? null).filter((x): x is number => x !== null)
+      if (v.length) itaipuIguazu.push({ fecha: isoDe(d), m3s: Math.round(percentil(v, 0.5)), medido: false })
+    }
+  }
+
+  return { fechas, alturas, sinLluvia, banda, determinadoHasta, itaipuIguazu }
 }
