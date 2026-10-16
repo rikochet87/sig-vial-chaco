@@ -166,10 +166,11 @@ export default function UsuariosTabs({ usuarios, errorRelevamientos }: Props) {
               <Grupo titulo="Zona">
                 <Opcion activa={f.zona === 'todas'} onClick={() => set('zona', 'todas')}>Todas</Opcion>
                 {ZONAS.map(z => (
-                  <Opcion key={z} activa={f.zona === z} onClick={() => set('zona', z)} n={porZona[z] ?? 0}>{z}</Opcion>
+                  // Sin cantidad: «ZI 2» se leía como el nombre de una zona
+                  <Opcion key={z} activa={f.zona === z} onClick={() => set('zona', z)}>{z}</Opcion>
                 ))}
                 {(porZona.sin ?? 0) > 0 && (
-                  <Opcion activa={f.zona === 'sin'} onClick={() => set('zona', 'sin')} n={porZona.sin}>Sin zona</Opcion>
+                  <Opcion activa={f.zona === 'sin'} onClick={() => set('zona', 'sin')}>Sin zona</Opcion>
                 )}
               </Grupo>
             </div>
