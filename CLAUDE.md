@@ -543,7 +543,7 @@ dice la condición) ni el historial de cambios.
   trigger que leía `auth.uid()`, que con la clave de servicio da null. Si
   hace falta, va en la ruta.
 - **También desde el mapa**: el popup de cada sede en `MapInner` (Panorama)
-  tiene un botón «Maquinaria vial →» que lleva a la ficha del consorcio en
+  tiene un botón «Inventario →» que lleva a la ficha del consorcio en
   `#maquinaria`. **Es sólo el botón, a pedido del usuario**: la primera
   versión listaba los equipos dentro del popup y no era lo que se quería. A
   quien no tiene el permiso `consorcios` el middleware lo saca al entrar.

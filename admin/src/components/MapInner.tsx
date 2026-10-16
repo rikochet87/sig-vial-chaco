@@ -105,7 +105,7 @@ function sedePopupHtml(s: Sede): string {
       <div class="kc"><div class="kv" style="color:#27ae60">${(s.redSecundaria ?? 0).toFixed(1)}</div><div class="kl">Secundaria</div></div>
       <div class="kc"><div class="kv" style="color:#e67e22">${(s.redPrimaria ?? 0).toFixed(1)}</div><div class="kl">Primaria</div></div>
     </div>
-    <a class="pbtn" href="/dashboard/consorcios/${s.numero}#maquinaria">Maquinaria vial →</a>
+    <a class="pbtn" href="/dashboard/consorcios/${s.numero}#maquinaria">Inventario →</a>
   </div>
 </div>`
 }
