@@ -36,6 +36,7 @@ import {
   EditLineal, EditPuente, EditAlcantarilla, EditTubos, EditOtro, INICIAL,
 } from '@/components/relevamiento/editores'
 import { distanciaM, type Punto } from '@/components/relevamiento/MapaGabinete'
+import { leerCoordenada, aGms, enChaco, NOMBRE_FORMATO, type Lectura, type Eje } from '@/lib/coordenadas'
 
 const MapaGabinete = dynamic(() => import('@/components/relevamiento/MapaGabinete'), { ssr: false })
 
@@ -98,6 +99,7 @@ export default function NuevoRelevamientoPage() {
   }))
   const [punto, setPunto] = useState<Punto | null>(null)
   const [linea, setLinea] = useState<Punto[]>([])
+  const [irA, setIrA] = useState<{ p: Punto; n: number } | null>(null)
 
   const [fecha, setFecha] = useState(hoy)
   const [estado, setEstado] = useState('')
@@ -155,7 +157,7 @@ export default function NuevoRelevamientoPage() {
 
   const falta = esLineal
     ? (linea.length < 2 ? 'Dibujá el tramo en el mapa: al menos dos puntos.' : null)
-    : (!punto ? 'Marcá la ubicación en el mapa.' : null)
+    : (!punto ? (tipo === 'Otro' ? 'Marcá la ubicación en el mapa o ingresá sus coordenadas.' : 'Marcá la ubicación en el mapa.') : null)
 
   async function guardar() {
     if (falta) { setError(falta); return }
@@ -214,7 +216,7 @@ export default function NuevoRelevamientoPage() {
       {/* ── El mapa ── */}
       <div style={{ minWidth: 0, minHeight: 0 }}>
         <MapaGabinete modo={esLineal ? 'linea' : 'punto'} punto={punto} linea={linea}
-          onPunto={setPunto} onLinea={setLinea} />
+          onPunto={setPunto} onLinea={setLinea} irA={irA} />
       </div>
 
       {/* ── El panel de propiedades ── */}
@@ -242,6 +244,9 @@ export default function NuevoRelevamientoPage() {
           <div style={sectionCard}>
             <h3 style={sectionTitle}>Ubicación</h3>
             <Ubicacion esLineal={esLineal} punto={punto} linea={linea} largoM={largoM} onLinea={setLinea} />
+            {tipo === 'Otro' && (
+              <CoordenadasTipeadas onUsar={p => { setPunto(p); setIrA(prev => ({ p, n: (prev?.n ?? 0) + 1 })) }} />
+            )}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 10 }}>
               <Propiedad titulo="Zona" valor={zona} editando={editando === 'zona'} onEditar={() => editar('zona')} onListo={() => setEditando(null)}>
                 <select style={select} value={zona} autoFocus onChange={e => setZona(e.target.value)} onBlur={() => setEditando(null)}>
@@ -356,6 +361,87 @@ function Ubicacion({ esLineal, punto, linea, largoM, onLinea }: {
         <button type="button" onClick={() => onLinea(linea.slice(0, -1))} style={chico}>Deshacer</button>
         <button type="button" onClick={() => onLinea([])} style={{ ...chico, color: '#E57373', borderColor: '#4a2a2a' }}>Borrar</button>
       </>)}
+    </div>
+  )
+}
+
+/**
+ * Latitud y longitud tipeadas, en el formato que vengan: decimales o
+ * geográficas. El formato se reconoce solo (`lib/coordenadas.ts`) y debajo de
+ * cada campo se ve cómo se leyó y su equivalente en el otro formato, antes de
+ * usarlas. Es para la obra que alguien informó con su coordenada.
+ */
+function CoordenadasTipeadas({ onUsar }: { onUsar: (p: Punto) => void }) {
+  const [latTxt, setLatTxt] = useState('')
+  const [lngTxt, setLngTxt] = useState('')
+  const [aviso, setAviso] = useState<string | null>(null)
+  const lat = latTxt.trim() ? leerCoordenada(latTxt, 'lat') : null
+  const lng = lngTxt.trim() ? leerCoordenada(lngTxt, 'lng') : null
+  const listo = !!(lat?.ok && lng?.ok)
+
+  const lectura = (l: Lectura | null, eje: Eje) => {
+    if (!l) return <div style={{ fontSize: 11, minHeight: 15 }} />
+    if (!l.ok) return <div style={{ fontSize: 11, minHeight: 15, color: '#E57373' }}>{l.error}</div>
+    const otro = l.formato === 'decimal' ? aGms(l.valor, eje) : l.valor.toFixed(6)
+    return (
+      <div style={{ fontSize: 11, minHeight: 15, color: '#a0a0a0' }}>
+        {NOMBRE_FORMATO[l.formato]} → <span style={{ color: '#e0e0e0' }}>{otro}</span>
+        {l.hemisferioSupuesto && <span style={{ color: '#F5C300' }}> · sin hemisferio, se tomó {eje === 'lat' ? 'S' : 'O'}</span>}
+      </div>
+    )
+  }
+
+  const usar = (aunAfuera = false) => {
+    if (!lat?.ok || !lng?.ok) return
+    const p = { lat: lat.valor, lng: lng.valor }
+    // Lo más común fuera de la provincia es latitud y longitud cruzadas
+    if (!aunAfuera && !enChaco(p.lat, p.lng)) {
+      setAviso(`${p.lat.toFixed(5)}, ${p.lng.toFixed(5)} cae fuera del Chaco. ¿Latitud y longitud no están invertidas?`)
+      return
+    }
+    setAviso(null)
+    onUsar(p)
+  }
+  const cambiar = (set: (v: string) => void) => (e: React.ChangeEvent<HTMLInputElement>) => { set(e.target.value); setAviso(null) }
+
+  const boton: React.CSSProperties = {
+    fontFamily: MONO, fontSize: 11, padding: '4px 10px', borderRadius: 2, letterSpacing: 0.8,
+    textTransform: 'uppercase', background: 'transparent', cursor: 'pointer',
+  }
+  return (
+    <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px dashed #2a2a2a' }}>
+      <div style={label}>O ingresar coordenadas</div>
+      <div style={{ fontSize: 11, color: '#8f8f8f', margin: '2px 0 8px' }}>
+        Decimales (-27.4512) o geográficas (27°27&apos;04&quot; S). El formato se reconoce solo.
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}
+        onKeyDown={e => { if (e.key === 'Enter' && listo) usar() }}>
+        <div style={field}>
+          <span style={label}>Latitud</span>
+          <input style={input} value={latTxt} onChange={cambiar(setLatTxt)} placeholder={`-27.4512  ·  27°27'04" S`} spellCheck={false} />
+          {lectura(lat, 'lat')}
+        </div>
+        <div style={field}>
+          <span style={label}>Longitud</span>
+          <input style={input} value={lngTxt} onChange={cambiar(setLngTxt)} placeholder={`-58.9867  ·  58°59'12" O`} spellCheck={false} />
+          {lectura(lng, 'lng')}
+        </div>
+      </div>
+      {aviso ? (
+        <div style={{ fontSize: 11, color: '#F5C300', marginTop: 4 }}>
+          {aviso}
+          <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+            <button type="button" onClick={() => setAviso(null)} style={{ ...boton, border: '1px solid #2a2a2a', color: '#ccc' }}>Corregir</button>
+            <button type="button" onClick={() => usar(true)} style={{ ...boton, border: '1px solid #F5C30088', color: '#F5C300' }}>Usar igual</button>
+          </div>
+        </div>
+      ) : (
+        <button type="button" onClick={() => usar()} disabled={!listo} style={{
+          ...boton, marginTop: 4, fontWeight: 700,
+          background: listo ? '#F5C300' : 'transparent', color: listo ? '#111' : '#8f8f8f',
+          border: `1px solid ${listo ? '#F5C300' : '#2a2a2a'}`, cursor: listo ? 'pointer' : 'default',
+        }}>Ubicar en el mapa</button>
+      )}
     </div>
   )
 }

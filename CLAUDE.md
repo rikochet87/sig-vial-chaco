@@ -37,7 +37,7 @@ npx expo-doctor               # desde la raíz — detecta incompatibilidades de
 ```
 
 **Todo eso corre junto con `npm run verificar`** (desde `admin/`):
-`tsc --noEmit`, la barrera de lint, la sintaxis de los `.sql` y los treinta y cinco
+`tsc --noEmit`, la barrera de lint, la sintaxis de los `.sql` y los treinta y seis
 `scripts/verificar-*.ts`. `next build` queda afuera a propósito: tarda minutos y
 usa el binario nativo de SWC, así que sólo corre donde se instalaron los
 paquetes. El orquestador es `scripts/verificar-todo.mjs`, en Node y no en un
@@ -459,6 +459,16 @@ anteriores y la red vial de fondo.
   consorcio y la ruta eran campos vacíos que invitaban a cargarlos a mano.
   Ahora el mapa encuadra la provincia, esos tres se muestran como dato con un
   «editar», y sobre el mapa va sólo lo que es del mapa.
+- **Otro también se ubica tipeando las coordenadas** (16/10/2026), para la
+  obra que alguien informó con su coordenada. `lib/coordenadas.ts` reconoce
+  el formato por la cantidad de números: uno es decimal, dos son grados y
+  minutos, tres son grados, minutos y segundos; coma o punto. El hemisferio
+  sale de la letra (S/N, O/W/E) o del signo, y **sin ninguno se toma S y O**,
+  dicho en pantalla. Debajo de cada campo se ve la conversión al otro
+  formato; un punto fuera del recuadro del Chaco pide confirmación (lo común
+  es latitud y longitud cruzadas). Al usarlas, el mapa va al punto (`irA` de
+  `MapaGabinete`) y zona, consorcio y ruta se completan como con un clic.
+  `scripts/verificar-coordenadas.ts` lo afirma.
 - **Los campos son compactos** (28 px, rótulo chico, secciones separadas por una
   línea y no por cajas) y los estilos están en `editores.tsx`: la edición de un
   relevamiento los comparte.

@@ -36,10 +36,12 @@ export function distanciaM(a: Punto, b: Punto): number {
   return 2 * R * Math.asin(Math.sqrt(h))
 }
 
-export default function MapaGabinete({ modo, punto, linea, onPunto, onLinea }: {
+export default function MapaGabinete({ modo, punto, linea, onPunto, onLinea, irA }: {
   modo: 'punto' | 'linea'
   punto: Punto | null
   linea: Punto[]
+  /** Un punto al que llevar el mapa, como uno tipeado. `n` cambia en cada pedido */
+  irA?: { p: Punto; n: number } | null
   onPunto: (p: Punto) => void
   onLinea: (l: Punto[]) => void
 }) {
@@ -95,6 +97,13 @@ export default function MapaGabinete({ modo, punto, linea, onPunto, onLinea }: {
     })
     return () => { capa?.remove() }
   }, [mapaListo, satelite])
+
+  // ── Ir a un punto que no salió de un clic ──
+  useEffect(() => {
+    const map = mapaListo ? mapRef.current : null
+    if (!map || !irA) return
+    map.setView([irA.p.lat, irA.p.lng], Math.max(map.getZoom(), 16))
+  }, [mapaListo, irA])
 
   const imagenes = useImagenesHistoricas(mapRef, mapaListo, satelite && historico)
   const tramo = useRedFondo(mapRef, mapaListo, redActiva)
