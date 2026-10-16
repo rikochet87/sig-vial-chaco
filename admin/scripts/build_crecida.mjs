@@ -27,6 +27,9 @@
  * Qué variable de cada una:
  *
  * - `def`: caudal defluente, lo que larga la represa. Es lo que llega aguas abajo.
+ * - `af`: caudal afluente, lo que le entra. Sólo de Itaipú, para el control
+ *   del balance: lo que le entra es lo que larga Porto Primavera más Rosana,
+ *   dos días antes, más el incremental.
  * - `nat`: caudal natural, el río sin el efecto de las represas de arriba. Es
  *   contra lo que se calibra el modelo del Iguazú.
  * - `inc`: caudal incremental natural, lo que escurre de la cuenca propia entre
@@ -35,10 +38,9 @@
  *
  * ── La lluvia ─────────────────────────────────────────────────────────────────
  *
- * ERA5 por la API de archivo de Open-Meteo, con `models=era5` fijo: para una
- * serie de dieciocho años el producto no puede cambiar en el medio (ver
- * «Lluvia histórica: ERA5» en el CLAUDE.md). Precipitación y ET0 FAO diarias en
- * los puntos de grilla de cada cuenca, promediados.
+ * La API de archivo de Open-Meteo, con el producto de `MODELO` (ver ahí por qué
+ * ése). Precipitación y ET0 FAO diarias en los puntos de grilla de cada
+ * cuenca, promediados.
  *
  * - **Los puntos van cada 0,5° en tresbolillo** —enteros y medios a la vez—, así
  *   que quedan a ~0,7° entre sí. Open-Meteo cuenta el cupo por ubicación, y una
@@ -48,8 +50,9 @@
  *   la API cuando se pasa el cupo por minuto.
  * - **Se guarda punto por punto** en `scripts/.cache-crecida/`: una corrida
  *   cortada sigue desde donde quedó. La carpeta no va al repo.
- * - **Termina siete días antes de hoy**: ERA5 llega con unos cinco de atraso.
- *   Lo que falta hasta hoy lo completa el pronóstico, que es otra fuente.
+ * - **Termina siete días antes de hoy**, para que la serie larga no dependa de
+ *   los últimos días, que Open-Meteo todavía revisa. Lo que falta hasta hoy lo
+ *   completa el pronóstico con `past_days`.
  *
  * Las cuencas salen de los contornos del ONS (ver `CUENCAS`). Sirven para
  * elegir puntos de lluvia; el área que se usa para pasar mm/d a m³/s es la de
@@ -75,7 +78,7 @@ const DESDE_ONS = 2000
 
 /** Clave → código del ONS y qué variables guardar */
 const REPRESAS = {
-  itaipu: { id: 'PNITAI', nombre: 'Itaipu', vars: ['def', 'nat', 'inc'] },
+  itaipu: { id: 'PNITAI', nombre: 'Itaipu', vars: ['def', 'af', 'nat', 'inc'] },
   baixoiguacu: { id: 'IGUHBI', nombre: 'Baixo Iguaçu', vars: ['def', 'nat'] },
   caxias: { id: 'IGSCAX', nombre: 'Salto Caxias', vars: ['def', 'nat'] },
   primavera: { id: 'PNPPRI', nombre: 'Porto Primavera', vars: ['def'] },
@@ -84,7 +87,7 @@ const REPRESAS = {
   isol: { id: 'PNISOL', nombre: 'Ilha Solteira', vars: ['def'] },
   tirm: { id: 'TITIRM', nombre: 'Três Irmãos', vars: ['def'] },
 }
-const COLUMNA = { def: 'val_vazaodefluente', nat: 'val_vazaonatural', inc: 'val_vazaoincremental' }
+const COLUMNA = { def: 'val_vazaodefluente', af: 'val_vazaoafluente', nat: 'val_vazaonatural', inc: 'val_vazaoincremental' }
 
 async function bajarOns() {
   const porId = Object.fromEntries(Object.entries(REPRESAS).map(([k, v]) => [v.id, k]))
@@ -153,12 +156,25 @@ async function bajarOns() {
 
 const OPEN_METEO = 'https://archive-api.open-meteo.com/v1/archive'
 /**
- * Producto de lluvia. `era5` por defecto, fijo para toda la serie. Con
- * `MODELO_LLUVIA=best_match` se baja la mezcla que arma Open-Meteo (ERA5 y,
- * desde 2017, el análisis del IFS operativo) a otro archivo, para comparar.
+ * Producto de lluvia: `best_match`, la mezcla que arma Open-Meteo — ERA5 y,
+ * desde 2017, el análisis del IFS operativo, a 9 km —. Se comparó contra
+ * `era5` fijo el 16/10/2026, con todo lo demás igual:
+ *
+ * | | NSE validación Iguazú | NSE validación incremental | Cadena a 10 días |
+ * |---|---|---|---|
+ * | `era5` | 0,66 | 0,52 | 48 % |
+ * | `best_match` | 0,73 | 0,62 | 48 % |
+ *
+ * Se queda con `best_match` por tres motivos: valida mejor, es el mismo modelo
+ * (IFS) que da el pronóstico, y llega hasta ayer, mientras ERA5 viene con cinco
+ * días de atraso. La contra es la de siempre con una serie larga: el producto
+ * cambia en 2017. La calibración es 2009–2018 y queda casi toda antes del
+ * cambio; la validación, después, y es donde mejoró.
+ *
+ * Con `MODELO_LLUVIA=era5` se baja la otra a `lluvia_brasil_era5.json`.
  */
-const MODELO = process.env.MODELO_LLUVIA || 'era5'
-const ARCHIVO_LLUVIA = MODELO === 'era5' ? 'lluvia_brasil.json' : `lluvia_brasil_${MODELO}.json`
+const MODELO = process.env.MODELO_LLUVIA || 'best_match'
+const ARCHIVO_LLUVIA = MODELO === 'best_match' ? 'lluvia_brasil.json' : `lluvia_brasil_${MODELO}.json`
 const DESDE_LLUVIA = '2008-01-01'
 const PAUSA_MS = 9000
 const ESPERA_429_MS = 65_000

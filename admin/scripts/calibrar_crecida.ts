@@ -41,7 +41,8 @@ const RIO = join(__dirname, '..', 'public', 'rio')
 const leer = (f: string) => JSON.parse(readFileSync(join(RIO, f), 'utf8'))
 
 const ons = leer('ons_represas.json')
-const lluvia = leer('lluvia_brasil.json')
+// Para comparar productos de lluvia: LLUVIA=lluvia_brasil_best_match.json SALIDA=… npx tsx …
+const lluvia = leer(process.env.LLUVIA || 'lluvia_brasil.json')
 const conf = leer('confluencia_caudal.json')
 const barr = leer('barranqueras_diario.json')
 
@@ -245,5 +246,6 @@ const salida = {
   },
   casos,
 }
-writeFileSync(join(RIO, 'crecida_parametros.json'), JSON.stringify(salida, null, 1))
-console.log('crecida_parametros.json escrito')
+const destino = process.env.SALIDA || join(RIO, 'crecida_parametros.json')
+writeFileSync(destino, JSON.stringify({ lluvia: lluvia.fuente, ...salida }, null, 1))
+console.log(`${destino} escrito`)
