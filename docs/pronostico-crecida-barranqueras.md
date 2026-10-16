@@ -44,6 +44,62 @@ Las dos cuencas están dibujadas a mano como polígonos aproximados (`POL` en el
 código de la sesión). Para producción conviene usar los contornos de cuenca
 que publica el propio ONS.
 
+### Ilha Solteira: el volumen sí, el aviso no
+
+Propuesta del usuario del 16/10/2026: tomar como punto de control la represa
+de **Ilha Solteira** (`PNISOL` en el ONS; −20,385, −51,370), justo aguas abajo
+de la unión del Paranaíba y el Grande. Se midió con el ONS 2000–2026 y la
+respuesta tiene dos caras.
+
+**En volumen es la mitad del Paraná que llega a Itaipú.** Ilha Solteira suelta
+4.456 m³/s de promedio y Três Irmãos, sobre el Tietê, 682. Juntos son 5.138
+contra 10.261 de Itaipú, y unos 9 días antes de Barranqueras:
+
+| Tramo | Demora |
+|---|---|
+| Ilha Solteira + Três Irmãos → Jupiá | 0 a 1 día |
+| Jupiá → Porto Primavera | 0 a 1 día |
+| Porto Primavera → Itaipú | 2 días |
+| Itaipú → Barranqueras | 4 a 6 días |
+
+**En una crecida pesa poco, porque las represas de arriba la frenan.** En los
+183 días de 2000 a 2026 en que Itaipú + Iguazú subieron más de 5.000 m³/s en
+una semana, la suba promedio fue de 7.524 m³/s y se repartió así:
+
+| Componente | Suba promedio (m³/s) | Parte |
+|---|---|---|
+| Ilha Solteira + Três Irmãos | 558 | 7 % |
+| Resto de Porto Primavera + Rosana (Paranapanema) | 1.475 | 20 % |
+| Incremental de Itaipú | 3.111 | 41 % |
+| Iguazú | 2.945 | 39 % |
+
+Las partes no suman 100 % porque cada componente va con su propia demora.
+
+Lo mismo en los picos de la tabla de análogos: Ilha Solteira aportó entre el
+11 y el 28 % de lo que soltaban Itaipú y el Iguazú. La excepción es febrero de
+2010, con el 53 %: una crecida de verano del Grande y el Paranaíba. Ilha
+Solteira tiene su máximo de enero a marzo (~6.100 m³/s de media mensual) y
+anda en ~4.900 en octubre.
+
+**Hoy (14/10/2026) suelta 3.433 m³/s, por debajo de su promedio**, y aporta el
+14 % de lo que viene. Esta crecida no viene de ahí.
+
+**Como dato para anticipar no mejoró nada.** Se probó pronosticar Porto
+Primavera + Rosana a 1–8 días con el cambio de Ilha Solteira + Três Irmãos,
+crudo o en medias de 7 días, ajustado en 2000–2014 y probado en 2015–2026.
+Mejora contra la persistencia: **0 %**, y con el cambio diario crudo, peor. Jupiá
+y Porto Primavera vuelven a regular lo que les llega, así que lo que sale de
+Ilha Solteira no se traslada tal cual.
+
+Dónde sí sirve:
+- **Para mostrar de dónde viene el agua.** Es un buen punto de control del
+  Paraná alto en la pantalla «Aguas arriba».
+- **En crecidas de verano del Grande y el Paranaíba**, como 2010, donde pasa a
+  ser la mitad.
+- **No como entrada del modelo lluvia–caudal.** Lo que llueve sobre el Grande y
+  el Paranaíba lo guardan Furnas, Emborcação y las demás represas, y cuándo lo
+  sueltan lo decide el operador, no la lluvia.
+
 ---
 
 ## Eslabón 1 — Lluvia → caudal: modelo GR4J
