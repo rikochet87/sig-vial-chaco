@@ -41,9 +41,9 @@ function RemovePanelButton({ id }: { id: string }) {
       onClick={handle}
       disabled={loading}
       title="Quitar acceso al panel, sin borrar el usuario"
-      style={{ background: 'transparent', border: '1px solid #252525', color: '#8f8f8f', padding: '4px 10px', fontSize: 12, cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.5 : 1 }}
+      style={{ background: 'transparent', border: '1px solid #2a2a2a', color: '#a0a0a0', padding: '4px 10px', fontSize: 12, cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.5 : 1 }}
       onMouseEnter={e => { if (!loading) { e.currentTarget.style.borderColor = '#f44336'; e.currentTarget.style.color = '#f44336' } }}
-      onMouseLeave={e => { e.currentTarget.style.borderColor = '#252525'; e.currentTarget.style.color = '#8f8f8f' }}
+      onMouseLeave={e => { e.currentTarget.style.borderColor = '#2a2a2a'; e.currentTarget.style.color = '#a0a0a0' }}
     >
       {loading ? '...' : 'Quitar panel'}
     </button>
@@ -256,7 +256,7 @@ function Fila({ u, periodo, maxRel, resaltar }: { u: UsuarioFila; periodo: Perio
                 ? <span style={{ color: '#F5C300' }}>acceso total</span>
                 : secciones.length === 0
                   ? <span style={{ color: '#ff9800' }}>sin secciones</span>
-                  : <span style={{ color: '#4caf50' }}>{secciones.length} sección{secciones.length !== 1 ? 'es' : ''}</span>}
+                  : <span style={{ color: '#4caf50' }}>{secciones.length} {secciones.length === 1 ? 'sección' : 'secciones'}</span>}
             </span>
           )}
           {app && <span style={{ color: '#8f8f8f' }}>APP DE CAMPO</span>}

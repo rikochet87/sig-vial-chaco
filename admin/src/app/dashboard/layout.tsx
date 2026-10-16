@@ -34,7 +34,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
     <UserProvider initialProfile={initialProfile}>
       <div style={{ display: 'flex', height: '100vh', background: '#1A1A1A' }}>
         <Sidebar />
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        {/* `minWidth: 0` es lo que deja achicar la columna: sin él, una tabla
+            ancha la estiraba más allá de la pantalla y el `overflow: hidden`
+            cortaba lo que sobraba —el botón «+ NUEVO» de Usuarios—, sin barra
+            para llegar. Con él, cada tabla se desliza dentro de su caja. */}
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <Header userEmail={user.email ?? ''} />
           {/* id usado por TamanoTexto para aplicar el zoom de accesibilidad.
               Solo el contenido: el header queda fuera para que el control de

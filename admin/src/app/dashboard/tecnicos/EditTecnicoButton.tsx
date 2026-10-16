@@ -65,9 +65,9 @@ export default function EditTecnicoButton({ id, nombre, zona, rol, permisos: per
     <>
       <button
         onClick={handleOpen}
-        style={{ background: 'transparent', border: '1px solid #252525', color: '#444', padding: '4px 12px', fontSize: 13, letterSpacing: 0.5, cursor: 'pointer', marginRight: 6 }}
+        style={{ background: 'transparent', border: '1px solid #2a2a2a', color: '#a0a0a0', padding: '4px 12px', fontSize: 12, letterSpacing: 0.5, cursor: 'pointer', marginRight: 6 }}
         onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#F5C300'; (e.currentTarget as HTMLButtonElement).style.color = '#F5C300' }}
-        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#252525'; (e.currentTarget as HTMLButtonElement).style.color = '#444' }}
+        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#2a2a2a'; (e.currentTarget as HTMLButtonElement).style.color = '#a0a0a0' }}
       >
         Editar
       </button>

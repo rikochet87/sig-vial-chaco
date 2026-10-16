@@ -30,15 +30,15 @@ export default function ResendInviteButton({ id, nombre }: Props) {
         title={link ? 'Ocultar enlace' : `Generar enlace de invitación para ${nombre}`}
         style={{
           background: link ? 'rgba(33,150,243,0.1)' : 'transparent',
-          border: `1px solid ${link ? '#2196F3' : '#252525'}`,
-          color: link ? '#2196F3' : '#444',
-          padding: '4px 10px', fontSize: 13,
+          border: `1px solid ${link ? '#2196F3' : '#2a2a2a'}`,
+          color: link ? '#2196F3' : '#a0a0a0',
+          padding: '4px 10px', fontSize: 12,
           cursor: loading ? 'not-allowed' : 'pointer',
           marginRight: 6, opacity: loading ? 0.5 : 1,
           whiteSpace: 'nowrap',
         }}
         onMouseEnter={e => { if (!loading && !link) { (e.currentTarget as HTMLButtonElement).style.borderColor = '#2196F3'; (e.currentTarget as HTMLButtonElement).style.color = '#2196F3' } }}
-        onMouseLeave={e => { if (!link) { (e.currentTarget as HTMLButtonElement).style.borderColor = '#252525'; (e.currentTarget as HTMLButtonElement).style.color = '#444' } }}
+        onMouseLeave={e => { if (!link) { (e.currentTarget as HTMLButtonElement).style.borderColor = '#2a2a2a'; (e.currentTarget as HTMLButtonElement).style.color = '#a0a0a0' } }}
       >
         {loading ? '...' : link ? 'Ocultar' : '✉ Invitación'}
       </button>
@@ -47,7 +47,7 @@ export default function ResendInviteButton({ id, nombre }: Props) {
 
       {link && (
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#111', border: '1px solid #1e1e1e', padding: '6px 10px', maxWidth: 420 }}>
-          <span style={{ fontSize: 12, color: '#555', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 300 }}>
+          <span style={{ fontSize: 12, color: '#a0a0a0', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 300 }}>
             {link}
           </span>
           <button
