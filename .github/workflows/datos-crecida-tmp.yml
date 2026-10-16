@@ -1,0 +1,37 @@
+# Temporal: baja los datos de Brasil para el cálculo de crecida y los commitea
+# en esta rama. Desde la nube de Claude no se llega al ONS ni a Open-Meteo.
+# Se borra junto con la rama cuando los archivos pasen a la rama de trabajo.
+name: datos-crecida-tmp
+on:
+  push:
+    branches: [datos-crecida-tmp]
+    paths: ['.github/workflows/datos-crecida-tmp.yml', 'admin/scripts/build_crecida.mjs']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  bajar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/cache@v4
+        with:
+          path: admin/scripts/.cache-crecida
+          key: crecida-${{ github.run_id }}
+          restore-keys: crecida-
+      - name: ONS
+        run: node admin/scripts/build_crecida.mjs ons
+      - name: Lluvia ERA5
+        run: node admin/scripts/build_crecida.mjs lluvia
+      - name: Commitear
+        if: always()
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add -f admin/public/rio/ons_represas.json admin/public/rio/lluvia_brasil.json 2>/dev/null || true
+          git commit -m "Datos de Brasil para el cálculo de crecida (Actions)" || echo "nada que commitear"
+          git push || true
