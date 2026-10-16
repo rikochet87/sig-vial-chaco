@@ -2,10 +2,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Relevamiento } from '@/types'
 import { DeslizadorHistorico, useImagenesHistoricas } from './ImagenesHistoricas'
-import {
-  COLOR_CONDICION, esOperativa, hoyLocal, resumir, tipoPorId, type Maquina,
-} from '@/lib/maquinaria'
-import type { PopupEvent } from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 
 // ── Constantes de color ──────────────────────────────────────────────────────
@@ -77,15 +73,10 @@ const POPUP_CSS = `
 .pk  { margin-top: 8px; text-align: right; }
 .leaflet-container a.pa { color: #F5C300; font-size: 11px; font-weight: 700; letter-spacing: .8px;
        text-transform: uppercase; text-decoration: none; }
-.mq       { margin-top: 10px; }
-.mq-res   { display: flex; gap: 10px; font-size: 11px; color: #a0a0a0; margin-bottom: 4px; }
-.mq-res b { color: #e0e0e0; }
-.mq-r     { display: flex; justify-content: space-between; gap: 8px; padding: 3px 0;
-            border-bottom: 1px solid #1a1a1a; font-size: 11px; }
-.mq-t     { color: #ccc; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.mq-c     { flex-shrink: 0; text-transform: uppercase; letter-spacing: .5px; font-size: 11px;
-            border-left: 2px solid currentColor; padding-left: 5px; }
-.mq-n     { color: #8f8f8f; font-size: 11px; padding-top: 4px; }
+.leaflet-container a.pbtn { display: block; margin-top: 10px; padding: 7px 10px; text-align: center;
+       background: #F5C300; color: #111; font-size: 11px; font-weight: 700; letter-spacing: 1px;
+       text-transform: uppercase; text-decoration: none; border-radius: 2px; }
+.leaflet-container a.pbtn:hover { background: #ffd633; color: #111; }
 .poi-popup { padding: 8px 26px 8px 10px; border-left: 3px solid #F5C300; }
 .poi-name  { color: #e0e0e0; font-size: 13px; font-weight: 700; letter-spacing: .3px; }
 .poi-type  { color: #666; font-size: 11px; letter-spacing: .8px; text-transform: uppercase; margin-top: 1px; }
@@ -114,68 +105,9 @@ function sedePopupHtml(s: Sede): string {
       <div class="kc"><div class="kv" style="color:#27ae60">${(s.redSecundaria ?? 0).toFixed(1)}</div><div class="kl">Secundaria</div></div>
       <div class="kc"><div class="kv" style="color:#e67e22">${(s.redPrimaria ?? 0).toFixed(1)}</div><div class="kl">Primaria</div></div>
     </div>
-    <div class="mq" data-maquinaria="${s.numero}">
-      <div class="ps">Maquinaria vial</div>
-      <div class="mq-n">Cargando…</div>
-    </div>
+    <a class="pbtn" href="/dashboard/consorcios/${s.numero}#maquinaria">Maquinaria vial →</a>
   </div>
 </div>`
-}
-
-/** Lo que escribió alguien (marca, modelo) entra al HTML del popup: se escapa */
-function esc(v: unknown): string {
-  return String(v ?? '').replace(/[&<>"']/g, ch =>
-    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]!))
-}
-
-/** Cuántos equipos se listan en el popup; el resto está en la ficha */
-const MAQ_EN_POPUP = 6
-
-/**
- * Llena la sección «Maquinaria vial» del popup de una sede. Se pide recién al
- * abrir el popup, con la misma ruta que la ficha del consorcio: así valen los
- * mismos permisos. **Sin el permiso `consorcios` la ruta da 403 y la sección
- * se quita**: el popup no muestra un error por algo que ese usuario no tiene
- * por qué ver.
- */
-async function llenarMaquinaria(contenedor: HTMLElement, numero: number, alCambiar: () => void) {
-  const caja = contenedor.querySelector<HTMLElement>(`[data-maquinaria="${numero}"]`)
-  if (!caja || caja.dataset.listo) return
-  const poner = (html: string) => { caja.innerHTML = `<div class="ps">Maquinaria vial</div>${html}`; alCambiar() }
-  try {
-    const r = await fetch(`/api/consorcios/${numero}/maquinaria`)
-    if (r.status === 401 || r.status === 403) { caja.remove(); alCambiar(); return }
-    const b = await r.json().catch(() => ({}))
-    if (!r.ok) throw new Error(b.error ?? `Error ${r.status}`)
-    const lista = (b.maquinas ?? []) as Maquina[]
-    caja.dataset.listo = '1'
-    const enlace = `<div class="pk"><a class="pa" href="/dashboard/consorcios/${numero}#maquinaria">Ver listado →</a></div>`
-    if (lista.length === 0) {
-      poner(`<div class="mq-n">Sin equipos cargados.</div>${enlace}`)
-      return
-    }
-    const r2 = resumir(lista, hoyLocal())
-    // Primero los que no andan: es lo que se viene a mirar
-    const orden = [...lista].sort((a, b) =>
-      Number(esOperativa(a.condicion)) - Number(esOperativa(b.condicion)) || a.tipo_id - b.tipo_id)
-    const filas = orden.slice(0, MAQ_EN_POPUP).map(m => {
-      const tipo = tipoPorId(m.tipo_id)?.nombre ?? `Tipo ${m.tipo_id}`
-      const detalle = [m.marca, m.modelo].filter(Boolean).join(' ')
-      return `<div class="mq-r"><span class="mq-t" title="${esc(detalle)}">${esc(tipo)}</span>`
-        + `<span class="mq-c" style="color:${COLOR_CONDICION[m.condicion]}">${esc(m.condicion)}</span></div>`
-    }).join('')
-    const resto = lista.length - MAQ_EN_POPUP
-    poner(
-      `<div class="mq-res"><span><b>${r2.total}</b> equipos</span>`
-      + `<span style="color:#4caf50"><b style="color:#4caf50">${r2.operativas}</b> operativos</span>`
-      + (r2.noOperativas ? `<span style="color:#ff9800"><b style="color:#ff9800">${r2.noOperativas}</b> no operativos</span>` : '')
-      + `</div>${filas}`
-      + (resto > 0 ? `<div class="mq-n">y ${resto} más</div>` : '')
-      + enlace,
-    )
-  } catch (e) {
-    poner(`<div class="mq-n">No se pudo leer la maquinaria (${esc(e instanceof Error ? e.message : e)}).</div>`)
-  }
 }
 
 function rpPopupHtml(p: Record<string, unknown>): string {
@@ -1627,12 +1559,6 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
         })
         L.marker([s.lat, s.lng], { icon })
           .bindPopup(sedePopupHtml(s), { maxWidth: 280 })
-          // La maquinaria se pide al abrir: son 103 sedes y casi nadie abre más de dos.
-          // Cada apertura vuelve a pedirla, así se ve lo que se cargó recién.
-          .on('popupopen', (e: PopupEvent) => {
-            const el = e.popup.getElement()
-            if (el) void llenarMaquinaria(el, s.numero, () => e.popup.update())
-          })
           .addTo(sedesGroup)
       })
 
