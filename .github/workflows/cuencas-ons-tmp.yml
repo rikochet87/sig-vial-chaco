@@ -1,0 +1,25 @@
+# Temporal: baja los contornos de cuenca del ONS (shapefile) y los deja en la
+# rama datos-cuencas-ons-tmp. Desde la nube de Claude no se llega al ONS.
+name: cuencas-ons-tmp
+on:
+  push:
+    branches: [datos-crecida-tmp]
+    paths: ['.github/workflows/cuencas-ons-tmp.yml']
+permissions:
+  contents: write
+jobs:
+  bajar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          mkdir -p docs/geo/cuencas-ons
+          curl -sSfL -o docs/geo/cuencas-ons/Bacias_Hidrograficas_SIN.zip https://ons-aws-prod-opendata.s3.amazonaws.com/dataset/bacia_contorno/Bacias_Hidrograficas_SIN.zip
+          ls -la docs/geo/cuencas-ons
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git checkout -b datos-cuencas-ons-tmp
+          git add -f docs/geo/cuencas-ons/Bacias_Hidrograficas_SIN.zip
+          git commit -m "Contornos de cuenca del ONS (Actions)"
+          git push -f origin datos-cuencas-ons-tmp
