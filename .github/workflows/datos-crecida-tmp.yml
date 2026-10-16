@@ -5,7 +5,7 @@ name: datos-crecida-tmp
 on:
   push:
     branches: [datos-crecida-tmp]
-    paths: ['.github/workflows/datos-crecida-tmp.yml', 'admin/scripts/build_crecida.mjs']
+    paths: ['.github/workflows/datos-crecida-tmp.yml', 'admin/scripts/build_crecida.mjs', 'admin/public/geo/cuencas_brasil.json']
   workflow_dispatch:
 permissions:
   contents: write
@@ -34,4 +34,5 @@ jobs:
           git config user.email "github-actions@users.noreply.github.com"
           git add -f admin/public/rio/ons_represas.json admin/public/rio/lluvia_brasil.json 2>/dev/null || true
           git commit -m "Datos de Brasil para el cálculo de crecida (Actions)" || echo "nada que commitear"
-          git push || true
+          git pull --rebase origin datos-crecida-tmp
+          git push origin HEAD:datos-crecida-tmp
