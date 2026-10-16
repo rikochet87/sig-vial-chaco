@@ -199,7 +199,8 @@ export default function Maquinaria({ numero, nombre }: { numero: number; nombre:
   }
 
   return (
-    <section style={{ background: '#141414', border: '1px solid #1e1e1e', padding: '14px 18px', marginBottom: 20, fontFamily: MONO }}>
+    // `id="maquinaria"`: el enlace «Ver listado» del popup de cada sede baja hasta acá
+    <section id="maquinaria" style={{ background: '#141414', border: '1px solid #1e1e1e', padding: '14px 18px', marginBottom: 20, fontFamily: MONO, scrollMarginTop: 16 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
         <h3 style={{ ...sectionTitle, margin: 0, fontSize: 12 }}>Maquinaria vial</h3>
         <div style={{ display: 'flex', gap: 8 }}>

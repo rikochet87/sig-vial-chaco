@@ -542,6 +542,13 @@ dice la condición) ni el historial de cambios.
   campo por campo —sólo el último que modificó—; la app vieja lo tenía con un
   trigger que leía `auth.uid()`, que con la clave de servicio da null. Si
   hace falta, va en la ruta.
+- **También desde el mapa**: el popup de cada sede en `MapInner` (Panorama)
+  trae una sección «Maquinaria vial» con el resumen, hasta seis equipos —los
+  no operativos primero— y «Ver listado →», que lleva a la ficha en
+  `#maquinaria`. Se pide al abrir el popup, con la misma ruta, así que valen
+  los mismos permisos: **con 401 o 403 la sección se quita** en vez de mostrar
+  un error. Marca y modelo los escribe la gente y entran al HTML del popup:
+  pasan por `esc()`.
 - Sin hacer: el conteo de equipos en la lista de consorcios y un resumen por
   zona.
 
