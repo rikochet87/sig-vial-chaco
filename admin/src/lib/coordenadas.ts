@@ -90,3 +90,89 @@ export function enChaco(lat: number, lng: number): boolean {
   const r = RECUADRO_CHACO
   return lat >= r.latMin && lat <= r.latMax && lng >= r.lngMin && lng <= r.lngMax
 }
+
+// ── Enlaces de Google Maps ───────────────────────────────────────────────────
+
+/**
+ * De dónde salió la coordenada de un enlace. No es lo mismo un marcador que
+ * el centro de lo que se estaba mirando, y la pantalla lo dice.
+ */
+export type OrigenEnlace = 'marcador' | 'busqueda' | 'vista'
+export type CoordEnlace = { lat: number; lng: number; origen: OrigenEnlace }
+
+/** Los acortadores de Google: hay que seguir la redirección para ver la coordenada */
+export const HOSTS_CORTOS = ['maps.app.goo.gl', 'goo.gl', 'g.co']
+
+/**
+ * google.com, google.com.ar, google.es, google.co.uk… y sus subdominios. Con
+ * el sufijo cerrado: `google\.[a-z.]+` dejaba pasar `google.com.evil.io`, y
+ * la ruta que sigue enlaces cortos decide con esto a dónde pide.
+ */
+export function esHostGoogle(host: string): boolean {
+  return /(^|\.)google\.(com|[a-z]{2}|com\.[a-z]{2}|co\.[a-z]{2})$/.test(host)
+}
+
+export function esEnlaceCorto(txt: string): boolean {
+  try {
+    const u = new URL(txt.trim())
+    return HOSTS_CORTOS.includes(u.hostname) && (u.hostname !== 'goo.gl' || u.pathname.startsWith('/maps'))
+  } catch { return false }
+}
+
+export function pareceEnlace(txt: string): boolean {
+  return /^https?:\/\//i.test(txt.trim())
+}
+
+// Con decimales: en un enlace las coordenadas siempre los traen, y así un nombre
+// como «Ruta 11, 5» no se lee como una coordenada
+const PAR = /(-?\d{1,3}\.\d+)\s*,\s*\+?(-?\d{1,3}\.\d+)/
+const decodificar = (s: string) => { try { return decodeURIComponent(s) } catch { return s } }
+
+function par(txt: string | null | undefined): { lat: number; lng: number } | null {
+  if (!txt) return null
+  const m = txt.match(PAR)
+  if (!m) return null
+  const lat = Number(m[1]), lng = Number(m[2])
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return null
+  return { lat, lng }
+}
+
+/**
+ * La coordenada de un enlace de Google Maps, de la más precisa a la menos:
+ *
+ * 1. `!3d…!4d…` en `data=`: el marcador del lugar. Un enlace a un lugar trae
+ *    también `@lat,lng`, que es el centro de la vista y puede caer a cuadras.
+ * 2. `?q=`, `?query=`, `?ll=`, `?destination=`, `/search/` o `/place/` con un
+ *    par de números: lo que se buscó.
+ * 3. `@lat,lng,zoom`: el centro de lo que se estaba mirando.
+ *
+ * Un enlace a un lugar por nombre, sin ningún número, da null.
+ */
+export function coordenadaDeEnlace(txt: string): CoordEnlace | null {
+  let u: URL
+  try { u = new URL(txt.trim()) } catch { return null }
+  // La pantalla de consentimiento de Google lleva el enlace verdadero en `continue`
+  const sigue = u.searchParams.get('continue')
+  if (sigue && /consent\./.test(u.hostname)) return coordenadaDeEnlace(sigue)
+  if (!esHostGoogle(u.hostname)) return null
+
+  const todo = decodificar(u.pathname + u.search)
+  const d3 = todo.match(/!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/)
+  if (d3) {
+    const lat = Number(d3[1]), lng = Number(d3[2])
+    if (Math.abs(lat) <= 90 && Math.abs(lng) <= 180) return { lat, lng, origen: 'marcador' }
+  }
+  for (const k of ['q', 'query', 'll', 'destination', 'center']) {
+    const p = par(u.searchParams.get(k))
+    if (p) return { ...p, origen: 'busqueda' }
+  }
+  const ruta = decodificar(u.pathname).match(/\/(?:search|place|dir)\/([^/@]+)/)
+  const pr = par(ruta?.[1])
+  if (pr) return { ...pr, origen: 'busqueda' }
+  const arroba = decodificar(u.pathname).match(/@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/)
+  if (arroba) {
+    const lat = Number(arroba[1]), lng = Number(arroba[2])
+    if (Math.abs(lat) <= 90 && Math.abs(lng) <= 180) return { lat, lng, origen: 'vista' }
+  }
+  return null
+}

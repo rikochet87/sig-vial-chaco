@@ -5,7 +5,7 @@
  *
  *   npx tsx scripts/verificar-coordenadas.ts
  */
-import { leerCoordenada, aGms, enChaco, type Eje } from '../src/lib/coordenadas'
+import { leerCoordenada, aGms, enChaco, coordenadaDeEnlace, esEnlaceCorto, type Eje } from '../src/lib/coordenadas'
 
 let fallos = 0
 function ok(que: string, valor: unknown, esperado?: unknown) {
@@ -63,6 +63,27 @@ ok('Resistencia adentro', enChaco(-27.451, -58.987))
 ok('Castelli adentro', enChaco(-25.946, -60.619))
 ok('latitud y longitud cruzadas, afuera', enChaco(-58.987, -27.451), false)
 ok('Buenos Aires, afuera', enChaco(-34.6, -58.4), false)
+
+titulo('Enlaces de Google Maps')
+const enl = (u: string) => { const c = coordenadaDeEnlace(u); return c ? `${c.lat},${c.lng} ${c.origen}` : null }
+ok('lugar: manda el marcador (!3d!4d), no el centro (@)',
+  enl('https://www.google.com/maps/place/Puente/@-27.4400,-58.9700,15z/data=!3m1!4b1!4m6!3m5!1s0x0:0x0!8m2!3d-27.4512!4d-58.9867!16s'),
+  '-27.4512,-58.9867 marcador')
+ok('?q=lat,lng', enl('https://maps.google.com/?q=-27.4512,-58.9867'), '-27.4512,-58.9867 busqueda')
+ok('?q= con espacio y +', enl('https://www.google.com/maps?q=-27.4512,+-58.9867&z=17'), '-27.4512,-58.9867 busqueda')
+ok('?query= (API de enlaces)', enl('https://www.google.com/maps/search/?api=1&query=-27.4512%2C-58.9867'), '-27.4512,-58.9867 busqueda')
+ok('/search/lat,+lng', enl('https://www.google.com/maps/search/-27.4512,+-58.9867?entry=tts'), '-27.4512,-58.9867 busqueda')
+ok('/place/lat,lng/@…', enl('https://www.google.com/maps/place/-27.4512,-58.9867/@-27.4512,-58.9867,17z'), '-27.4512,-58.9867 busqueda')
+ok('sólo @: centro de la vista', enl('https://www.google.com/maps/@-27.4512,-58.9867,15z'), '-27.4512,-58.9867 vista')
+ok('google.com.ar también', enl('https://www.google.com.ar/maps/@-27.4512,-58.9867,15z'), '-27.4512,-58.9867 vista')
+ok('pantalla de consentimiento', enl('https://consent.google.com/m?continue=' + encodeURIComponent('https://www.google.com/maps?q=-27.4512,-58.9867')), '-27.4512,-58.9867 busqueda')
+ok('lugar por nombre, sin números: null', enl('https://www.google.com/maps/place/Resistencia,+Chaco'), null)
+ok('un nombre con «11, 5» no es coordenada', enl('https://www.google.com/maps/search/Ruta+11,+5'), null)
+ok('otro sitio: null', enl('https://example.com/maps/@-27.4512,-58.9867,15z'), null)
+ok('google.com.evil.com: null', enl('https://www.google.com.evil.io/maps/@-27.4512,-58.9867,15z'), null)
+ok('maps.app.goo.gl es corto', esEnlaceCorto('https://maps.app.goo.gl/AbCd123'))
+ok('goo.gl/maps es corto', esEnlaceCorto('https://goo.gl/maps/AbCd123'))
+ok('goo.gl a secas no', esEnlaceCorto('https://goo.gl/AbCd123'), false)
 
 console.log(fallos ? `\n${fallos} fallo(s)` : '\nTodo bien.')
 process.exit(fallos ? 1 : 0)

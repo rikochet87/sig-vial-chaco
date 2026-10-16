@@ -36,7 +36,10 @@ import {
   EditLineal, EditPuente, EditAlcantarilla, EditTubos, EditOtro, INICIAL,
 } from '@/components/relevamiento/editores'
 import { distanciaM, type Punto } from '@/components/relevamiento/MapaGabinete'
-import { leerCoordenada, aGms, enChaco, NOMBRE_FORMATO, type Lectura, type Eje } from '@/lib/coordenadas'
+import {
+  leerCoordenada, aGms, enChaco, NOMBRE_FORMATO, coordenadaDeEnlace, esEnlaceCorto, pareceEnlace,
+  type Lectura, type Eje, type CoordEnlace, type OrigenEnlace,
+} from '@/lib/coordenadas'
 
 const MapaGabinete = dynamic(() => import('@/components/relevamiento/MapaGabinete'), { ssr: false })
 
@@ -391,9 +394,9 @@ function CoordenadasTipeadas({ onUsar }: { onUsar: (p: Punto) => void }) {
     )
   }
 
-  const usar = (aunAfuera = false) => {
-    if (!lat?.ok || !lng?.ok) return
-    const p = { lat: lat.valor, lng: lng.valor }
+  const usar = (aunAfuera = false, dado?: Punto) => {
+    if (!dado && (!lat?.ok || !lng?.ok)) return
+    const p = dado ?? { lat: (lat as { valor: number }).valor, lng: (lng as { valor: number }).valor }
     // Lo más común fuera de la provincia es latitud y longitud cruzadas
     if (!aunAfuera && !enChaco(p.lat, p.lng)) {
       setAviso(`${p.lat.toFixed(5)}, ${p.lng.toFixed(5)} cae fuera del Chaco. ¿Latitud y longitud no están invertidas?`)
@@ -402,7 +405,46 @@ function CoordenadasTipeadas({ onUsar }: { onUsar: (p: Punto) => void }) {
     setAviso(null)
     onUsar(p)
   }
-  const cambiar = (set: (v: string) => void) => (e: React.ChangeEvent<HTMLInputElement>) => { set(e.target.value); setAviso(null) }
+  const cambiar = (set: (v: string) => void) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    set(e.target.value); setAviso(null); setEnlaceInfo(null)
+  }
+
+  // ── Un enlace de Google Maps: llena los dos campos y ubica el punto ──
+  const [enlace, setEnlace] = useState('')
+  const [enlaceInfo, setEnlaceInfo] = useState<{ txt: string; error?: boolean; dudosa?: boolean } | null>(null)
+  const pedido = useRef(0)
+  const DE_DONDE: Record<OrigenEnlace, string> = {
+    marcador: 'del marcador del lugar',
+    busqueda: 'de la coordenada buscada',
+    vista: 'del centro de la vista: el enlace no trae marcador, revisá el punto',
+  }
+  const aplicarEnlace = (c: CoordEnlace) => {
+    setLatTxt(c.lat.toFixed(6)); setLngTxt(c.lng.toFixed(6))
+    setEnlaceInfo({ txt: `Coordenada ${DE_DONDE[c.origen]}.`, dudosa: c.origen === 'vista' })
+    usar(false, { lat: c.lat, lng: c.lng })
+  }
+  const leerEnlace = async (txt: string) => {
+    setEnlace(txt); setAviso(null)
+    const n = ++pedido.current
+    if (!txt.trim()) { setEnlaceInfo(null); return }
+    if (!pareceEnlace(txt)) { setEnlaceInfo({ txt: 'Pegá un enlace que empiece con https://', error: true }); return }
+    const c = coordenadaDeEnlace(txt)
+    if (c) { aplicarEnlace(c); return }
+    if (!esEnlaceCorto(txt)) {
+      setEnlaceInfo({ txt: 'No es un enlace de Google Maps con coordenadas.', error: true })
+      return
+    }
+    setEnlaceInfo({ txt: 'Abriendo el enlace…' })
+    try {
+      const r = await fetch(`/api/relevamientos/enlace-mapa?url=${encodeURIComponent(txt.trim())}`)
+      const j = await r.json().catch(() => ({ error: `Error ${r.status}` }))
+      if (n !== pedido.current) return
+      if (!r.ok) { setEnlaceInfo({ txt: j.error ?? `Error ${r.status}`, error: true }); return }
+      aplicarEnlace(j as CoordEnlace)
+    } catch {
+      if (n === pedido.current) setEnlaceInfo({ txt: 'Sin conexión: no se pudo abrir el enlace.', error: true })
+    }
+  }
 
   const boton: React.CSSProperties = {
     fontFamily: MONO, fontSize: 11, padding: '4px 10px', borderRadius: 2, letterSpacing: 0.8,
@@ -412,7 +454,15 @@ function CoordenadasTipeadas({ onUsar }: { onUsar: (p: Punto) => void }) {
     <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px dashed #2a2a2a' }}>
       <div style={label}>O ingresar coordenadas</div>
       <div style={{ fontSize: 11, color: '#8f8f8f', margin: '2px 0 8px' }}>
-        Decimales (-27.4512) o geográficas (27°27&apos;04&quot; S). El formato se reconoce solo.
+        Decimales (-27.4512) o geográficas (27°27&apos;04&quot; S), o un enlace de Google Maps. El formato se reconoce solo.
+      </div>
+      <div style={{ ...field, marginBottom: 6 }}>
+        <span style={label}>Enlace de Google Maps</span>
+        <input style={input} value={enlace} onChange={e => leerEnlace(e.target.value)}
+          placeholder="https://maps.app.goo.gl/…" spellCheck={false} />
+        <div style={{ fontSize: 11, minHeight: 15, color: enlaceInfo?.error ? '#E57373' : enlaceInfo?.dudosa ? '#F5C300' : '#a0a0a0' }}>
+          {enlaceInfo?.txt}
+        </div>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}
         onKeyDown={e => { if (e.key === 'Enter' && listo) usar() }}>

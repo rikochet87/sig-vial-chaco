@@ -469,6 +469,16 @@ anteriores y la red vial de fondo.
   es latitud y longitud cruzadas). Al usarlas, el mapa va al punto (`irA` de
   `MapaGabinete`) y zona, consorcio y ruta se completan como con un clic.
   `scripts/verificar-coordenadas.ts` lo afirma.
+  - **También se puede pegar un enlace de Google Maps** (`coordenadaDeEnlace`).
+    De un enlace a un lugar manda el marcador (`!3d…!4d…`), no el `@lat,lng`,
+    que es el centro de la vista y puede caer a cuadras; si sólo hay `@`, se
+    usa y se avisa en amarillo. Un lugar por nombre, sin números, no da nada.
+  - **El enlace corto del celular (`maps.app.goo.gl`) pasa por el servidor**
+    (`/api/relevamientos/enlace-mapa`, `requirePermiso('relevamientos')`): el
+    navegador no puede seguir la redirección. Sigue sólo hosts de Google, salto
+    por salto y leyendo `Location`, sin bajar páginas. `esHostGoogle` cierra el
+    sufijo: la primera versión dejaba pasar `google.com.evil.io`, y lo atrapó
+    el test. **Con un enlace corto real no se probó todavía.**
 - **Los campos son compactos** (28 px, rótulo chico, secciones separadas por una
   línea y no por cajas) y los estilos están en `editores.tsx`: la edición de un
   relevamiento los comparte.
