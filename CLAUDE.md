@@ -894,9 +894,13 @@ Dos cosas propias de esa pantalla:
 
 ### Se instala como app (PWA)
 
-Desde el 17/10/2026. `app/manifest.ts`, los íconos en `public/iconos/`
-(los genera `scripts/build_iconos_pwa.mjs` desde el ícono de la app móvil),
-`public/sw.js` y `public/sin-conexion.html`. `components/RegistrarSW.tsx`
+Desde el 17/10/2026. `app/manifest.ts`, los íconos en `public/iconos/`,
+`public/sw.js` y `public/sin-conexion.html`.
+
+**El ícono es el «SV» amarillo de la barra lateral**, no el de la app móvil:
+se probó ése primero y no gustó. Los PNG y el `favicon.ico` (que era el
+triángulo de Next) los genera `scripts/build_iconos_pwa.mjs`, con Consolas
+instalada: si no la encuentra, cae en otra fuente sin avisar. `components/RegistrarSW.tsx`
 registra el service worker, sólo en producción.
 
 - **Es instalable, no funciona sin conexión.** El service worker no guarda

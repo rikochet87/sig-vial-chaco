@@ -1,8 +1,8 @@
 import type { MetadataRoute } from 'next'
 
 /**
- * El panel se puede instalar como app (PWA). Los íconos los genera
- * `scripts/build_iconos_pwa.mjs` desde el de la app móvil.
+ * El panel se puede instalar como app (PWA). Los íconos son el «SV» de la
+ * barra lateral y los genera `scripts/build_iconos_pwa.mjs`.
  *
  * `start_url` es `/` para las dos puertas: con sesión, `page.tsx` lleva al
  * panel; con el enlace público de Hidrología, el `middleware.ts` lleva a
