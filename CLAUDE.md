@@ -892,6 +892,27 @@ Dos cosas propias de esa pantalla:
   desde el 12**, así que al abrir el deslizador lo normal es que pida acercar.
   Es correcto: a escala provincial "el centro del mapa" no es un lugar.
 
+### Se instala como app (PWA)
+
+Desde el 17/10/2026. `app/manifest.ts`, los íconos en `public/iconos/`
+(los genera `scripts/build_iconos_pwa.mjs` desde el ícono de la app móvil),
+`public/sw.js` y `public/sin-conexion.html`. `components/RegistrarSW.tsx`
+registra el service worker, sólo en producción.
+
+- **Es instalable, no funciona sin conexión.** El service worker no guarda
+  datos ni páginas: sólo muestra `sin-conexion.html` si se abre una página sin
+  señal. Guardar capas y respuestas de la API es otro trabajo, y obliga a
+  decidir qué se puede mostrar viejo.
+- **El `middleware.ts` deja pasar sin sesión** el manifiesto, `sw.js`, la
+  página sin conexión e `iconos/` (en el `matcher`): el navegador los pide
+  antes del login, y un service worker cuyo archivo redirige no se registra.
+- **`start_url` es `/` para las dos puertas.** Con sesión lleva al panel; con
+  la cookie del enlace público, el middleware lleva a `/publico/hidrologia`.
+  Quien instaló desde el enlace no cae en el login.
+- iOS no lee el manifiesto para el ícono ni para abrir sin la barra:
+  `appleWebApp` e `icons.apple` en `layout.tsx`.
+- Al cambiar `sin-conexion.html`, subir `CACHE` en `sw.js`.
+
 ### Accesibilidad
 
 Hay usuarios con visión reducida. El piso de tamaño de texto es **11 px** —

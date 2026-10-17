@@ -40,6 +40,11 @@ export async function middleware(request: NextRequest) {
   if (!user && !pathname.startsWith('/login') && !pathname.startsWith('/acceso-denegado')) {
     // Los archivos de `public/` que baja la pantalla pública
     if (esDatoDeHidrologia(pathname) && await enlaceVigente(enlace)) return supabaseResponse
+    // `/` es el `start_url` del panel instalado: quien lo instaló desde el
+    // enlace público vuelve a Hidrología, no al login
+    if (pathname === '/' && await enlaceVigente(enlace)) {
+      return NextResponse.redirect(new URL('/publico/hidrologia', request.url))
+    }
     return NextResponse.redirect(new URL('/login', request.url))
   }
   if (user && pathname.startsWith('/dashboard')) {
@@ -72,5 +77,8 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|api/).*)'],
+  // Lo del panel instalado (manifiesto, íconos, service worker y la página sin
+  // conexión) se sirve sin sesión: el navegador lo pide antes del login, y el
+  // service worker no se puede registrar si su archivo redirige.
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|api/|manifest.webmanifest|sw.js|sin-conexion.html|iconos/).*)'],
 }
