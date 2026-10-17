@@ -34,6 +34,7 @@
  * —son cuatro calculadoras distintas pero la red es la misma—, junto con el
  * propio archivo, que pesa 8,6 MB.
  */
+import { alCambiarRed, cargarRedVial } from './redVialCarga'
 
 /** Panel de Leaflet donde vive la red. Por debajo del overlay normal (400). */
 export const PANE_RED_FONDO = 'redFondo'
@@ -318,10 +319,14 @@ export class RedFondo {
  */
 let cache: Promise<RedFondo> | null = null
 
+// Si alguien edita la red, la próxima calculadora que se abra la vuelve a armar
+// con los cambios. La que está abierta sigue con la que tenía.
+if (typeof window !== 'undefined') alCambiarRed(() => { cache = null })
+
 export function cargarRedFondo(): Promise<RedFondo> {
   if (!cache) {
-    cache = fetch('/geo/geo_cc.json')
-      .then(r => r.json())
+    // La red con los cambios del panel aplicados, no el archivo crudo
+    cache = cargarRedVial('cc')
       .then(j => new RedFondo(j))
       .catch(err => {
         // Un fallo no puede quedar cacheado: sin red el mapa sigue sirviendo

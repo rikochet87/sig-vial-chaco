@@ -192,3 +192,10 @@ html                             { scrollbar-width: thin; scrollbar-color: #2a2a
   .sv-m-tablas table { min-width: 640px; }
   .sv-m-tablas div:has(> table) { overflow-x: auto; }
 }
+
+/* ─── Herramientas → «Editar red» (components/red/EditorRed.tsx) ─────────
+ * Mientras el editor está abierto los caminos del mapa no reciben clics: un
+ * clic sobre un camino abría su popup en vez de elegirlo. El editor resuelve
+ * qué tramo hay bajo el cursor con su propio índice. Los marcadores (sedes,
+ * vértices del editor) siguen siendo interactivos: están en otro panel. */
+.sv-editando .leaflet-overlay-pane .leaflet-interactive { pointer-events: none !important; }

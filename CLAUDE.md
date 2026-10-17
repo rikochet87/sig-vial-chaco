@@ -37,7 +37,7 @@ npx expo-doctor               # desde la raíz — detecta incompatibilidades de
 ```
 
 **Todo eso corre junto con `npm run verificar`** (desde `admin/`):
-`tsc --noEmit`, la barrera de lint, la sintaxis de los `.sql` y los treinta y seis
+`tsc --noEmit`, la barrera de lint, la sintaxis de los `.sql` y los treinta y siete
 `scripts/verificar-*.ts`. `next build` queda afuera a propósito: tarda minutos y
 usa el binario nativo de SWC, así que sólo corre donde se instalaron los
 paquetes. El orquestador es `scripts/verificar-todo.mjs`, en Node y no en un
@@ -121,7 +121,7 @@ composiciones. Estilos inline, sin framework CSS.
 
 **Backend** — Supabase (auth + Postgres + Storage). Tablas: `profiles`,
 `relevamientos`, `obras`, `obra_destinatarios`, `consorcios`, `proyectos_ripio`,
-`ripios`, `equipos`, `precios_base`, `maquinaria`.
+`ripios`, `equipos`, `precios_base`, `maquinaria`, `red_vial_cambios`.
 
 ## Arquitectura — App móvil
 
@@ -285,7 +285,7 @@ python scripts/build_geo_bundle_cc.py
 permisos, el mapa ruta → permiso y los helpers. Lo consumen el `middleware.ts`
 (guard server-side por ruta), el `Sidebar` y los formularios de usuario.
 
-Claves: `dashboard`, `consorcios`, `relevamientos`, `herramientas`, `obras`,
+Claves: `dashboard`, `consorcios`, `relevamientos`, `herramientas`, `red_vial`, `obras`,
 `calc_ripio`, `calc_desmalezado`, `calc_desbosque`.
 
 **La pantalla de inicio se llama «Panorama»** desde el 16/10/2026: antes decía
@@ -572,6 +572,80 @@ dice la condición) ni el historial de cambios.
 
 `scripts/verificar-maquinaria.ts` afirma el catálogo contra el de la app
 vieja, la lista blanca, los bordes de la póliza y el resumen.
+
+### Editar la red vial
+
+Herramientas → «Editar red» (`?tool=red`), desde el 17/10/2026:
+`components/red/EditorRed.tsx` + `lib/redVial.ts` (motor puro) +
+`lib/redVialCarga.ts` (navegador) + `lib/redVialServidor.ts` y
+`/api/red-vial` (GET, POST), `/api/red-vial/[id]` (PATCH, DELETE). Agregar,
+editar y quitar tramos de consorcio y rutas provinciales, y asignarlos a un
+consorcio o a gestión DVP.
+
+**Es el primer paso de mudar la red de QGIS al panel.** La red sigue saliendo de
+`public/geo/geo_cc.json` y `geo_rp.json`; los cambios viven en
+`red_vial_cambios` (`docs/sql/18-red-vial-cambios.sql`, **hay que aplicarlo en
+Supabase** — sin la tabla los mapas muestran el archivo y el editor avisa) y
+**todas las pantallas que dibujan la red los aplican encima**. Cada fila tiene
+la forma que tendría la tabla de la red completa (atributos con los nombres del
+archivo, geometría GeoJSON): pasar toda la red es cargar los tramos como filas.
+Mientras QGIS siga siendo el original, «Exportar GeoJSON para QGIS» baja los
+cambios con qué se hizo a cada uno.
+
+- **`lib/redVialCarga.ts` es el único lugar que baja los dos archivos.**
+  `cargarRed(tipo)` devuelve el archivo con los cambios aplicados; lo usan
+  Panorama/Herramientas (`MapInner`), la red de fondo de las calculadoras
+  (`redFondo`), los mapas de dibujo (`InlineLineDraw`, `InlineMapDraw`,
+  `DesmMapPanel`), la lluvia por tramo (`useRedLluvia`) e Inundaciones. **Un
+  `fetch('/geo/geo_cc.json')` nuevo en cualquier otro lado vería la red sin
+  los cambios.** Al guardar, `avisarCambio()` dispara `sv-red-vial` y las
+  pantallas abiertas vuelven a pedirla.
+- **Los tramos del archivo no tienen id.** `Nc` se repite (3.704 valores en
+  9.772 tramos). Un cambio apunta a capa + posición y lleva una **huella** de
+  la geometría: si el archivo se regenera y el tramo se movió, se lo busca por
+  la huella; si ya no está, el cambio queda «huérfano», no se aplica y el
+  editor lo cuenta.
+- **Una fila por tramo**: `alta`, `edicion` (guarda el `original`) o `baja`.
+  Un tramo del archivo tiene a lo sumo una fila (índice único). Descartar la
+  fila es deshacer: el alta desaparece, la edición o la baja vuelven al
+  archivo.
+- **Los km de la ficha se mueven por diferencia, no se recalculan.** El
+  declarado no coincide con el trazado (CC 49, CC 96), así que un cambio le
+  suma o resta al consorcio **lo que movió respecto del original**
+  (`ajusteNeto`), por jerarquía: pasar un tramo del CC 5 al 7 resta en uno y
+  suma en el otro; pasarlo a DVP se lo resta. Lo aplicado queda en `ajuste` y
+  se deshace exacto. Fila y km se guardan en la misma transacción
+  (`red_vial_guardar`, `red_vial_descartar`); las funciones sólo las corre la
+  clave de servicio. **Una RP mantenida por un consorcio cuenta para ese
+  consorcio**, igual que un camino. El editor muestra el efecto antes de guardar.
+- **El original y los km los decide el servidor**: el navegador dice qué tramo
+  edita y el servidor baja el archivo (con la cookie del pedido, porque el
+  middleware no sirve `public/geo` sin sesión) y lee de ahí cómo era. La zona
+  de un tramo de consorcio es la del consorcio, de la base.
+- **Atributos**: `propiedadesDe()` escribe con los nombres del archivo y arma
+  `Nc` con el formato de QGIS (`Z2C007047`, `Z1C005RP049`), así un tramo nuevo
+  se lee con los mismos parsers. Un camino de gestión DVP va a la capa
+  `Z{zona}_DVP`; en el panel de capas, Zona V es su casilla y el resto va en la
+  otra. Una RP va a la capa de su calzada, o a `rpEnObra`.
+- **Permiso `red_vial`** («Herramientas — Editar red vial»), además de
+  `herramientas` para llegar al mapa. Leer los cambios: cualquier sesión o
+  enlace público, como el archivo.
+- **En el mapa**: al abrir el editor se encienden las capas de la red. Los
+  caminos dejan de recibir clics (clase `sv-editando`) y el tramo bajo el
+  cursor sale de un índice propio, como en la red de fondo. Al dibujar, los
+  puntos **se pegan a vértices de la red** cercanos (Alt para no pegar); doble
+  clic o Esc termina; Ctrl+Z deshace. Vértices: arrastrar, clic en el punto
+  celeste para agregar, doble clic para borrar.
+- **Arreglado de paso**: el efecto que muestra u oculta las capas de
+  `MapInner` dependía sólo de `layers`; si cambiaban antes de existir el mapa,
+  los grupos se creaban después con `DEFAULT_LAYERS` y quedaban marcadas sin
+  dibujarse. Ahora depende también de `mapReady`.
+- **La app móvil no ve los cambios todavía**: trae la red en el APK
+  (`geoBundleCC.ts`). Decisión del usuario, 17/10/2026.
+
+`scripts/verificar-red-vial.ts` afirma la lectura del archivo, la ida y vuelta
+de atributos, la huella, cómo se aplican los cambios y los km que mueve cada
+uno. Las funciones SQL se probaron contra un Postgres 16 local.
 
 ### Calculadoras de obra
 

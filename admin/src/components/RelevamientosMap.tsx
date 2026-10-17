@@ -13,8 +13,9 @@ interface Props {
   measureActive?: boolean; onMeasureChange?: (v: boolean) => void
   areaActive?: boolean;    onAreaChange?:    (v: boolean) => void
   circleActive?: boolean;  onCircleChange?:  (v: boolean) => void
+  redActive?: boolean;     onRedChange?:     (v: boolean) => void
 }
 
-export default function RelevamientosMap({ relevamientos, measureActive, onMeasureChange, areaActive, onAreaChange, circleActive, onCircleChange }: Props) {
-  return <MapInner relevamientos={relevamientos} measureActive={measureActive} onMeasureChange={onMeasureChange} areaActive={areaActive} onAreaChange={onAreaChange} circleActive={circleActive} onCircleChange={onCircleChange} />
+export default function RelevamientosMap(props: Props) {
+  return <MapInner {...props} />
 }

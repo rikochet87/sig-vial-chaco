@@ -2,6 +2,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Relevamiento } from '@/types'
 import { DeslizadorHistorico, useImagenesHistoricas } from './ImagenesHistoricas'
+import { alCambiarRed, cargarRed, type RedCargada } from '@/lib/redVialCarga'
+import EditorRed from './red/EditorRed'
 import 'leaflet/dist/leaflet.css'
 
 // ── Constantes de color ──────────────────────────────────────────────────────
@@ -406,6 +408,8 @@ interface Props {
   measureActive?: boolean; onMeasureChange?: (v: boolean) => void
   areaActive?: boolean;    onAreaChange?:    (v: boolean) => void
   circleActive?: boolean;  onCircleChange?:  (v: boolean) => void
+  /** «Editar red»: sólo se pasa si el usuario tiene el permiso `red_vial` */
+  redActive?: boolean;     onRedChange?:     (v: boolean) => void
 }
 
 // ── Obras de la DB ────────────────────────────────────────────────────────────
@@ -768,7 +772,7 @@ function ZoneRow({ zona, consorcios, isExpanded, isLayerOn, activeSet, onToggleE
 
 // ── Componente principal ─────────────────────────────────────────────────────
 
-export default function MapInner({ relevamientos, measureActive = false, onMeasureChange, areaActive = false, onAreaChange, circleActive = false, onCircleChange }: Props) {
+export default function MapInner({ relevamientos, measureActive = false, onMeasureChange, areaActive = false, onAreaChange, circleActive = false, onCircleChange, redActive = false, onRedChange }: Props) {
   const containerRef   = useRef<HTMLDivElement>(null)
   const mapRef         = useRef<import('leaflet').Map | null>(null)
   // Leaflet layer groups keyed by LayerKey
@@ -783,6 +787,19 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
   const [obrasDB, setObrasDB]     = useState<ObraDB[]>([])
   const [showObras, setShowObras] = useState(true)
   const [layers, setLayers]       = useState<LayerState>(DEFAULT_LAYERS)
+  // Al abrir «Editar red» se encienden las capas de la red: arrancan apagadas y
+  // sin verlas no hay qué elegir. Se ajusta en el render, no en un efecto, y
+  // sólo al abrir: lo que el usuario apague después queda apagado.
+  const [redAbierto, setRedAbierto] = useState(false)
+  if (redActive !== redAbierto) {
+    setRedAbierto(redActive)
+    if (redActive) setLayers(prev => ({
+      ...prev,
+      ccZI: true, ccZII: true, ccZIII: true, ccZIV: true, ccZV: true,
+      rpPavimentada: true, rpMejorada: true, rpEnObra: true, rpTierra: true,
+      dvpZIV: true, dvpZV: true,
+    }))
+  }
   const [panelOpen, setPanelOpen]   = useState(true)
   const [panelWidth, setPanelWidth]   = useState(190)
   const [panelHeight, setPanelHeight] = useState<number | null>(null)
@@ -809,6 +826,9 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
   const [rp,  setRp]  = useState<Record<string, unknown> | null>(null)
   const [cc,  setCc]  = useState<Record<string, unknown> | null>(null)
   const [rn,  setRn]  = useState<Record<string, unknown> | null>(null)
+  // Las mismas dos redes con de dónde sale cada tramo, para el editor
+  const [redCC, setRedCC] = useState<RedCargada | null>(null)
+  const [redRP, setRedRP] = useState<RedCargada | null>(null)
   // Panel CC: zonas expandidas y consorcios seleccionados (vacío = todos visibles cuando la capa está ON)
   const [expandedCC, setExpandedCC] = useState<Set<string>>(new Set())
   const [ccSelected, setCcSelected] = useState<Record<string, Set<number>>>({
@@ -994,13 +1014,20 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
   useEffect(() => {
     if (!cc || !mapReady || !mapRef.current) return
     import('leaflet').then(L => {
-      (['dvpZIV', 'dvpZV'] as const).forEach(key => {
-        const ccKey = key === 'dvpZIV' ? 'ZIV_DVP' : 'ZV_DVP'
+      // Las capas `*_DVP`: las del archivo son ZIV_DVP y ZV_DVP, y un camino
+      // de gestión DVP cargado en «Editar red» crea la de su zona (ZII_DVP…).
+      // Zona V va en su casilla; el resto, en la otra.
+      const capasDvp = Object.keys(cc).filter(k => k.endsWith('_DVP'))
+      ;(['dvpZIV', 'dvpZV'] as const).forEach(key => {
+        const group = groupsRef.current[key]
+        if (group) group.clearLayers()
+      })
+      capasDvp.forEach(ccKey => {
+        const key = ccKey === 'ZV_DVP' ? 'dvpZV' : 'dvpZIV'
         const group = groupsRef.current[key]
         if (!group || !cc[ccKey]) return
-        group.clearLayers()
         const fc = cc[ccKey] as unknown as GeoJSON.FeatureCollection
-        const zona = key === 'dvpZIV' ? 'Zona IV' : 'Zona V'
+        const zona = `Zona ${ccKey.replace(/^Z|_DVP$/g, '')}`
         const baseStyle: import('leaflet').PathOptions = {
           color: customColors.dvp, weight: customWidths.dvp, opacity: 0.85, dashArray: '10 4',
         }
@@ -1391,10 +1418,20 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
   // ── Load GeoJSON data ──
   useEffect(() => {
     fetch('/geo/geo_bundle.json').then(r => r.json()).then(setGeo).catch(() => {})
-    fetch('/geo/geo_rp.json').then(r => r.json()).then(setRp).catch(() => {})
-    fetch('/geo/geo_cc.json').then(r => r.json()).then(setCc).catch(() => {})
     fetch('/geo/geo_rn.json').then(r => r.json()).then(setRn).catch(() => {})
   }, [])
+
+  // La red de consorcios y las rutas provinciales salen con los cambios del
+  // panel aplicados (`lib/redVialCarga.ts`), y se vuelven a pedir cuando
+  // alguien guarda uno.
+  const [versionRed, setVersionRed] = useState(0)
+  useEffect(() => alCambiarRed(() => setVersionRed(v => v + 1)), [])
+  useEffect(() => {
+    let vivo = true
+    cargarRed('rp').then(x => { if (vivo) { setRp(x.red as Record<string, unknown>); setRedRP(x) } }).catch(() => {})
+    cargarRed('cc').then(x => { if (vivo) { setCc(x.red as Record<string, unknown>); setRedCC(x) } }).catch(() => {})
+    return () => { vivo = false }
+  }, [versionRed])
 
   // ── Init Leaflet map ──
   useEffect(() => {
@@ -1953,7 +1990,11 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
         if (!visible && map.hasLayer(group)) map.removeLayer(group)
       })
     })
-  }, [layers])
+    // `mapReady` también: si las capas cambian antes de que exista el mapa (al
+    // abrir «Editar red» desde el enlace se encienden en el primer render), los
+    // grupos se crean después y sólo con DEFAULT_LAYERS. Sin esto quedaban
+    // marcadas en el panel y sin dibujarse.
+  }, [layers, mapReady])
 
   // ── Filtrado de CC por consorcio individual ──
   useEffect(() => {
@@ -2166,7 +2207,7 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
               <label key={k} style={ITEM_STYLE}>
                 <input type="checkbox" checked={!!layers[k]} onChange={() => toggle(k)} style={CHECKBOX_STYLE} />
                 <ColorDot color={customColors.dvp} onChange={c => setColor('dvp', c)} shape="square" />
-                {i === 0 ? 'Zona IV' : 'Zona V'}
+                {i === 0 ? (Object.keys(cc ?? {}).filter(k => k.endsWith('_DVP') && k !== 'ZV_DVP').length > 1 ? 'Zonas I a IV' : 'Zona IV') : 'Zona V'}
                 {i === 0 && <WidthBtn value={customWidths.dvp} onChange={v => setWidth('dvp', v)} />}
               </label>
             ))}
@@ -2219,7 +2260,7 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
       </div>
 
       {/* ── Toolbar flotante magnética — solo cuando el mapa tiene herramientas habilitadas ── */}
-      {(onMeasureChange || onAreaChange || onCircleChange) && <div
+      {(onMeasureChange || onAreaChange || onCircleChange || onRedChange) && <div
         ref={toolbarRef}
         onMouseDown={onToolbarDragStart}
         style={{
@@ -2243,7 +2284,8 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
           { id: 'measure', label: 'Medir distancia', icon: '◫', active: measureActive, color: '#F5C300',  cb: () => onMeasureChange?.(!measureActive) },
           { id: 'area',    label: 'Medir área',       icon: '⬡', active: areaActive,    color: '#ce93d8',  cb: () => onAreaChange?.(!areaActive) },
           { id: 'circle',  label: 'Trazar círculo',   icon: '◯', active: circleActive,  color: '#f0a060',  cb: () => onCircleChange?.(!circleActive) },
-        ] as const).map(t => (
+          ...(onRedChange ? [{ id: 'red', label: 'Editar red', icon: '⌇', active: redActive, color: '#4fc3f7', cb: () => onRedChange(!redActive) }] : []),
+        ]).map(t => (
           <button
             key={t.id}
             onClick={t.cb}
@@ -2268,7 +2310,7 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
         ))}
 
         {/* Indicador "activo" */}
-        {(measureActive || areaActive || circleActive) && (
+        {(measureActive || areaActive || circleActive || redActive) && (
           <div style={{
             display: 'flex', alignItems: 'center', padding: '0 8px',
             fontSize: 12, color: '#444', fontFamily: 'monospace', letterSpacing: 0.8,
@@ -2279,14 +2321,19 @@ export default function MapInner({ relevamientos, measureActive = false, onMeasu
         )}
       </div>}
 
+      {/* ── Editor de la red: ocupa el lugar del panel derecho ── */}
+      {redActive && onRedChange && (
+        <EditorRed mapaRef={mapRef} listo={mapReady} redCC={redCC} redRP={redRP} onCerrar={() => onRedChange(false)} />
+      )}
+
       {/* ── Panel derecho — tipos de relevamiento ── */}
-      <RightPanel
+      {!redActive && <RightPanel
         layers={layers} toggle={toggle} relevamientos={relevamientos}
         activeZones={activeZones} onToggleZone={onToggleZone}
         relevColors={customRelevColors} onRelevColorChange={(k, c) => setRelevColor(k as RCK, c)}
         relevSizes={customRelevSizes}   onRelevSizeChange={(k, v) => setRelevSize(k as RSK, v)}
         showObras={showObras} onToggleObras={() => setShowObras(v => !v)} obrasCount={obrasDB.length}
-      />
+      />}
 
       {/* ── Panel de medición de distancia ── */}
       {measureActive && (

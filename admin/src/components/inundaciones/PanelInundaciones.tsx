@@ -39,6 +39,7 @@ import {
 import type { CapaDibujo, LineaDibujo, PuntoDibujo } from './MapaInundaciones'
 import RioArriba from './RioArriba'
 import { useEsMovil } from '@/hooks/useEsMovil'
+import { cargarRedVial } from '@/lib/redVialCarga'
 
 const MapaInundaciones = dynamic(() => import('./MapaInundaciones'), {
   ssr: false,
@@ -178,7 +179,7 @@ export default function PanelInundaciones({ tramos }: { tramos: TramoRed[] }) {
   useEffect(() => {
     if (!indice) return
     let vivo = true
-    Promise.all([leerJson<Parameters<typeof rutasDelRecuadro>[0]>('/geo/geo_rn.json'), leerJson<Parameters<typeof rutasDelRecuadro>[1]>('/geo/geo_rp.json')])
+    Promise.all([leerJson<Parameters<typeof rutasDelRecuadro>[0]>('/geo/geo_rn.json'), cargarRedVial('rp') as unknown as Promise<Parameters<typeof rutasDelRecuadro>[1]>])
       .then(([rn, rp]) => { if (vivo) setRutas(rutasDelRecuadro(rn, rp, indice.recuadro)) })
       .catch(() => { /* sin rutas el cruce queda con los caminos de consorcio */ })
     return () => { vivo = false }

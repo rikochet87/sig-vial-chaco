@@ -15,6 +15,7 @@ export type PermisoKey =
   | 'consorcios'
   | 'relevamientos'
   | 'herramientas'
+  | 'red_vial'
   | 'lluvia'
   | 'obras'
   | 'calc_ripio'
@@ -27,6 +28,9 @@ export const PERMISOS_OPCIONES: { key: PermisoKey; label: string }[] = [
   { key: 'consorcios',       label: 'Consorcios' },
   { key: 'relevamientos',    label: 'Relevamientos' },
   { key: 'herramientas',     label: 'Herramientas' },
+  // No es una pantalla: habilita «Editar red» dentro de Herramientas, que
+  // además necesita el permiso `herramientas` para llegar al mapa.
+  { key: 'red_vial',         label: 'Herramientas — Editar red vial' },
   { key: 'lluvia',           label: 'Hidrología' },
   { key: 'obras',            label: 'Obras (lista)' },
   { key: 'calc_ripio',       label: 'Calculadora — Ripio' },

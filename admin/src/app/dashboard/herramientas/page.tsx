@@ -4,6 +4,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { createClient } from '@/lib/supabase/client'
 import type { Relevamiento } from '@/types'
+import { useUser } from '@/lib/UserContext'
 
 const RelevamientosMap = dynamic(() => import('@/components/RelevamientosMap'), {
   ssr: false,
@@ -18,6 +19,9 @@ function HerramientasInner() {
   const searchParams  = useSearchParams()
   const router        = useRouter()
   const activeTool    = searchParams.get('tool')
+  // «Editar red» necesita además el permiso `red_vial`; las rutas lo vuelven a pedir
+  const { hasPermiso } = useUser()
+  const puedeEditarRed = hasPermiso('red_vial')
   const [relevamientos, setRelevamientos] = useState<Relevamiento[]>([])
 
   useEffect(() => {
@@ -42,6 +46,8 @@ function HerramientasInner() {
         onAreaChange={v => setTool(v ? 'area' : null)}
         circleActive={activeTool === 'circle'}
         onCircleChange={v => setTool(v ? 'circle' : null)}
+        redActive={puedeEditarRed && activeTool === 'red'}
+        onRedChange={puedeEditarRed ? (v => setTool(v ? 'red' : null)) : undefined}
       />
     </div>
   )

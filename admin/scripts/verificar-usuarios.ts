@@ -44,7 +44,7 @@ ok('panel con secciones: panel', accesoDe(lista[1]), 'panel')
 ok('panel sin secciones igual entra (lo deja el middleware)', entraAlPanel(lista[6]))
 ok('técnico sin permisos: sólo app', accesoDe(lista[2]), 'app')
 ok('técnico con permisos: panel y app', accesoDe(lista[3]), 'ambos')
-ok('el admin tiene todas las secciones', seccionesDe(lista[0]).length, 9)
+ok('el admin tiene todas las secciones', seccionesDe(lista[0]).length, 10)  // nueve pantallas + «Editar red vial»
 ok('una clave vieja no cuenta como sección',
   seccionesDe(U('z', 'Z', 'panel', null, ['consorcios', 'clave_vieja'])).length, 1)
 

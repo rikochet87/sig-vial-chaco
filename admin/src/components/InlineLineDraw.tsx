@@ -3,6 +3,7 @@ import 'leaflet/dist/leaflet.css'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRedFondo, LecturaTramo } from '@/components/RedFondoLectura'
 import { PANE_RED_FONDO, asegurarPanelFondo } from '@/lib/redFondo'
+import { cargarRedVial } from '@/lib/redVialCarga'
 
 // ── Geodésica ──────────────────────────────────────────────────────────────────
 type LatLng = [number, number]
@@ -547,7 +548,7 @@ export default function InlineLineDraw({ color, halfWidth, onConfirm, onCancel }
         })
       } else if (key.startsWith('rp')) {
         if (!geoCacheRef.current.rp)
-          geoCacheRef.current.rp = await fetch('/geo/geo_rp.json').then(r => r.json())
+          geoCacheRef.current.rp = await cargarRedVial('rp')
         const rpData = geoCacheRef.current.rp[key]
         if (rpData) {
           const c  = LAYER_COLORS[key]
@@ -568,7 +569,7 @@ export default function InlineLineDraw({ color, halfWidth, onConfirm, onCancel }
         }
       } else if (key.startsWith('cc')) {
         if (!geoCacheRef.current.cc)
-          geoCacheRef.current.cc = await fetch('/geo/geo_cc.json').then(r => r.json())
+          geoCacheRef.current.cc = await cargarRedVial('cc')
         const zona   = key.slice(2)
         const ccData = geoCacheRef.current.cc[zona]
         const c      = LAYER_COLORS[key]

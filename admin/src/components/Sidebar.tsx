@@ -73,8 +73,9 @@ const REL_ITEMS = [
 ]
 
 // Sub-herramientas — agregar nuevas acá
-const TOOL_ITEMS = [
+const TOOL_ITEMS: { id: string; label: string; icon: string; href: string; permiso?: string }[] = [
   { id: 'measure', label: 'Medir', icon: '📏', href: '/dashboard/herramientas?tool=measure' },
+  { id: 'red',     label: 'Editar red', icon: '⌇', href: '/dashboard/herramientas?tool=red', permiso: 'red_vial' },
 ]
 
 // Sub-ítems de Obras
@@ -264,7 +265,7 @@ export default function Sidebar() {
           </button>
           {toolsOpen && !collapsed && (
             <div style={{ borderLeft: '1px solid #1e1e1e', marginLeft: 24, marginTop: 2, marginBottom: 2 }}>
-              {TOOL_ITEMS.map(tool => {
+              {TOOL_ITEMS.filter(tool => !tool.permiso || hasPermiso(tool.permiso)).map(tool => {
                 const isActive  = pathname.startsWith('/dashboard/herramientas')
                 const isHovered = hoveredHref === tool.id
                 return (

@@ -21,6 +21,7 @@ import {
 } from '@/lib/thiessenAreal'
 import { CONTORNO_CHACO } from '@/data/contornoChaco'
 import type { EstacionLluvia } from '@/components/MapaLluvia'
+import { alCambiarRed, cargarRedVial } from '@/lib/redVialCarga'
 
 export interface RedConLluvia {
   tramos: TramoRed[]
@@ -76,9 +77,8 @@ export function useRedLluvia(estaciones: EstacionLluvia[]): RedConLluvia {
       setError(null)
       for (let i = 0; i < INTENTOS; i++) {
         try {
-          const r = await fetch('/geo/geo_cc.json', { signal: control.signal })
-          if (!r.ok) throw new Error(`el servidor respondió ${r.status}`)
-          const j = (await r.json()) as RedVial
+          // La red con los cambios cargados en el panel (`lib/redVialCarga.ts`)
+          const j = (await cargarRedVial('cc', { signal: control.signal })) as unknown as RedVial
           if (vivo) setRed(j)
           return
         } catch (e) {
@@ -96,6 +96,9 @@ export function useRedLluvia(estaciones: EstacionLluvia[]): RedConLluvia {
 
     return () => { vivo = false; control.abort() }
   }, [intento])
+
+  // Si alguien guarda un cambio en la red, se vuelve a pedir
+  useEffect(() => alCambiarRed(() => setIntento(i => i + 1)), [])
 
   const tramos = useMemo(() => (red ? extraerTramos(red) : []), [red])
 
